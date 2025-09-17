@@ -1,0 +1,323 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - Add Product</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-400: #9ca3af;
+            --gray-700: #374151;
+            --gray-900: #111827;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .page-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .card-modern {
+            width: 100%;
+            max-width: 980px;
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid var(--gray-100);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .card-header-modern {
+            background: var(--primary-light);
+            border-bottom: 1px solid var(--gray-100);
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-title {
+            margin: 0;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+        .dropdown-menu { max-height: 300px; overflow-y: auto; }
+        .input-group-text { background: none; border: none; color: var(--gray-400); }
+    </style>
+</head>
+<body>
+<div class="page-container">
+  <div class="card-modern">
+    <div class="card-header-modern">
+      <h5 class="card-title"><i class="bi bi-plus-circle me-2"></i>Add New Product</h5>
+      <div>
+        <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Inventory</a>
+      </div>
+    </div>
+    <div class="p-3">
+      <div id="pageAlert"></div>
+      <form id="addFruitForm" method="post" enctype="multipart/form-data" class="mt-2">
+        {% csrf_token %}
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="productNameDisplay">Product Name</label>
+                <div class="position-relative">
+                    <input type="text" class="form-control" id="productNameDisplay" name="name" placeholder="Search or type a fruit name" autocomplete="off">
+                    <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="productVariantDisplay">Variant</label>
+                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" disabled>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="productSizeDisplay">Size</label>
+                <input type="number" class="form-control" id="productSizeDisplay" name="size" placeholder="Enter numeric size" autocomplete="off" step="0.01" min="0" disabled>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="supplierInput">Supplier</label>
+                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off">
+                <datalist id="supplierList">
+                    {% for sup in suppliers %}
+                        <option value="{{ sup }}"></option>
+                    {% endfor %}
+                </datalist>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="costInput">Cost (₱)</label>
+                <div class="input-group">
+                    <span class="input-group-text">₱</span>
+                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="0.01" required autocomplete="off">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="priceInput">Price (₱)</label>
+                <div class="input-group">
+                    <span class="input-group-text">₱</span>
+                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required autocomplete="off">
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label" for="stockInput">Initial Stock</label>
+                <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="mb-0">
+                    <label class="form-label">VAT Inclusive Price: ₱<span id="vatInclusive">0.00</span> (automatically includes 12% VAT)</label>
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Date Added</label>
+                <input type="text" class="form-control" id="productDateDisplay" readonly>
+            </div>
+        </div>
+        <input type="hidden" name="status" value="Active">
+        <input type="hidden" id="productDate" name="date_added" value="">
+        <div class="mb-3">
+            <label class="form-label">Fruit image (Optional)</label>
+            <input type="file" class="form-control" name="image" accept="image/*">
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Add Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="config" data-show-cost="{{ show_cost|yesno:'true,false' }}" style="display:none;"></div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// CSRF setup (same as inventory page)
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+$.ajaxSetup({ headers: { 'X-CSRFToken': csrftoken } });
+window.showCost = document.getElementById('config').dataset.showCost === 'true';
+
+// Autocomplete + helpers (copied behavior)
+function searchBuiltInProducts(query) {
+    $.ajax({
+        url: "{% url 'fetch_built_in_products' %}",
+        method: 'GET',
+        data: { search: query },
+        success: function(response) {
+            if (response.success) {
+                displayNameSuggestions(response.data);
+            }
+        }
+    });
+}
+
+function displayNameSuggestions(items) {
+    const dropdown = $('#nameSuggestions');
+    dropdown.empty();
+    if (!items || items.length === 0) {
+        dropdown.html('<div class="dropdown-item text-muted">No products found</div>').show();
+        return;
+    }
+    items.forEach(p => {
+        const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
+        option.on('click', function(){
+            $('#productNameDisplay').val(p.name);
+            $('#productVariantDisplay, #productSizeDisplay').prop('disabled', false);
+            window.__selectedProductFromSuggestions = true;
+            dropdown.hide();
+        });
+        dropdown.append(option);
+    });
+    dropdown.show();
+}
+
+function setupProductAutocomplete() {
+    const $name = $('#productNameDisplay');
+    const $dropdown = $('#nameSuggestions');
+    let t;
+    $name.on('input', function(){
+        const q = $(this).val().trim();
+        window.__selectedProductFromSuggestions = false;
+        $('#productVariantDisplay').val('').prop('disabled', true);
+        $('#productSizeDisplay').val('').prop('disabled', true);
+        clearTimeout(t);
+        t = setTimeout(() => {
+            if (q.length >= 2) { searchBuiltInProducts(q); }
+            else { $dropdown.hide(); }
+        }, 250);
+    });
+    $(document).on('click', function(e){
+        if (!$(e.target).closest('#productNameDisplay, #nameSuggestions').length) { $dropdown.hide(); }
+    });
+    $name.on('focus', function(){
+        const q = $(this).val().trim();
+        searchBuiltInProducts(q);
+    });
+
+    const $variant = $('#productVariantDisplay');
+    const $size = $('#productSizeDisplay');
+    const ensureName = () => $('#productNameDisplay').val().trim();
+    $variant.on('focus', function(){
+        const base = ensureName(); if (!base) return;
+        $.get('{% url "fruit_master_variants" %}', { name: base })
+          .done(function(resp){
+              if (resp && resp.success && resp.data && resp.data.length) {
+                  const list = resp.data.map(v => `<div class="dropdown-item variant-item">${v}</div>`).join('');
+                  let $menu = $('#variantSuggestions');
+                  if (!$menu.length) { $variant.after('<div id="variantSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#variantSuggestions'); }
+                  $menu.html(list).show();
+                  $menu.off('click').on('click', '.variant-item', function(){ $variant.val($(this).text()); $menu.hide(); });
+              }
+          });
+    });
+    $size.on('focus', function(){
+        const base = ensureName(); if (!base) return;
+        $.get('{% url "fruit_master_sizes" %}', { name: base })
+          .done(function(resp){
+              if (resp && resp.success && resp.data && resp.data.length) {
+                  const list = resp.data.map(s => `<div class="dropdown-item size-item">${s}</div>`).join('');
+                  let $menu = $('#sizeSuggestions');
+                  if (!$menu.length) { $size.after('<div id="sizeSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#sizeSuggestions'); }
+                  $menu.html(list).show();
+                  $menu.off('click').on('click', '.size-item', function(){ $size.val($(this).text()); $menu.hide(); });
+              }
+          });
+    });
+}
+
+function showPageAlert(message, type) {
+  const html = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+  $('#pageAlert').html(html);
+}
+
+$(document).ready(function(){
+    setupProductAutocomplete();
+
+    // Set today's date (display and hidden ISO for backend)
+    $('#productDateDisplay').val(new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'}));
+    $('#productDate').val(new Date().toISOString().split('T')[0]);
+
+    $('#addFruitForm').on('submit', function(e){
+        e.preventDefault();
+        const formData = new FormData(this);
+        const name = formData.get('name');
+        const size = formData.get('size');
+        const price = parseFloat(formData.get('price'));
+        const cost = parseFloat(formData.get('cost'));
+        const stock = parseInt(formData.get('stock'));
+        if (!name) { showPageAlert('Product name is required.', 'danger'); return; }
+        if (!size) { showPageAlert('Product size is required.', 'danger'); return; }
+        if (!price || price <= 0) { showPageAlert('Price must be greater than 0.', 'danger'); return; }
+        if (cost < 0) { showPageAlert('Cost cannot be negative.', 'danger'); return; }
+        if (stock < 0) { showPageAlert('Stock cannot be negative.', 'danger'); return; }
+
+        formData.set('action', 'add');
+        if (!formData.get('boxes')) {
+            const s = parseInt(formData.get('stock') || '0', 10);
+            formData.set('boxes', isNaN(s) ? '0' : String(s));
+        }
+        if (!formData.get('units_per_box')) { formData.set('units_per_box', '1'); }
+
+        $.ajax({
+            url: "{% url 'handle_product_post' %}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response){
+                if (response.success) {
+                    showPageAlert(response.message, 'success');
+                    setTimeout(function(){ window.location.href = "{% url 'products_inventory' %}"; }, 800);
+                } else {
+                    showPageAlert(response.message, 'danger');
+                }
+            },
+            error: function(){ showPageAlert('An error occurred while adding the product.', 'danger'); }
+        });
+    });
+
+    // VAT live calc
+    $('#priceInput').on('input', function(){
+        const price = parseFloat($(this).val()) || 0; $('#vatInclusive').text((price * 1.12).toFixed(2));
+    });
+});
+</script>
+</body>
+</html>
+
+

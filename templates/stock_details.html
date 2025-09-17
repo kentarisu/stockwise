@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Details - StockWise</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/css/bootstrap-datepicker.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 20px;
+            min-height: calc(100vh - 40px);
+        }
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0;
+            padding: 30px;
+        }
+        .content-section {
+            padding: 30px;
+        }
+        .batch-ids-container {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 10px;
+            padding: 8px 16px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header Section -->
+        <div class="header-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">
+                    <i class="bi bi-boxes me-3"></i>Stock Details - FIFO Inventory
+                </h2>
+                <a href="/products_inventory/" class="back-btn">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Inventory
+                </a>
+            </div>
+            <div id="productInfo" class="mb-3">
+                <h4 id="productName" class="mb-1">Loading...</h4>
+                <p id="productDetails" class="mb-0 opacity-75">Loading product details...</p>
+            </div>
+        </div>
+
+        <!-- Content Section -->
+        <div class="content-section">
+            <!-- Summary Section -->
+            <div id="stockDetailsSummary" class="alert alert-info mb-4">
+                <i class="bi bi-info-circle me-2"></i>Loading stock information...
+            </div>
+
+            <!-- Stock Details Content -->
+            <div id="stockDetailsContent">
+                <div class="text-center text-muted py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading batch details...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Get product ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('product_id');
+
+        if (!productId) {
+            document.getElementById('stockDetailsSummary').innerHTML = '<i class="bi bi-exclamation-triangle text-danger me-2"></i>No product ID provided.';
+            document.getElementById('stockDetailsContent').innerHTML = '<div class="text-center text-danger py-5"><i class="bi bi-exclamation-triangle display-1"></i><p class="mt-3">Invalid product ID</p></div>';
+        } else {
+            loadStockDetails(productId);
+        }
+
+        function loadStockDetails(productId) {
+            const $content = $('#stockDetailsContent');
+            const $summary = $('#stockDetailsSummary');
+            
+            $summary.html('<i class="bi bi-info-circle me-2"></i>Loading stock information...');
+            $content.html(`
+                <div class="text-center text-muted py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading batch details...</p>
+                </div>
+            `);
+            
+            // Try main endpoint, fall back to simple endpoint if it errors
+            fetch(`/api/products/${productId}/stock/`)
+                .then(r => r.json())
+                .then(resp => {
+                    if (!resp || resp.success === false) throw new Error('fallback');
+                    if (!resp.success || !resp.data || resp.data.length === 0) {
+                        $summary.html('<i class="bi bi-exclamation-triangle me-2"></i>No stock batches found for this product.');
+                        $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1 text-muted"></i><p class="mt-3">No inventory found</p></div>');
+                        return;
+                    }
+                    
+                    // Update product info
+                    updateProductInfo(resp.data[0]);
+                    
+                    // Summary
+                    const meta = resp.meta || {};
+                    const d = new Date(meta.date_added || resp.data[0].date_added);
+                    const dateText = isNaN(d) ? (meta.date_added || resp.data[0].date_added) : d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+                    const totalAdded = Number(meta.added_total || resp.data.length);
+                    const totalRemaining = Number(meta.available_total || resp.data.reduce((s, x) => s + (Number(x.remaining)||0), 0));
+                    const supplierText = meta.supplier || resp.data[0].supplier || '-';
+                    
+                    $summary.html(`
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-calendar3 text-primary me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">First Added</small>
+                                        <strong>${dateText}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-plus-circle text-success me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Total Added</small>
+                                        <strong class="text-success">${totalAdded}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-box text-warning me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Available</small>
+                                        <strong class="text-warning">${totalRemaining}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-truck text-info me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Supplier</small>
+                                        <strong>${supplierText}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-arrow-right-circle text-danger me-2"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Sold</small>
+                                        <strong class="text-danger">${totalAdded - totalRemaining}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                    
+                    // Render groups as cards
+                    const groups = resp.groups || [];
+                    if (groups.length > 0) {
+                        const html = `<div class="d-flex flex-column gap-3">` + groups.map((g, index) => {
+                            const ids = (g.batch_ids || []).map(id => 
+                                `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2 mb-2 px-2 py-1 font-monospace small">${id}</span>`
+                            ).join('');
+                            const d2 = new Date(g.date_added);
+                            const dateTxt = isNaN(d2) ? g.date_added : d2.toLocaleDateString('en-US', { 
+                                year:'numeric', month:'short', day:'numeric', 
+                                hour:'2-digit', minute:'2-digit'
+                            });
+                            const statusColor = g.available_total > 0 ? 'success' : 'secondary';
+                            const statusIcon = g.available_total > 0 ? 'check-circle-fill' : 'x-circle-fill';
+                            
+                            return `
+                                <div class="card shadow-sm border-0 mb-3">
+                                    <div class="card-header bg-light border-0 py-2">
+                                        <div class="row align-items-center">
+                                            <div class="col">
+                                                <h6 class="mb-0">
+                                                    <i class="bi bi-${statusIcon} text-${statusColor} me-2"></i>
+                                                    Stock Addition #${index + 1}
+                                                </h6>
+                                            </div>
+                                            <div class="col-auto">
+                                                <small class="text-muted">
+                                                    <i class="bi bi-clock me-1"></i>${dateTxt}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-auto">
+                                                <div class="text-center">
+                                                    <div class="h4 text-success mb-0">${g.added_total}</div>
+                                                    <small class="text-muted">Added</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <div class="text-center">
+                                                    <div class="h4 text-warning mb-0">${g.available_total}</div>
+                                                    <small class="text-muted">Available</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <div class="text-center">
+                                                    <div class="h4 text-danger mb-0">${g.added_total - g.available_total}</div>
+                                                    <small class="text-muted">Sold</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-auto">
+                                                <div class="text-center">
+                                                    <div class="h6 text-info mb-0">${g.supplier || '-'}</div>
+                                                    <small class="text-muted">Supplier</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="border-top pt-3">
+                                            <h6 class="text-muted mb-2">
+                                                <i class="bi bi-tags me-1"></i>
+                                                Available Batch IDs (${g.available_total} boxes)
+                                            </h6>
+                                            <div class="batch-ids-container d-flex flex-wrap gap-1">
+                                                ${ids || '<span class="text-muted fst-italic">All boxes from this batch have been sold</span>'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('') + `</div>`;
+                        $content.html(html);
+                    } else {
+                        $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No batch data available</p></div>');
+                    }
+                })
+                .catch(() => {
+                    // Fallback to simple endpoint
+                    fetch(`/api/products/${productId}/stock_details/`)
+                        .then(r => r.json())
+                        .then(resp => {
+                            if (!resp.success || !resp.data || resp.data.length === 0) {
+                                $summary.html('<i class="bi bi-exclamation-triangle me-2"></i>No stock batches found.');
+                                $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No inventory found</p></div>');
+                                return;
+                            }
+                            
+                            // Update product info
+                            updateProductInfo(resp.data[0]);
+                            
+                            // Same rendering logic for fallback
+                            const meta = resp.meta || {};
+                            const d = new Date(meta.date_added || resp.data[0].date_added);
+                            const dateText = isNaN(d) ? (meta.date_added || resp.data[0].date_added) : d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+                            const totalAdded = Number(meta.added_total || resp.data.length);
+                            const totalRemaining = Number(meta.available_total || resp.data.reduce((s, x) => s + (Number(x.remaining)||0), 0));
+                            const supplierText = meta.supplier || resp.data[0].supplier || '-';
+                            
+                            $summary.html(`
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-calendar3 text-primary me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">First Added</small>
+                                                <strong>${dateText}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-plus-circle text-success me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Total Added</small>
+                                                <strong class="text-success">${totalAdded}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-box text-warning me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Available</small>
+                                                <strong class="text-warning">${totalRemaining}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-truck text-info me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Supplier</small>
+                                                <strong>${supplierText}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-arrow-right-circle text-danger me-2"></i>
+                                            <div>
+                                                <small class="text-muted d-block">Sold</small>
+                                                <strong class="text-danger">${totalAdded - totalRemaining}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            
+                            // Render groups for fallback too
+                            const groups = resp.groups || [];
+                            if (groups.length > 0) {
+                                const html = `<div class="d-flex flex-column gap-3">` + groups.map((g, index) => {
+                                    const ids = (g.batch_ids || []).map(id => 
+                                        `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2 mb-2 px-2 py-1 font-monospace small">${id}</span>`
+                                    ).join('');
+                                    const d2 = new Date(g.date_added);
+                                    const dateTxt = isNaN(d2) ? g.date_added : d2.toLocaleDateString('en-US', { 
+                                        year:'numeric', month:'short', day:'numeric', 
+                                        hour:'2-digit', minute:'2-digit'
+                                    });
+                                    const statusColor = g.available_total > 0 ? 'success' : 'secondary';
+                                    const statusIcon = g.available_total > 0 ? 'check-circle-fill' : 'x-circle-fill';
+                                    
+                                    return `
+                                        <div class="card shadow-sm border-0 mb-3">
+                                            <div class="card-header bg-light border-0 py-2">
+                                                <div class="row align-items-center">
+                                                    <div class="col">
+                                                        <h6 class="mb-0">
+                                                            <i class="bi bi-${statusIcon} text-${statusColor} me-2"></i>
+                                                            Stock Addition #${index + 1}
+                                                        </h6>
+                                                    </div>
+                                                    <div class="col-auto">
+                                                        <small class="text-muted">
+                                                            <i class="bi bi-clock me-1"></i>${dateTxt}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-auto">
+                                                        <div class="text-center">
+                                                            <div class="h4 text-success mb-0">${g.added_total}</div>
+                                                            <small class="text-muted">Added</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-auto">
+                                                        <div class="text-center">
+                                                            <div class="h4 text-warning mb-0">${g.available_total}</div>
+                                                            <small class="text-muted">Available</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-auto">
+                                                        <div class="text-center">
+                                                            <div class="h4 text-danger mb-0">${g.added_total - g.available_total}</div>
+                                                            <small class="text-muted">Sold</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-auto">
+                                                        <div class="text-center">
+                                                            <div class="h6 text-info mb-0">${g.supplier || '-'}</div>
+                                                            <small class="text-muted">Supplier</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="border-top pt-3">
+                                                    <h6 class="text-muted mb-2">
+                                                        <i class="bi bi-tags me-1"></i>
+                                                        Available Batch IDs (${g.available_total} boxes)
+                                                    </h6>
+                                                    <div class="batch-ids-container d-flex flex-wrap gap-1">
+                                                        ${ids || '<span class="text-muted fst-italic">All boxes from this batch have been sold</span>'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('') + `</div>`;
+                                $content.html(html);
+                            } else {
+                                $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No batch data available</p></div>');
+                            }
+                        })
+                        .catch(() => {
+                            $summary.html('<i class="bi bi-exclamation-triangle text-danger me-2"></i>Failed to load stock details.');
+                            $content.html('<div class="text-center text-danger py-5"><i class="bi bi-exclamation-triangle display-1"></i><p class="mt-3">Failed to load batch details</p></div>');
+                        });
+                });
+        }
+
+        function updateProductInfo(firstItem) {
+            // Get product info from the inventory list API
+            fetch(`/api/products/active/`)
+                .then(r => r.json())
+                .then(resp => {
+                    if (resp.success && resp.data) {
+                        const product = resp.data.find(p => p.product_id == productId);
+                        if (product) {
+                            document.getElementById('productName').textContent = product.name;
+                            document.getElementById('productDetails').textContent = `${product.variant ? product.variant + ' • ' : ''}Size: ${product.size} • Price: ₱${parseFloat(product.price).toFixed(2)} • Stock: ${product.stock}`;
+                        }
+                    }
+                })
+                .catch(() => {
+                    // Fallback to basic info
+                    document.getElementById('productName').textContent = 'Product Details';
+                    document.getElementById('productDetails').textContent = 'Loading product information...';
+                });
+        }
+    </script>
+</body>
+</html>

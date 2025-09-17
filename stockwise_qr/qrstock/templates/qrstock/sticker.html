@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Sticker - {{ name_only }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+        
+        .sticker-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+        
+        .sticker {
+            width: 3.5in;
+            height: 2.5in;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 8px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: white;
+            page-break-inside: avoid;
+            margin-bottom: 10px;
+        }
+        
+        .sticker-header {
+            text-align: center;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+        
+        .product-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin: 0;
+        }
+        
+        .product-details {
+            font-size: 10px;
+            color: #666;
+            margin: 2px 0;
+        }
+        
+        .qr-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex: 1;
+        }
+        
+        .qr-code {
+            width: 80px;
+            height: 80px;
+            border: 1px solid #ddd;
+        }
+        
+        .batch-info {
+            flex: 1;
+            margin-left: 8px;
+            font-size: 9px;
+        }
+        
+        .batch-id {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 2px;
+        }
+        
+        .delivery-date {
+            color: #666;
+            margin-bottom: 2px;
+        }
+        
+        .scan-text {
+            color: #007bff;
+            font-size: 8px;
+            font-style: italic;
+        }
+        
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        .print-button:hover {
+            background: #0056b3;
+        }
+        
+        @media print {
+            .print-button {
+                display: none;
+            }
+            
+            .sticker-container {
+                gap: 0;
+            }
+            
+            .sticker {
+                margin: 0;
+                border: 1px solid #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button" onclick="window.print()">🖨️ Print QR Code Stickers</button>
+    
+    <div class="sticker-container">
+        <!-- Generate multiple stickers for easy printing -->
+        {% for i in "123456789012345678901234567890" %}
+        <div class="sticker">
+            <div class="sticker-header">
+                <div class="product-name">{{ name_only }}</div>
+                {% if variant %}
+                <div class="product-details">Variant: {{ variant }}</div>
+                {% endif %}
+                {% if size %}
+                <div class="product-details">Size: {{ size }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="qr-section">
+                <img src="data:image/png;base64,{{ qr_base64 }}" 
+                     alt="QR Code" 
+                     class="qr-code">
+                
+                <div class="batch-info">
+                    <div class="batch-id">Batch: {{ batch_id }}</div>
+                    <div class="delivery-date">Date: Set when scanned</div>
+                    <div class="scan-text">Scan to add stock</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Auto-print when page loads (optional)
+        // window.onload = function() { window.print(); }
+    </script>
+</body>
+</html>

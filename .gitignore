@@ -1,0 +1,43 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env
+.venv/
+
+# Django collected/static and media
+staticfiles/
+media/
+uploads/
+
+# SQLite databases and backups
+*.sqlite3
+backups/*.sqlite3
+backups/*.json
+
+# Logs
+*.log
+php_errors.log
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Node
+node_modules/
+
+# CSV/data dumps (keep FruitMaster by default)
+# Uncomment if you want to ignore CSVs globally
+# *.csv
+
+# Compiled binaries
+*.exe
+*.dll
+
+# Local environment overrides
+*.local

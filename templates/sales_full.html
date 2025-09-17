@@ -1,0 +1,1106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - Sales Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --secondary: #f8fafc;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --sidebar-width: 280px;
+            --header-height: 80px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar - Same as other pages */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid var(--gray-100);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand i {
+            font-size: 2rem;
+            margin-right: 0.75rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .sidebar-nav {
+            padding: 1.5rem 0;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-400);
+            padding: 0 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-item {
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.875rem 1.5rem;
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-radius: 0;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            background: var(--primary-light);
+            border-right: 3px solid var(--primary);
+        }
+
+        .nav-link i {
+            font-size: 1.25rem;
+            margin-right: 0.75rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            background: var(--gray-50);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            height: var(--header-height);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-left h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0;
+        }
+
+        .header-subtitle {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 2rem;
+        }
+
+        /* Modern Cards */
+        .modern-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .modern-card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Sales Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .stat-card.primary::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
+        .stat-card.success::before { background: linear-gradient(90deg, var(--success), #059669); }
+        .stat-card.warning::before { background: linear-gradient(90deg, var(--warning), #d97706); }
+        .stat-card.danger::before { background: linear-gradient(90deg, var(--danger), #dc2626); }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-icon {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
+        .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
+        .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
+        .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            line-height: 1;
+        }
+
+        .stat-label {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-modern {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-modern.primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn-modern.success {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+        }
+
+        .btn-modern.warning {
+            background: linear-gradient(135deg, var(--warning), #d97706);
+            color: white;
+        }
+
+        /* Sales Table */
+        .sales-table-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-100);
+            background: var(--gray-50);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin: 0;
+        }
+
+        .table-filters {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .form-select, .form-control {
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-select:focus, .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        .table {
+            margin: 0;
+        }
+
+        .table thead th {
+            background: var(--gray-50);
+            border: none;
+            border-bottom: 2px solid var(--gray-100);
+            font-weight: 600;
+            color: var(--gray-700);
+            padding: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .table tbody td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        .table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .badge.bg-success {
+            background: var(--success) !important;
+        }
+
+        .badge.bg-warning {
+            background: var(--warning) !important;
+        }
+
+        .badge.bg-danger {
+            background: var(--danger) !important;
+        }
+
+        /* Action Buttons in Table */
+        .btn-group .btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            margin-right: 0.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-group .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .header {
+                padding: 0 1rem;
+            }
+
+            .content-area {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .table-filters {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <a href="{% url 'dashboard' %}" class="sidebar-brand">
+                    <i class="bi bi-basket-fill"></i>
+                    StockWise
+                </a>
+            </div>
+            
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Main</div>
+                    <div class="nav-item">
+                        <a href="{% url 'dashboard' %}" class="nav-link">
+                            <i class="bi bi-speedometer2"></i>
+                            Dashboard
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'products_inventory' %}" class="nav-link">
+                            <i class="bi bi-basket"></i>
+                            Inventory
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'sales' %}" class="nav-link active">
+                            <i class="bi bi-cart"></i>
+                            Sales
+                        </a>
+                    </div>
+                </div>
+
+                {% if app_role == 'admin' %}
+                <div class="nav-section">
+                    <div class="nav-section-title">Analytics</div>
+                    <div class="nav-item">
+                        <a href="{% url 'reports' %}" class="nav-link">
+                            <i class="bi bi-graph-up"></i>
+                            Reports
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Account</div>
+                    <div class="nav-item">
+                        <a href="{% url 'profile' %}" class="nav-link">
+                            <i class="bi bi-person"></i>
+                            Profile
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'logout' %}" class="nav-link">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h1>Sales Management</h1>
+                    <p class="header-subtitle">Track and manage all your sales transactions</p>
+                </div>
+                <div class="header-right">
+                    <div class="dropdown">
+                        <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Sales Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <div class="stat-icon primary">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                        <div class="stat-value">₱{{ total_revenue|default:"0.00" }}</div>
+                        <div class="stat-label">Total Sales</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-icon success">
+                            <i class="bi bi-cart-check"></i>
+                        </div>
+                        <div class="stat-value">{{ total_sales|default:0 }}</div>
+                        <div class="stat-label">Total Transactions</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-boxes"></i>
+                        </div>
+                        <div class="stat-value">{{ total_boxes|default:0 }}</div>
+                        <div class="stat-label">Total Boxes Sold</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="action-buttons">
+                    <button type="button" class="btn-modern success" data-bs-toggle="modal" data-bs-target="#newSaleModal">
+                        <i class="bi bi-plus-circle"></i>
+                        New Sale
+                    </button>
+                    <button type="button" class="btn-modern primary" onclick="window.print()">
+                        <i class="bi bi-printer"></i>
+                        Print Report
+                    </button>
+                    <button type="button" class="btn-modern warning" id="refreshSales">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Refresh
+                    </button>
+                </div>
+
+                <!-- Transactions -->
+                <div class="sales-table-card">
+                    <div class="table-header">
+                        <ul class="nav nav-tabs border-0" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="recent-tab" data-bs-toggle="tab" data-bs-target="#recent" type="button" role="tab" aria-controls="recent" aria-selected="true">Recent Transactions</button>
+                            </li>
+                            {% if app_role == 'admin' %}
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="voided-tab" data-bs-toggle="tab" data-bs-target="#voided" type="button" role="tab" aria-controls="voided" aria-selected="false">Voided Transactions</button>
+                            </li>
+                            {% endif %}
+                        </ul>
+                        <div class="table-filters">
+                            <input type="date" class="form-control" id="dateFilter">
+                            <input type="text" class="form-control" placeholder="Search..." id="searchFilter">
+                        </div>
+                    </div>
+                    <div class="tab-content p-3 pt-0">
+                        <div class="tab-pane fade show active" id="recent" role="tabpanel" aria-labelledby="recent-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="salesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Transaction #</th>
+                                            <th>Date & Time</th>
+                                            <th>Fruits</th>
+                                            <th>Size</th>
+                                            <th>Items</th>
+                                            <th>Boxes</th>
+                                            <th>Total</th>
+                                            <th>Status</th>
+                                            <th>Options</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for sale in sales %}
+                                        <tr>
+                                            <td>#{{ sale.sale_id }}</td>
+                                            <td>{{ sale.recorded_at }}</td>
+                                            <td class="products-column">{{ sale.products }}</td>
+                                            <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+                                            <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
+                                            <td class="boxes-column">{{ sale.total_boxes }}</td>
+                                            <td>₱{{ sale.total|floatformat:2 }}</td>
+                                            <td>
+                                                {% if sale.status|lower == 'completed' %}
+                                                    <span class="badge bg-success">Completed</span>
+                                                {% elif sale.status|lower == 'pending' %}
+                                                    <span class="badge bg-warning">Pending</span>
+                                                {% elif sale.status|lower == 'voided' %}
+                                                    <span class="badge bg-danger">Voided</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-primary" title="View Details" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-eye"></i></button>
+                                                    <button class="btn btn-sm btn-outline-secondary" title="Print Receipt" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-printer"></i></button>
+                                                    {% if app_role == 'admin' and sale.status|lower == 'completed' %}
+                                                        <button class="btn btn-sm btn-outline-danger" title="Void Sale" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-x-circle"></i></button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No transactions found.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {% if app_role == 'admin' %}
+                        <div class="tab-pane fade" id="voided" role="tabpanel" aria-labelledby="voided-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="voidedSalesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Transaction #</th>
+                                            <th>Date & Time</th>
+                                            <th>Fruits</th>
+                                            <th>Size</th>
+                                            <th>Items</th>
+                                            <th>Boxes</th>
+                                            <th>Total</th>
+                                            <th>Status</th>
+                                            <th>Options</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for sale in voided_sales %}
+                                        <tr>
+                                            <td>#{{ sale.sale_id }}</td>
+                                            <td>{{ sale.recorded_at }}</td>
+                                            <td class="products-column">{{ sale.products }}</td>
+                                            <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+                                            <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
+                                            <td class="boxes-column">{{ sale.total_boxes }}</td>
+                                            <td>₱{{ sale.total|floatformat:2 }}</td>
+                                            <td><span class="badge bg-danger">Voided</span></td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    <button class="btn btn-sm btn-outline-primary" title="View Details" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-eye"></i></button>
+                                                    <button class="btn btn-sm btn-outline-secondary" title="Print Receipt" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-printer"></i></button>
+                                                    <button class="btn btn-sm btn-outline-success" title="Complete Sale" data-sale-id="{{ sale.sale_id }}"><i class="bi bi-check-circle"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No voided transactions found.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Void Confirmation Modal -->
+    <div class="modal fade" id="voidConfirmationModal" tabindex="-1" aria-labelledby="voidConfirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="voidConfirmationModalLabel">Confirm Void Sale</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="voidModalAlert" class="alert d-none mb-3" role="alert"></div>
+                    <p>Are you sure you want to mark this sale as Voided? This action will restore the inventory stock.</p>
+                    <input type="hidden" id="voidSaleId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmVoidSale">Void Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Confirmation Modal -->
+    <div class="modal fade" id="completeConfirmationModal" tabindex="-1" aria-labelledby="completeConfirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="completeConfirmationModalLabel">Confirm Complete Sale</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="completeModalAlert" class="alert d-none mb-3" role="alert"></div>
+                    <p>Mark this sale as Completed? This will deduct stock accordingly.</p>
+                    <input type="hidden" id="completeSaleId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmCompleteSale">Complete Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sale Details Modal -->
+    <div class="modal fade" id="saleDetailsModal" tabindex="-1" aria-labelledby="saleDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saleDetailsModalLabel">Sale Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div><strong>Transaction #:</strong> <span id="detailSaleId"></span></div>
+                        <div><strong>OR #:</strong> <span id="detailOrNumber"></span></div>
+                        <div><strong>Date:</strong> <span id="detailDate"></span></div>
+                        <div><strong>Processed By:</strong> <span id="detailProcessedBy"></span></div>
+                        <div><strong>Status:</strong> <span id="detailStatus"></span></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailItems"></tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex flex-column align-items-end gap-1">
+                        <div><strong>Subtotal:</strong> <span id="detailSubtotal"></span></div>
+                        <div><strong>Plus 12% VAT:</strong> <span id="detailVAT"></span></div>
+                        <div class="fw-bold"><strong>TOTAL:</strong> <span id="detailTotal"></span></div>
+                        <div><strong>Amount Paid:</strong> <span id="detailAmountPaid"></span></div>
+                        <div><strong>Change:</strong> <span id="detailChange"></span></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printable Receipt Area -->
+    <div id="printArea" style="display:none">
+        <div id="receiptRoot">
+            <div style="text-align:center; font-weight:700;">SALES RECEIPT</div>
+            <div><strong>Transaction #:</strong> <span id="rTxn"></span></div>
+            <div><strong>OR #:</strong> <span id="rOr"></span></div>
+            <div><strong>Date:</strong> <span id="rDate"></span></div>
+            <hr/>
+            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;border-bottom:1px solid #ccc;">Description</th>
+                        <th style="text-align:right;border-bottom:1px solid #ccc;">Qty</th>
+                        <th style="text-align:right;border-bottom:1px solid #ccc;">Price</th>
+                        <th style="text-align:right;border-bottom:1px solid #ccc;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="rItems"></tbody>
+            </table>
+            <hr/>
+            <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="rSub"></span></div>
+            <div style="display:flex; justify-content:space-between;"><span>VAT 12%:</span><span id="rVat"></span></div>
+            <div style="display:flex; justify-content:space-between; font-weight:700;"><span>TOTAL:</span><span id="rTotal"></span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Paid:</span><span id="rPaid"></span></div>
+            <div style="display:flex; justify-content:space-between;"><span>Change:</span><span id="rChange"></span></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        // Initialize date filter with today's date
+        document.getElementById('dateFilter').valueAsDate = new Date();
+        
+        // Refresh sales data
+        document.getElementById('refreshSales').addEventListener('click', function() {
+            // Add refresh logic here
+            console.log('Refreshing sales data...');
+        });
+
+        // Add event handlers for action buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('[data-sale-id]')) {
+                const button = e.target.closest('[data-sale-id]');
+                const saleId = button.getAttribute('data-sale-id');
+                const action = button.getAttribute('title');
+                
+                if (action === 'View Details') {
+                    viewSaleDetails(saleId);
+                } else if (action === 'Print Receipt') {
+                    printReceipt(saleId);
+                } else if (action === 'Void Sale') {
+                    // Open confirmation modal
+                    document.getElementById('voidSaleId').value = saleId;
+                    const modal = new bootstrap.Modal(document.getElementById('voidConfirmationModal'));
+                    modal.show();
+                } else if (action === 'Complete Sale') {
+                    // Open complete confirmation modal
+                    document.getElementById('completeSaleId').value = saleId;
+                    const cModal = new bootstrap.Modal(document.getElementById('completeConfirmationModal'));
+                    cModal.show();
+                }
+            }
+        });
+
+        // Placeholder functions for sale actions
+        function currency(n) { return `₱${Number(n || 0).toFixed(2)}`; }
+
+        function viewSaleDetails(saleId) {
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
+                .then(r => r.json())
+                .then(data => {
+                    const s = data.data || data;
+                    // Header fields
+                    document.getElementById('detailSaleId').textContent = s.sale_id ?? '';
+                    document.getElementById('detailOrNumber').textContent = s.or_number ?? '';
+                    document.getElementById('detailDate').textContent = s.recorded_at ?? '';
+                    document.getElementById('detailProcessedBy').textContent = s.username ?? '';
+                    document.getElementById('detailStatus').textContent = s.status ?? '';
+
+                    // Items
+                    const tbody = document.getElementById('detailItems');
+                    tbody.innerHTML = '';
+                    const items = s.items || [];
+                    let subtotal = 0;
+                    items.forEach(it => {
+                        const qty = Number(it.quantity || 0);
+                        const price = Number(it.price || 0);
+                        const amount = qty * price;
+                        subtotal += amount;
+                        const tr = document.createElement('tr');
+                        const variant = it.variant ? ` (${it.variant})` : '';
+                        const size = it.size ? ` (${it.size})` : '';
+                        tr.innerHTML = `
+                            <td>#${it.product_id || ''} ${it.product_name || ''}${variant}${size}</td>
+                            <td class="text-end">${qty}</td>
+                            <td class="text-end">${currency(price)}</td>
+                            <td class="text-end">${currency(amount)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    const vat = subtotal * 0.12;
+                    const total = subtotal + vat;
+                    document.getElementById('detailSubtotal').textContent = currency(subtotal);
+                    document.getElementById('detailVAT').textContent = currency(vat);
+                    document.getElementById('detailTotal').textContent = currency(total);
+                    document.getElementById('detailAmountPaid').textContent = currency(s.amount_paid ?? total);
+                    document.getElementById('detailChange').textContent = currency((s.amount_paid ?? total) - total);
+
+                    new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
+                })
+                .catch(err => console.error('Details error', err));
+        }
+
+        function printReceipt(saleId) {
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
+                .then(r => r.json())
+                .then(data => {
+                    const s = data.data || data;
+                    // Fill header
+                    document.getElementById('rTxn').textContent = s.sale_id ?? '';
+                    document.getElementById('rOr').textContent = s.or_number ?? '';
+                    document.getElementById('rDate').textContent = s.recorded_at ?? '';
+                    // Items
+                    const rItems = document.getElementById('rItems');
+                    rItems.innerHTML = '';
+                    let subtotal = 0;
+                    (s.items || []).forEach(it => {
+                        const qty = Number(it.quantity || 0);
+                        const price = Number(it.price || 0);
+                        const amount = qty * price;
+                        subtotal += amount;
+                        const tr = document.createElement('tr');
+                        const variant = it.variant ? ` (${it.variant})` : '';
+                        const size = it.size ? ` (${it.size})` : '';
+                        tr.innerHTML = `
+                            <td>${it.product_name || ''}${variant}${size}</td>
+                            <td style="text-align:right">${qty}</td>
+                            <td style="text-align:right">${currency(price)}</td>
+                            <td style="text-align:right">${currency(amount)}</td>
+                        `;
+                        rItems.appendChild(tr);
+                    });
+                    const vat = subtotal * 0.12;
+                    const total = subtotal + vat;
+                    const paid = Number(s.amount_paid ?? total);
+                    const change = paid - total;
+                    document.getElementById('rSub').textContent = currency(subtotal);
+                    document.getElementById('rVat').textContent = currency(vat);
+                    document.getElementById('rTotal').textContent = currency(total);
+                    document.getElementById('rPaid').textContent = currency(paid);
+                    document.getElementById('rChange').textContent = currency(change);
+
+                    const html = document.getElementById('printArea').innerHTML;
+                    const w = window.open('', '_blank');
+                    w.document.write(`<html><head><title>Receipt</title></head><body>${html}</body></html>`);
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                    w.close();
+                })
+                .catch(err => console.error('Print error', err));
+        }
+
+        // Confirm void sale
+        document.getElementById('confirmVoidSale').addEventListener('click', function () {
+            const saleId = document.getElementById('voidSaleId').value;
+            const alertElement = document.getElementById('voidModalAlert');
+            const confirmButton = this;
+
+            // Show loading state
+            confirmButton.disabled = true;
+            confirmButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+            // Clear any existing alerts
+            alertElement.classList.add('d-none');
+            alertElement.classList.remove('alert-success', 'alert-danger');
+
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/void/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') || ''
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message in modal
+                    alertElement.textContent = data.message || 'Sale marked as Voided successfully!';
+                    alertElement.classList.remove('d-none', 'alert-danger');
+                    alertElement.classList.add('alert-success');
+
+                    // Close modal after a short delay and refresh
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('voidConfirmationModal'));
+                        modal.hide();
+                        window.location.reload();
+                    }, 1200);
+                } else {
+                    // Show error message in modal
+                    alertElement.textContent = data.message || 'Failed to void sale.';
+                    alertElement.classList.remove('d-none', 'alert-success');
+                    alertElement.classList.add('alert-danger');
+                    confirmButton.disabled = false;
+                    confirmButton.innerHTML = 'Void Sale';
+                }
+            })
+            .catch(error => {
+                console.error('Void sale error:', error);
+                alertElement.textContent = 'An error occurred while voiding the sale.';
+                alertElement.classList.remove('d-none', 'alert-success');
+                alertElement.classList.add('alert-danger');
+                confirmButton.disabled = false;
+                confirmButton.innerHTML = 'Void Sale';
+            });
+        });
+
+        // Reset modal state on close
+        document.getElementById('voidConfirmationModal').addEventListener('hidden.bs.modal', function () {
+            const alertElement = document.getElementById('voidModalAlert');
+            alertElement.classList.add('d-none');
+            alertElement.classList.remove('alert-success', 'alert-danger');
+            const confirmButton = document.getElementById('confirmVoidSale');
+            confirmButton.disabled = false;
+            confirmButton.innerHTML = 'Void Sale';
+        });
+
+        // Confirm complete sale
+        document.getElementById('confirmCompleteSale').addEventListener('click', function () {
+            const saleId = document.getElementById('completeSaleId').value;
+            const alertElement = document.getElementById('completeModalAlert');
+            const confirmButton = this;
+
+            confirmButton.disabled = true;
+            confirmButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+            alertElement.classList.add('d-none');
+            alertElement.classList.remove('alert-success', 'alert-danger');
+
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/complete/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') || ''
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alertElement.textContent = data.message || 'Sale marked as Completed successfully!';
+                    alertElement.classList.remove('d-none', 'alert-danger');
+                    alertElement.classList.add('alert-success');
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('completeConfirmationModal'));
+                        modal.hide();
+                        window.location.reload();
+                    }, 1200);
+                } else {
+                    alertElement.textContent = data.message || 'Failed to complete sale.';
+                    alertElement.classList.remove('d-none', 'alert-success');
+                    alertElement.classList.add('alert-danger');
+                    confirmButton.disabled = false;
+                    confirmButton.innerHTML = 'Complete Sale';
+                }
+            })
+            .catch(error => {
+                console.error('Complete sale error:', error);
+                alertElement.textContent = 'An error occurred while completing the sale.';
+                alertElement.classList.remove('d-none', 'alert-success');
+                alertElement.classList.add('alert-danger');
+                confirmButton.disabled = false;
+                confirmButton.innerHTML = 'Complete Sale';
+            });
+        });
+
+        // Reset complete modal on close
+        document.getElementById('completeConfirmationModal').addEventListener('hidden.bs.modal', function () {
+            const alertElement = document.getElementById('completeModalAlert');
+            alertElement.classList.add('d-none');
+            alertElement.classList.remove('alert-success', 'alert-danger');
+            const confirmButton = document.getElementById('confirmCompleteSale');
+            confirmButton.disabled = false;
+            confirmButton.innerHTML = 'Complete Sale';
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,229 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - Record Sale</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .page-container { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
+        .card-modern { width:100%; max-width: 1000px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); overflow:hidden; }
+        .card-header-modern { background:#f3f4f6; padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; }
+        .sale-steps{display:flex;justify-content:center;align-items:center;gap:2rem;margin-bottom:1rem;padding:1rem;background:#f8f9fa;border-radius:12px}
+        .sale-step{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:80px}
+        .sale-step i{width:40px;height:40px;border-radius:50%;background:#e9ecef;color:#6c757d;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;font-size:1.2rem}
+        .sale-step.active i{background:#6366f1;color:#fff}
+        .sale-step-label{font-size:.875rem;font-weight:500;color:#6c757d}
+        .sale-step.active .sale-step-label{color:#6366f1;font-weight:600}
+        .item-row{background:#f8f9fa;border:1px solid #e9ecef!important}
+        .stock-info{font-size:.75rem}
+        .payment-summary-table{width:100%;max-width:600px;margin:0 auto 1rem;border-radius:12px;overflow:hidden;background:#fff}
+    </style>
+</head>
+<body>
+<div class="page-container">
+  <div class="card-modern">
+    <div class="card-header-modern">
+      <h5 class="m-0"><i class="bi bi-cart-plus me-2"></i>Record Sale</h5>
+      <div>
+        <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Inventory</a>
+      </div>
+    </div>
+    <div class="p-3">
+      <div id="buyFormAlert"></div>
+
+      <div class="sale-steps" id="saleStepsIndicator">
+        <div class="sale-step" id="stepIndicator1"><i class="bi bi-basket"></i><div class="sale-step-label">Select Items</div></div>
+        <div class="sale-step" id="stepIndicator2"><i class="bi bi-credit-card"></i><div class="sale-step-label">Payment</div></div>
+        <div class="sale-step" id="stepIndicator3"><i class="bi bi-receipt"></i><div class="sale-step-label">Receipt</div></div>
+      </div>
+
+      <div id="saleStep1">
+        <form id="buyForm" novalidate>
+          <div class="customer-info-section mb-4 p-3 border rounded bg-light">
+            <h6 class="mb-3 text-primary"><i class="bi bi-person-circle"></i> Customer Information</h6>
+            <div class="row">
+              <div class="col-md-6">
+                <label for="customerName" class="form-label">Customer Name / Company</label>
+                <input type="text" class="form-control" id="customerName" name="customer_name" placeholder="Enter customer name or company">
+              </div>
+              <div class="col-md-6">
+                <label for="customerContact" class="form-label">Contact Number</label>
+                <input type="tel" class="form-control" id="customerContact" name="customer_contact" placeholder="Enter contact number">
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <label for="customerAddress" class="form-label">Address</label>
+                <textarea class="form-control" id="customerAddress" name="customer_address" rows="2" placeholder="Enter customer address"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="items-section">
+            <h6 class="mb-3 text-primary"><i class="bi bi-basket"></i> Items Selection</h6>
+            <div id="itemsContainer">
+              <div class="item-row mb-3 p-3 border rounded">
+                <div class="row">
+                  <div class="col-md-5">
+                    <label class="form-label">Fruit</label>
+                    <select class="form-select product-select" required>
+                      <option value="">Select a fruit</option>
+                    </select>
+                    <div class="stock-info text-muted small mt-1"></div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Boxes</label>
+                    <input type="number" class="form-control quantity-input stock-quantity" min="1" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addItemBtn"><i class="bi bi-plus-circle"></i> Add Another Variant</button>
+            <div class="mt-3"><strong>Total Price (VAT Inclusive): ₱<span id="liveSaleTotalWithVATText">0.00</span></strong></div>
+            <div class="mt-3 d-flex align-items-center gap-2">
+              <label class="form-label mb-0">Date Recorded:</label>
+              <input type="text" class="form-control form-control-sm w-auto" id="purchaseDate" readonly>
+              <input type="hidden" name="purchase_date" value="{{ today|date:'F j, Y' }}" readonly>
+            </div>
+            <small class="form-text text-muted">Set to today and cannot be changed.</small>
+          </div>
+        </form>
+      </div>
+
+      <div id="saleStep2" style="display:none;">
+        <div class="payment-summary-table mb-3">
+          <table class="table table-bordered mb-0">
+            <thead><tr><th id="descHeader">Description</th><th class="text-center">Boxes</th><th class="text-center">Price</th><th class="text-end">Amount</th></tr></thead>
+            <tbody id="paymentTableItems"></tbody>
+          </table>
+        </div>
+        <div class="payment-summary-table">
+          <table class="table table-bordered mb-0">
+            <tbody>
+              <tr><th>Transaction #</th><td class="text-end"><span id="paymentTransactionNumber">-</span></td></tr>
+              <tr><th>OR #</th><td class="text-end"><span id="paymentOrNumber">-</span></td></tr>
+              <tr><th>Subtotal</th><td class="text-end">₱<span id="paymentSubtotal">0.00</span></td></tr>
+              <tr><th>VAT (12%)</th><td class="text-end">₱<span id="paymentVAT">0.00</span></td></tr>
+              <tr class="table-light"><th>Total Amount with VAT</th><td class="text-end">₱<span id="paymentTotalWithVAT">0.00</span></td></tr>
+              <tr><th>Amount Tendered</th><td><input type="number" class="form-control" id="paymentTendered" min="0" step="0.01" required placeholder="Amount received"></td></tr>
+              <tr><th>Change</th><td class="text-end">₱<span id="paymentChange">0.00</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="saleStep3" style="display:none;">
+        <div id="saleSuccessMessage" class="alert alert-success w-100 mb-3" style="display:none;"><i class="bi bi-check-circle-fill text-success me-2"></i>Sale recorded successfully!</div>
+        <div class="receipt-container border p-3" style="max-width:300px;margin:0 auto;">
+          <div class="receipt-header text-center mb-2">
+            <div class="company-name fw-bold">FruitMaster Marketing</div>
+            <div class="company-details small">Mabini Street - Libertad, Bacolod City, Negros Occidental</div>
+            <div class="company-details small">TIN: </div>
+            <div class="company-details small">Tel: 434-7680, 213-5681, 213-5682</div>
+          </div>
+          <div class="receipt-title text-center fw-bold">SALES RECEIPT</div>
+          <hr class="receipt-divider"/>
+          <div id="receiptProcessedByRow" class="receipt-info" style="display:none;">Processed by: <span id="receiptProcessedBy"></span></div>
+          <div class="receipt-info">Transaction #: <span id="transactionNumber"></span></div>
+          <div class="receipt-info">OR #: <span id="orNumber"></span></div>
+          <div class="receipt-info">Date: <span id="receiptDate"></span></div>
+          <table class="receipt-table w-100 my-2">
+            <thead><tr><th>Description</th><th class="text-end">Boxes</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead>
+            <tbody id="receiptTableItems"></tbody>
+          </table>
+          <hr class="receipt-divider"/>
+          <div class="d-flex justify-content-between"><span>Sub Total:</span><span id="receiptSubtotal">0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Plus 12% VAT:</span><span id="receiptVAT">0.00</span></div>
+          <div class="d-flex justify-content-between fw-bold border-top pt-1"><span>TOTAL AMOUNT TO BE PAID:</span><span id="receiptTotalAmount">0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Cash (PHP) Tendered:</span><span id="receiptAmountPaid">0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Change Cash:</span><span id="receiptChange">0.00</span></div>
+          <div class="receipt-footer text-center small mt-2">
+            <p class="mb-1">This serves as your Official Receipt.</p>
+            <p class="mb-1">SERVER SN: </p>
+            <p class="mb-1">POS SN: </p>
+            <p class="mb-1">BIR PERMIT NO. </p>
+            <p class="mb-0">ACCREDITATION NO. </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <div>
+          <button type="button" class="btn btn-outline-secondary" id="backToStep1" style="display:none;">Back</button>
+        </div>
+        <div>
+          <button type="button" class="btn btn-outline-secondary" id="cancelBtn" onclick="window.location.href='{% url 'products_inventory' %}'">Cancel</button>
+          <button type="button" class="btn btn-primary" id="nextToStep2">Proceed to Payment</button>
+          <button type="button" class="btn btn-success" id="confirmPaymentStep" style="display:none;" disabled>Confirm Payment</button>
+          <button type="button" class="btn btn-success" id="recordSaleBtn" style="display:none;">Record Sale</button>
+          <button type="button" class="btn btn-outline-success" id="printReceiptBtn" style="display:none;">Print Receipt</button>
+          <button type="button" class="btn btn-outline-success" id="printReceiptAfterBtn" style="display:none;">Print Receipt</button>
+          <button type="button" class="btn btn-success" id="doneBtn" style="display:none;" onclick="window.location.href='{% url 'sales' %}'">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+// CSRF helper
+function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
+const csrftoken=getCookie('csrftoken');
+$.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
+
+let products=[]; let currentStep=1; window.saleItems=[]; let transactionNumber=''; let orNumber='';
+
+function loadActiveProducts(){
+  return fetch("{% url 'get_active_products' %}")
+    .then(r=>r.json())
+    .then(resp=>{ if(!resp.success) return []; products=resp.data.map(p=>{p.price=parseFloat(p.price)||0; return p;}); updateProductSelects(); return products; });
+}
+function updateProductSelects(){
+  $('.product-select').each(function(){
+    const $this=$(this);
+    let options='<option value="">Select a fruit</option>';
+    products.forEach(p=>{ options+=`<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${p.stock||0}">${p.name} (${p.size||'N/A'}) - ₱${p.price.toFixed(2)}</option>`; });
+    $this.html(options);
+    if(!$this.hasClass('select2-hidden-accessible')){
+      $this.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$this.closest('.card-modern')});
+    } else { $this.trigger('change.select2'); }
+  });
+}
+function updateTotal(){ let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price'))||0; const q=parseInt($qty.val())||0; total+=price*q; }}); $('#liveSaleTotalWithVATText').text(total.toFixed(2)); }
+function showStep(step){ $('#saleStep1,#saleStep2,#saleStep3').hide(); $('#stepIndicator1,#stepIndicator2,#stepIndicator3').removeClass('active'); if(step===1){ $('#saleStep1').show(); $('#nextToStep2').show(); $('#confirmPaymentStep,#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').hide(); $('#stepIndicator1').addClass('active'); } else if(step===2){ $('#saleStep2').show(); $('#nextToStep2').hide(); $('#confirmPaymentStep').show(); $('#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').show(); $('#stepIndicator2').addClass('active'); } else { $('#saleStep3').show(); $('#nextToStep2,#confirmPaymentStep').hide(); $('#recordSaleBtn,#printReceiptBtn').show(); $('#backToStep1').show(); $('#stepIndicator3').addClass('active'); } currentStep=step; }
+function generateReceipt(){ const items=window.saleItems||[]; const subtotal=parseFloat($('#paymentSubtotal').text())||0; const vat=parseFloat($('#paymentVAT').text())||0; const totalAmount=parseFloat($('#paymentTotalWithVAT').text())||0; const amountPaid=parseFloat($('#paymentTendered').val())||0; const change=parseFloat($('#paymentChange').text())||0; let html=''; items.forEach(it=>{ let d=`${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${it.price.toFixed(2)}</td><td class="text-end">₱${it.amount.toFixed(2)}</td></tr>`; }); $('#receiptTableItems').html(html); $('#receiptSubtotal').text(subtotal.toFixed(2)); $('#receiptVAT').text(vat.toFixed(2)); $('#receiptTotalAmount').text(totalAmount.toFixed(2)); $('#receiptAmountPaid').text(amountPaid.toFixed(2)); $('#receiptChange').text(change.toFixed(2)); $('#transactionNumber').text(transactionNumber); $('#orNumber').text(orNumber); $('#receiptDate').text(new Date().toLocaleString()); }
+function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class="alert alert-danger alert-dismissible fade show" role="alert">${resp.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Error recording sale. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); }}); }
+function printReceipt(){ const w=window.open('', '_blank'); const content=$('.receipt-container').html(); const html='<!doctype html><html><head><title>Receipt</title><style>body{font-family:"Courier New",monospace;font-size:12px;margin:0;padding:20px}.receipt-container{max-width:300px;margin:0 auto}</style></head><body><div class="receipt-container">'+content+'</div></body></html>'; w.document.write(html); w.document.close(); w.print(); }
+
+$(document).ready(function(){
+  $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
+  loadActiveProducts();
+  $(document).on('change','.product-select',function(){ const $this=$(this); const pid=$this.val(); const $row=$this.closest('.item-row'); const $qty=$row.find('.quantity-input'); const $info=$row.find('.stock-info'); if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ $this.data('price',p.price); $this.data('name',p.name); $this.data('variant',p.variant); $this.data('size',p.size); $info.text(`Stock: ${p.stock||0} boxes`); $qty.attr('max',p.stock||999); } } else { $info.text(''); $qty.removeAttr('max'); } updateTotal(); });
+  $(document).on('input','.quantity-input',updateTotal);
+  $('#addItemBtn').on('click',function(){ const row=`<div class="item-row mb-3 p-3 border rounded"><div class="row"><div class="col-md-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted small mt-1"></div></div><div class="col-md-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div></div>`; $('#itemsContainer').append(row); updateProductSelects(); });
+  $(document).on('click','.remove-item',function(){ $(this).closest('.item-row').remove(); updateTotal(); });
+
+  $('#nextToStep2').on('click',function(){ const form=$('#buyForm')[0]; if(!form.checkValidity()){ form.reportValidity(); return; } const items=[]; let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price')); const q=parseInt($qty.val()); const amt=q*price; total+=amt; items.push({ product_id:$sel.val(), name:$sel.data('name')||'', variant:$sel.data('variant')||'', size:$sel.data('size')||'', quantity:q, price:price, amount:amt }); }}); if(items.length===0){ $('#buyFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Please add at least one item to proceed.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const subtotal=total/1.12; const vat=total-subtotal; $('#paymentSubtotal').text(subtotal.toFixed(2)); $('#paymentVAT').text(vat.toFixed(2)); $('#paymentTotalWithVAT').text(total.toFixed(2)); let html=''; items.forEach(it=>{ let d=`#${it.product_id} ${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${Number(it.price).toFixed(2)}</td><td class="text-end">₱${Number(it.amount).toFixed(2)}</td></tr>`; }); $('#paymentTableItems').html(html); window.saleItems=items; transactionNumber='TXN'+Date.now().toString().slice(-6); orNumber='OR'+Date.now().toString().slice(-6); $('#paymentTransactionNumber').text(transactionNumber); $('#paymentOrNumber').text(orNumber); showStep(2); });
+  $('#backToStep1').on('click',function(){ if(currentStep===2){ showStep(1); } else if(currentStep===3){ showStep(2); }});
+  $('#confirmPaymentStep').on('click',function(){ const tendered=parseFloat($('#paymentTendered').val())||0; const total=parseFloat($('#paymentTotalWithVAT').text())||0; if(tendered<total){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Amount tendered is less than total amount.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const change=tendered-total; $('#paymentChange').text(change.toFixed(2)); generateReceipt(); showStep(3); });
+  $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text())||0; const change=t-total; $('#paymentChange').text(change.toFixed(2)); $('#confirmPaymentStep').prop('disabled', t<total); });
+  $('#recordSaleBtn').on('click',recordSale);
+  $('#printReceiptBtn,#printReceiptAfterBtn').on('click',printReceipt);
+});
+</script>
+</body>
+</html>
+
+

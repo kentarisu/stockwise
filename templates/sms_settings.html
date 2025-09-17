@@ -1,0 +1,398 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - SMS Settings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --secondary: #f8fafc;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: var(--gray-600);
+            font-size: 1rem;
+        }
+
+        .settings-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            margin-bottom: 2rem;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .form-control {
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-outline-primary {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .alert {
+            border-radius: 8px;
+            border: none;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-box {
+            background: var(--primary-light);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-box h6 {
+            color: var(--primary-dark);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-box p {
+            color: var(--gray-700);
+            margin: 0;
+            font-size: 0.875rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-badge.active {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background: var(--gray-200);
+            color: var(--gray-600);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="d-flex align-items-center mb-3">
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary me-3">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Back to Dashboard
+                </a>
+            </div>
+            <h1 class="page-title">
+                <i class="bi bi-chat-dots me-2"></i>
+                SMS Notification Settings
+            </h1>
+            <p class="page-subtitle">Configure daily sales summary notifications</p>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- SMS Settings Card -->
+        <div class="settings-card">
+            <h5 class="mb-4">
+                <i class="bi bi-gear me-2"></i>
+                Notification Configuration
+            </h5>
+
+            <!-- Current Status -->
+            <div class="mb-4">
+                <h6>Current Status:</h6>
+                <span class="status-badge {% if sms_notification.is_active %}active{% else %}inactive{% endif %}">
+                    <i class="bi bi-{% if sms_notification.is_active %}check-circle{% else %}x-circle{% endif %}"></i>
+                    {% if sms_notification.is_active %}Active{% else %}Inactive{% endif %}
+                </span>
+                {% if sms_notification.phone_number %}
+                    <span class="ms-3 text-muted">
+                        <i class="bi bi-telephone me-1"></i>
+                        {{ sms_notification.phone_number }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <!-- Settings Form -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="phone_number" class="form-label">
+                                <i class="bi bi-telephone me-1"></i>
+                                Phone Number
+                            </label>
+                            <input 
+                                type="tel" 
+                                class="form-control" 
+                                id="phone_number" 
+                                name="phone_number" 
+                                value="{{ sms_notification.phone_number }}"
+                                placeholder="+1234567890"
+                                required
+                            >
+                            <div class="form-text">
+                                Include country code (e.g., +1 for US, +63 for Philippines)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input 
+                                    class="form-check-input" 
+                                    type="checkbox" 
+                                    id="is_active" 
+                                    name="is_active"
+                                    {% if sms_notification.is_active %}checked{% endif %}
+                                >
+                                <label class="form-check-label" for="is_active">
+                                    Enable SMS Notifications
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i>
+                        Save Settings
+                    </button>
+                    {% if sms_notification.is_active and sms_notification.phone_number %}
+                        <button type="button" class="btn btn-outline-primary" id="testSmsBtn">
+                            <i class="bi bi-send me-1"></i>
+                            Send Test SMS
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <!-- Information Card -->
+        <div class="settings-card">
+            <h5 class="mb-4">
+                <i class="bi bi-info-circle me-2"></i>
+                How It Works
+            </h5>
+            
+            <div class="info-box">
+                <h6><i class="bi bi-clock me-1"></i> Daily Schedule</h6>
+                <p>SMS notifications are sent automatically every night at 11:00 PM with the previous day's sales summary.</p>
+            </div>
+
+            <div class="info-box">
+                <h6><i class="bi bi-graph-up me-1"></i> Summary Includes</h6>
+                <p>Total revenue, number of transactions, boxes sold, and top-selling products from the previous day.</p>
+            </div>
+
+            <div class="info-box">
+                <h6><i class="bi bi-shield-check me-1"></i> Privacy & Security</h6>
+                <p>Your phone number is stored securely and only used for sending sales summaries. No personal data is shared.</p>
+            </div>
+        </div>
+
+        <!-- Setup Instructions -->
+        <div class="settings-card">
+            <h5 class="mb-4">
+                <i class="bi bi-tools me-2"></i>
+                Setup Instructions
+            </h5>
+            
+            <div class="alert alert-info">
+                <h6><i class="bi bi-exclamation-triangle me-1"></i> SMS Service Setup Required</h6>
+                <p class="mb-2">To enable SMS notifications, the following environment variables must be configured:</p>
+                <ul class="mb-0">
+                    <li><code>TWILIO_ACCOUNT_SID</code> - Your Twilio Account SID</li>
+                    <li><code>TWILIO_AUTH_TOKEN</code> - Your Twilio Auth Token</li>
+                    <li><code>TWILIO_PHONE_NUMBER</code> - Your Twilio phone number</li>
+                </ul>
+                <p class="mt-2 mb-0">
+                    <strong>Note:</strong> Install Twilio with: <code>pip install twilio</code>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Feedback Modal -->
+    <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>SMS Notification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="feedbackModalBody">Processing...</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        $(document).ready(function() {
+            // Test SMS functionality
+            $('#testSmsBtn').on('click', function() {
+                const $btn = $(this);
+                const originalText = $btn.html();
+                
+                $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i>Sending...');
+                
+                $.ajax({
+                    url: "{% url 'send_test_sms' %}",
+                    method: 'POST',
+                    data: {
+                        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(response) {
+                        const modalEl = document.getElementById('feedbackModal');
+                        const bodyEl = document.getElementById('feedbackModalBody');
+                        bodyEl.textContent = response.success ? 'Test SMS sent successfully!' : ('Failed to send test SMS: ' + (response.message || 'Unknown error'));
+                        const modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    },
+                    error: function() {
+                        const modalEl = document.getElementById('feedbackModal');
+                        const bodyEl = document.getElementById('feedbackModalBody');
+                        bodyEl.textContent = 'Error sending test SMS. Please try again.';
+                        const modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false).html(originalText);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

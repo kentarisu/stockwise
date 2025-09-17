@@ -1,0 +1,86 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockWise - Print QR Code Stickers</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+    .page-container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
+    .card-modern{width:100%;max-width:900px;background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 1px 3px 0 rgb(0 0 0/0.1),0 1px 2px -1px rgb(0 0 0/0.1);overflow:hidden}
+    .card-header-modern{background:#f3f4f6;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <div class="card-modern">
+      <div class="card-header-modern">
+        <h5 class="m-0"><i class="bi bi-printer me-2"></i>Print QR Code Stickers</h5>
+        <div>
+          <a href="{% url 'add_stock_page' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Add Stock</a>
+        </div>
+      </div>
+      <div class="p-3">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label">Product Name</label>
+              <input type="text" class="form-control" id="stickerFruitSelect" list="stickerFruitList" placeholder="Search or select fruit name" autocomplete="off">
+              <datalist id="stickerFruitList"></datalist>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label">Variant</label>
+              <input type="text" class="form-control" id="stickerVariantSelect" list="stickerVariantList" placeholder="Search or select variant" disabled autocomplete="off">
+              <datalist id="stickerVariantList"></datalist>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="mb-3">
+              <label class="form-label">Size</label>
+              <input type="number" class="form-control" id="stickerSizeSelect" placeholder="Enter numeric size" disabled min="0" step="0.01" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i>
+          <strong>Instructions:</strong>
+          <ul class="mb-0 mt-2">
+            <li>Select a product name (fruit → variant → size)</li>
+            <li>Enter a numeric size value (e.g., 28, 32, 125-175)</li>
+            <li>Click "Generate QR Code Stickers" to create printable QR stickers</li>
+            <li>Each sticker contains a unique QR code for that specific batch</li>
+            <li><strong>Delivery date will be set when you scan and confirm stock</strong></li>
+          </ul>
+        </div>
+        <div class="text-end">
+          <button type="button" class="btn btn-primary" id="generateStickersBtn" disabled>Generate QR Code Stickers</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script>
+    let allProducts=[];
+    async function loadAllProducts(){ try{ const resp=await fetch('/api/products/active/',{headers:{'X-Requested-With':'XMLHttpRequest'}}); if(!resp.ok) throw new Error('Network error'); const data=await resp.json(); if(data.success){ allProducts=data.data; populateFruitList(); } }catch(e){ console.error('Load products error:', e); } }
+    function populateFruitList(){ const list=$('#stickerFruitList'); list.empty(); const unique=[...new Set(allProducts.map(p=>p.name))]; unique.forEach(f=>list.append($('<option>',{value:f}))); }
+    function loadStickerVariants(fruit){ const variantList=$('#stickerVariantList'); $('#stickerVariantSelect').prop('disabled',true).val(''); $('#stickerSizeSelect').prop('disabled',true).val(''); variantList.empty(); if(!fruit) return; const variants=[...new Set(allProducts.filter(p=>p.name===fruit).map(p=>p.variant).filter(v=>v))]; if(variants.length===0){ $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','No variants available - proceed to size'); loadStickerSizes(fruit,''); } else { $('#stickerVariantSelect').prop('disabled',false); variants.forEach(v=>variantList.append($('<option>',{value:v}))); } }
+    function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return p.name===fruit && (!p.variant||p.variant==='');} else {return p.name===fruit && p.variant===variant;} }).map(p=>p.size).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter size (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric size'); } }
+    function validateForm(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>p.name===fruit && p.variant); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
+    $('#stickerFruitSelect').on('change', function(){ loadStickerVariants($(this).val()); validateForm(); });
+    $('#stickerVariantSelect').on('change', function(){ loadStickerSizes($('#stickerFruitSelect').val(), $(this).val()); validateForm(); });
+    $('#stickerSizeSelect').on('change input', validateForm);
+    $('#generateStickersBtn').on('click', function(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); if(!fruit||!size){ alert('Please select a product name and size'); return; } const product=allProducts.find(p=>{ if(!variant){ return p.name===fruit && (!p.variant||p.variant===''); } else { return p.name===fruit && p.variant===variant; } }); if(product){ const productId=product.product_id; const url=`/qr/sticker/${productId}/`; window.open(url,'_blank','width=800,height=600'); } else { alert('Product not found. Please check your selection.'); } });
+    loadAllProducts();
+  </script>
+</body>
+</html>
+
+

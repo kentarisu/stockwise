@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,87 +6,575 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Details - StockWise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/css/bootstrap-datepicker.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --secondary: #f8fafc;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --sidebar-width: 280px;
+            --header-height: 80px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            color: var(--gray-800);
+            overflow-x: hidden;
         }
-        .main-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin: 20px;
-            min-height: calc(100vh - 40px);
+
+        .app-container {
+            min-height: 100vh;
         }
-        .header-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 15px 15px 0 0;
-            padding: 30px;
+
+        /* Main Content */
+        .main-content {
+            min-height: 100vh;
+            background: var(--gray-50);
         }
-        .content-section {
-            padding: 30px;
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            height: var(--header-height);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
         }
-        .batch-ids-container {
-            max-height: 200px;
-            overflow-y: auto;
+
+        .header-left h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0;
         }
+
+        .header-subtitle {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
         .back-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            border-radius: 10px;
-            padding: 8px 16px;
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
             text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
         }
+
         .back-btn:hover {
-            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
             color: white;
             text-decoration: none;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Product Header Card */
+        .product-header-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 16px;
+            padding: 1.5rem;
+            color: white;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-header-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .product-header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .product-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .product-subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 0.75rem;
+        }
+
+        .product-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .product-detail-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .product-detail-icon {
+            width: 2rem;
+            height: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .product-detail-text {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+
+        .summary-stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .summary-stat-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: white;
+            margin-bottom: 0.75rem;
+        }
+
+        .summary-stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
+        .summary-stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
+        .summary-stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
+        .summary-stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
+        .summary-stat-icon.info { background: linear-gradient(135deg, var(--accent), #0891b2); }
+
+        .summary-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .summary-stat-label {
+            color: var(--gray-500);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* Stock Additions Table */
+        .stock-additions-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-title i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .stock-additions-table {
+            margin: 0;
+        }
+
+        .stock-additions-table thead th {
+            background: var(--gray-50);
+            border: none;
+            border-bottom: 2px solid var(--gray-200);
+            font-weight: 600;
+            color: var(--gray-700);
+            padding: 1.25rem 2rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stock-additions-table tbody td {
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        .stock-additions-table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        .stock-additions-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Status badges */
+        .status-badge {
+            padding: 0.375rem 0.75rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .status-badge.available {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-badge.sold-out {
+            background: rgba(107, 114, 128, 0.1);
+            color: var(--gray-500);
+            border: 1px solid rgba(107, 114, 128, 0.2);
+        }
+
+        /* Batch IDs */
+        .batch-ids-container {
+            max-height: 120px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .batch-id-badge {
+            display: inline-block;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 0.125rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        /* Numbers */
+        .number-cell {
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .number-cell.added { color: var(--success); }
+        .number-cell.available { color: var(--warning); }
+        .number-cell.sold { color: var(--danger); }
+
+        /* Date */
+        .date-cell {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        /* Supplier */
+        .supplier-cell {
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        /* Loading states */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 3px solid var(--gray-200);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0 1rem;
+            }
+
+            .content-area {
+                padding: 1rem;
+            }
+
+            .product-header-card {
+                padding: 1rem;
+            }
+
+            .product-title {
+                font-size: 1.25rem;
+            }
+
+            .product-details {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .stock-additions-table thead th,
+            .stock-additions-table tbody td {
+                padding: 0.75rem;
+            }
+
+            .card-header {
+                padding: 0.75rem;
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--gray-500);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: var(--gray-300);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: var(--gray-600);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            color: var(--gray-500);
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <!-- Header Section -->
-        <div class="header-section">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="mb-0">
-                    <i class="bi bi-boxes me-3"></i>Stock Details - FIFO Inventory
-                </h2>
+    <div class="app-container">
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <h1>Stock Details</h1>
+                    <p class="header-subtitle">FIFO Inventory Management</p>
+                </div>
+                <div class="header-right">
                 <a href="/products_inventory/" class="back-btn">
-                    <i class="bi bi-arrow-left me-2"></i>Back to Inventory
+                        <i class="bi bi-arrow-left"></i>
+                        Back to Inventory
                 </a>
             </div>
-            <div id="productInfo" class="mb-3">
-                <h4 id="productName" class="mb-1">Loading...</h4>
-                <p id="productDetails" class="mb-0 opacity-75">Loading product details...</p>
+            </header>
+
+            <div class="content-area">
+                <!-- Product Header -->
+                <div class="product-header-card">
+                    <div class="product-header-content">
+                        <h2 class="product-title" id="productName">Loading...</h2>
+                        <p class="product-subtitle" id="productDetails">Loading product details...</p>
+                        <div class="product-details">
+                            <div class="product-detail-item">
+                                <div class="product-detail-icon">
+                                    <i class="bi bi-calendar3"></i>
+                                </div>
+                                <div class="product-detail-text">
+                                    <div>First Added</div>
+                                    <small id="firstAddedDate">-</small>
+                                </div>
+                            </div>
+                            <div class="product-detail-item">
+                                <div class="product-detail-icon">
+                                    <i class="bi bi-truck"></i>
+                                </div>
+                                <div class="product-detail-text">
+                                    <div>Supplier</div>
+                                    <small id="supplierName">-</small>
+                                </div>
+                            </div>
+                            <div class="product-detail-item">
+                                <div class="product-detail-icon">
+                                    <i class="bi bi-box"></i>
+                                </div>
+                                <div class="product-detail-text">
+                                    <div>Total Stock</div>
+                                    <small id="totalStock">-</small>
+                                </div>
+                            </div>
+                        </div>
             </div>
         </div>
 
-        <!-- Content Section -->
-        <div class="content-section">
-            <!-- Summary Section -->
-            <div id="stockDetailsSummary" class="alert alert-info mb-4">
-                <i class="bi bi-info-circle me-2"></i>Loading stock information...
+                <!-- Summary Statistics -->
+                <div class="summary-stats" id="summaryStats">
+                    <div class="summary-stat-card">
+                        <div class="summary-stat-icon success">
+                            <i class="bi bi-plus-circle"></i>
+                        </div>
+                        <div class="summary-stat-value" id="totalAdded">-</div>
+                        <div class="summary-stat-label">Total Added</div>
+                    </div>
+                    <div class="summary-stat-card">
+                        <div class="summary-stat-icon warning">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="summary-stat-value" id="totalAvailable">-</div>
+                        <div class="summary-stat-label">Available</div>
+                    </div>
+                    <div class="summary-stat-card">
+                        <div class="summary-stat-icon danger">
+                            <i class="bi bi-arrow-right-circle"></i>
+                        </div>
+                        <div class="summary-stat-value" id="totalSold">-</div>
+                        <div class="summary-stat-label">Sold</div>
+                    </div>
             </div>
 
-            <!-- Stock Details Content -->
-            <div id="stockDetailsContent">
-                <div class="text-center text-muted py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+                <!-- Stock Additions Table -->
+                <div class="stock-additions-card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="bi bi-list-ul"></i>
+                            Stock Additions History
+                        </h3>
                     </div>
-                    <p class="mt-2">Loading batch details...</p>
+                    <div id="stockAdditionsContent">
+                        <div class="loading-container">
+                            <div class="loading-spinner"></div>
+                            <p>Loading stock additions...</p>
                 </div>
             </div>
         </div>
+            </div>
+        </main>
     </div>
 
-    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -95,23 +584,18 @@
         const productId = urlParams.get('product_id');
 
         if (!productId) {
-            document.getElementById('stockDetailsSummary').innerHTML = '<i class="bi bi-exclamation-triangle text-danger me-2"></i>No product ID provided.';
-            document.getElementById('stockDetailsContent').innerHTML = '<div class="text-center text-danger py-5"><i class="bi bi-exclamation-triangle display-1"></i><p class="mt-3">Invalid product ID</p></div>';
+            showError('No product ID provided.');
         } else {
             loadStockDetails(productId);
         }
 
         function loadStockDetails(productId) {
-            const $content = $('#stockDetailsContent');
-            const $summary = $('#stockDetailsSummary');
+            const $content = $('#stockAdditionsContent');
             
-            $summary.html('<i class="bi bi-info-circle me-2"></i>Loading stock information...');
             $content.html(`
-                <div class="text-center text-muted py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2">Loading batch details...</p>
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>Loading stock additions...</p>
                 </div>
             `);
             
@@ -121,148 +605,16 @@
                 .then(resp => {
                     if (!resp || resp.success === false) throw new Error('fallback');
                     if (!resp.success || !resp.data || resp.data.length === 0) {
-                        $summary.html('<i class="bi bi-exclamation-triangle me-2"></i>No stock batches found for this product.');
-                        $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1 text-muted"></i><p class="mt-3">No inventory found</p></div>');
+                        showEmptyState();
                         return;
                     }
                     
-                    // Update product info
+                    // Update product info and summary
                     updateProductInfo(resp.data[0]);
+                    updateSummaryStats(resp);
                     
-                    // Summary
-                    const meta = resp.meta || {};
-                    const d = new Date(meta.date_added || resp.data[0].date_added);
-                    const dateText = isNaN(d) ? (meta.date_added || resp.data[0].date_added) : d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-                    const totalAdded = Number(meta.added_total || resp.data.length);
-                    const totalRemaining = Number(meta.available_total || resp.data.reduce((s, x) => s + (Number(x.remaining)||0), 0));
-                    const supplierText = meta.supplier || resp.data[0].supplier || '-';
-                    
-                    $summary.html(`
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-calendar3 text-primary me-2"></i>
-                                    <div>
-                                        <small class="text-muted d-block">First Added</small>
-                                        <strong>${dateText}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-plus-circle text-success me-2"></i>
-                                    <div>
-                                        <small class="text-muted d-block">Total Added</small>
-                                        <strong class="text-success">${totalAdded}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-box text-warning me-2"></i>
-                                    <div>
-                                        <small class="text-muted d-block">Available</small>
-                                        <strong class="text-warning">${totalRemaining}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-truck text-info me-2"></i>
-                                    <div>
-                                        <small class="text-muted d-block">Supplier</small>
-                                        <strong>${supplierText}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-arrow-right-circle text-danger me-2"></i>
-                                    <div>
-                                        <small class="text-muted d-block">Sold</small>
-                                        <strong class="text-danger">${totalAdded - totalRemaining}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `);
-                    
-                    // Render groups as cards
-                    const groups = resp.groups || [];
-                    if (groups.length > 0) {
-                        const html = `<div class="d-flex flex-column gap-3">` + groups.map((g, index) => {
-                            const ids = (g.batch_ids || []).map(id => 
-                                `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2 mb-2 px-2 py-1 font-monospace small">${id}</span>`
-                            ).join('');
-                            const d2 = new Date(g.date_added);
-                            const dateTxt = isNaN(d2) ? g.date_added : d2.toLocaleDateString('en-US', { 
-                                year:'numeric', month:'short', day:'numeric', 
-                                hour:'2-digit', minute:'2-digit'
-                            });
-                            const statusColor = g.available_total > 0 ? 'success' : 'secondary';
-                            const statusIcon = g.available_total > 0 ? 'check-circle-fill' : 'x-circle-fill';
-                            
-                            return `
-                                <div class="card shadow-sm border-0 mb-3">
-                                    <div class="card-header bg-light border-0 py-2">
-                                        <div class="row align-items-center">
-                                            <div class="col">
-                                                <h6 class="mb-0">
-                                                    <i class="bi bi-${statusIcon} text-${statusColor} me-2"></i>
-                                                    Stock Addition #${index + 1}
-                                                </h6>
-                                            </div>
-                                            <div class="col-auto">
-                                                <small class="text-muted">
-                                                    <i class="bi bi-clock me-1"></i>${dateTxt}
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3 mb-3">
-                                            <div class="col-auto">
-                                                <div class="text-center">
-                                                    <div class="h4 text-success mb-0">${g.added_total}</div>
-                                                    <small class="text-muted">Added</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <div class="text-center">
-                                                    <div class="h4 text-warning mb-0">${g.available_total}</div>
-                                                    <small class="text-muted">Available</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <div class="text-center">
-                                                    <div class="h4 text-danger mb-0">${g.added_total - g.available_total}</div>
-                                                    <small class="text-muted">Sold</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <div class="text-center">
-                                                    <div class="h6 text-info mb-0">${g.supplier || '-'}</div>
-                                                    <small class="text-muted">Supplier</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="border-top pt-3">
-                                            <h6 class="text-muted mb-2">
-                                                <i class="bi bi-tags me-1"></i>
-                                                Available Batch IDs (${g.available_total} boxes)
-                                            </h6>
-                                            <div class="batch-ids-container d-flex flex-wrap gap-1">
-                                                ${ids || '<span class="text-muted fst-italic">All boxes from this batch have been sold</span>'}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('') + `</div>`;
-                        $content.html(html);
-                    } else {
-                        $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No batch data available</p></div>');
-                    }
+                    // Render stock additions as table rows
+                    renderStockAdditionsTable(resp.groups || []);
                 })
                 .catch(() => {
                     // Fallback to simple endpoint
@@ -270,152 +622,19 @@
                         .then(r => r.json())
                         .then(resp => {
                             if (!resp.success || !resp.data || resp.data.length === 0) {
-                                $summary.html('<i class="bi bi-exclamation-triangle me-2"></i>No stock batches found.');
-                                $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No inventory found</p></div>');
+                                showEmptyState();
                                 return;
                             }
                             
-                            // Update product info
+                            // Update product info and summary
                             updateProductInfo(resp.data[0]);
+                            updateSummaryStats(resp);
                             
-                            // Same rendering logic for fallback
-                            const meta = resp.meta || {};
-                            const d = new Date(meta.date_added || resp.data[0].date_added);
-                            const dateText = isNaN(d) ? (meta.date_added || resp.data[0].date_added) : d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-                            const totalAdded = Number(meta.added_total || resp.data.length);
-                            const totalRemaining = Number(meta.available_total || resp.data.reduce((s, x) => s + (Number(x.remaining)||0), 0));
-                            const supplierText = meta.supplier || resp.data[0].supplier || '-';
-                            
-                            $summary.html(`
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-calendar3 text-primary me-2"></i>
-                                            <div>
-                                                <small class="text-muted d-block">First Added</small>
-                                                <strong>${dateText}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-plus-circle text-success me-2"></i>
-                                            <div>
-                                                <small class="text-muted d-block">Total Added</small>
-                                                <strong class="text-success">${totalAdded}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-box text-warning me-2"></i>
-                                            <div>
-                                                <small class="text-muted d-block">Available</small>
-                                                <strong class="text-warning">${totalRemaining}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-truck text-info me-2"></i>
-                                            <div>
-                                                <small class="text-muted d-block">Supplier</small>
-                                                <strong>${supplierText}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-arrow-right-circle text-danger me-2"></i>
-                                            <div>
-                                                <small class="text-muted d-block">Sold</small>
-                                                <strong class="text-danger">${totalAdded - totalRemaining}</strong>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `);
-                            
-                            // Render groups for fallback too
-                            const groups = resp.groups || [];
-                            if (groups.length > 0) {
-                                const html = `<div class="d-flex flex-column gap-3">` + groups.map((g, index) => {
-                                    const ids = (g.batch_ids || []).map(id => 
-                                        `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-2 mb-2 px-2 py-1 font-monospace small">${id}</span>`
-                                    ).join('');
-                                    const d2 = new Date(g.date_added);
-                                    const dateTxt = isNaN(d2) ? g.date_added : d2.toLocaleDateString('en-US', { 
-                                        year:'numeric', month:'short', day:'numeric', 
-                                        hour:'2-digit', minute:'2-digit'
-                                    });
-                                    const statusColor = g.available_total > 0 ? 'success' : 'secondary';
-                                    const statusIcon = g.available_total > 0 ? 'check-circle-fill' : 'x-circle-fill';
-                                    
-                                    return `
-                                        <div class="card shadow-sm border-0 mb-3">
-                                            <div class="card-header bg-light border-0 py-2">
-                                                <div class="row align-items-center">
-                                                    <div class="col">
-                                                        <h6 class="mb-0">
-                                                            <i class="bi bi-${statusIcon} text-${statusColor} me-2"></i>
-                                                            Stock Addition #${index + 1}
-                                                        </h6>
-                                                    </div>
-                                                    <div class="col-auto">
-                                                        <small class="text-muted">
-                                                            <i class="bi bi-clock me-1"></i>${dateTxt}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="card-body">
-                                                <div class="row g-3 mb-3">
-                                                    <div class="col-auto">
-                                                        <div class="text-center">
-                                                            <div class="h4 text-success mb-0">${g.added_total}</div>
-                                                            <small class="text-muted">Added</small>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-auto">
-                                                        <div class="text-center">
-                                                            <div class="h4 text-warning mb-0">${g.available_total}</div>
-                                                            <small class="text-muted">Available</small>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-auto">
-                                                        <div class="text-center">
-                                                            <div class="h4 text-danger mb-0">${g.added_total - g.available_total}</div>
-                                                            <small class="text-muted">Sold</small>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-auto">
-                                                        <div class="text-center">
-                                                            <div class="h6 text-info mb-0">${g.supplier || '-'}</div>
-                                                            <small class="text-muted">Supplier</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="border-top pt-3">
-                                                    <h6 class="text-muted mb-2">
-                                                        <i class="bi bi-tags me-1"></i>
-                                                        Available Batch IDs (${g.available_total} boxes)
-                                                    </h6>
-                                                    <div class="batch-ids-container d-flex flex-wrap gap-1">
-                                                        ${ids || '<span class="text-muted fst-italic">All boxes from this batch have been sold</span>'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('') + `</div>`;
-                                $content.html(html);
-                            } else {
-                                $content.html('<div class="text-center text-muted py-5"><i class="bi bi-box-seam display-1"></i><p class="mt-3">No batch data available</p></div>');
-                            }
+                            // Render stock additions as table rows
+                            renderStockAdditionsTable(resp.groups || []);
                         })
                         .catch(() => {
-                            $summary.html('<i class="bi bi-exclamation-triangle text-danger me-2"></i>Failed to load stock details.');
-                            $content.html('<div class="text-center text-danger py-5"><i class="bi bi-exclamation-triangle display-1"></i><p class="mt-3">Failed to load batch details</p></div>');
+                            showError('Failed to load stock details.');
                         });
                 });
         }
@@ -429,7 +648,8 @@
                         const product = resp.data.find(p => p.product_id == productId);
                         if (product) {
                             document.getElementById('productName').textContent = product.name;
-                            document.getElementById('productDetails').textContent = `${product.variant ? product.variant + ' • ' : ''}Size: ${product.size} • Price: ₱${parseFloat(product.price).toFixed(2)} • Stock: ${product.stock}`;
+                            document.getElementById('productDetails').textContent = `${product.variant ? product.variant + ' • ' : ''}Size: ${product.size} • Price: ₱${parseFloat(product.price).toFixed(2)}`;
+                            document.getElementById('totalStock').textContent = product.stock;
                         }
                     }
                 })
@@ -438,6 +658,127 @@
                     document.getElementById('productName').textContent = 'Product Details';
                     document.getElementById('productDetails').textContent = 'Loading product information...';
                 });
+        }
+
+        function updateSummaryStats(resp) {
+            const meta = resp.meta || {};
+            const groups = resp.groups || [];
+            
+            // Calculate totals
+            const totalAdded = groups.reduce((sum, group) => sum + (group.added_total || 0), 0);
+            const totalAvailable = groups.reduce((sum, group) => sum + (group.available_total || 0), 0);
+            const totalSold = totalAdded - totalAvailable;
+            
+            // Update first added date
+            if (groups.length > 0) {
+                const firstGroup = groups[groups.length - 1]; // Most recent first, so last is oldest
+                const date = new Date(firstGroup.date_added);
+                const dateText = isNaN(date) ? firstGroup.date_added : date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                document.getElementById('firstAddedDate').textContent = dateText;
+            }
+            
+            // Update supplier
+            const supplier = meta.supplier || groups[0]?.supplier || '-';
+            document.getElementById('supplierName').textContent = supplier;
+            
+            // Update summary stats
+            document.getElementById('totalAdded').textContent = totalAdded;
+            document.getElementById('totalAvailable').textContent = totalAvailable;
+            document.getElementById('totalSold').textContent = totalSold;
+        }
+
+        function renderStockAdditionsTable(groups) {
+            if (groups.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            const tableHtml = `
+                <table class="table stock-additions-table">
+                    <thead>
+                        <tr>
+                            <th>Addition #</th>
+                            <th>Date Added</th>
+                            <th>Added</th>
+                            <th>Available</th>
+                            <th>Sold</th>
+                            <th>Supplier</th>
+                            <th>Status</th>
+                            <th>Batch IDs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${groups.map((group, index) => {
+                            const date = new Date(group.date_added);
+                            const dateText = isNaN(date) ? group.date_added : date.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            const status = group.available_total > 0 ? 'available' : 'sold-out';
+                            const statusText = group.available_total > 0 ? 'Available' : 'Sold Out';
+                            const statusIcon = group.available_total > 0 ? 'check-circle' : 'x-circle';
+                            
+                            const batchIds = (group.batch_ids || []).map(id => 
+                                `<span class="batch-id-badge">${id}</span>`
+                            ).join('');
+                            
+                            return `
+                                <tr>
+                                    <td>
+                                        <strong>#${groups.length - index}</strong>
+                                    </td>
+                                    <td class="date-cell">${dateText}</td>
+                                    <td class="number-cell added">${group.added_total || 0}</td>
+                                    <td class="number-cell available">${group.available_total || 0}</td>
+                                    <td class="number-cell sold">${(group.added_total || 0) - (group.available_total || 0)}</td>
+                                    <td class="supplier-cell">${group.supplier || '-'}</td>
+                                    <td>
+                                        <span class="status-badge ${status}">
+                                            <i class="bi bi-${statusIcon}"></i>
+                                            ${statusText}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="batch-ids-container">
+                                            ${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('stockAdditionsContent').innerHTML = tableHtml;
+        }
+
+        function showEmptyState() {
+            document.getElementById('stockAdditionsContent').innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-box-seam"></i>
+                    <h3>No Stock Additions</h3>
+                    <p>No inventory batches found for this product.</p>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            document.getElementById('stockAdditionsContent').innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
         }
     </script>
 </body>

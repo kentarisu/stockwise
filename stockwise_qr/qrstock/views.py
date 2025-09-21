@@ -19,19 +19,34 @@ def _get_acronym(s: str) -> str:
 
 
 def _generate_batch_id(product: Product, delivery_date: datetime.date, variant: str = '') -> str:
-    # Mirror PHP generateBatchId logic
-    base_name = product.name
-    if variant:
-        # remove trailing (variant) from name if present
-        import re
-        base_name = re.sub(r"\s*\(.*?\)$", '', base_name).strip()
-    fruit_acr = _get_acronym(base_name)
-    variant_acr = _get_acronym(variant) if variant else ''
-    size_acr = _get_acronym(product.size or '')
+    """Generate batch id identical to manual add-stock:
+    <FRUIT_ACR><VARIANT_ACR?><SIZE_FULL><MMDDYYYY><SEQ_01_99>
+    Sequence increases per product across additions and wraps at 99.
+    """
+    import re
+    base_name = product.name or ''
+    # Remove trailing (variant) from name if present so acronym is for base fruit
+    m = re.search(r"^(.*?)\s*\((.*?)\)\s*$", base_name)
+    if m:
+        base_only = m.group(1).strip()
+        parsed_variant = m.group(2).strip()
+    else:
+        base_only = base_name.strip()
+        parsed_variant = ''
+    # If explicit variant provided, prefer it; else use parsed one
+    variant_text = (variant or '').strip() or parsed_variant
+
+    fruit_acr = _get_acronym(base_only)
+    variant_acr = _get_acronym(variant_text) if variant_text else ''
+    size_full = str(product.size or '')
     mm = f"{delivery_date.month:02d}"
     dd = f"{delivery_date.day:02d}"
     yyyy = f"{delivery_date.year:04d}"
-    return f"{fruit_acr}{variant_acr}{size_acr}{mm}{dd}{yyyy}"
+    # Sequence based on existing additions for this product
+    existing_total = StockAddition.objects.filter(product=product).count()
+    seq = (existing_total % 99) + 1
+    seq_part = f"{seq:02d}"
+    return f"{fruit_acr}{variant_acr}{size_full}{mm}{dd}{yyyy}{seq_part}"
 
 
 def qr_generate(request, product_id: int):
@@ -45,13 +60,10 @@ def qr_generate(request, product_id: int):
     variant = request.GET.get('variant', '')
     delivery_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else timezone.now().date()
 
-    batch_id = _generate_batch_id(product, delivery_date, variant)
-
     s = URLSafeSerializer(settings.SECRET_KEY)
     payload = {
         'p': product.product_id,
         'd': delivery_date.strftime('%Y-%m-%d'),
-        'b': batch_id,
     }
     token = s.dumps(payload)
 
@@ -73,12 +85,22 @@ def confirm_view(request, token: str):
     product_id = int(data['p'])
     # Use the actual scanning date instead of pre-generated date
     delivery_date = timezone.now().date()
-    batch_id = data['b']
+    batch_id = data.get('b')
 
     try:
         product = Product.objects.get(pk=product_id)
     except Product.DoesNotExist:
         raise Http404
+
+    # If batch_id was not embedded in QR, compute it now using current date and product variant
+    if not batch_id:
+        import re
+        variant = ''
+        name = product.name or ''
+        m = re.search(r"^(.*?)\s*\((.*?)\)\s*$", name)
+        if m:
+            variant = (m.group(2) or '').strip()
+        batch_id = _generate_batch_id(product, delivery_date, variant)
 
     if request.method == 'POST':
         qty = int(request.POST.get('quantity', '0'))
@@ -149,8 +171,6 @@ def qr_sticker(request, product_id: int):
     # Use current date for delivery date (will be updated when actually scanning)
     delivery_date = timezone.now().date()
 
-    batch_id = _generate_batch_id(product, delivery_date, variant)
-    
     # Parse product name to extract variant if not provided
     import re
     name = product.name or ''
@@ -165,7 +185,6 @@ def qr_sticker(request, product_id: int):
     payload = {
         'p': product.product_id,
         'd': delivery_date.strftime('%Y-%m-%d'),
-        'b': batch_id,
     }
     token = s.dumps(payload)
     confirm_url = request.build_absolute_uri(f"/qr/confirm/{token}/")
@@ -176,7 +195,7 @@ def qr_sticker(request, product_id: int):
     img.save(buf, format='PNG')
     buf.seek(0)
     qr_data = buf.getvalue()
-    
+
     # Convert to base64 for template
     import base64
     qr_base64 = base64.b64encode(qr_data).decode('utf-8')
@@ -187,7 +206,7 @@ def qr_sticker(request, product_id: int):
         'variant': variant,
         'size': product.size or '',
         'delivery_date': delivery_date,
-        'batch_id': batch_id,
+        'batch_id': None,
         'qr_base64': qr_base64,
         'confirm_url': confirm_url,
     })

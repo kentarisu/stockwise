@@ -1,0 +1,179 @@
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+from datetime import datetime, timedelta
+from core.models import Sale, Product, SMS, AppUser
+from core.pricing_ai import DemandPricingAI, PolicyConfig
+import pandas as pd
+
+
+class Command(BaseCommand):
+    help = 'Generate demand-driven pricing recommendations and send SMS notifications'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--test',
+            action='store_true',
+            help='Send test pricing notifications instead of real recommendations',
+        )
+        parser.add_argument(
+            '--apply',
+            action='store_true',
+            help='Automatically apply recommendations (use with caution)',
+        )
+
+    def handle(self, *args, **options):
+        if options['test']:
+            self.send_test_pricing_notifications()
+        else:
+            self.generate_and_notify_pricing_recommendations(auto_apply=options['apply'])
+
+    def send_test_pricing_notifications(self):
+        """Send test pricing notifications to all admins"""
+        admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
+        if not admins.exists():
+            self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
+            return
+
+        message = "💰 Test Pricing Alert\nProduct: Apples\nCurrent: ₱150.00\nSuggested: ₱165.00 (+10%)\nReason: High demand detected\nConfidence: HIGH (R²=0.75)"
+        
+        for admin in admins:
+            if self.send_sms(admin.phone_number, message):
+                self.stdout.write(self.style.SUCCESS(f'Test pricing notification sent to {admin.username}'))
+            else:
+                self.stdout.write(self.style.ERROR(f'Failed to send test pricing notification to {admin.username}'))
+
+    def generate_and_notify_pricing_recommendations(self, auto_apply=False):
+        """Generate pricing recommendations and send notifications"""
+        try:
+            # Get sales data from last 120 days
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=120)
+            
+            sales_data = Sale.objects.filter(
+                recorded_at__date__gte=start_date,
+                recorded_at__date__lte=end_date
+            ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+            
+            if not sales_data.exists():
+                self.stdout.write(self.style.WARNING('Insufficient sales data for pricing analysis.'))
+                return
+            
+            # Convert to DataFrame
+            sales_df = pd.DataFrame(list(sales_data))
+            sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+            
+            # Get product catalog
+            products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
+            catalog_df = pd.DataFrame(list(products))
+            catalog_df.columns = ['product_id', 'name', 'price', 'cost']
+            catalog_df['last_change_date'] = None
+            
+            # Configure pricing AI
+            cfg = PolicyConfig(
+                min_margin_pct=0.10,         # 10% margin above cost
+                max_move_pct=0.20,           # don't move more than 20% at once
+                cooldown_days=3,             # respect 3-day cool-down
+                planning_horizon_days=7,     # optimize for next 7 days
+                min_obs_per_product=15,
+                default_elasticity=-1.0,
+                hold_band_pct=0.02,          # small changes (<2%) become HOLD
+            )
+            
+            # Generate recommendations
+            engine = DemandPricingAI(cfg)
+            proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+            
+            # Filter actionable recommendations
+            actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
+            
+            if actionable.empty:
+                self.stdout.write(self.style.SUCCESS('No actionable pricing recommendations at this time.'))
+                return
+            
+            # Send notifications to admins
+            admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
+            
+            for _, rec in actionable.iterrows():
+                # Create SMS record
+                try:
+                    product = Product.objects.get(product_id=rec['product_id'])
+                    admin = admins.first()  # Use first admin for logging
+                    
+                    SMS.objects.create(
+                        product=product,
+                        user_id=admin.user_id,
+                        message_type='pricing_alert',
+                        demand_level='high',
+                        message_content=f"Pricing recommendation: {rec['name']} - {rec['action']} to ₱{rec['suggested_price']:.2f} ({rec['change_pct']:.1f}%)"
+                    )
+                    
+                    # Send SMS to all admins
+                    message = f"💰 Pricing Recommendation\nProduct: {rec['name']}\nCurrent: ₱{rec['current_price']:.2f}\nSuggested: ₱{rec['suggested_price']:.2f} ({rec['change_pct']:+.1f}%)\nReason: {rec['reason']}\nConfidence: {rec['confidence']}"
+                    
+                    for admin in admins:
+                        if self.send_sms(admin.phone_number, message):
+                            self.stdout.write(self.style.SUCCESS(f'Pricing notification sent to {admin.username} for {rec["name"]}'))
+                        else:
+                            self.stdout.write(self.style.ERROR(f'Failed to send pricing notification to {admin.username}'))
+                    
+                    # Auto-apply if requested (use with caution)
+                    if auto_apply:
+                        product.unit_price = rec['suggested_price']
+                        product.save()
+                        self.stdout.write(self.style.SUCCESS(f'Auto-applied pricing change for {rec["name"]}: ₱{rec["suggested_price"]:.2f}'))
+                        
+                except Product.DoesNotExist:
+                    self.stdout.write(self.style.ERROR(f'Product {rec["product_id"]} not found'))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'Error processing recommendation for {rec["name"]}: {str(e)}'))
+            
+            self.stdout.write(self.style.SUCCESS(f'Processed {len(actionable)} pricing recommendations'))
+            
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Error generating pricing recommendations: {str(e)}'))
+
+    def send_sms(self, phone_number, message):
+        """Send SMS using Twilio"""
+        try:
+            from twilio.rest import Client
+            import os
+            from django.conf import settings
+            
+            # Get Twilio credentials
+            account_sid = os.getenv('TWILIO_ACCOUNT_SID') or getattr(settings, 'TWILIO_ACCOUNT_SID', None)
+            auth_token = os.getenv('TWILIO_AUTH_TOKEN') or getattr(settings, 'TWILIO_AUTH_TOKEN', None)
+            twilio_phone = os.getenv('TWILIO_FROM_PHONE') or os.getenv('TWILIO_PHONE_NUMBER') or getattr(settings, 'TWILIO_FROM_PHONE', None)
+            
+            if not all([account_sid, auth_token, twilio_phone]):
+                self.stdout.write(
+                    self.style.ERROR('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_PHONE.')
+                )
+                return False
+            
+            # Normalize phone number
+            normalized = phone_number.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            if normalized.startswith('00'):
+                normalized = '+' + normalized[2:]
+            if normalized.startswith('0'):
+                normalized = '+63' + normalized.lstrip('0')
+            elif not normalized.startswith('+'):
+                normalized = '+63' + normalized
+
+            client = Client(account_sid, auth_token)
+            message_obj = client.messages.create(
+                body=message,
+                from_=twilio_phone,
+                to=normalized
+            )
+            
+            self.stdout.write(f'SMS sent successfully. SID: {message_obj.sid}')
+            return True
+            
+        except ImportError:
+            self.stdout.write(
+                self.style.ERROR('Twilio not installed. Run: pip install twilio')
+            )
+            return False
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Failed to send SMS: {str(e)}'))
+            return False

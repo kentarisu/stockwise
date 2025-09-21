@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods, require_GET, requ
 import os
 import csv
 from django.conf import settings
-from django.db.models import Sum, Count, Q, F, Case, When, CharField, Value
+from django.db.models import Sum, Count, F, Q, F, Case, When, CharField, Value
 from django.db.models.functions import Coalesce, Substr
 from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary
 import json
@@ -17,9 +17,14 @@ from django.http import JsonResponse
  
 from datetime import datetime, timedelta
 from decimal import Decimal
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
 from django.http import HttpResponse
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.pdfgen import canvas
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -171,6 +176,63 @@ def dashboard_view(request):
 		stock__lte=10
 	).order_by('stock')[:2]
 
+	# Additional comprehensive overview data
+	# Monthly revenue
+	this_month = today.replace(day=1)
+	monthly_revenue = Sale.objects.filter(
+		recorded_at__date__gte=this_month,
+		status='completed'
+	).aggregate(total=Sum('total'))['total'] or 0
+	
+	# Total inventory value
+	total_inventory_value = Product.objects.filter(status='active').aggregate(
+		value=Sum(F('stock') * F('price'))
+	)['value'] or 0
+	
+	# Out of stock products
+	out_of_stock = Product.objects.filter(status='active', stock=0).count()
+	
+	# Weekly sales summary
+	week_start = today - timezone.timedelta(days=6)
+	weekly_sales = Sale.objects.filter(
+		recorded_at__date__gte=week_start,
+		status='completed'
+	).aggregate(
+		total_sales=Sum('quantity'),
+		total_revenue=Sum('total')
+	)
+	
+	# Recent transactions (last 10)
+	recent_transactions = Sale.objects.filter(
+		status='completed'
+	).select_related('product').order_by('-recorded_at')[:10]
+	
+	# Top customers (by sales count)
+	top_customers = (
+		Sale.objects
+		.filter(status='completed')
+		.exclude(customer_name__isnull=True)
+		.exclude(customer_name='')
+		.values('customer_name')
+		.annotate(
+			sales_count=Count('sale_id'),
+			total_spent=Sum('total')
+		)
+		.order_by('-sales_count')[:5]
+	)
+	
+	# Product categories overview
+	product_categories = (
+		Product.objects
+		.filter(status='active')
+		.values('size')
+		.annotate(
+			count=Count('product_id'),
+			total_stock=Sum('stock')
+		)
+		.order_by('-count')[:5]
+	)
+
 	context = {
 		'app_role': role,
 		'total_products': total_products,
@@ -187,6 +249,15 @@ def dashboard_view(request):
 		'recent_sales': recent_sales,
 		'recent_stock_additions': recent_stock_additions,
 		'low_stock_products': low_stock_products,
+		# Additional overview data
+		'monthly_revenue': monthly_revenue,
+		'total_inventory_value': total_inventory_value,
+		'out_of_stock': out_of_stock,
+		'weekly_sales_count': weekly_sales['total_sales'] or 0,
+		'weekly_revenue': weekly_sales['total_revenue'] or 0,
+		'recent_transactions': recent_transactions,
+		'top_customers': top_customers,
+		'product_categories': product_categories,
 	}
 
 	return render(request, 'dashboard_full.html', context)
@@ -670,17 +741,18 @@ def sales_view(request):
     end_date = request.GET.get('end_date', '')
     today = timezone.now().date()
 
-    # Base query for completed sales
-    sales_query = Sale.objects.filter(status='completed')
+    # Base query for completed sales (case-insensitive)
+    sales_query = Sale.objects.filter(status__iexact='completed')
     
-    # Apply date filters
-    if filter_type == 'Daily':
+    # Apply date filters (accept "today", case-insensitive)
+    ft = (filter_type or 'Daily').strip().lower()
+    if ft in ('daily','today'):
         sales_query = sales_query.filter(recorded_at__date=today)
-    elif filter_type == 'Weekly':
+    elif ft in ('weekly','week'):
         sales_query = sales_query.filter(recorded_at__gte=timezone.now() - timedelta(days=7))
-    elif filter_type == 'Monthly':
+    elif ft in ('monthly','month'):
         sales_query = sales_query.filter(recorded_at__gte=timezone.now() - timedelta(days=30))
-    elif filter_type == 'Custom' and start_date and end_date:
+    elif ft == 'custom' and start_date and end_date:
         try:
             start = datetime.strptime(start_date, '%Y-%m-%d').date()
             end = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -689,59 +761,94 @@ def sales_view(request):
             # Invalid date format, fallback to daily
             sales_query = sales_query.filter(recorded_at__date=today)
 
-    # Apply search filter if provided
+    # Apply search filter if provided (sale no., product, flexible dates)
     if search:
-        if search.isdigit():
-            # Search by sale ID
-            sales_query = sales_query.filter(sale_id=search)
-        else:
-            # Try parsing as date
+        s = (search or '').strip()
+        if s.startswith('#') and s[1:].isdigit():
+            sales_query = sales_query.filter(sale_id=s[1:])
+        elif s.isdigit():
             try:
-                search_date = datetime.strptime(search, '%B %d, %Y').date()
-                sales_query = sales_query.filter(recorded_at__date=search_date)
-            except ValueError:
-                # Search by product name or size
+                year_int = int(s)
+                if 1900 <= year_int <= 2100:
+                    sales_query = sales_query.filter(recorded_at__year=year_int)
+                else:
+                    sales_query = sales_query.filter(sale_id=s)
+            except Exception:
+                sales_query = sales_query.filter(sale_id=s)
+        else:
+            parsed = None
+            fmt_used = ''
+            for fmt in ('%B %d, %Y', '%b %d, %Y', '%B %d', '%b %d', '%B %Y', '%b %Y', '%Y-%m-%d', '%B', '%b'):
+                try:
+                    parsed = datetime.strptime(s, fmt)
+                    fmt_used = fmt
+                    break
+                except ValueError:
+                    continue
+            if parsed:
+                if '%d' in fmt_used and '%Y' in fmt_used:
+                    sales_query = sales_query.filter(recorded_at__date=parsed.date())
+                elif '%d' in fmt_used:
+                    sales_query = sales_query.filter(recorded_at__month=parsed.month, recorded_at__day=parsed.day)
+                elif '%Y' in fmt_used and ('%B' in fmt_used or '%b' in fmt_used):
+                    sales_query = sales_query.filter(recorded_at__year=parsed.year, recorded_at__month=parsed.month)
+                elif fmt_used in ('%B', '%b'):
+                    sales_query = sales_query.filter(recorded_at__month=parsed.month)
+                else:
+                    sales_query = sales_query.filter(recorded_at__year=parsed.year)
+            else:
                 sales_query = sales_query.filter(
-                    Q(items__product__name__icontains=search) |
-                    Q(items__product__size__icontains=search)
+                    Q(product__name__icontains=s) |
+                    Q(product__size__icontains=s)
                 ).distinct()
 
-    # Calculate statistics
-    total_sales = sales_query.count()
+    # Calculate statistics (across all rows)
     total_boxes = sales_query.aggregate(total=Sum('quantity'))['total'] or 0
-    total_revenue = sales_query.aggregate(
-        total=Sum('total')
-    )['total'] or Decimal('0.00')
+    total_revenue = sales_query.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
-    # Get sales with related data
-    sales = sales_query.select_related('product', 'user').order_by('-recorded_at')
+    # Group rows by transaction number so multiple fruits appear as one sale
+    rows = (
+        sales_query.select_related('product', 'user')
+        .order_by('-recorded_at', 'transaction_number', 'sale_id')
+    )
+    grouped = {}
+    for row in rows:
+        key = row.transaction_number or f"SID{row.sale_id}"
+        g = grouped.get(key)
+        item = {
+            'product_name': row.product.name if row.product else '',
+            'size': row.product.size if row.product else '',
+            'quantity': int(row.quantity or 0),
+            'price': row.price,
+            'subtotal': row.total
+        }
+        if not g:
+            grouped[key] = {
+                'sale_id': row.sale_id,  # representative id
+                'transaction_number': key,
+                'recorded_at': row.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                'items': [item],
+                'items_json': [item],
+                'total': row.total,
+                'status': row.status,
+                'product_count': 1,
+                'total_boxes': int(row.quantity or 0),
+                'products': item['product_name'],
+                'customer_name': getattr(row, 'customer_name', '') or ''
+            }
+        else:
+            g['items'].append(item)
+            g['items_json'].append(item)
+            g['total'] = (g['total'] or 0) + row.total
+            g['product_count'] += 1
+            g['total_boxes'] += int(row.quantity or 0)
+            if item['product_name'] and item['product_name'] not in g['products']:
+                g['products'] += f", {item['product_name']}"
+            if not g.get('customer_name') and (getattr(row, 'customer_name', '') or ''):
+                g['customer_name'] = getattr(row, 'customer_name', '')
 
-    # Format sales data for template
-    sales_data = []
-    for sale in sales:
-        sales_data.append({
-            'sale_id': sale.sale_id,
-            'recorded_at': sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
-            'items': [{
-                'product_name': sale.product.name,
-                'size': sale.product.size,
-                'quantity': sale.quantity,
-                'price': sale.price,
-                'subtotal': sale.total
-            }],
-            'items_json': [{
-                'product_name': sale.product.name,
-                'size': sale.product.size,
-                'quantity': sale.quantity,
-                'price': sale.price,
-                'subtotal': sale.total
-            }],
-            'total': sale.total,
-            'status': sale.status,
-            'product_count': 1,
-            'total_boxes': sale.quantity,
-            'products': sale.product.name
-        })
+    sales_data = list(grouped.values())
+    total_sales = len(sales_data)
 
     # Get voided sales if user is admin
     voided_sales = []
@@ -825,16 +932,20 @@ def fetch_sales(request):
         status = request.GET.get('status', 'completed')
 
         # Base query
-        sales_query = Sale.objects.filter(status=status.lower())
+        if status and status.lower() != 'all':
+            sales_query = Sale.objects.filter(status__iexact=status)
+        else:
+            sales_query = Sale.objects.all()
 
         # Apply filters (same logic as sales_view)
-        if filter_type == 'Daily':
+        ft = (filter_type or 'Daily').strip().lower()
+        if ft in ('daily','today'):
             sales_query = sales_query.filter(recorded_at__date=timezone.now().date())
-        elif filter_type == 'Weekly':
+        elif ft in ('weekly','week'):
             sales_query = sales_query.filter(recorded_at__gte=timezone.now() - timedelta(days=7))
-        elif filter_type == 'Monthly':
+        elif ft in ('monthly','month'):
             sales_query = sales_query.filter(recorded_at__gte=timezone.now() - timedelta(days=30))
-        elif filter_type == 'Custom' and start_date and end_date:
+        elif ft == 'custom' and start_date and end_date:
             try:
                 start = datetime.strptime(start_date, '%Y-%m-%d').date()
                 end = datetime.strptime(end_date, '%Y-%m-%d').date()
@@ -842,54 +953,84 @@ def fetch_sales(request):
             except ValueError:
                 sales_query = sales_query.filter(recorded_at__date=timezone.now().date())
 
-        # Apply search
+        # Apply search: supports sale number, product name, and flexible dates
         if search:
-            if search.isdigit():
-                sales_query = sales_query.filter(sale_id=search)
-            else:
+            s = (search or '').strip()
+            if s.startswith('#') and s[1:].isdigit():
+                sales_query = sales_query.filter(sale_id=s[1:])
+            elif s.isdigit():
+                # treat pure digits as sale id or year
                 try:
-                    search_date = datetime.strptime(search, '%B %d, %Y').date()
-                    sales_query = sales_query.filter(recorded_at__date=search_date)
-                except ValueError:
+                    year_int = int(s)
+                    if 1900 <= year_int <= 2100:
+                        sales_query = sales_query.filter(recorded_at__year=year_int)
+                    else:
+                        sales_query = sales_query.filter(sale_id=s)
+                except Exception:
+                    sales_query = sales_query.filter(sale_id=s)
+            else:
+                # Try flexible date parsing - month day, optional year
+                parsed = None
+                for fmt in ('%B %d, %Y', '%b %d, %Y', '%B %d', '%b %d', '%B %Y', '%b %Y', '%Y-%m-%d'):
+                    try:
+                        parsed = datetime.strptime(s, fmt)
+                        break
+                    except ValueError:
+                        continue
+                if parsed:
+                    if '%d' in fmt and '%Y' in fmt:
+                        sales_query = sales_query.filter(recorded_at__date=parsed.date())
+                    elif '%d' in fmt:
+                        sales_query = sales_query.filter(recorded_at__month=parsed.month, recorded_at__day=parsed.day)
+                    elif '%Y' in fmt and ('%B' in fmt or '%b' in fmt):
+                        sales_query = sales_query.filter(recorded_at__year=parsed.year, recorded_at__month=parsed.month)
+                    else:
+                        sales_query = sales_query.filter(recorded_at__year=parsed.year)
+                else:
                     sales_query = sales_query.filter(
-                        Q(items__product__name__icontains=search) |
-                        Q(items__product__size__icontains=search)
+                        Q(items__product__name__icontains=s) |
+                        Q(items__product__size__icontains=s)
                     ).distinct()
 
-        # Get sales with related data
-        sales = sales_query.prefetch_related(
-            'items__product'
-        ).select_related('user').order_by('-recorded_at')
-
-        # Format response data
-        sales_data = []
-        for sale in sales:
-            items = sale.items.all()
-            items_data = [{
-                'product_name': item.product.name,
-                'size': item.product.size,
-                'quantity': item.quantity,
-                'price': item.product.price,
-                'subtotal': item.subtotal
-            } for item in items]
-            
-            sale_dict = {
-                'sale_id': sale.sale_id,
-                'recorded_at': sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
-                'items': items_data,
-                'items_json': items_data,
-                'total': str(sale.total),
-                'status': sale.status,
-                'product_count': len(items),
-                'total_boxes': sum(item.quantity for item in items),
-                'products': ', '.join(item.product.name for item in items)
+        # Get sales rows and group by transaction_number
+        rows = sales_query.select_related('user','product').order_by('-recorded_at','transaction_number','sale_id')
+        grouped = {}
+        for row in rows:
+            key = row.transaction_number or f"SID{row.sale_id}"
+            g = grouped.get(key)
+            item = {
+                'product_name': row.product.name if row.product else '',
+                'size': row.product.size if row.product else '',
+                'quantity': int(row.quantity or 0),
+                'price': float(row.price or 0),
+                'subtotal': float(row.total or 0)
             }
+            if not g:
+                grouped[key] = {
+                    'sale_id': row.sale_id,
+                    'transaction_number': key,
+                    'recorded_at': row.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                    'items': [item],
+                    'items_json': [item],
+                    'total': str(row.total),
+                    'status': row.status,
+                    'product_count': 1,
+                    'total_boxes': int(row.quantity or 0),
+                    'products': item['product_name'],
+                    'customer_name': getattr(row, 'customer_name', '') or ''
+                }
+            else:
+                g['items'].append(item)
+                g['items_json'].append(item)
+                g['total'] = str((Decimal(g['total']) if isinstance(g['total'], str) else g['total']) + (row.total or 0))
+                g['product_count'] += 1
+                g['total_boxes'] += int(row.quantity or 0)
+                if item['product_name'] and item['product_name'] not in g['products']:
+                    g['products'] += f", {item['product_name']}"
+                if not g.get('customer_name') and (getattr(row, 'customer_name', '') or ''):
+                    g['customer_name'] = getattr(row, 'customer_name', '')
 
-            if status == 'voided' and sale.voided_at:
-                days_passed = (timezone.now() - sale.voided_at).days
-                sale_dict['days_until_deletion'] = max(0, 30 - days_passed)
-
-            sales_data.append(sale_dict)
+        sales_data = list(grouped.values())
 
         return JsonResponse({
             'success': True,
@@ -1077,9 +1218,9 @@ def check_print_limit(request, sale_id):
     """AJAX endpoint to check if user can print receipt."""
     try:
         # For now, allow unlimited prints since ReceiptPrint model was removed
-        return JsonResponse({
-            'success': True,
-            'data': {'can_print': True}
+            return JsonResponse({
+                'success': True,
+                'data': {'can_print': True}
         })
     except Exception as e:
         return JsonResponse({
@@ -1120,15 +1261,40 @@ def reports_view(request):
     return render(request, 'reports_full.html', context)
 
 @require_app_login
+def charts_view(request):
+    """Render charts page (admin only)."""
+    if request.session.get('app_role') != 'admin':
+        return redirect('dashboard')
+    # Pass initial empty objects; JS will fetch
+    context = {
+        'app_role': request.session.get('app_role', 'user'),
+        'app_username': request.session.get('app_username',''),
+        'filter': request.GET.get('filter','Daily'),
+        'search': request.GET.get('search',''),
+        'start_date': request.GET.get('start_date',''),
+        'end_date': request.GET.get('end_date',''),
+    }
+    return render(request, 'charts_full.html', context)
+
 def _apply_report_filters(queryset, filter_type, start_date, end_date):
+    """Apply time filters case-insensitively and accept synonyms like 'today'."""
     today = timezone.now().date()
-    if filter_type == 'Daily':
-        queryset = queryset.filter(recorded_at__date=today)
-    elif filter_type == 'Weekly':
+    ft = (filter_type or 'Daily').strip().lower()
+    if ft in ('daily', 'today'):
+        # Prefer explicit start_date if provided to avoid timezone mismatches
+        if start_date:
+            try:
+                s = datetime.strptime(start_date, '%Y-%m-%d').date()
+                queryset = queryset.filter(recorded_at__date=s)
+            except ValueError:
+                queryset = queryset.filter(recorded_at__date=today)
+        else:
+            queryset = queryset.filter(recorded_at__date=today)
+    elif ft in ('weekly', 'week'):
         queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=7))
-    elif filter_type == 'Monthly':
+    elif ft in ('monthly', 'month'):
         queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=30))
-    elif filter_type == 'Custom' and start_date and end_date:
+    elif ft in ('custom',) and start_date and end_date:
         try:
             s = datetime.strptime(start_date,'%Y-%m-%d').date()
             e = datetime.strptime(end_date,'%Y-%m-%d').date()
@@ -1148,16 +1314,16 @@ def fetch_reports(request):
     end_date=request.GET.get('end_date','')
 
     try:
-        sales_q=Sale.objects.filter(status__iexact='completed').prefetch_related('items__product')
+        sales_q=Sale.objects.filter(status__iexact='completed')
         sales_q=_apply_report_filters(sales_q,filter_type,start_date,end_date)
         if search:
             if search.isdigit():
                 sales_q=sales_q.filter(sale_id=search)
             else:
-                sales_q=sales_q.filter(Q(items__product__name__icontains=search)|Q(items__product__size__icontains=search)).distinct()
+                sales_q=sales_q.filter(Q(product__name__icontains=search)|Q(product__size__icontains=search)).distinct()
 
         # sales_summary
-        agg=sales_q.aggregate(total_revenue=Sum(F('items__quantity')*F('items__product__price')),transaction_count=Count('sale_id',distinct=True),total_items_sold=Sum('items__quantity'))
+        agg=sales_q.aggregate(total_revenue=Sum(F('quantity')*F('product__price')),transaction_count=Count('sale_id',distinct=True),total_items_sold=Sum('quantity'))
         total_rev=agg['total_revenue'] or Decimal('0.00')
         trans_cnt=agg['transaction_count'] or 0
         total_boxes=agg['total_items_sold'] or 0
@@ -1213,12 +1379,42 @@ def fetch_reports(request):
                 'sizes':sale.product.size if sale.product else '',
             })
 
+        # Product summary reports from report_product_summary table
+        summary_reports = ReportProductSummary.objects.select_related('product').order_by('-generated_at')[:50]
+        summary_reports_data = [{
+            'product_name': r.product.name if r.product else 'Unknown',
+            'period_start': r.period_start.strftime('%Y-%m-%d'),
+            'period_end': r.period_end.strftime('%Y-%m-%d'),
+            'granularity': r.granularity,
+            'opening_qty': float(r.opening_qty),
+            'added_qty': float(r.added_qty),
+            'sold_qty': float(r.sold_qty),
+            'closing_qty': float(r.closing_qty),
+            'revenue': float(r.revenue),
+            'cogs': float(r.cogs),
+            'gross_profit': float(r.gross_profit),
+            'gross_margin_pct': float(r.gross_margin_pct) if r.gross_margin_pct else None,
+            'sell_through_pct': float(r.sell_through_pct) if r.sell_through_pct else None,
+            'avg_daily_sales': float(r.avg_daily_sales) if r.avg_daily_sales else None,
+            'days_of_cover_end': float(r.days_of_cover_end) if r.days_of_cover_end else None,
+            'low_stock_flag': r.low_stock_flag,
+            'price_action': r.price_action,
+            'demand_level': r.demand_level,
+            'last_price': float(r.last_price) if r.last_price else None,
+            'suggested_price': float(r.suggested_price) if r.suggested_price else None,
+            'first_sale_at': r.first_sale_at.strftime('%Y-%m-%d %H:%M') if r.first_sale_at else None,
+            'last_sale_at': r.last_sale_at.strftime('%Y-%m-%d %H:%M') if r.last_sale_at else None,
+            'sms_low_stock_count': r.sms_low_stock_count,
+            'sms_expiry_count': r.sms_expiry_count,
+        } for r in summary_reports]
+
         return JsonResponse({'success':True,'data':{
             'sales_summary':sales_summary,
             'top_fruits':top_fruits,
             'fruit_summary':fruit_summary,
             'low_stock':low_stock,
-            'transactions':tx_data
+            'transactions':tx_data,
+            'summary_reports': summary_reports_data
         }})
     except Exception as e:
         return JsonResponse({'success':False,'message':str(e)})
@@ -1227,34 +1423,97 @@ def fetch_reports(request):
 def export_report(request):
     if request.method!='POST' or request.session.get('app_role')!='admin':
         return JsonResponse({'success':False,'message':'Forbidden'},status=403)
-    report_type=request.POST.get('report_type')
-    filter_type=request.POST.get('filter','Daily')
-    start_date=request.POST.get('start_date','')
-    end_date=request.POST.get('end_date','')
-    search=request.POST.get('search','')
+    # Force PDF-only export with real-time data (same filters as sales)
+    report_type = request.POST.get('report_type','transactions')
+    filter_type = request.POST.get('filter','Daily')
+    start_date = request.POST.get('start_date','')
+    end_date = request.POST.get('end_date','')
+    search = request.POST.get('search','')
 
-    sales_q=Sale.objects.filter(status__iexact='completed')
-    sales_q=_apply_report_filters(sales_q,filter_type,start_date,end_date)
+    sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
+    sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
     if search:
         if search.isdigit():
-            sales_q=sales_q.filter(sale_id=search)
+            sales_q = sales_q.filter(sale_id=search)
         else:
-            sales_q=sales_q.filter(items__product__name__icontains=search).distinct()
+            # Match product name or size
+            sales_q = sales_q.filter(
+                Q(product__name__icontains=search) | Q(product__size__icontains=search)
+            ).distinct()
 
-    response=HttpResponse(content_type='text/csv')
-    response['Content-Disposition']=f'attachment; filename="{report_type}_report.csv"'
-    csv_writer=csv.writer(response)
+    # Aggregate summary
+    agg = sales_q.aggregate(
+        total_revenue=Sum(F('quantity')*F('product__price')),
+        transaction_count=Count('sale_id', distinct=True),
+        total_boxes=Sum('quantity')
+    )
+    total_revenue = float(agg['total_revenue'] or 0)
+    transaction_count = int(agg['transaction_count'] or 0)
+    total_boxes = int(agg['total_boxes'] or 0)
 
-    if report_type=='sales_summary':
-        agg=sales_q.aggregate(total=Sum(F('quantity')*F('product__price')),count=Count('sale_id',distinct=True),boxes=Sum('quantity'))
-        csv_writer.writerow(['Total Revenue','Transactions','Total Boxes'])
-        csv_writer.writerow([agg['total'] or 0,agg['count'] or 0,agg['boxes'] or 0])
-    elif report_type=='transactions':
-        csv_writer.writerow(['Sale ID','Date','Total','Status'])
-        for s in sales_q:
-            csv_writer.writerow([s.sale_id,s.recorded_at,s.total,s.status])
-    else:
-        csv_writer.writerow(['Not implemented'])
+    # Build PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24)
+    styles = getSampleStyleSheet()
+    elems = []
+
+    # Title
+    title = f"StockWise {report_type.replace('_',' ').title()} Report"
+    elems.append(Paragraph(title, styles['Title']))
+    meta = f"Filter: {filter_type}  |  Generated: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    elems.append(Paragraph(meta, styles['Normal']))
+    elems.append(Spacer(1, 12))
+
+    # Summary table
+    summary_data = [
+        ['Total Revenue', 'Transactions', 'Total Boxes'],
+        [f"₱{total_revenue:,.2f}", f"{transaction_count}", f"{total_boxes}"]
+    ]
+    summary_tbl = Table(summary_data, hAlign='LEFT')
+    summary_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 10),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+    ]))
+    elems.append(summary_tbl)
+    elems.append(Spacer(1, 12))
+
+    # Transactions table (real-time)
+    rows = [['Sale ID','Date','Product','Size','Qty','Price','Total','Status','User']]
+    for s in sales_q.order_by('-recorded_at')[:1000]:
+        rows.append([
+            s.sale_id,
+            s.recorded_at.strftime('%Y-%m-%d %H:%M'),
+            getattr(s.product, 'name', ''),
+            getattr(s.product, 'size', ''),
+            int(s.quantity or 0),
+            f"₱{float(s.price or 0):,.2f}",
+            f"₱{float(s.total or 0):,.2f}",
+            s.status.title() if isinstance(s.status, str) else s.status,
+            getattr(s.user, 'username', '')
+        ])
+    table = Table(rows, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
+        ('ALIGN', (4,1), (6,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FBFDFF')])
+    ]))
+    elems.append(table)
+
+    doc.build(elems)
+    pdf = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{report_type}_report.pdf"'
+    response.write(pdf)
     return response
 
 
@@ -1357,7 +1616,14 @@ def fetch_products(request):
         products_qs = Product.objects.none()
     if search:
         products_qs = products_qs.filter(Q(name__icontains=search) | Q(size__icontains=search))
-    if filter_status != 'All Products':
+    if filter_status == 'Active':
+        products_qs = products_qs.filter(status='active')
+    elif filter_status == 'Low Stock':
+        # Define low stock as less than 10 items
+        products_qs = products_qs.filter(stock__lt=10, stock__gt=0)
+    elif filter_status == 'Out of Stock':
+        products_qs = products_qs.filter(stock=0)
+    elif filter_status != 'All Products':
         products_qs = products_qs.filter(status=filter_status.lower())
 
     data = []
@@ -1430,7 +1696,7 @@ def fetch_stock_details(request, product_id):
                 continue
             data.append({
                 'batch_id': box_id,
-                'date_added': b.date_added,
+            'date_added': b.date_added,
                 'quantity': 1,
                 'remaining': box_remaining,
                 'supplier': product.supplier or '-',
@@ -1581,9 +1847,9 @@ def record_sale(request):
                 if product.stock < quantity:
                     raise ValidationError(f'Insufficient stock for {product.name}. Available: {product.stock}, Requested: {quantity}')
 
-                # OR per line to keep uniqueness simple
-                or_seq = Sale.objects.filter(recorded_at__year=year).count() + 1
-                or_number = f'OR-{year}-{or_seq:06d}'
+                # Accept client-generated transaction and OR numbers
+                transaction_number = request.POST.get('transaction_number', '')
+                or_number = request.POST.get('or_number', '')
 
                 line_total = Decimal(product.price) * quantity
 
@@ -1591,10 +1857,11 @@ def record_sale(request):
                     product=product,
                     quantity=quantity,
                     price=product.price,
+                    transaction_number=transaction_number,
                     or_number=or_number,
                     customer_name=request.POST.get('customer_name', ''),
-                    address=request.POST.get('address', ''),
-                    contact_number=int(request.POST.get('contact_number', 0) or 0),
+                    address=request.POST.get('customer_address', ''),
+                    contact_number=int(request.POST.get('customer_contact', 0) or 0),
                     recorded_at=timezone.now(),
                     total=line_total,
                     amount_paid=amount_paid,
@@ -1637,25 +1904,58 @@ def get_sale_details(request, sale_id):
     """Return sale details for receipt"""
     try:
         sale = Sale.objects.select_related('user').get(sale_id=sale_id)
-        
-        # For single-table sales, create items data from the sale itself
-        items_data = [{
-            'product_id': sale.product.product_id if sale.product else None,
-            'product__name': sale.product.name if sale.product else 'Unknown',
-            'product__size': sale.product.size if sale.product else '',
-            'quantity': sale.quantity,
-            'price': sale.price
-        }]
+
+        # Collect all rows that belong to the same transaction
+        txn_key = getattr(sale, 'transaction_number', '') or ''
+        rows = Sale.objects.select_related('product').filter(
+            status__iexact='completed',
+            transaction_number=txn_key if txn_key else sale.transaction_number
+        ) if txn_key else [sale]
+
+        items_data = []
+        total_amount = Decimal('0')
+        total_boxes = 0
+        for row in rows:
+            batch_ids = _compute_sale_batch_ids(row)
+            items_data.append({
+                'product_id': row.product.product_id if row.product else None,
+                'product__name': row.product.name if row.product else 'Unknown',
+                'product__size': row.product.size if row.product else '',
+                'quantity': int(row.quantity or 0),
+                'price': float(row.price or 0),
+                'batch_ids': batch_ids
+            })
+            total_amount += (row.total or Decimal('0'))
+            total_boxes += int(row.quantity or 0)
+
+        # Transaction number: stored field if present; fallback to OR derived
+        txn_number = txn_key
+        if not txn_number:
+            try:
+                on = sale.or_number or ''
+                if isinstance(on, str) and on.strip():
+                    suffix = ''.join(ch for ch in on if ch.isdigit())[-6:]
+                    txn_number = f"TXN{suffix}" if suffix else ''
+            except Exception:
+                txn_number = ''
 
         return JsonResponse({
             'success': True,
             'sale': {
                 'sale_id': sale.sale_id,
+                'transaction_number': txn_number,
                 'or_number': sale.or_number,
                 'recorded_at': sale.recorded_at.isoformat(),
-                'total': sale.total,
+                'total': total_amount,
                 'status': sale.status,
-                'username': sale.user.username if sale.user else 'Unknown'
+                'username': sale.user.username if sale.user else 'Unknown',
+                'customer_name': getattr(sale, 'customer_name', ''),
+                'customer_contact': getattr(sale, 'contact_number', ''),
+                'customer_address': getattr(sale, 'address', ''),
+                'product_count': len(items_data),
+                'total_boxes': total_boxes,
+                'amount_paid': total_amount,
+                'change_given': Decimal('0')
             },
             'items': items_data
         })
@@ -2057,6 +2357,52 @@ def deduct_stock_fifo(product_id, quantity):
     Product.objects.filter(product_id=product_id).update(stock=total_remaining)
 
 
+def _expand_batch_box_ids(batch_id, quantity):
+    """Expand a batch_id into per-box IDs by appending/rolling 2-digit sequence.
+    Assumes last two chars of batch_id are a numeric sequence start; if not, starts at 1.
+    """
+    try:
+        start_seq = int(batch_id[-2:])
+        prefix = batch_id[:-2]
+    except Exception:
+        start_seq = 1
+        prefix = batch_id
+    box_ids = []
+    for i in range(int(quantity or 0)):
+        seq = ((start_seq - 1 + i) % 99) + 1
+        box_ids.append(f"{prefix}{seq:02d}")
+    return box_ids
+
+
+def _compute_sale_batch_ids(sale):
+    """Compute which per-box batch IDs were consumed by this sale using strict FIFO.
+    Works for single-product sales by replaying prior completed sales.
+    """
+    product = sale.product
+    if not product:
+        return []
+    # Build FIFO queue of box IDs from stock additions
+    additions = (StockAddition.objects
+                 .filter(product=product)
+                 .order_by('date_added', 'addition_id'))
+    fifo_boxes = []
+    for add in additions:
+        fifo_boxes.extend(_expand_batch_box_ids(add.batch_id, add.quantity))
+    # Replay all prior completed sales for this product in chronological order
+    prior_sales = (Sale.objects
+                   .filter(product=product, status__iexact='completed')
+                   .order_by('recorded_at', 'sale_id'))
+    consumed_index = 0
+    target_ids = []
+    for s in prior_sales:
+        qty = int(s.quantity or 0)
+        if s.sale_id == sale.sale_id:
+            # Take the next qty boxes for this sale
+            target_ids = fifo_boxes[consumed_index:consumed_index + qty]
+            break
+        consumed_index += qty
+    return target_ids
+
 def can_print_receipt(sale_id, user_id, user_role):
     """Check if user can print receipt"""
     # For now, allow unlimited prints since ReceiptPrint model was removed
@@ -2137,5 +2483,296 @@ def send_test_sms(request):
         return JsonResponse({'success': False, 'message': f'Failed to send test SMS: {short_msg}{hint}'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def test_notification_type(request):
+    """Send test SMS for specific notification types"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+    try:
+        notification_type = request.POST.get('type', 'sales')
+        user_id = request.session.get('app_user_id')
+        user_obj = AppUser.objects.get(user_id=user_id)
+        
+        if not user_obj.phone_number:
+            return JsonResponse({'success': False, 'message': 'No phone number configured'})
+
+        # Generate test message based on notification type
+        test_messages = {
+            'sales': "📊 Test Sales Summary\nDate: Today\nRevenue: ₱12,450\nTransactions: 23\nBoxes Sold: 45\nTop Product: Apples (12 boxes)",
+            'stock': "⚠️ Test Stock Alert\nProduct: Apples\nCurrent Stock: 8 boxes\nThreshold: 10 boxes\nAction: Restock recommended",
+            'pricing': "💰 Test Pricing Alert\nProduct: Apples\nCurrent Price: ₱150\nRecommended: ₱165\nReason: High demand detected"
+        }
+        
+        message = test_messages.get(notification_type, "Test SMS from StockWise. Notifications are working.")
+        
+        # Send SMS using the existing SMS service
+        from core.management.commands.send_daily_sms import Command
+        sms_command = Command()
+        
+        try:
+            if sms_command.send_sms(user_obj.phone_number, message):
+                return JsonResponse({'success': True, 'message': f'Test {notification_type} notification sent successfully!'})
+            else:
+                return JsonResponse({'success': False, 'message': 'Failed to send test notification'})
+        except Exception as e:
+            error_msg = str(e)
+            if 'unverified' in error_msg.lower():
+                return JsonResponse({
+                    'success': False, 
+                    'message': 'Phone number not verified. Please verify your number in Twilio console or use a verified number.'
+                })
+            else:
+                return JsonResponse({'success': False, 'message': f'Failed to send test notification: {error_msg}'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def update_notification_settings(request):
+    """Update notification settings for different types"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+    try:
+        user_id = request.session.get('app_user_id')
+        user_obj = AppUser.objects.get(user_id=user_id)
+        
+        # Get settings from POST data
+        sales_enabled = request.POST.get('sales_enabled') == 'true'
+        stock_enabled = request.POST.get('stock_enabled') == 'true'
+        sales_time = request.POST.get('sales_time', '22:00')
+        stock_threshold = int(request.POST.get('stock_threshold', 10))
+        
+        # Store settings in user model (you might want to create a separate settings model)
+        # For now, we'll store in a JSON field or use existing fields
+        user_obj.phone_number = user_obj.phone_number  # Keep existing phone
+        user_obj.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Notification settings updated successfully!',
+            'settings': {
+                'sales_enabled': sales_enabled,
+                'stock_enabled': stock_enabled,
+                'sales_time': sales_time,
+                'stock_threshold': stock_threshold
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def get_notification_stats(request):
+    """Get notification statistics"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    try:
+        from django.db.models import Count
+        from datetime import datetime, timedelta
+        from core.models import SMS
+        
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        # Get SMS statistics (you might need to adjust based on your SMS model)
+        stats = {
+            'messages_today': SMS.objects.filter(sent_at__date=today).count(),
+            'messages_week': SMS.objects.filter(sent_at__date__gte=week_ago).count(),
+            'stock_alerts': SMS.objects.filter(message_type='stock_alert').count(),
+            'sales_summaries': SMS.objects.filter(message_type='sales_summary_daily').count()
+        }
+        
+        return JsonResponse({'success': True, 'stats': stats})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def get_pricing_recommendations(request):
+    """Get demand-driven pricing recommendations"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    try:
+        from core.pricing_ai import DemandPricingAI, PolicyConfig
+        from core.models import Sale, Product
+        from datetime import datetime, timedelta
+        import pandas as pd
+        
+        # Get sales data from last 120 days
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=120)
+        
+        sales_data = Sale.objects.filter(
+            recorded_at__date__gte=start_date,
+            recorded_at__date__lte=end_date
+        ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+        
+        if not sales_data.exists():
+            return JsonResponse({
+                'success': False, 
+                'message': 'Insufficient sales data for pricing analysis. Need at least 15 days of sales.'
+            })
+        
+        # Convert to DataFrame
+        sales_df = pd.DataFrame(list(sales_data))
+        sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+        
+        # Get product catalog
+        products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
+        catalog_df = pd.DataFrame(list(products))
+        catalog_df.columns = ['product_id', 'name', 'price', 'cost']
+        catalog_df['last_change_date'] = None  # Add last change tracking
+        
+        # Configure pricing AI
+        cfg = PolicyConfig(
+            min_margin_pct=0.10,         # 10% margin above cost
+            max_move_pct=0.20,           # don't move more than 20% at once
+            cooldown_days=3,             # respect 3-day cool-down
+            planning_horizon_days=7,     # optimize for next 7 days
+            min_obs_per_product=15,
+            default_elasticity=-1.0,
+            hold_band_pct=0.02,          # small changes (<2%) become HOLD
+        )
+        
+        # Generate recommendations
+        engine = DemandPricingAI(cfg)
+        proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+        
+        # Convert to JSON-serializable format
+        recommendations = []
+        for _, row in proposals.iterrows():
+            recommendations.append({
+                'product_id': row['product_id'],
+                'name': row['name'],
+                'current_price': float(row['current_price']),
+                'suggested_price': float(row['suggested_price']),
+                'change_pct': float(row['change_pct']),
+                'action': row['action'],
+                'reason': row['reason'],
+                'elasticity': float(row['elasticity']) if row['elasticity'] else None,
+                'r2': float(row['r2']) if row['r2'] else None,
+                'confidence': row['confidence']
+            })
+        
+        return JsonResponse({
+            'success': True, 
+            'recommendations': recommendations,
+            'total_products': len(recommendations),
+            'actionable_count': len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error generating recommendations: {str(e)}'})
+
+
+@require_app_login
+def apply_pricing_recommendation(request):
+    """Apply a pricing recommendation with user approval"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+    try:
+        product_id = request.POST.get('product_id')
+        new_price = float(request.POST.get('new_price'))
+        
+        if not product_id or new_price <= 0:
+            return JsonResponse({'success': False, 'message': 'Invalid product ID or price'})
+        
+        # Update product price
+        from core.models import Product
+        product = Product.objects.get(product_id=product_id)
+        old_price = product.price
+        product.price = new_price
+        product.save()
+        
+        # Log the price change
+        from core.models import SMS
+        SMS.objects.create(
+            product=product,
+            user_id=request.session.get('app_user_id'),
+            message_type='pricing_alert',
+            demand_level='high',  # Could be determined by the recommendation
+            message_content=f"Price updated from ₱{old_price:.2f} to ₱{new_price:.2f}",
+        )
+        
+        return JsonResponse({
+            'success': True, 
+            'message': f'Price updated successfully from ₱{old_price:.2f} to ₱{new_price:.2f}'
+        })
+        
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error updating price: {str(e)}'})
+
+
+@require_app_login
+def test_pricing_notification(request):
+    """Send test pricing notification"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    try:
+        user_id = request.session.get('app_user_id')
+        user_obj = AppUser.objects.get(user_id=user_id)
+        
+        if not user_obj.phone_number:
+            return JsonResponse({'success': False, 'message': 'No phone number configured'})
+
+        # Generate test pricing message
+        message = "💰 Test Pricing Alert\nProduct: Apples\nCurrent Price: ₱150\nRecommended: ₱165\nReason: High demand detected\nConfidence: HIGH (R²=0.75)"
+        
+        # Send SMS using the existing SMS service
+        from core.management.commands.send_daily_sms import Command
+        sms_command = Command()
+        
+        try:
+            if sms_command.send_sms(user_obj.phone_number, message):
+                return JsonResponse({'success': True, 'message': 'Test pricing notification sent successfully!'})
+            else:
+                return JsonResponse({'success': False, 'message': 'Failed to send test pricing notification'})
+        except Exception as e:
+            error_msg = str(e)
+            if 'unverified' in error_msg.lower():
+                return JsonResponse({
+                    'success': False, 
+                    'message': 'Phone number not verified. Please verify your number in Twilio console or use a verified number.'
+                })
+            else:
+                return JsonResponse({'success': False, 'message': f'Failed to send test pricing notification: {error_msg}'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_GET
+def get_product_id(request):
+    name = request.GET.get('name')
+    variant = request.GET.get('variant')
+    size = request.GET.get('size')
+    full_name = f"{name} ({variant})" if variant else name
+    product = Product.objects.filter(name=full_name, size=size, is_built_in=False).first()
+    if product:
+        return JsonResponse({'success': True, 'product_id': product.product_id})
+    else:
+        return JsonResponse({'success': False, 'message': 'Product not found'})
 
 

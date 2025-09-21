@@ -7,12 +7,14 @@
   <title>StockWise - Print QR Code Stickers</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
   <style>
     body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
     .page-container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1rem}
     .card-modern{width:100%;max-width:900px;background:#fff;border-radius:16px;border:1px solid #e5e7eb;box-shadow:0 1px 3px 0 rgb(0 0 0/0.1),0 1px 2px -1px rgb(0 0 0/0.1);overflow:hidden}
     .card-header-modern{background:#f3f4f6;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+    .dropdown-menu{max-height:300px;overflow:auto;position:absolute;top:100%;left:0;right:auto}
   </style>
 </head>
 <body>
@@ -29,14 +31,20 @@
           <div class="col-md-6">
             <div class="mb-3">
               <label class="form-label">Product Name</label>
-              <input type="text" class="form-control" id="stickerFruitSelect" list="stickerFruitList" placeholder="Search or select fruit name" autocomplete="off">
-              <datalist id="stickerFruitList"></datalist>
+              <div class="position-relative">
+              <input type="text" class="form-control" id="stickerFruitSelect" placeholder="Search or select fruit name" autocomplete="off">
+                <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
+              </div>
+              
             </div>
           </div>
           <div class="col-md-6">
             <div class="mb-3">
               <label class="form-label">Variant</label>
+              <div class="position-relative">
               <input type="text" class="form-control" id="stickerVariantSelect" list="stickerVariantList" placeholder="Search or select variant" disabled autocomplete="off">
+                <!-- variant dropdown injected here -->
+              </div>
               <datalist id="stickerVariantList"></datalist>
             </div>
           </div>
@@ -45,7 +53,10 @@
           <div class="col-md-6">
             <div class="mb-3">
               <label class="form-label">Size</label>
-              <input type="number" class="form-control" id="stickerSizeSelect" placeholder="Enter numeric size" disabled min="0" step="0.01" autocomplete="off">
+              <div class="position-relative">
+              <input type="text" class="form-control" id="stickerSizeSelect" placeholder="Enter size (e.g., 120 or 125-175)" disabled autocomplete="off">
+                <!-- size dropdown injected here -->
+              </div>
             </div>
           </div>
         </div>
@@ -67,18 +78,196 @@
     </div>
   </div>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="{% static 'js/modern-inventory.js' %}"></script>
   <script>
     let allProducts=[];
-    async function loadAllProducts(){ try{ const resp=await fetch('/api/products/active/',{headers:{'X-Requested-With':'XMLHttpRequest'}}); if(!resp.ok) throw new Error('Network error'); const data=await resp.json(); if(data.success){ allProducts=data.data; populateFruitList(); } }catch(e){ console.error('Load products error:', e); } }
-    function populateFruitList(){ const list=$('#stickerFruitList'); list.empty(); const unique=[...new Set(allProducts.map(p=>p.name))]; unique.forEach(f=>list.append($('<option>',{value:f}))); }
-    function loadStickerVariants(fruit){ const variantList=$('#stickerVariantList'); $('#stickerVariantSelect').prop('disabled',true).val(''); $('#stickerSizeSelect').prop('disabled',true).val(''); variantList.empty(); if(!fruit) return; const variants=[...new Set(allProducts.filter(p=>p.name===fruit).map(p=>p.variant).filter(v=>v))]; if(variants.length===0){ $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','No variants available - proceed to size'); loadStickerSizes(fruit,''); } else { $('#stickerVariantSelect').prop('disabled',false); variants.forEach(v=>variantList.append($('<option>',{value:v}))); } }
-    function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return p.name===fruit && (!p.variant||p.variant==='');} else {return p.name===fruit && p.variant===variant;} }).map(p=>p.size).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter size (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric size'); } }
-    function validateForm(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>p.name===fruit && p.variant); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
+    async function loadAllProducts(){ try{ const resp=await fetch('/api/products/active/',{headers:{'X-Requested-With':'XMLHttpRequest'}}); if(!resp.ok) throw new Error('Network error'); const data=await resp.json(); if(data.success){ allProducts=data.data; } }catch(e){ console.error('Load products error:', e); } }
+    function baseName(name){ if(!name) return ''; const s=String(name); const i=s.indexOf('('); const j=s.endsWith(')')?s.lastIndexOf('('):-1; if(i>=0){ return s.substring(0,i).trim(); } return s.trim(); }
+    function loadStickerVariants(fruit){ const variantList=$('#stickerVariantList'); $('#stickerVariantSelect').prop('disabled',true).val(''); $('#stickerSizeSelect').prop('disabled',true).val(''); variantList.empty(); if(!fruit) return; const variants=[...new Set(allProducts.filter(p=>baseName(p.name)===fruit).map(p=>p.variant).filter(v=>v))]; if(variants.length===0){ $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','No variants available - proceed to size'); loadStickerSizes(fruit,''); } else { $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','Search or select variant'); variants.forEach(v=>variantList.append($('<option>',{value:v}))); } }
+    function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return baseName(p.name)===fruit && (!p.variant||p.variant==='');} else {return baseName(p.name)===fruit && (p.variant||'')===variant;} }).map(p=>p.size).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter size (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric size'); } }
+    function validateForm(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>baseName(p.name)===fruit && (p.variant||'')!==''); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
     $('#stickerFruitSelect').on('change', function(){ loadStickerVariants($(this).val()); validateForm(); });
     $('#stickerVariantSelect').on('change', function(){ loadStickerSizes($('#stickerFruitSelect').val(), $(this).val()); validateForm(); });
     $('#stickerSizeSelect').on('change input', validateForm);
-    $('#generateStickersBtn').on('click', function(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); if(!fruit||!size){ alert('Please select a product name and size'); return; } const product=allProducts.find(p=>{ if(!variant){ return p.name===fruit && (!p.variant||p.variant===''); } else { return p.name===fruit && p.variant===variant; } }); if(product){ const productId=product.product_id; const url=`/qr/sticker/${productId}/`; window.open(url,'_blank','width=800,height=600'); } else { alert('Product not found. Please check your selection.'); } });
+    // CSRF setup
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+    $.ajaxSetup({ headers: { 'X-CSRFToken': csrftoken } });
+ 
+    // Autocomplete functions (inventory-only)
+    function searchInventoryNames(query) {
+        const q = (query || '').toLowerCase();
+        const namesSet = new Set();
+        (allProducts || []).forEach(p => {
+            const nm = baseName(p.name) || '';
+            if (!nm) return;
+            if (q && nm.toLowerCase().indexOf(q) === -1) return;
+            namesSet.add(nm);
+        });
+        const items = Array.from(namesSet).map(n => ({ name: n }));
+        displayNameSuggestions(items);
+    }
+ 
+    function displayNameSuggestions(items) {
+        const dropdown = $('#nameSuggestions');
+        dropdown.empty();
+        if (!items || items.length === 0) {
+            dropdown.html('<div class="dropdown-item text-muted">No products found</div>').show();
+            return;
+        }
+        items.forEach(p => {
+            const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
+            option.on('click', function(){
+                $('#stickerFruitSelect').val(p.name);
+                $('#stickerVariantSelect, #stickerSizeSelect').prop('disabled', false);
+                window.__selectedProductFromSuggestions = true;
+                dropdown.hide();
+                updateEnableStates();
+                validateForm();
+                // Preload variants list for UX
+                $('#stickerVariantSelect').trigger('focus');
+            });
+            dropdown.append(option);
+        });
+        dropdown.show();
+    }
+ 
+    function setupProductAutocomplete() {
+        const $name = $('#stickerFruitSelect');
+        const $dropdown = $('#nameSuggestions');
+        let t;
+        $name.on('input', function(){
+            const q = $(this).val().trim();
+            window.__selectedProductFromSuggestions = false;
+            $('#stickerVariantSelect').val('').prop('disabled', true);
+            $('#stickerSizeSelect').val('').prop('disabled', true);
+            clearTimeout(t);
+            t = setTimeout(() => {
+                if (q.length >= 1) { searchInventoryNames(q); }
+                else { $dropdown.hide(); }
+            }, 250);
+            updateEnableStates();
+            validateForm();
+        });
+        $(document).on('click', function(e){
+            if (!$(e.target).closest('#stickerFruitSelect, #nameSuggestions').length) { $dropdown.hide(); }
+        });
+        $name.on('focus', function(){
+            const q = $(this).val().trim();
+            searchInventoryNames(q);
+        });
+ 
+        const $variant = $('#stickerVariantSelect');
+        const $size = $('#stickerSizeSelect');
+        const ensureName = () => $name.val().trim();
+        $variant.on('focus', function(){
+            const base = ensureName(); if (!base) return;
+            const variants = Array.from(new Set(
+                (allProducts || [])
+                  .filter(p => baseName(p.name) === base)
+                  .map(p => p.variant)
+                  .filter(v => v)
+            ));
+            let $menu = $('#variantSuggestions');
+            if (!$menu.length) { $variant.after('<div id="variantSuggestions" class="dropdown-menu w-100"></div>'); $menu = $('#variantSuggestions'); }
+            if (variants.length) {
+                const list = variants.map(v => `<div class="dropdown-item variant-item">${v}</div>`).join('');
+                $menu.html(list).show();
+                $menu.off('click').on('click', '.variant-item', function(){ $variant.val($(this).text()); $menu.hide(); updateEnableStates(); validateForm(); });
+            } else {
+                $menu.hide();
+            }
+        });
+        $variant.on('input change', function(){ updateEnableStates(); validateForm(); });
+        $size.on('focus', function(){
+            const base = ensureName(); if (!base) return;
+            const selectedVariant = ($variant.val() || '').trim();
+            const sizes = Array.from(new Set(
+                (allProducts || [])
+                  .filter(p => baseName(p.name) === base)
+                  .filter(p => selectedVariant ? (p.variant || '') === selectedVariant : (p.variant || '') === (p.variant || ''))
+                  .map(p => p.size)
+                  .filter(s => s)
+            ));
+            let $menu = $('#sizeSuggestions');
+            if (!$menu.length) { $size.after('<div id="sizeSuggestions" class="dropdown-menu w-100"></div>'); $menu = $('#sizeSuggestions'); }
+            if (sizes.length) {
+                const list = sizes.map(s => `<div class="dropdown-item size-item">${s}</div>`).join('');
+                $menu.html(list).show();
+                $menu.off('click').on('click', '.size-item', function(){ $size.val($(this).text()); $menu.hide(); validateForm(); });
+            } else {
+                $menu.hide();
+            }
+        });
+        $size.on('input change', validateForm);
+    }
+
+    // Enable/disable Variant and Size depending on current selection
+    function updateEnableStates(){
+        const fruit = $('#stickerFruitSelect').val().trim();
+        const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
+        // Variant is enabled when a fruit is chosen and that fruit has variants
+        $('#stickerVariantSelect').prop('disabled', !fruit || !hasVariants);
+        // Size is enabled when fruit is chosen AND
+        //  - if fruit has variants: a variant is also chosen
+        //  - otherwise: immediately
+        const variant = $('#stickerVariantSelect').val().trim();
+        const sizeEnabled = !!fruit && (!hasVariants || !!variant);
+        $('#stickerSizeSelect').prop('disabled', !sizeEnabled);
+    }
+ 
+    function validateForm() {
+        const fruit = $('#stickerFruitSelect').val();
+        const variant = $('#stickerVariantSelect').val();
+        const size = $('#stickerSizeSelect').val();
+        const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
+        $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit || !variant || !size) : (!fruit || !size));
+    }
+ 
+    $(document).ready(function(){
+        setupProductAutocomplete();
+        // Suggestions container is pre-rendered in HTML (see above)
+ 
+        $('#generateStickersBtn').on('click', function(){
+            const fruit = $('#stickerFruitSelect').val();
+            const variant = $('#stickerVariantSelect').val();
+            const size = $('#stickerSizeSelect').val();
+            if (!fruit || !size) {
+                alert('Please select a product name and size');
+                return;
+            }
+            const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
+            const match = (allProducts || []).find(p => {
+                const nameOk = baseName(p.name) === fruit;
+                const variantOk = hasVariants ? ((p.variant || '') === (variant || '')) : true;
+                const sizeOk = (String(p.size) === String(size));
+                return nameOk && variantOk && sizeOk;
+            });
+            if (match) {
+                const productId = match.product_id;
+                const url = `/qr/sticker/${productId}/`;
+                window.open(url, '_blank', 'width=800,height=600');
+            } else {
+                alert('Product not found in your inventory with that selection.');
+            }
+        });
+        // Load inventory products for suggestions
     loadAllProducts();
+    updateEnableStates();
+    });
   </script>
 </body>
 </html>

@@ -82,9 +82,10 @@ class Sale(models.Model):
 	)
 
 	sale_id = models.AutoField(primary_key=True)
-	product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
+	product = models.ForeignKey(Product, on_delete=models.PROTECT)
 	quantity = models.IntegerField(default=0)
 	price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	transaction_number = models.CharField(max_length=32, default='')
 	or_number = models.CharField(max_length=32, default='')
 	customer_name = models.CharField(max_length=50, default='')
 	address = models.CharField(max_length=50, default='')
@@ -94,7 +95,7 @@ class Sale(models.Model):
 	amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	change_given = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed')
-	user = models.ForeignKey(AppUser, on_delete=models.PROTECT, null=True, blank=True)
+	user = models.ForeignKey(AppUser, on_delete=models.PROTECT)
 	voided_at = models.DateTimeField(null=True, blank=True)
 	stock_restored = models.BooleanField(default=False)
 

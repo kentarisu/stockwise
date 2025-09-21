@@ -1,0 +1,724 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charts & Analytics - StockWise</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-light: #dbeafe;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #06b6d4;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-800);
+        }
+
+        .sidebar {
+            width: 280px;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 2rem;
+            border-bottom: 1px solid var(--gray-200);
+            background: linear-gradient(135deg, var(--primary), #1d4ed8);
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .sidebar-header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 0.875rem;
+        }
+
+        .sidebar-nav {
+            padding: 1.5rem 0;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+            padding: 0 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .nav-item {
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 2rem;
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-link.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-right: 3px solid var(--primary);
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            font-size: 1.125rem;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: var(--gray-600);
+            margin: 0.5rem 0 0 0;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .chart-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .chart-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin: 0;
+        }
+
+        .chart-subtitle {
+            color: var(--gray-600);
+            margin: 0.5rem 0 0 0;
+            font-size: 0.875rem;
+        }
+
+        .btn-modern {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-modern.primary {
+            background: linear-gradient(135deg, var(--primary), #1d4ed8);
+            color: white;
+        }
+
+        .btn-modern.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            color: white;
+        }
+
+        .btn-modern.secondary {
+            background: var(--gray-100);
+            color: var(--gray-700);
+        }
+
+        .btn-modern.secondary:hover {
+            background: var(--gray-200);
+            color: var(--gray-800);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .stat-label {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            margin: 0.5rem 0 0 0;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+
+        .spinner-border {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>StockWise</h1>
+            <p>Fruit Inventory Management</p>
+        </div>
+        
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Main</div>
+                <div class="nav-item">
+                    <a href="{% url 'dashboard' %}" class="nav-link">
+                        <i class="bi bi-speedometer2"></i>
+                        Dashboard
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{% url 'products_inventory' %}" class="nav-link">
+                        <i class="bi bi-basket"></i>
+                        Inventory
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{% url 'sales' %}" class="nav-link">
+                        <i class="bi bi-cart"></i>
+                        Sales
+                    </a>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Analytics</div>
+                <div class="nav-item">
+                    <a href="{% url 'reports' %}" class="nav-link">
+                        <i class="bi bi-graph-up"></i>
+                        Reports
+                    </a>
+                </div>
+                
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Tools</div>
+                <div class="nav-item">
+                    <a href="{% url 'sms_settings' %}" class="nav-link">
+                        <i class="bi bi-chat-dots"></i>
+                        SMS Settings
+                    </a>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-title">Account</div>
+                <div class="nav-item">
+                    <a href="{% url 'profile' %}" class="nav-link">
+                        <i class="bi bi-person"></i>
+                        Profile
+                    </a>
+                </div>
+                <div class="nav-item">
+                    <a href="{% url 'logout' %}" class="nav-link">
+                        <i class="bi bi-box-arrow-right"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Charts & Analytics</h1>
+            <p class="page-subtitle">Interactive visualizations and data insights</p>
+            
+            <div class="action-buttons">
+                <select id="rangeFilter" class="form-select" style="max-width: 180px;">
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <input type="date" id="startDate" class="form-control d-none" style="max-width: 180px;">
+                <input type="date" id="endDate" class="form-control d-none" style="max-width: 180px;">
+                <button id="applyRange" class="btn btn-modern primary d-none"><i class="bi bi-check2-circle me-2"></i>Apply</button>
+                <button onclick="refreshCharts()" class="btn btn-modern secondary">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Refresh Charts
+                </button>
+                <a href="{% url 'reports' %}" class="btn btn-modern secondary">
+                    <i class="bi bi-table me-2"></i>View Reports
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3 class="stat-value" id="statTotalRevenue">₱0.00</h3>
+                <p class="stat-label">Total Revenue</p>
+            </div>
+            <div class="stat-card">
+                <h3 class="stat-value" id="statTransactions">0</h3>
+                <p class="stat-label">Transactions</p>
+            </div>
+            <div class="stat-card">
+                <h3 class="stat-value" id="statItemsSold">0</h3>
+                <p class="stat-label">Items Sold</p>
+            </div>
+            <div class="stat-card">
+                <h3 class="stat-value" id="statAvgOrder">₱0.00</h3>
+                <p class="stat-label">Avg Order Value</p>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Revenue Trend Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Revenue Trend</h3>
+                    <p class="chart-subtitle">Daily revenue performance</p>
+                </div>
+                <div style="height: 400px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Products Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Top Products</h3>
+                    <p class="chart-subtitle">Best performing products</p>
+                </div>
+                <div style="height: 400px;">
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Charts -->
+        <div class="charts-grid">
+            <!-- Sales Distribution -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Sales Distribution</h3>
+                    <p class="chart-subtitle">Revenue by product category</p>
+                </div>
+                <div style="height: 400px;">
+                    <canvas id="salesDistributionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Inventory Health -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">Inventory Health</h3>
+                    <p class="chart-subtitle">Stock levels and alerts</p>
+                </div>
+                <div style="height: 400px;">
+                    <canvas id="inventoryHealthChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // High-DPI rendering for crisp charts
+        if (window.Chart) {
+            Chart.defaults.devicePixelRatio = Math.max(2, window.devicePixelRatio || 1);
+        }
+        // Chart instances
+        let revenueChart, topProductsChart, salesDistributionChart, inventoryHealthChart;
+
+        async function loadCharts() {
+            try {
+                const sel = (document.getElementById('rangeFilter')?.value||'today').toLowerCase();
+                const sd = document.getElementById('startDate');
+                const ed = document.getElementById('endDate');
+                const today = new Date().toISOString().slice(0,10);
+                let start = today, end = today;
+                if(sel==='week'){
+                    const s = new Date(); s.setDate(s.getDate()-7); start = s.toISOString().slice(0,10); end = today;
+                } else if(sel==='month'){
+                    const s = new Date(); s.setDate(s.getDate()-30); start = s.toISOString().slice(0,10); end = today;
+                } else if(sel==='custom'){
+                    start = sd?.value || today; end = ed?.value || start;
+                }
+
+                // Fetch data from the same endpoint as reports
+                const params = new URLSearchParams({
+                    filter: sel==='today' ? 'today' : sel==='week' ? 'week' : sel==='month' ? 'month' : 'custom',
+                    start_date: start,
+                    end_date: end
+                });
+                
+                const res = await fetch("{% url 'fetch_reports' %}?" + params.toString());
+                const json = await res.json();
+                
+                if (!json.success) {
+                    console.error('Failed to fetch data');
+                    return;
+                }
+                
+                const data = json.data;
+                
+                // Update stats cards
+                document.getElementById('statTotalRevenue').textContent = '₱' + Number(data.sales_summary?.total_revenue || 0).toFixed(2);
+                document.getElementById('statTransactions').textContent = data.sales_summary?.transaction_count || 0;
+                document.getElementById('statItemsSold').textContent = data.sales_summary?.total_items_sold || 0;
+                document.getElementById('statAvgOrder').textContent = '₱' + Number(data.sales_summary?.avg_order_value || 0).toFixed(2);
+
+                // Create charts with real data
+                createRevenueChart(data);
+                createTopProductsChart(data);
+                createSalesDistributionChart(data);
+                createInventoryHealthChart(data);
+
+            } catch (error) {
+                console.error('Error loading charts:', error);
+            }
+        }
+
+        // Removed spinner overlay to avoid removing canvases
+
+        // Revenue Trend Chart
+        function createRevenueChart(data) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            
+            // Use actual transaction data to generate revenue trend
+            const transactions = data.transactions || [];
+            const revenueByDate = {};
+            
+            // Group transactions by date
+            transactions.forEach(transaction => {
+                const date = transaction.recorded_at ? transaction.recorded_at.split(' ')[0] : new Date().toISOString().split('T')[0];
+                if (!revenueByDate[date]) {
+                    revenueByDate[date] = 0;
+                }
+                revenueByDate[date] += parseFloat(transaction.total || 0);
+            });
+            
+            // Generate labels for last 7 days
+            const labels = [];
+            const revenueData = [];
+            const today = new Date();
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                revenueData.push(revenueByDate[dateStr] || 0);
+            }
+            
+            if (revenueChart) revenueChart.destroy();
+            revenueChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Revenue',
+                        data: revenueData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₱' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Top Products Chart
+        function createTopProductsChart(data) {
+            const ctx = document.getElementById('topProductsChart').getContext('2d');
+            
+            // Use actual top products data
+            const topProducts = data.top_fruits || [];
+            const labels = topProducts.slice(0, 5).map(p => p.name || p.product_name || 'Unknown');
+            const salesData = topProducts.slice(0, 5).map(p => p.total_boxes || p.boxes_sold || 0);
+            
+            if (topProductsChart) topProductsChart.destroy();
+            topProductsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Boxes Sold',
+                        data: salesData,
+                        backgroundColor: [
+                            '#10b981',
+                            '#3b82f6',
+                            '#f59e0b',
+                            '#ef4444',
+                            '#8b5cf6'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sales Distribution Chart
+        function createSalesDistributionChart(data) {
+            const ctx = document.getElementById('salesDistributionChart').getContext('2d');
+            
+            // Calculate distribution from actual data
+            const fruitSummary = data.fruit_summary || [];
+            const totalRevenue = fruitSummary.reduce((sum, item) => sum + parseFloat(item.revenue || 0), 0);
+            
+            // Group by categories (you can modify this logic based on your product categories)
+            const categories = {};
+            fruitSummary.forEach(item => {
+                const category = item.category || 'Fruits'; // Default to Fruits if no category
+                if (!categories[category]) {
+                    categories[category] = 0;
+                }
+                categories[category] += parseFloat(item.revenue || 0);
+            });
+            
+            const labels = Object.keys(categories);
+            const values = Object.values(categories);
+            const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
+            
+            if (salesDistributionChart) salesDistributionChart.destroy();
+            salesDistributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderWidth: 0,
+                        cutout: '60%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Inventory Health Chart
+        function createInventoryHealthChart(data) {
+            const ctx = document.getElementById('inventoryHealthChart').getContext('2d');
+            
+            // Use actual low stock data
+            const lowStockCount = data.low_stock ? data.low_stock.length : 0;
+            const totalProducts = data.fruit_summary ? data.fruit_summary.length : 0;
+            const healthyStockCount = Math.max(0, totalProducts - lowStockCount);
+            
+            if (inventoryHealthChart) inventoryHealthChart.destroy();
+            inventoryHealthChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Healthy Stock', 'Low Stock'],
+                    datasets: [{
+                        data: [healthyStockCount, lowStockCount],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function refreshCharts() { loadCharts(); }
+
+        // Range UI behavior
+        document.addEventListener('DOMContentLoaded', ()=>{
+            const range = document.getElementById('rangeFilter');
+            const sd = document.getElementById('startDate');
+            const ed = document.getElementById('endDate');
+            const apply = document.getElementById('applyRange');
+            function toggleInputs(){
+                const v = (range.value||'today').toLowerCase();
+                const isCustom = v==='custom';
+                sd.classList.toggle('d-none', !isCustom);
+                ed.classList.toggle('d-none', !isCustom);
+                apply.classList.toggle('d-none', !isCustom);
+                if(!isCustom){ loadCharts(); }
+            }
+            range.addEventListener('change', toggleInputs);
+            apply.addEventListener('click', loadCharts);
+        });
+
+        // Load charts on page load
+        document.addEventListener('DOMContentLoaded', loadCharts);
+    </script>
+</body>
+</html>

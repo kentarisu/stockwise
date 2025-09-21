@@ -23,6 +23,7 @@ urlpatterns = [
 	path('api/products/<int:product_id>/stock/add/', views.stock_add, name='stock_add'),
 	path('api/products/list/', views.fetch_products, name='fetch_products'),
 	path('api/products/active/', views.get_active_products, name='get_active_products'),
+	path('api/products/get_id/', views.get_product_id, name='get_product_id'),
 	# Stock details API for modal (FIFO batches)
 	path('api/products/<int:product_id>/stock/', views.stock_details, name='stock_details_api'),
 	# Alternate simple stock details endpoint (used by modal for stability)
@@ -38,6 +39,7 @@ urlpatterns = [
 	path('api/sales/<int:sale_id>/check_print_limit/', views.check_print_limit, name='check_print_limit'),
 	path('api/sales/<int:sale_id>/record_print/', views.record_print, name='record_print'),
 	path('reports/', views.reports_view, name='reports'),
+	path('charts/', views.charts_view, name='charts'),
 	path('api/reports/fetch/', views.fetch_reports, name='fetch_reports'),
 	path('api/reports/export/', views.export_report, name='export_report'),
     path('api/fruit_master/search/', views.fruit_master_search, name='fruit_master_search'),
@@ -52,4 +54,12 @@ urlpatterns = [
     # SMS Notification URLs
     path('sms-settings/', views.sms_settings_view, name='sms_settings'),
     path('api/sms/test/', views.send_test_sms, name='send_test_sms'),
+    path('api/sms/test-type/', views.test_notification_type, name='test_notification_type'),
+    path('api/sms/settings/', views.update_notification_settings, name='update_notification_settings'),
+    path('api/sms/stats/', views.get_notification_stats, name='get_notification_stats'),
+    
+    # Pricing AI URLs
+    path('api/pricing/recommendations/', views.get_pricing_recommendations, name='get_pricing_recommendations'),
+    path('api/pricing/apply/', views.apply_pricing_recommendation, name='apply_pricing_recommendation'),
+    path('api/pricing/test/', views.test_pricing_notification, name='test_pricing_notification'),
 ] 

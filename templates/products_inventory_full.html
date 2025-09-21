@@ -7,7 +7,8 @@
     <title>StockWise - Inventory Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <!-- Select2 CSS for searchable selects -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
@@ -228,15 +229,15 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
 
         .stat-card {
             background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
+            border-radius: 12px;
+            padding: 1rem;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
             transition: all 0.3s ease;
@@ -264,15 +265,15 @@
         }
 
         .stat-icon {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 12px;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             color: white;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
 
         .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
@@ -281,7 +282,7 @@
         .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
 
         .stat-value {
-            font-size: 2rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             line-height: 1;
@@ -289,9 +290,9 @@
 
         .stat-label {
             color: var(--gray-500);
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             font-weight: 500;
-            margin-top: 0.5rem;
+            margin-top: 0.25rem;
         }
 
         /* Action Buttons */
@@ -532,6 +533,45 @@
             border-radius: 0 0 16px 16px;
         }
 
+        /* Tabs Styling */
+        .nav-tabs {
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            border-radius: 8px 8px 0 0;
+            margin-right: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-weight: 500;
+            color: var(--gray-600);
+            background: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+            border-color: transparent;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--primary);
+            background: white;
+            border-color: var(--gray-200) var(--gray-200) white;
+            font-weight: 600;
+        }
+
+        .nav-tabs .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
@@ -565,6 +605,17 @@
 
             .action-buttons {
                 flex-direction: column;
+            }
+
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+
+            .nav-tabs .nav-link {
+                font-size: 0.875rem;
+                padding: 0.5rem 0.75rem;
+                margin-right: 0.25rem;
+                margin-bottom: 0.25rem;
             }
         }
     </style>
@@ -1000,26 +1051,118 @@
                 <!-- Inventory Table -->
                 <div class="table-card">
                     <div class="table-header">
-                        <h3 class="table-title">Inventory List</h3>
+                        <ul class="nav nav-tabs border-0" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab" data-bs-target="#all-products" type="button" role="tab" aria-controls="all-products" aria-selected="true">All Products</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="active-products-tab" data-bs-toggle="tab" data-bs-target="#active-products" type="button" role="tab" aria-controls="active-products" aria-selected="false">Active Products</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="low-stock-tab" data-bs-toggle="tab" data-bs-target="#low-stock" type="button" role="tab" aria-controls="low-stock" aria-selected="false">Low Stock</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="out-of-stock-tab" data-bs-toggle="tab" data-bs-target="#out-of-stock" type="button" role="tab" aria-controls="out-of-stock" aria-selected="false">Out of Stock</button>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table" id="inventoryTable">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px">Product ID</th>
-                                    <th>Fruit</th>
-                                    <th>Variant</th>
-                                    <th>Size</th>
-                                    <th>Price</th>
-                                    <th>Stock</th>
-                                    <th>Status</th>
-                                    <th style="width: 150px">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Filled by JavaScript -->
-                            </tbody>
-                        </table>
+                    <div class="tab-content p-3 pt-0">
+                        <div class="tab-pane fade show active" id="all-products" role="tabpanel" aria-labelledby="all-products-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="allProductsTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px">Product ID</th>
+                                            <th>Fruit</th>
+                                            <th>Variant</th>
+                                            <th>Size</th>
+                                            <th>Price</th>
+                                            <th>Stock</th>
+                                            <th>Status</th>
+                                            <th style="width: 150px">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Filled by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="active-products" role="tabpanel" aria-labelledby="active-products-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="activeProductsTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px">Product ID</th>
+                                            <th>Fruit</th>
+                                            <th>Variant</th>
+                                            <th>Size</th>
+                                            <th>Price</th>
+                                            <th>Stock</th>
+                                            <th>Status</th>
+                                            <th style="width: 150px">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Active products will be loaded dynamically -->
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">Loading active products...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="low-stock" role="tabpanel" aria-labelledby="low-stock-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="lowStockTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px">Product ID</th>
+                                            <th>Fruit</th>
+                                            <th>Variant</th>
+                                            <th>Size</th>
+                                            <th>Price</th>
+                                            <th>Stock</th>
+                                            <th>Status</th>
+                                            <th style="width: 150px">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Low stock products will be loaded dynamically -->
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">Loading low stock products...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="out-of-stock" role="tabpanel" aria-labelledby="out-of-stock-tab">
+                            <div class="table-responsive">
+                                <table class="table" id="outOfStockTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px">Product ID</th>
+                                            <th>Fruit</th>
+                                            <th>Variant</th>
+                                            <th>Size</th>
+                                            <th>Price</th>
+                                            <th>Stock</th>
+                                            <th>Status</th>
+                                            <th style="width: 150px">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Out of stock products will be loaded dynamically -->
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">Loading out of stock products...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1169,6 +1312,7 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <!-- HTML5 QR Code Scanner -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="{% static 'js/modern-inventory.js' %}"></script>
 
     <script>
         // CSRF token setup for AJAX
@@ -1221,7 +1365,7 @@
 
         // Load products on page load
         $(document).ready(function() {
-            loadProducts();
+            loadProducts('allProductsTable', 'all');
             loadActiveProducts();
             setupEventHandlers();
             $('#addStockForm [name="date_added"]').val(new Date().toISOString().split('T')[0]);
@@ -1231,9 +1375,38 @@
 
         function setupEventHandlers() {
             // Search and filter
-            $('#searchInput').on('input', loadProducts);
-            $('#filterSelect').on('change', loadProducts);
-            $('#refreshTable').on('click', loadProducts);
+            $('#searchInput').on('input', loadCurrentTab);
+            $('#filterSelect').on('change', loadCurrentTab);
+            $('#refreshTable').on('click', loadCurrentTab);
+
+            // Tab event listeners
+            $('#all-products-tab').on('shown.bs.tab', () => loadProducts('allProductsTable', 'all'));
+            $('#active-products-tab').on('shown.bs.tab', () => loadProducts('activeProductsTable', 'Active'));
+            $('#low-stock-tab').on('shown.bs.tab', () => loadProducts('lowStockTable', 'Low Stock'));
+            $('#out-of-stock-tab').on('shown.bs.tab', () => loadProducts('outOfStockTable', 'Out of Stock'));
+
+            function loadCurrentTab() {
+                const activeTab = document.querySelector('.nav-link.active');
+                if (!activeTab) return;
+                
+                const tabId = activeTab.id;
+                switch(tabId) {
+                    case 'all-products-tab': 
+                        loadProducts('allProductsTable', 'all'); 
+                        break;
+                    case 'active-products-tab': 
+                        loadProducts('activeProductsTable', 'Active'); 
+                        break;
+                    case 'low-stock-tab': 
+                        loadProducts('lowStockTable', 'Low Stock'); 
+                        break;
+                    case 'out-of-stock-tab': 
+                        loadProducts('outOfStockTable', 'Out of Stock'); 
+                        break;
+                    default: 
+                        loadProducts('allProductsTable', 'all');
+                }
+            }
 
             // Add Product modal removed; no autocomplete or form handling on this page
 
@@ -1778,22 +1951,22 @@
             });
         }
 
-        function loadProducts() {
+        function loadProducts(tableId = 'allProductsTable', filter = 'all') {
             const search = $('#searchInput').val();
-            const filter = $('#filterSelect').val();
-            console.log('Fetching products with:', { search, filter });
+            const currentFilter = $('#filterSelect').val();
+            console.log('Fetching products with:', { search, filter: filter, currentFilter });
             
             fetch("{% url 'fetch_products' %}?" + new URLSearchParams({
                 search: search || '',
-                filter: filter || 'All Products'
+                filter: filter === 'all' ? (currentFilter || 'All Products') : filter
             }))
             .then(response => response.json())
             .then(response => {
                 console.log('Products API response:', response);
                 
                 if (!response.success) {
-                    const tbody = $('#inventoryTable tbody').empty();
-                    tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                    const tbody = $(`#${tableId} tbody`).empty();
+                    tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No products found</td></tr>');
                     return;
                 }
                 
@@ -1802,7 +1975,7 @@
                     return;
                 }
                 
-                const tbody = $('#inventoryTable tbody').empty();
+                const tbody = $(`#${tableId} tbody`).empty();
                 console.log('Rendering products:', response.data.length);
                 if (response.data.length === 0) {
                     tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');

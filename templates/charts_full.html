@@ -252,6 +252,41 @@
         .spinner-border {
             color: var(--primary);
         }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            /* Mobile menu toggle button - SHOW ON MOBILE */
+            #mobileMenuToggle {
+                display: flex !important;
+                background: #007bff !important;
+                border: 2px solid #000000 !important;
+                color: #ffffff !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                position: relative !important;
+                z-index: 9999 !important;
+            }
+        }
+
+        /* Desktop - Hide mobile menu button */
+        @media (min-width: 769px) {
+            #mobileMenuToggle {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -325,8 +360,17 @@
 
     <div class="main-content">
         <div class="page-header">
-            <h1 class="page-title">Charts & Analytics</h1>
-            <p class="page-subtitle">Interactive visualizations and data insights</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <h1 class="page-title">Charts & Analytics</h1>
+                    <p class="page-subtitle">Interactive visualizations and data insights</p>
+                </div>
+                <!-- Mobile Menu Toggle Button -->
+                <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
+                    <i class="bi bi-list" style="font-size: 1.2rem;"></i>
+                    <span class="ms-1">Menu</span>
+                </button>
+            </div>
             
             <div class="action-buttons">
                 <select id="rangeFilter" class="form-select" style="max-width: 180px;">
@@ -719,6 +763,77 @@
 
         // Load charts on page load
         document.addEventListener('DOMContentLoaded', loadCharts);
+
+        // Mobile sidebar toggle functionality
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+        function toggleMobileMenu() {
+            if (sidebar) {
+                sidebar.classList.toggle('active');
+                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
+                // Prevent body scroll when sidebar is open on mobile
+                if (sidebar.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
+        // Handle mobile menu toggle click
+        if (mobileMenuToggle) {
+            console.log('Mobile menu button found in charts_full');
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Mobile menu button clicked in charts_full');
+                toggleMobileMenu();
+            });
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed from outside click');
+                }
+            }
+        });
+
+        // Close sidebar when clicking on navigation links
+        if (sidebar) {
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from nav link click');
+                    }
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768 && sidebar) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed on resize');
+            }
+        });
+
+        // Handle escape key to close sidebar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed from escape key');
+            }
+        });
     </script>
 </body>
 </html>

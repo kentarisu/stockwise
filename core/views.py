@@ -83,12 +83,25 @@ def login_view(request):
 					request.session['app_user_id'] = user.user_id
 					request.session['app_username'] = user.username
 					request.session['app_role'] = mapped_role
+					
+					# Check if there's a QR redirect URL to go back to
+					qr_redirect_url = request.session.pop('qr_redirect_url', None)
+					if qr_redirect_url:
+						return redirect(qr_redirect_url)
+					
 					return redirect('dashboard')
 				else:
 					messages.error(request, 'Password is incorrect.')
 		except Exception as exc:
 			messages.error(request, f'Login error: {exc}')
-	return render(request, 'login.html')
+	
+	# Check if this is a redirect from QR scanning
+	qr_redirect_url = request.session.get('qr_redirect_url')
+	is_from_qr = qr_redirect_url and '/qr/confirm/' in qr_redirect_url
+	
+	return render(request, 'login.html', {
+		'is_from_qr': is_from_qr
+	})
 
 
 def logout_view(request):
@@ -370,6 +383,31 @@ def add_stock_page(request):
         'app_role': request.session.get('app_role', 'user'),
         'today': timezone.now().date(),
     }
+    
+    # Handle QR token from scanned QR codes
+    qr_token = request.GET.get('qr_token')
+    if qr_token:
+        try:
+            # Import the QR system's serializer to decode the token
+            from itsdangerous import URLSafeSerializer
+            s = URLSafeSerializer(settings.SECRET_KEY)
+            data = s.loads(qr_token)
+            product_id = data.get('p')
+            
+            if product_id:
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    context['qr_product'] = {
+                        'product_id': product.product_id,
+                        'name': product.name,
+                        'pre_selected': True
+                    }
+                except Product.DoesNotExist:
+                    pass
+        except Exception:
+            # If QR token is invalid, just ignore it
+            pass
+    
     return render(request, 'add_stock.html', context)
 
 @require_app_login
@@ -681,6 +719,48 @@ def stock_qr_apply(request):
 		return HttpResponse('Invalid or expired QR token.', status=400)
 	except Exception as e:
 		return HttpResponse(f'Error: {str(e)}', status=500)
+
+@require_http_methods(["GET"])
+def stock_qr_decode(request):
+	"""Decode QR token and return product information for form population."""
+	token = request.GET.get('t')
+	if not token:
+		return JsonResponse({'success': False, 'message': 'Missing token.'}, status=400)
+	
+	try:
+		payload = signing.loads(token, salt='add_stock_qr', max_age=300)
+		items = payload.get('items', [])
+		date_added = payload.get('date_added')
+		
+		decoded_items = []
+		for item in items:
+			product_id = item.get('product_id')
+			quantity = item.get('quantity')
+			supplier = item.get('supplier', '')
+			if not product_id:
+				continue
+			
+			try:
+				product = Product.objects.get(product_id=product_id)
+				decoded_items.append({
+					'product_id': product.product_id,
+					'name': product.name,
+					'quantity': quantity,
+					'supplier': supplier
+				})
+			except Product.DoesNotExist:
+				continue
+		
+		return JsonResponse({
+			'success': True,
+			'items': decoded_items,
+			'date_added': date_added
+		})
+		
+	except signing.BadSignature:
+		return JsonResponse({'success': False, 'message': 'Invalid or expired QR token.'}, status=400)
+	except Exception as e:
+		return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 def stock_add(request, product_id):
 	"""Add stock to a product."""
@@ -2678,6 +2758,721 @@ def get_pricing_recommendations(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error generating recommendations: {str(e)}'})
+
+
+# ============================================================================
+# INVENTORY REPORTS
+# ============================================================================
+
+@require_app_login
+def inventory_stock_report(request):
+    """Generate stock snapshot report"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        products = Product.objects.all().order_by('name')
+        
+        report_data = []
+        total_value_cost = 0
+        total_value_price = 0
+        
+        for product in products:
+            stock_value_cost = float(product.stock * (product.cost or 0))
+            stock_value_price = float(product.stock * product.price)
+            
+            total_value_cost += stock_value_cost
+            total_value_price += stock_value_price
+            
+            # Check for low stock (less than 10 boxes)
+            low_stock = product.stock < 10
+            
+            report_data.append({
+                'product_id': product.product_id,
+                'name': product.name,
+                'size': product.size,
+                'current_stock': int(product.stock),
+                'unit_cost': float(product.cost or 0),
+                'unit_price': float(product.price),
+                'stock_value_cost': stock_value_cost,
+                'stock_value_price': stock_value_price,
+                'margin': float(product.price - (product.cost or 0)),
+                'margin_pct': float(((product.price - (product.cost or 0)) / product.price * 100)) if product.price > 0 else 0,
+                'low_stock_flag': low_stock,
+                'last_updated': product.last_updated.strftime('%Y-%m-%d %H:%M') if product.last_updated else 'N/A'
+            })
+        
+        summary = {
+            'total_products': len(report_data),
+            'total_stock_boxes': sum(item['current_stock'] for item in report_data),
+            'total_value_cost': total_value_cost,
+            'total_value_price': total_value_price,
+            'total_potential_profit': total_value_price - total_value_cost,
+            'low_stock_count': sum(1 for item in report_data if item['low_stock_flag'])
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': report_data,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@require_app_login
+def inventory_movement_report(request):
+    """Generate stock movement history report"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Get date range from request
+        days_back = int(request.GET.get('days', 30))
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=days_back)
+        
+        # Get stock additions
+        additions = StockAddition.objects.filter(
+            date_added__gte=start_date,
+            date_added__lte=end_date
+        ).select_related('product').order_by('-date_added')
+        
+        # Get sales
+        sales = Sale.objects.filter(
+            recorded_at__date__gte=start_date,
+            recorded_at__date__lte=end_date
+        ).select_related('product').order_by('-recorded_at')
+        
+        movements = []
+        
+        # Add stock additions
+        for addition in additions:
+            movements.append({
+                'date': addition.date_added.strftime('%Y-%m-%d'),
+                'time': addition.created_at.strftime('%H:%M') if addition.created_at else '',
+                'product_name': addition.product.name,
+                'product_size': addition.product.size,
+                'type': 'Addition',
+                'quantity': int(addition.quantity),
+                'batch_id': addition.batch_id,
+                'supplier': addition.supplier or 'N/A',
+                'unit_cost': float(addition.cost or 0),
+                'total_value': float(addition.quantity * (addition.cost or 0)),
+                'reference': f"Batch {addition.batch_id}"
+            })
+        
+        # Add sales
+        for sale in sales:
+            movements.append({
+                'date': sale.recorded_at.strftime('%Y-%m-%d'),
+                'time': sale.recorded_at.strftime('%H:%M'),
+                'product_name': sale.product.name,
+                'product_size': sale.product.size,
+                'type': 'Sale',
+                'quantity': -int(sale.quantity),  # Negative for sales
+                'batch_id': sale.batch_id or 'N/A',
+                'supplier': 'N/A',
+                'unit_cost': float(sale.product.cost or 0),
+                'total_value': -float(sale.quantity * sale.price),  # Negative for sales
+                'reference': f"Sale #{sale.sale_id}"
+            })
+        
+        # Sort by date and time
+        movements.sort(key=lambda x: (x['date'], x['time']), reverse=True)
+        
+        # Calculate summary
+        total_additions = sum(m['quantity'] for m in movements if m['type'] == 'Addition')
+        total_sales = abs(sum(m['quantity'] for m in movements if m['type'] == 'Sale'))
+        total_value_in = sum(m['total_value'] for m in movements if m['type'] == 'Addition')
+        total_value_out = abs(sum(m['total_value'] for m in movements if m['type'] == 'Sale'))
+        
+        summary = {
+            'date_range': f"{start_date} to {end_date}",
+            'total_movements': len(movements),
+            'total_additions': total_additions,
+            'total_sales': total_sales,
+            'net_movement': total_additions - total_sales,
+            'total_value_in': total_value_in,
+            'total_value_out': total_value_out,
+            'net_value': total_value_in - total_value_out
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': movements,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@require_app_login
+def inventory_batch_report(request):
+    """Generate batch-level inventory report"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from datetime import datetime
+        
+        # Get all stock additions with remaining quantity
+        batches = StockAddition.objects.filter(
+            remaining_quantity__gt=0
+        ).select_related('product').order_by('date_added', 'batch_id')
+        
+        batch_data = []
+        
+        for batch in batches:
+            # Calculate age in days
+            age_days = (datetime.now().date() - batch.date_added).days
+            
+            # Expand into individual boxes
+            try:
+                total_boxes = int(batch.quantity or 0)
+                prefix = batch.batch_id[:-2] if len(batch.batch_id) >= 2 else batch.batch_id
+                start_seq = int(batch.batch_id[-2:]) if len(batch.batch_id) >= 2 and batch.batch_id[-2:].isdigit() else 1
+            except:
+                total_boxes = int(batch.quantity or 0)
+                prefix = batch.batch_id
+                start_seq = 1
+            
+            remaining_boxes = int(batch.remaining_quantity or 0)
+            consumed = max(0, total_boxes - remaining_boxes)
+            
+            # Generate individual batch IDs for remaining boxes
+            individual_batches = []
+            for i in range(total_boxes):
+                if i < consumed:  # Skip consumed boxes
+                    continue
+                seq = ((start_seq - 1 + i) % 99) + 1
+                box_id = f"{prefix}{seq:02d}" if prefix else f"{seq:02d}"
+                individual_batches.append(box_id)
+            
+            if individual_batches:  # Only add if there are remaining boxes
+                batch_data.append({
+                    'batch_id': batch.batch_id,
+                    'individual_batches': individual_batches,
+                    'product_name': batch.product.name,
+                    'product_size': batch.product.size,
+                    'date_added': batch.date_added.strftime('%Y-%m-%d'),
+                    'supplier': batch.supplier or 'N/A',
+                    'original_quantity': total_boxes,
+                    'remaining_quantity': remaining_boxes,
+                    'consumed_quantity': consumed,
+                    'unit_cost': float(batch.cost or 0),
+                    'total_value': float(remaining_boxes * (batch.cost or 0)),
+                    'age_days': age_days,
+                    'age_category': 'Fresh' if age_days <= 7 else 'Aging' if age_days <= 14 else 'Old'
+                })
+        
+        # Calculate summary
+        total_batches = len(batch_data)
+        total_boxes = sum(item['remaining_quantity'] for item in batch_data)
+        total_value = sum(item['total_value'] for item in batch_data)
+        
+        age_breakdown = {
+            'fresh': len([b for b in batch_data if b['age_category'] == 'Fresh']),
+            'aging': len([b for b in batch_data if b['age_category'] == 'Aging']),
+            'old': len([b for b in batch_data if b['age_category'] == 'Old'])
+        }
+        
+        summary = {
+            'total_batches': total_batches,
+            'total_boxes': total_boxes,
+            'total_value': total_value,
+            'age_breakdown': age_breakdown,
+            'avg_age_days': sum(item['age_days'] for item in batch_data) / total_batches if total_batches > 0 else 0
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': batch_data,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@require_app_login
+def inventory_turnover_report(request):
+    """Generate inventory turnover and aging report"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Get date range (last 30 days for turnover calculation)
+        days_back = 30
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=days_back)
+        
+        products = Product.objects.all()
+        turnover_data = []
+        
+        for product in products:
+            # Get sales in the period
+            sales_qty = Sale.objects.filter(
+                product=product,
+                recorded_at__date__gte=start_date,
+                recorded_at__date__lte=end_date
+            ).aggregate(total_sold=Sum('quantity'))['total_sold'] or 0
+            
+            # Get stock additions in the period
+            additions_qty = StockAddition.objects.filter(
+                product=product,
+                date_added__gte=start_date,
+                date_added__lte=end_date
+            ).aggregate(total_added=Sum('quantity'))['total_added'] or 0
+            
+            # Calculate average inventory (simplified as current stock)
+            avg_inventory = float(product.stock)
+            
+            # Calculate turnover metrics
+            daily_sales_rate = float(sales_qty) / days_back if days_back > 0 else 0
+            turnover_ratio = float(sales_qty) / avg_inventory if avg_inventory > 0 else 0
+            days_of_cover = avg_inventory / daily_sales_rate if daily_sales_rate > 0 else float('inf')
+            
+            # Sell-through rate
+            total_available = avg_inventory + float(additions_qty)
+            sell_through_pct = (float(sales_qty) / total_available * 100) if total_available > 0 else 0
+            
+            turnover_data.append({
+                'product_id': product.product_id,
+                'product_name': product.name,
+                'product_size': product.size,
+                'current_stock': int(product.stock),
+                'sales_qty_30d': int(sales_qty),
+                'additions_qty_30d': int(additions_qty),
+                'daily_sales_rate': round(daily_sales_rate, 2),
+                'turnover_ratio': round(turnover_ratio, 2),
+                'days_of_cover': round(days_of_cover, 1) if days_of_cover != float('inf') else 999,
+                'sell_through_pct': round(sell_through_pct, 1),
+                'velocity_category': (
+                    'Fast' if daily_sales_rate > 2 else
+                    'Medium' if daily_sales_rate > 0.5 else
+                    'Slow'
+                ),
+                'stock_status': (
+                    'Overstocked' if days_of_cover > 30 else
+                    'Normal' if days_of_cover > 7 else
+                    'Low Stock' if days_of_cover > 0 else
+                    'Out of Stock'
+                )
+            })
+        
+        # Sort by turnover ratio (highest first)
+        turnover_data.sort(key=lambda x: x['turnover_ratio'], reverse=True)
+        
+        # Calculate summary
+        total_products = len(turnover_data)
+        avg_turnover = sum(item['turnover_ratio'] for item in turnover_data) / total_products if total_products > 0 else 0
+        
+        velocity_breakdown = {
+            'fast': len([p for p in turnover_data if p['velocity_category'] == 'Fast']),
+            'medium': len([p for p in turnover_data if p['velocity_category'] == 'Medium']),
+            'slow': len([p for p in turnover_data if p['velocity_category'] == 'Slow'])
+        }
+        
+        stock_status_breakdown = {
+            'overstocked': len([p for p in turnover_data if p['stock_status'] == 'Overstocked']),
+            'normal': len([p for p in turnover_data if p['stock_status'] == 'Normal']),
+            'low_stock': len([p for p in turnover_data if p['stock_status'] == 'Low Stock']),
+            'out_of_stock': len([p for p in turnover_data if p['stock_status'] == 'Out of Stock'])
+        }
+        
+        summary = {
+            'total_products': total_products,
+            'avg_turnover_ratio': round(avg_turnover, 2),
+            'period_days': days_back,
+            'velocity_breakdown': velocity_breakdown,
+            'stock_status_breakdown': stock_status_breakdown
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': turnover_data,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@require_app_login
+def inventory_supplier_report(request):
+    """Generate supplier performance report"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Get date range
+        days_back = int(request.GET.get('days', 90))
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=days_back)
+        
+        # Get all stock additions with suppliers
+        additions = StockAddition.objects.filter(
+            date_added__gte=start_date,
+            date_added__lte=end_date
+        ).select_related('product')
+        
+        # Group by supplier
+        supplier_data = {}
+        
+        for addition in additions:
+            supplier = addition.supplier or 'Unknown Supplier'
+            
+            if supplier not in supplier_data:
+                supplier_data[supplier] = {
+                    'supplier_name': supplier,
+                    'total_deliveries': 0,
+                    'total_boxes': 0,
+                    'total_value': 0,
+                    'products_supplied': set(),
+                    'deliveries': [],
+                    'avg_delivery_size': 0,
+                    'last_delivery': None
+                }
+            
+            supplier_data[supplier]['total_deliveries'] += 1
+            supplier_data[supplier]['total_boxes'] += int(addition.quantity or 0)
+            supplier_data[supplier]['total_value'] += float(addition.quantity * (addition.cost or 0))
+            supplier_data[supplier]['products_supplied'].add(addition.product.name)
+            supplier_data[supplier]['deliveries'].append({
+                'date': addition.date_added.strftime('%Y-%m-%d'),
+                'product': addition.product.name,
+                'quantity': int(addition.quantity or 0),
+                'batch_id': addition.batch_id
+            })
+            
+            # Track last delivery
+            if not supplier_data[supplier]['last_delivery'] or addition.date_added > datetime.strptime(supplier_data[supplier]['last_delivery'], '%Y-%m-%d').date():
+                supplier_data[supplier]['last_delivery'] = addition.date_added.strftime('%Y-%m-%d')
+        
+        # Convert to list and calculate averages
+        supplier_list = []
+        for supplier, data in supplier_data.items():
+            data['products_supplied'] = list(data['products_supplied'])
+            data['unique_products'] = len(data['products_supplied'])
+            data['avg_delivery_size'] = round(data['total_boxes'] / data['total_deliveries'], 1) if data['total_deliveries'] > 0 else 0
+            
+            # Calculate days since last delivery
+            if data['last_delivery']:
+                last_delivery_date = datetime.strptime(data['last_delivery'], '%Y-%m-%d').date()
+                days_since_last = (datetime.now().date() - last_delivery_date).days
+                data['days_since_last_delivery'] = days_since_last
+            else:
+                data['days_since_last_delivery'] = 999
+            
+            supplier_list.append(data)
+        
+        # Sort by total value (highest first)
+        supplier_list.sort(key=lambda x: x['total_value'], reverse=True)
+        
+        # Calculate summary
+        total_suppliers = len(supplier_list)
+        total_deliveries = sum(s['total_deliveries'] for s in supplier_list)
+        total_boxes = sum(s['total_boxes'] for s in supplier_list)
+        total_value = sum(s['total_value'] for s in supplier_list)
+        
+        summary = {
+            'total_suppliers': total_suppliers,
+            'total_deliveries': total_deliveries,
+            'total_boxes': total_boxes,
+            'total_value': total_value,
+            'period_days': days_back,
+            'avg_deliveries_per_supplier': round(total_deliveries / total_suppliers, 1) if total_suppliers > 0 else 0,
+            'avg_boxes_per_delivery': round(total_boxes / total_deliveries, 1) if total_deliveries > 0 else 0
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': supplier_list,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+@require_app_login
+def generate_inventory_pdf_report(request):
+    """Generate comprehensive PDF report for inventory"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from django.http import HttpResponse
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from io import BytesIO
+        from datetime import datetime
+        import json
+        
+        # Get report type
+        report_type = request.GET.get('type', 'comprehensive')
+        
+        # Create the PDF document
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Container for the 'Flowable' objects
+        elements = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, spaceAfter=30, textColor=colors.darkblue)
+        heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14, spaceAfter=12, textColor=colors.darkblue)
+        
+        # Title
+        title = Paragraph("StockWise Inventory Report", title_style)
+        elements.append(title)
+        
+        # Report info
+        report_info = Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles['Normal'])
+        elements.append(report_info)
+        elements.append(Spacer(1, 20))
+        
+        if report_type == 'comprehensive' or report_type == 'stock':
+            # Stock Snapshot Report
+            elements.append(Paragraph("Stock Snapshot Report", heading_style))
+            
+            # Get stock data (reuse the existing endpoint logic)
+            products = Product.objects.all().order_by('name')
+            stock_data = []
+            total_value_cost = 0
+            total_value_price = 0
+            
+            for product in products:
+                stock_value_cost = float(product.stock * (product.cost or 0))
+                stock_value_price = float(product.stock * product.price)
+                total_value_cost += stock_value_cost
+                total_value_price += stock_value_price
+                
+                stock_data.append([
+                    product.name,
+                    product.size or 'N/A',
+                    str(int(product.stock)),
+                    f"₱{product.price:.2f}",
+                    f"₱{stock_value_price:.2f}",
+                    "⚠️" if product.stock < 10 else "✓"
+                ])
+            
+            # Stock table
+            stock_headers = ['Product', 'Size', 'Stock', 'Unit Price', 'Total Value', 'Status']
+            stock_table_data = [stock_headers] + stock_data
+            
+            stock_table = Table(stock_table_data, colWidths=[2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch, 0.7*inch])
+            stock_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ]))
+            
+            elements.append(stock_table)
+            
+            # Stock summary
+            summary_data = [
+                ['Total Products', str(len(stock_data))],
+                ['Total Stock Value', f"₱{total_value_price:,.2f}"],
+                ['Total Cost Value', f"₱{total_value_cost:,.2f}"],
+                ['Potential Profit', f"₱{total_value_price - total_value_cost:,.2f}"],
+                ['Low Stock Items', str(sum(1 for row in stock_data if row[5] == "⚠️"))]
+            ]
+            
+            summary_table = Table(summary_data, colWidths=[2*inch, 2*inch])
+            summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+            
+            elements.append(Spacer(1, 12))
+            elements.append(summary_table)
+            elements.append(PageBreak())
+        
+        if report_type == 'comprehensive' or report_type == 'movement':
+            # Movement Report
+            elements.append(Paragraph("Stock Movement Report (Last 30 Days)", heading_style))
+            
+            from datetime import timedelta
+            days_back = 30
+            end_date = datetime.now().date()
+            start_date = end_date - timedelta(days=days_back)
+            
+            # Get movements (simplified for PDF)
+            additions = StockAddition.objects.filter(
+                date_added__gte=start_date,
+                date_added__lte=end_date
+            ).select_related('product').order_by('-date_added')[:20]  # Limit for PDF
+            
+            movement_data = []
+            for addition in additions:
+                movement_data.append([
+                    addition.date_added.strftime('%m/%d'),
+                    addition.product.name[:20],
+                    'Addition',
+                    str(int(addition.quantity)),
+                    addition.supplier or 'N/A',
+                    addition.batch_id[:15]
+                ])
+            
+            if movement_data:
+                movement_headers = ['Date', 'Product', 'Type', 'Qty', 'Supplier', 'Batch ID']
+                movement_table_data = [movement_headers] + movement_data
+                
+                movement_table = Table(movement_table_data, colWidths=[0.8*inch, 2*inch, 1*inch, 0.6*inch, 1.2*inch, 1.4*inch])
+                movement_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ]))
+                
+                elements.append(movement_table)
+            else:
+                elements.append(Paragraph("No stock movements in the last 30 days.", styles['Normal']))
+            
+            elements.append(PageBreak())
+        
+        if report_type == 'comprehensive' or report_type == 'batches':
+            # Batch Report
+            elements.append(Paragraph("Active Batches Report", heading_style))
+            
+            batches = StockAddition.objects.filter(
+                remaining_quantity__gt=0
+            ).select_related('product').order_by('date_added')[:30]  # Limit for PDF
+            
+            batch_data = []
+            for batch in batches:
+                age_days = (datetime.now().date() - batch.date_added).days
+                age_category = 'Fresh' if age_days <= 7 else 'Aging' if age_days <= 14 else 'Old'
+                
+                batch_data.append([
+                    batch.batch_id[:15],
+                    batch.product.name[:20],
+                    batch.date_added.strftime('%m/%d/%y'),
+                    str(int(batch.remaining_quantity)),
+                    str(age_days),
+                    age_category
+                ])
+            
+            if batch_data:
+                batch_headers = ['Batch ID', 'Product', 'Date Added', 'Remaining', 'Age (Days)', 'Category']
+                batch_table_data = [batch_headers] + batch_data
+                
+                batch_table = Table(batch_table_data, colWidths=[1.2*inch, 2*inch, 1*inch, 0.8*inch, 0.8*inch, 1*inch])
+                batch_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.purple),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lavender),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ]))
+                
+                elements.append(batch_table)
+            else:
+                elements.append(Paragraph("No active batches found.", styles['Normal']))
+        
+        if report_type == 'comprehensive':
+            elements.append(PageBreak())
+            
+            # Turnover Summary
+            elements.append(Paragraph("Inventory Turnover Summary", heading_style))
+            
+            products = Product.objects.all()[:15]  # Limit for PDF
+            turnover_data = []
+            
+            for product in products:
+                # Simplified turnover calculation
+                from datetime import timedelta
+                days_back = 30
+                end_date = datetime.now().date()
+                start_date = end_date - timedelta(days=days_back)
+                
+                sales_qty = Sale.objects.filter(
+                    product=product,
+                    recorded_at__date__gte=start_date,
+                    recorded_at__date__lte=end_date
+                ).aggregate(total_sold=Sum('quantity'))['total_sold'] or 0
+                
+                daily_sales_rate = float(sales_qty) / days_back if days_back > 0 else 0
+                days_of_cover = float(product.stock) / daily_sales_rate if daily_sales_rate > 0 else 999
+                
+                velocity = 'Fast' if daily_sales_rate > 2 else 'Medium' if daily_sales_rate > 0.5 else 'Slow'
+                
+                turnover_data.append([
+                    product.name[:20],
+                    str(int(product.stock)),
+                    str(int(sales_qty)),
+                    f"{daily_sales_rate:.1f}",
+                    f"{days_of_cover:.0f}" if days_of_cover < 999 else "∞",
+                    velocity
+                ])
+            
+            if turnover_data:
+                turnover_headers = ['Product', 'Stock', '30d Sales', 'Daily Rate', 'Days Cover', 'Velocity']
+                turnover_table_data = [turnover_headers] + turnover_data
+                
+                turnover_table = Table(turnover_table_data, colWidths=[2*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 1*inch])
+                turnover_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.orange),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ]))
+                
+                elements.append(turnover_table)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get the value of the BytesIO buffer and write it to the response
+        pdf = buffer.getvalue()
+        buffer.close()
+        
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="inventory_report_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
+        response.write(pdf)
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 
 @require_app_login

@@ -1,20 +1,202 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>StockWise - Dashboard</title>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="p-4">
-	<div class="container">
-		<div class="d-flex justify-content-between align-items-center mb-4">
-			<h2>Dashboard</h2>
-			<a class="btn btn-outline-secondary" href="/logout/">Logout</a>
+{% extends "base_responsive.html" %}
+{% load static %}
+
+{% block title %}StockWise - Dashboard{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
+{% endblock %}
+
+{% block header %}
+    <header class="header">
+        <div class="header-left">
+            <h1>Dashboard</h1>
+            <p class="header-subtitle">Welcome back! Here's your business overview.</p>
+        </div>
+        <div class="header-right">
+            <!-- Mobile Menu Toggle Button -->
+            <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
+                <i class="bi bi-list" style="font-size: 1.2rem;"></i>
+                <span class="ms-1">Menu</span>
+            </button>
+
+            <div class="dropdown">
+                <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+{% endblock %}
+
+{% block content %}
+    <!-- Welcome Message -->
+    <div class="welcome-card animate-fade-in">
+        <h2 class="welcome-title">Welcome back, {{ request.session.app_username }}!</h2>
+        <p class="welcome-subtitle">Here's what's happening with your inventory today</p>
+
+        <div class="stats-summary">
+            <div class="stat-summary-item">
+                <span class="stat-summary-value">{{ total_products }}</span>
+                <span class="stat-summary-label">Total Products</span>
+            </div>
+            <div class="stat-summary-item">
+                <span class="stat-summary-value">{{ low_stock }}</span>
+                <span class="stat-summary-label">Low Stock Alerts</span>
+            </div>
+            <div class="stat-summary-item">
+                <span class="stat-summary-value">{{ today_sales }}</span>
+                <span class="stat-summary-label">Today's Sales</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="modern-card" style="margin-bottom: 2rem;">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="bi bi-lightning-charge"></i>
+                Quick Actions
+            </h3>
+        </div>
+        <div style="padding: 1.5rem;">
+            <div class="quick-actions-grid">
+                <a href="{% url 'products_inventory' %}" class="quick-action-btn animate-fade-in">
+                    <i class="bi bi-plus-circle"></i>
+                    <div class="quick-action-btn-content">
+                        <h6>Add Product</h6>
+                        <p>Add new items to inventory</p>
+                    </div>
+                </a>
+                <a href="{% url 'sales' %}" class="quick-action-btn animate-fade-in" style="animation-delay: 50ms;">
+                    <i class="bi bi-cart-plus"></i>
+                    <div class="quick-action-btn-content">
+                        <h6>Record Sale</h6>
+                        <p>Process a new transaction</p>
+                    </div>
+                </a>
+                <a href="{% url 'products_inventory' %}" class="quick-action-btn animate-fade-in" style="animation-delay: 100ms;">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    <div class="quick-action-btn-content">
+                        <h6>Add Stock</h6>
+                        <p>Restock existing products</p>
+                    </div>
+                </a>
+                {% if app_role == 'admin' %}
+                <a href="{% url 'reports' %}" class="quick-action-btn animate-fade-in" style="animation-delay: 150ms;">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <div class="quick-action-btn-content">
+                        <h6>View Reports</h6>
+                        <p>Analytics and insights</p>
+                    </div>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Coming Soon -->
+    <div class="modern-card">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="bi bi-construction"></i>
+                Coming Soon
+            </h3>
+        </div>
+        <div style="padding: 2rem; text-align: center;">
+            <i class="bi bi-rocket-takeoff" style="font-size: 4rem; color: var(--primary); margin-bottom: 1rem;"></i>
+            <h4>Full Dashboard Coming Soon!</h4>
+            <p style="color: var(--gray-600); margin-bottom: 1.5rem;">We're working on bringing you the complete dashboard experience with charts, analytics, and advanced features.</p>
+            <a href="{% url 'dashboard_full' %}" class="btn-modern primary">
+                <i class="bi bi-eye"></i>
+                Preview Full Dashboard
+            </a>
 		</div>
-		<p>Welcome, {{ request.session.app_username }}.</p>
-		<p class="lead mb-4">Stats: Products {{ total_products }}, Low Stock {{ low_stock }}, Today Sales {{ today_sales }}</p>
-		<p>This is a placeholder dashboard. We'll port your full `dashboard.php` design next.</p>
 	</div>
-</body>
-</html> 
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+            console.log('Dashboard loaded');
+            console.log('Sidebar element:', sidebar);
+            console.log('Mobile menu button:', mobileMenuToggle);
+
+            // Mobile sidebar toggle functionality
+            function toggleMobileMenu() {
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                    console.log('Sidebar toggled:', sidebar.classList.contains('active'));
+                    // Prevent body scroll when sidebar is open on mobile
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                } else {
+                    console.log('Sidebar not found');
+                }
+            }
+
+            // Handle mobile menu toggle click
+            if (mobileMenuToggle) {
+                console.log('Mobile menu button found, adding event listener');
+                mobileMenuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Mobile menu button clicked');
+                    toggleMobileMenu();
+                });
+            } else {
+                console.log('Mobile menu button NOT found');
+            }
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                    if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Sidebar closed from outside click');
+                    }
+                }
+            });
+
+            // Close sidebar when clicking on navigation links
+            if (sidebar) {
+                const navLinks = sidebar.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                            document.body.style.overflow = '';
+                            console.log('Sidebar closed from nav link click');
+                        }
+                    });
+                });
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768 && sidebar) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Sidebar closed on resize');
+                }
+            });
+
+            // Handle escape key to close sidebar
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Sidebar closed from escape key');
+                }
+            });
+        });
+    </script>
+{% endblock %} 

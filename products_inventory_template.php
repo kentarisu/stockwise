@@ -2867,6 +2867,11 @@ require_once 'config/headers.php';
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li>
+                                                                    <button class="dropdown-item add-stock-btn" data-id="<?php echo $product['product_id']; ?>" data-bs-toggle="modal" data-bs-target="#addStockModal" title="Add stock to this fruit">
+                                                                        <i class="bi bi-plus-lg me-2" aria-hidden="true"></i> Add Stock
+                                                                    </button>
+                                                                </li>
+                                                                <li>
                                                                     <button class="dropdown-item edit-btn" data-id="<?php echo $product['product_id']; ?>" data-bs-toggle="modal" data-bs-target="#productModal" title="Edit this fruit">
                                                                         <i class="bi bi-pencil me-2" aria-hidden="true"></i> Edit
                                                                     </button>

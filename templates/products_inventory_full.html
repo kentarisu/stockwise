@@ -3,7 +3,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
     <title>StockWise - Inventory Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -303,6 +308,7 @@
             margin-bottom: 2rem;
         }
 
+
         .btn-modern {
             padding: 0.75rem 1.5rem;
             border-radius: 12px;
@@ -591,6 +597,18 @@
                 padding: 0 1rem;
             }
 
+            /* Mobile menu toggle button - SHOW ON MOBILE */
+            #mobileMenuToggle {
+                display: flex !important;
+                background: #007bff !important;
+                border: 2px solid #000000 !important;
+                color: #ffffff !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                position: relative !important;
+                z-index: 9999 !important;
+            }
+
             .content-area {
                 padding: 1rem;
             }
@@ -616,6 +634,13 @@
                 padding: 0.5rem 0.75rem;
                 margin-right: 0.25rem;
                 margin-bottom: 0.25rem;
+            }
+        }
+
+        /* Desktop - Hide mobile menu button */
+        @media (min-width: 769px) {
+            #mobileMenuToggle {
+                display: none !important;
             }
         }
     </style>
@@ -960,6 +985,12 @@
                     <p class="header-subtitle">Manage your product inventory and track stock levels</p>
                 </div>
                 <div class="header-right">
+                    <!-- Mobile Menu Toggle Button -->
+                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
+                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
+                        <span class="ms-1">Menu</span>
+                    </button>
+
                     <div class="dropdown">
                         <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -1018,7 +1049,6 @@
                         <i class="bi bi-box-arrow-in-down"></i>
                         Add Stock
                     </a>
-                    
                 </div>
 
                 <!-- Filters -->
@@ -1028,7 +1058,7 @@
                             <label class="form-label">Search</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control" id="searchInput" placeholder="Search fruits...">
+                                <input type="text" class="form-control" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                         </div>
                         <div class="form-group">
@@ -1040,9 +1070,9 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <button type="button" class="btn-modern primary" id="refreshTable">
+                            <button type="button" class="btn-modern primary" id="refreshTable" aria-label="Refresh table">
                                 <i class="bi bi-arrow-clockwise"></i>
-                                Refresh
+                                <span class="d-none d-md-inline">Refresh</span>
                             </button>
                         </div>
                     </div>
@@ -1054,9 +1084,6 @@
                         <ul class="nav nav-tabs border-0" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="all-products-tab" data-bs-toggle="tab" data-bs-target="#all-products" type="button" role="tab" aria-controls="all-products" aria-selected="true">All Products</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="active-products-tab" data-bs-toggle="tab" data-bs-target="#active-products" type="button" role="tab" aria-controls="active-products" aria-selected="false">Active Products</button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="low-stock-tab" data-bs-toggle="tab" data-bs-target="#low-stock" type="button" role="tab" aria-controls="low-stock" aria-selected="false">Low Stock</button>
@@ -1089,30 +1116,6 @@
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="active-products" role="tabpanel" aria-labelledby="active-products-tab">
-                            <div class="table-responsive">
-                                <table class="table" id="activeProductsTable">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 60px">Product ID</th>
-                                            <th>Fruit</th>
-                                            <th>Variant</th>
-                                            <th>Size</th>
-                                            <th>Price</th>
-                                            <th>Stock</th>
-                                            <th>Status</th>
-                                            <th style="width: 150px">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Active products will be loaded dynamically -->
-                                        <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">Loading active products...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
 
                         <div class="tab-pane fade" id="low-stock" role="tabpanel" aria-labelledby="low-stock-tab">
                             <div class="table-responsive">
@@ -1219,61 +1222,107 @@
         </div>
     </div>
 
-    <!-- Edit Fruit Modal -->
-    <div class="modal fade" id="editFruitModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+    <!-- Status Change Confirmation Modal -->
+    <div class="modal fade" id="discontinueModal" tabindex="-1" aria-labelledby="discontinueModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title" id="discontinueModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                        <span id="modalTitle">Discontinue Product</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="mb-3">
+                        <i id="modalIcon" class="bi bi-x-circle-fill text-danger" style="font-size: 3rem;"></i>
+                    </div>
+                    <p class="mb-0" id="modalMessage">Are you sure you want to discontinue this product?</p>
+                    <small class="text-muted" id="modalSubtext">This will change the product status to "Discontinued"</small>
+                </div>
+                <div class="modal-footer border-0 pt-0 justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn" id="confirmDiscontinue">
+                        <i id="confirmIcon" class="bi bi-x-circle me-1"></i> <span id="confirmText">Discontinue</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal (Add/Edit) -->
+    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" role="dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Fruit</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="productModalLabel">Add New Fruit</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="editFruitForm" method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="product_id">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Fruit Name</label>
-                            <input type="text" class="form-control" name="name" required>
+                <div class="modal-body">
+                    <div id="productFormAlert"></div>
+                    <form id="productForm" enctype="multipart/form-data" novalidate>
+                        <input type="hidden" id="formAction" name="action" value="add">
+                        <input type="hidden" id="productId" name="productId">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="productName" class="form-label">Fruit Name</label>
+                                <input type="text" class="form-control" id="productName" name="productName" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="variant" class="form-label">Variant (Optional)</label>
+                                <input type="text" class="form-control" id="variant" name="variant" placeholder="e.g., Red, Green, Organic">
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Size/Weight</label>
-                            <input type="number" class="form-control" name="size" required min="0" step="0.01" placeholder="Enter numeric size">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="size" class="form-label">Size/Weight</label>
+                                <input type="text" class="form-control" id="size" name="size" required placeholder="e.g., Large, 1kg, 500g">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="initialStock" class="form-label">Initial Stock</label>
+                                <input type="number" class="form-control" id="initialStock" name="initialStock" min="0" required>
+                            </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Price</label>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="cost" class="form-label">Cost</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" name="price" min="0" step="0.01" required>
+                                    <input type="number" class="form-control" id="cost" name="cost" min="0" step="0.01">
                                 </div>
                             </div>
-                            {% if app_role == 'admin' %}
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Cost</label>
+                            <div class="col-md-6">
+                                <label for="price" class="form-label">Price</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" name="cost" min="0" step="0.01" required>
+                                    <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
                                 </div>
                             </div>
-                            {% endif %}
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="dateAdded" class="form-label">Date Added</label>
+                                <input type="date" class="form-control" id="dateAdded" name="dateAdded" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="status" class="form-label">Status</label>
+                                <select class="form-select" id="status" name="status" required>
+                                    <option value="Active">Active</option>
+                                    <option value="Discontinued">Discontinued</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Current Stock</label>
-                            <input type="number" class="form-control" name="stock" min="0" required>
+                            <label for="productImage" class="form-label">Fruit Image (Optional)</label>
+                            <input type="file" class="form-control w-auto" style="max-width: 400px;" id="productImage" name="productImage" accept="image/jpeg,image/png" aria-describedby="productImageFeedback" title="Upload an image (JPG/PNG, max 2MB)">
+                            <div id="productImageFeedback" class="invalid-feedback">Please upload a valid image (JPG/PNG, max 2MB).</div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Status</label>
-                            <select class="form-select" name="status" required>
-                                <option value="Active">Active</option>
-                                <option value="Discontinued">Discontinued</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" title="Close without saving">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveProductBtn" title="Save the fruit details">Add Fruit</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1363,11 +1412,60 @@
             }, 5000);
         }
 
+        // Mobile-specific optimizations
+        function initMobileOptimizations() {
+            // Prevent iOS zoom on input focus
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                $('input[type="text"], input[type="number"], select').each(function() {
+                    if ($(this).attr('type') !== 'search') {
+                        $(this).css('font-size', '16px');
+                    }
+                });
+            }
+            
+            // Add touch-friendly dropdown behavior
+            $(document).on('touchstart', '.dropdown-toggle', function(e) {
+                const $this = $(this);
+                setTimeout(function() {
+                    $this.dropdown('toggle');
+                }, 10);
+            });
+            
+            // Improve table scrolling on mobile
+            $('.table-responsive').on('touchstart touchmove', function(e) {
+                e.stopPropagation();
+            });
+            
+            // Add haptic feedback for iOS (if available)
+            if ('vibrate' in navigator) {
+                $(document).on('click', '.btn:not(.dropdown-toggle), .dropdown-item', function() {
+                    navigator.vibrate(10);
+                });
+            }
+            
+            // Handle mobile dropdown better
+            $(document).on('click', '.btn-icon', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const dropdown = $(this).next('.dropdown-menu');
+                $('.dropdown-menu').not(dropdown).removeClass('show');
+                dropdown.toggleClass('show');
+            });
+            
+            // Close dropdowns when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.dropdown').length) {
+                    $('.dropdown-menu').removeClass('show');
+                }
+            });
+        }
+
         // Load products on page load
         $(document).ready(function() {
             loadProducts('allProductsTable', 'all');
             loadActiveProducts();
             setupEventHandlers();
+            initMobileOptimizations();
             $('#addStockForm [name="date_added"]').val(new Date().toISOString().split('T')[0]);
         });
 
@@ -1381,7 +1479,6 @@
 
             // Tab event listeners
             $('#all-products-tab').on('shown.bs.tab', () => loadProducts('allProductsTable', 'all'));
-            $('#active-products-tab').on('shown.bs.tab', () => loadProducts('activeProductsTable', 'Active'));
             $('#low-stock-tab').on('shown.bs.tab', () => loadProducts('lowStockTable', 'Low Stock'));
             $('#out-of-stock-tab').on('shown.bs.tab', () => loadProducts('outOfStockTable', 'Out of Stock'));
 
@@ -1394,9 +1491,6 @@
                     case 'all-products-tab': 
                         loadProducts('allProductsTable', 'all'); 
                         break;
-                    case 'active-products-tab': 
-                        loadProducts('activeProductsTable', 'Active'); 
-                        break;
                     case 'low-stock-tab': 
                         loadProducts('lowStockTable', 'Low Stock'); 
                         break;
@@ -1408,33 +1502,77 @@
                 }
             }
 
-            // Add Product modal removed; no autocomplete or form handling on this page
+            // Product Modal (Add/Edit) - Initialize
+            $('#productModal').on('show.bs.modal', function() {
+                // Reset form for add mode
+                $('#productForm')[0].reset();
+                $('#formAction').val('add');
+                $('#productId').val('');
+                $('#productModalLabel').text('Add New Fruit');
+                $('#saveProductBtn').text('Add Fruit').attr('title', 'Save the fruit details');
+                $('#productFormAlert').empty();
+                
+                // Set today's date as default
+                $('#dateAdded').val(new Date().toISOString().split('T')[0]);
+            });
 
-            // Edit fruit form
-            $('#editFruitForm').on('submit', function(e) {
-                e.preventDefault();
-                const data = {
-                    action: 'edit',
-                    productId: currentProductId,
-                    name: $(this).find('[name="name"]').val(),
-                    size: $(this).find('[name="size"]').val(),
-                    price: parseFloat($(this).find('[name="price"]').val()),
-                    cost: parseFloat($(this).find('[name="cost"]').val() || 0),
-                    status: $(this).find('[name="status"]').val(),
-                    boxes: parseInt($(this).find('[name="boxes"]').val() || 0),
-                    units_per_box: parseInt($(this).find('[name="units_per_box"]').val() || 1),
-                    supplier: $(this).find('[name="supplier"]').val() || ''
-                };
+            // Handle Edit button from dropdown
+            $(document).on('click', '.edit-btn', function() {
+                const productId = $(this).data('id');
+                // Find the product in the products array and populate the form
+                const product = products.find(p => p.product_id == productId);
+                if (product) {
+                    // Parse name and variant
+                    let productName = product.name;
+                    let variant = '';
+                    if (productName.includes('(') && productName.includes(')')) {
+                        const match = productName.match(/^(.*?)\s*\((.*?)\)$/);
+                        if (match) {
+                            productName = match[1].trim();
+                            variant = match[2].trim();
+                        }
+                    }
+                    
+                    // Set edit mode
+                    $('#formAction').val('edit');
+                    $('#productId').val(productId);
+                    $('#productModalLabel').text('Edit Fruit');
+                    $('#saveProductBtn').text('Save Changes').attr('title', 'Save the fruit details');
+                    
+                    // Populate form fields
+                    $('#productName').val(productName);
+                    $('#variant').val(variant);
+                    $('#size').val(product.size);
+                    $('#cost').val(product.cost || 0);
+                    $('#price').val(product.price);
+                    $('#initialStock').val(product.stock || 0);
+                    $('#status').val(product.status);
+                    $('#dateAdded').val(product.date_added || new Date().toISOString().split('T')[0]);
+                    $('#productImage').val(''); // Clear file input
+                    
+                    $('#productFormAlert').empty();
+                }
+            });
+
+            // Handle save button click
+            $('#saveProductBtn').on('click', function() {
+                const formData = new FormData($('#productForm')[0]);
+                
                 $.ajax({
                     url: "{% url 'handle_product_post' %}",
                     method: 'POST',
-                    data: data,
+                    data: formData,
+                    processData: false,
+                    contentType: false,
                     success: function(response) {
                         if (response.success) {
-                            $('#editFruitModal').modal('hide');
+                            $('#productModal').modal('hide');
                             loadProducts();
                         }
                         showAlert(response.message, response.success ? 'success' : 'danger');
+                    },
+                    error: function() {
+                        showAlert('Error saving product. Please try again.', 'danger');
                     }
                 });
             });
@@ -1531,6 +1669,74 @@
                     $select.trigger('change.select2');
                 }
             }
+
+
+
+            // Handle Status Change button from dropdown
+            let currentStatusChangeProductId = null;
+            let currentStatusChangeAction = null;
+            
+            $(document).on('click', '.discontinue-btn', function() {
+                currentStatusChangeProductId = $(this).data('id');
+                const currentStatus = $(this).data('status');
+                const isDiscontinued = currentStatus === 'Discontinued';
+                
+                if (isDiscontinued) {
+                    // Continue/Reactivate mode
+                    currentStatusChangeAction = 'continue';
+                    $('#modalTitle').text('Continue Product');
+                    $('#modalIcon').removeClass('bi-x-circle-fill text-danger').addClass('bi-arrow-counterclockwise text-success');
+                    $('#modalMessage').text('Are you sure you want to continue this product?');
+                    $('#modalSubtext').text('This will change the product status to "Active"');
+                    $('#confirmDiscontinue').removeClass('btn-danger').addClass('btn-success');
+                    $('#confirmIcon').removeClass('bi-x-circle').addClass('bi-arrow-counterclockwise');
+                    $('#confirmText').text('Continue');
+                } else {
+                    // Discontinue mode
+                    currentStatusChangeAction = 'discontinue';
+                    $('#modalTitle').text('Discontinue Product');
+                    $('#modalIcon').removeClass('bi-arrow-counterclockwise text-success').addClass('bi-x-circle-fill text-danger');
+                    $('#modalMessage').text('Are you sure you want to discontinue this product?');
+                    $('#modalSubtext').text('This will change the product status to "Discontinued"');
+                    $('#confirmDiscontinue').removeClass('btn-success').addClass('btn-danger');
+                    $('#confirmIcon').removeClass('bi-arrow-counterclockwise').addClass('bi-x-circle');
+                    $('#confirmText').text('Discontinue');
+                }
+                
+                $('#discontinueModal').modal('show');
+            });
+
+            // Handle confirm button
+            $('#confirmDiscontinue').on('click', function() {
+                if (currentStatusChangeProductId && currentStatusChangeAction) {
+                    const newStatus = currentStatusChangeAction === 'continue' ? 'Active' : 'Discontinued';
+                    const actionText = currentStatusChangeAction === 'continue' ? 'continued' : 'discontinued';
+                    
+                    $.ajax({
+                        url: "{% url 'handle_product_post' %}",
+                        method: 'POST',
+                        data: {
+                            action: 'update_status',
+                            product_id: currentStatusChangeProductId,
+                            status: newStatus
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $('#discontinueModal').modal('hide');
+                                loadProducts();
+                                showAlert(`Product ${actionText} successfully`, 'success');
+                            } else {
+                                showAlert(response.message, 'danger');
+                            }
+                        },
+                        error: function() {
+                            showAlert(`Error ${actionText} product. Please try again.`, 'danger');
+                        }
+                    });
+                    currentStatusChangeProductId = null;
+                    currentStatusChangeAction = null;
+                }
+            });
 
             // Initialize stock modal
             $('#addStockModal').on('show.bs.modal', function() {
@@ -2021,23 +2227,38 @@
                             </td>
                         `);
                         
-                        // Action buttons
-                        let actionsHtml = `
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-primary" onclick="addStock(${product.product_id})">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>`;
-                        if (window.showCost) {
-                            actionsHtml += `
-                                <button type="button" class="btn btn-outline-secondary" onclick="editProduct(${product.product_id})">
-                                    <i class="bi bi-pencil"></i>
+                        // Options - 3 dots dropdown
+                        let optionsHtml = `
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                    <span class="visually-hidden">More options for ${product.name}</span>
                                 </button>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteProduct(${product.product_id})">
-                                    <i class="bi bi-trash"></i>
-                                </button>`;
+                                <ul class="dropdown-menu dropdown-menu-end">`;
+                        
+                        if (window.showCost) {
+                            const isDiscontinued = product.status === 'Discontinued';
+                            const actionText = isDiscontinued ? 'Continue' : 'Discontinue';
+                            const actionIcon = isDiscontinued ? 'arrow-counterclockwise' : 'x-circle';
+                            const actionTitle = isDiscontinued ? 'Continue this product' : 'Discontinue this product';
+                            
+                            optionsHtml += `
+                                    <li>
+                                        <button class="dropdown-item edit-btn" data-id="${product.product_id}" data-bs-toggle="modal" data-bs-target="#productModal" title="Edit this product">
+                                            <i class="bi bi-pencil me-2"></i> Edit
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item discontinue-btn ${isDiscontinued ? 'continue-btn' : ''}" data-id="${product.product_id}" data-status="${product.status}" title="${actionTitle}">
+                                            <i class="bi bi-${actionIcon} me-2"></i> ${actionText}
+                                        </button>
+                                    </li>`;
                         }
-                        actionsHtml += '</div>';
-                        const actions = $('<td>').html(actionsHtml);
+                        
+                        optionsHtml += `
+                                </ul>
+                            </div>`;
+                        const actions = $('<td>').html(optionsHtml);
                         row.append(actions);
                         tbody.append(row);
                     });
@@ -2416,6 +2637,77 @@
         });
 
         // Sticker modal logic removed; use dedicated page instead
+
+        // Mobile sidebar toggle functionality
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+        function toggleMobileMenu() {
+            if (sidebar) {
+                sidebar.classList.toggle('active');
+                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
+                // Prevent body scroll when sidebar is open on mobile
+                if (sidebar.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
+        // Handle mobile menu toggle click
+        if (mobileMenuToggle) {
+            console.log('Mobile menu button found in products_inventory_full');
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Mobile menu button clicked in products_inventory_full');
+                toggleMobileMenu();
+            });
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed from outside click');
+                }
+            }
+        });
+
+        // Close sidebar when clicking on navigation links
+        if (sidebar) {
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from nav link click');
+                    }
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768 && sidebar) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed on resize');
+            }
+        });
+
+        // Handle escape key to close sidebar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed from escape key');
+            }
+        });
     </script>
     <script>
   $(document).ready(function() {

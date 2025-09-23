@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.206', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['192.168.1.206', '127.0.0.1', 'localhost', '172.20.10.4', '0.0.0.0', 'da443ad746d5.ngrok-free.app', '.ngrok-free.app']
 
 
 # Application definition
@@ -58,7 +58,10 @@ ROOT_URLCONF = 'stockwise_py.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [
+            BASE_DIR.parent / 'templates',  # Points to C:\Users\Orly\stockwise\templates
+            BASE_DIR / 'templates',         # Points to C:\Users\Orly\stockwise\stockwise_py\templates
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -119,23 +122,50 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'css']
+STATICFILES_DIRS = [
+    BASE_DIR.parent / 'static',  # Points to C:\Users\Orly\stockwise\static
+    BASE_DIR / 'static',         # Points to C:\Users\Orly\stockwise\stockwise_py\static
+]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Ensure static files are only served from the static directories
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Twilio (SMS) credentials – your working credentials
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', 'AC94ba22dcd23591ddc690f10556d37631')
-TWILIO_AUTH_TOKEN  = os.getenv('TWILIO_AUTH_TOKEN', '36650dd2682d4ac167d24084fa62d73a')
-TWILIO_FROM_PHONE  = os.getenv('TWILIO_FROM_PHONE', '+16824523250')  # Your working number
+# Twilio (SMS) credentials – configured via env vars with safe fallbacks
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', 'AC0bf4c5c75150f71311c71426d1e34bad')
+TWILIO_AUTH_TOKEN  = os.getenv('TWILIO_AUTH_TOKEN', '7fe5f40b944b7b74a9579e2e973caa09')
+TWILIO_FROM_PHONE  = os.getenv('TWILIO_FROM_PHONE', '+12673774157')  # Twilio trial number
 
 # Admin phone number (Philippines local format without +63)
-ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9123456789')
+ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9630675254')
 
 CRONJOBS = [
     # Daily sales SMS at 20:00 (8 PM) server local time
     ('0 20 * * *', 'django.core.management.call_command', ['send_daily_report']),
 ]
+
+# CSRF Configuration for ngrok
+CSRF_TRUSTED_ORIGINS = [
+    'https://da443ad746d5.ngrok-free.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://localhost:8000',
+    'https://127.0.0.1:8000',
+]
+
+# Additional settings for ngrok compatibility
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'da443ad746d5.ngrok-free.app',
+    '.ngrok-free.app',  # Allow all ngrok subdomains
+    '.ngrok.io',        # Allow legacy ngrok domains
+]
+
+# Disable HTTPS redirect for ngrok
+SECURE_SSL_REDIRECT = False

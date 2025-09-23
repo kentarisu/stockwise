@@ -1,90 +1,252 @@
+{% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Confirm Stock Addition</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockWise - Confirm Add Stock</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
   <style>
-    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; padding:16px;}
-    .card{max-width:520px; margin:0 auto; background:#fff; border:1px solid #eee; border-radius:12px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    h1{font-size:1.25rem; margin:0 0 12px}
-    .muted{color:#666; font-size:0.95rem}
-    .row{margin:8px 0}
-    .label{color:#555}
-    input[type=number]{width:100%; padding:10px; font-size:1rem; border:1px solid #ddd; border-radius:8px}
-    button{width:100%; padding:12px; font-size:1rem; border:none; border-radius:8px; background:#d32f2f; color:#fff; cursor:pointer; box-sizing:border-box; min-height:48px; touch-action:manipulation}
-    button:disabled{opacity:.6; cursor:not-allowed}
-    button:hover{opacity:0.9}
-    button:active{transform:scale(0.98)}
-    .ok{background:#2e7d32}
-    .msg{margin-top:10px; font-size:.95rem; padding:8px; border-radius:4px; text-align:center}
-    .success{background:#e8f5e8; color:#2e7d32; border:1px solid #4caf50}
-    .error{background:#ffebee; color:#c62828; border:1px solid #f44336}
-  </style>
-  <script>
-    async function confirmAdd(e){
-      e.preventDefault();
-      const form = document.getElementById('f');
-      const button = form.querySelector('button[type="submit"]');
-      const msg = document.getElementById('msg');
-      
-      // Disable button and show loading
-      button.disabled = true;
-      button.textContent = 'Adding Stock...';
-      msg.textContent = '';
-      msg.className = 'msg';
-      
-      try {
-        const fd = new FormData(form);
-        const res = await fetch(window.location.href, {method:'POST', body: fd});
-        const data = await res.json();
-        
-        if(data.success){
-          msg.textContent = '✅ Stock added successfully!';
-          msg.className = 'msg success';
-          // Reset form after success
-          form.reset();
-        } else {
-          msg.textContent = '❌ ' + (data.message || 'Failed to add stock');
-          msg.className = 'msg error';
-        }
-      } catch(error) {
-        msg.textContent = '❌ Network error. Please try again.';
-        msg.className = 'msg error';
-      } finally {
-        // Re-enable button
-        button.disabled = false;
-        button.textContent = 'Confirm Addition';
-      }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 0;
     }
-  </script>
-  <meta name="color-scheme" content="light dark">
+    .page-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card-modern {
+      width: 100%;
+      max-width: 500px;
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0/0.1), 0 1px 2px -1px rgb(0 0 0/0.1);
+      overflow: hidden;
+    }
+    .card-header-modern {
+      background: #f3f4f6;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .card-body-modern {
+      padding: 1.5rem;
+    }
+    .product-info {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .info-row:last-child {
+      margin-bottom: 0;
+    }
+    .info-label {
+      color: #6b7280;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    .info-value {
+      color: #111827;
+      font-weight: 600;
+    }
+    .batch-id {
+      font-family: 'Courier New', monospace;
+      background: #f3f4f6;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+    .form-label {
+      color: #374151;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .form-control, .form-select {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 1rem;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      transition: all 0.15s ease-in-out;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      transform: none;
+      box-shadow: none;
+    }
+    .alert {
+      border-radius: 8px;
+      border: none;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .alert-success {
+      background: #f0f9ff;
+      color: #065f46;
+      border-left: 4px solid #10b981;
+    }
+    .alert-danger {
+      background: #fef2f2;
+      color: #991b1b;
+      border-left: 4px solid #ef4444;
+    }
+    .alert-warning {
+      background: #fffbeb;
+      color: #92400e;
+      border-left: 4px solid #f59e0b;
+    }
+    .instruction-text {
+      color: #6b7280;
+      font-size: 0.875rem;
+      text-align: center;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border-radius: 6px;
+    }
+    .loading-spinner {
+      display: none;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid #ffffff;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .btn-primary.loading .loading-spinner {
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Confirm Add Stock</h1>
-    <div class="row"><span class="label">Product:</span> <strong>{{ product.name }}</strong></div>
-    <div class="row"><span class="label">Size:</span> {{ product.size|default:'N/A' }}</div>
-    <div class="row"><span class="label">Delivery date:</span> {{ delivery_date }}</div>
-    <div class="row"><span class="label">Batch ID:</span> <code>{{ batch_id }}</code></div>
-    <form id="f" method="post" onsubmit="confirmAdd(event)">
-      {% csrf_token %}
-      <div class="row">
-        <label for="q" class="label">Quantity to add</label>
-        <input id="q" type="number" min="1" name="quantity" required />
+  <div class="page-container">
+    <div class="card-modern">
+      <div class="card-header-modern">
+        <h5 class="m-0 text-dark">
+          <i class="bi bi-qr-code-scan me-2"></i>Confirm Add Stock
+        </h5>
+        <div class="d-flex align-items-center">
+          <span class="badge bg-success me-2">
+            <i class="bi bi-check-circle me-1"></i>QR Verified
+          </span>
+          {% if app_username %}
+          <span class="badge bg-primary">
+            <i class="bi bi-person me-1"></i>{{ app_username }} ({{ app_role }})
+          </span>
+          {% endif %}
+        </div>
       </div>
-      <div class="row">
-        <label for="s" class="label">Supplier name (optional)</label>
-        <input id="s" type="text" name="supplier" placeholder="Enter supplier name if available" />
+      <div class="card-body-modern">
+        <!-- Product Information Card -->
+        <div class="product-info">
+          <div class="info-row">
+            <span class="info-label">Product:</span>
+            <span class="info-value">{{ product.name }}</span>
+          </div>
+          {% if product.size %}
+          <div class="info-row">
+            <span class="info-label">Size:</span>
+            <span class="info-value">{{ product.size }}</span>
+          </div>
+          {% endif %}
+          <div class="info-row">
+            <span class="info-label">Date Arrived:</span>
+            <span class="info-value">{{ delivery_date|date:"M. d, Y" }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Batch ID:</span>
+            <span class="info-value">
+              <code class="batch-id">{{ batch_id }}</code>
+            </span>
+          </div>
+        </div>
+
+        {% if not app_username %}
+        <!-- Login Required Message -->
+        <div class="alert alert-warning">
+          <i class="bi bi-shield-exclamation me-2"></i>
+          <strong>Authentication Required:</strong> Please log in with your admin or secretary credentials before adding stock to inventory.
+        </div>
+        {% endif %}
+
+        <!-- Action Selection -->
+        <div class="action-selection mb-4">
+          <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Choose Action</h6>
+          <p class="text-muted mb-3">What would you like to do with this product?</p>
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <a href="/qr/add-stock/{{ token }}/" class="btn btn-outline-success btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                <i class="bi bi-plus-circle mb-2" style="font-size: 2rem;"></i>
+                <strong>Add Stock</strong>
+                <small class="text-muted mt-1">Add inventory to this product</small>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="/qr/record-sale/{{ token }}/" class="btn btn-outline-primary btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
+                <i class="bi bi-cart-plus mb-2" style="font-size: 2rem;"></i>
+                <strong>Record Sale</strong>
+                <small class="text-muted mt-1">Record a sale for this product</small>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instruction Text -->
+        <div class="instruction-text">
+          <i class="bi bi-info-circle me-1"></i>
+          {% if app_username %}
+            Scanning this QR lets you add stock to inventory or record sales for this specific product.
+          {% else %}
+            Please log in first with your admin or secretary credentials to add stock or record sales.
+          {% endif %}
+        </div>
       </div>
-      <div class="row">
-        <button type="submit" class="ok">Confirm Addition</button>
-      </div>
-    </form>
-    <div id="msg" class="msg"></div>
-    <p class="muted">Scanning this QR lets you add stock for the specific batch (FIFO).</p>
+    </div>
   </div>
+
+  <script>
+    // Simple script for QR action selection page
+    console.log('QR Action Selection Page Loaded');
+  </script>
 </body>
-<!-- Minimal, mobile-friendly page so staff can add stock via phone -->
 </html>
-
-

@@ -55,12 +55,93 @@
             overflow-x: hidden;
         }
 
-        .app-container {
-            display: flex;
-            min-height: 100vh;
+        /* Mobile menu toggle button styles */
+        @media (max-width: 768px) {
+            #mobileMenuToggle {
+                display: flex !important;
+                background: var(--primary-500) !important;
+                border: 2px solid var(--gray-900) !important;
+                color: var(--white) !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                position: relative !important;
+                z-index: 9999 !important;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            #mobileMenuToggle {
+                display: none !important;
+            }
         }
 
-        /* Sidebar */
+        /* User avatar placeholder styles */
+        .user-avatar-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all var(--transition-fast);
+        }
+
+        .user-avatar-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .user-avatar-btn:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Mobile menu button styles */
+        .mobile-menu-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gray-50);
+            border: var(--border-width) solid var(--gray-300);
+            color: var(--gray-700);
+            min-width: 44px;
+            min-height: 44px;
+            padding: var(--space-2);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+            z-index: 1001;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-400);
+            color: var(--gray-800);
+        }
+
+        .mobile-menu-btn:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Navigation list styles */
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
@@ -192,354 +273,9 @@
             gap: 1rem;
         }
 
-        .user-menu {
-            position: relative;
-        }
-
-        .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 50%;
-            border: 2px solid var(--primary-light);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .user-avatar:hover {
-            border-color: var(--primary);
-            transform: scale(1.05);
-        }
-
         /* Content Area */
         .content-area {
             padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            justify-content: center;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
-        }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .stat-card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 0.75rem;
-        }
-
-        .stat-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            color: white;
-        }
-
-        .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-        .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
-        .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
-        .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
-        .stat-icon.info { background: linear-gradient(135deg, var(--accent), #0891b2); }
-        .stat-icon.secondary { background: linear-gradient(135deg, #6c757d, #495057); }
-        .stat-icon.dark { background: linear-gradient(135deg, var(--gray-800), var(--gray-900)); }
-        .stat-icon.light { background: linear-gradient(135deg, var(--gray-200), var(--gray-300)); color: var(--gray-700); }
-
-        .stat-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            line-height: 1;
-        }
-
-        .stat-label {
-            color: var(--gray-500);
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin-top: 0.25rem;
-        }
-
-        .stat-change {
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            margin-top: 0.5rem;
-            display: inline-block;
-        }
-
-        .stat-change.positive {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .stat-change.negative {
-            background: #fef2f2;
-            color: #991b1b;
-        }
-
-        
-
-        /* Recent Activity */
-        .activity-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .activity-item {
-            display: flex;
-            align-items: center;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--gray-100);
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 1rem;
-            font-size: 1rem;
-        }
-
-        .activity-content h6 {
-            font-weight: 600;
-            color: var(--gray-900);
-            margin: 0 0 0.25rem 0;
-        }
-
-        .activity-content p {
-            color: var(--gray-500);
-            font-size: 0.875rem;
-            margin: 0;
-        }
-
-        .activity-time {
-            margin-left: auto;
-            color: var(--gray-400);
-            font-size: 0.75rem;
-        }
-
-        /* Quick Actions */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .action-btn {
-            background: white;
-            border: 1px solid var(--gray-200);
-            border-radius: 12px;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: var(--gray-700);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .action-btn i {
-            font-size: 1.5rem;
-            margin-right: 1rem;
-            color: var(--primary);
-        }
-
-        .action-btn-content h6 {
-            font-weight: 600;
-            margin: 0 0 0.25rem 0;
-        }
-
-        .action-btn-content p {
-            font-size: 0.875rem;
-            color: var(--gray-500);
-            margin: 0;
-        }
-
-        .action-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            justify-content: center;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .modern-card {
-            max-width: 1000px;
-            margin: 0 auto 2rem auto;
-        }
-
-        /* Overview Items */
-        .overview-item {
-            display: flex;
-            align-items: center;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--gray-100);
-        }
-
-        .overview-item:last-child {
-            border-bottom: none;
-        }
-
-        .overview-rank {
-            width: 2rem;
-            height: 2rem;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            margin-right: 1rem;
-            font-size: 0.875rem;
-        }
-
-        .overview-content {
-            flex: 1;
-        }
-
-        .overview-content h6 {
-            margin: 0 0 0.25rem 0;
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .overview-content p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: var(--gray-500);
-        }
-
-        .overview-value {
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-
-        /* Overview Grid */
-        .overview-grid {
-            max-width: 1200px;
-            margin: 0 auto 2rem auto;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .main-content {
-                margin-left: 0;
-            }
-
-            .header {
-                padding: 0 1rem;
-            }
-
-            .content-area {
-                padding: 1rem;
-                max-width: 100%;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-                max-width: 100%;
-                margin-left: 0;
-                margin-right: 0;
-            }
-
-            .action-buttons {
-                grid-template-columns: 1fr;
-                max-width: 100%;
-            }
-
-            .modern-card {
-                max-width: 100%;
-            }
-
-            .activity-card {
-                max-width: 100%;
-            }
-
-            .overview-grid {
-                grid-template-columns: 1fr;
-                max-width: 100%;
-            }
-
-            .overview-item {
-                padding: 0.75rem 0;
-            }
-
-            .overview-rank {
-                width: 1.5rem;
-                height: 1.5rem;
-                font-size: 0.75rem;
-                margin-right: 0.75rem;
-            }
         }
 
         /* Custom scrollbar */
@@ -552,83 +288,139 @@
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: var(--gray-300);
+            background: rgba(255, 255, 255, 0.3);
             border-radius: 3px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: var(--gray-400);
+            background: rgba(255, 255, 255, 0.5);
         }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            :root {
+                --content-padding: var(--space-4);
+                --sidebar-width: 100vw;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+                width: 100vw;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .header {
+                padding: 0 var(--content-padding);
+            }
+            
+            .header-left h1 {
+                font-size: var(--font-size-2xl);
+            }
+        }
+
+        /* Base App Container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
     </style>
 </head>
 <body>
     <div class="app-container">
         <!-- Sidebar -->
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
             <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand">
-                    <i class="bi bi-basket-fill"></i>
-                    StockWise
+                <a href="{% url 'dashboard' %}" class="sidebar-brand" aria-label="StockWise - Go to Dashboard">
+                    <i class="bi bi-basket-fill" aria-hidden="true"></i>
+                    <span>StockWise</span>
                 </a>
             </div>
             
             <div class="sidebar-nav">
                 <div class="nav-section">
-                    <div class="nav-section-title">Main</div>
-                    <div class="nav-item">
-                        <a href="{% url 'dashboard' %}" class="nav-link active">
-                            <i class="bi bi-speedometer2"></i>
-                            Dashboard
-                        </a>
-                    </div>
-                    <div class="nav-item">
-                        <a href="{% url 'products_inventory' %}" class="nav-link">
-                            <i class="bi bi-basket"></i>
-                            Inventory
-                        </a>
-                    </div>
-                    <div class="nav-item">
-                        <a href="{% url 'sales' %}" class="nav-link">
-                            <i class="bi bi-cart"></i>
-                            Sales
-                        </a>
-                    </div>
+                    <h2 class="nav-section-title">Main</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'dashboard' %}" 
+                               class="nav-link active"
+                               aria-current="page">
+                                <i class="bi bi-speedometer2" aria-hidden="true"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'products_inventory' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-basket" aria-hidden="true"></i>
+                                <span>Inventory</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'sales' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-cart" aria-hidden="true"></i>
+                                <span>Sales</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
 
                 {% if app_role == 'admin' %}
                 <div class="nav-section">
-                    <div class="nav-section-title">Analytics</div>
-                    <div class="nav-item">
-                        <a href="{% url 'reports' %}" class="nav-link">
-                            <i class="bi bi-graph-up"></i>
-                            Reports
-                        </a>
-                    </div>
+                    <h2 class="nav-section-title">Analytics</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'reports' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-graph-up" aria-hidden="true"></i>
+                                <span>Reports</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
                 {% endif %}
 
                 <div class="nav-section">
-                    <div class="nav-section-title">Account</div>
-                    <div class="nav-item">
-                        <a href="{% url 'profile' %}" class="nav-link">
-                            <i class="bi bi-person"></i>
-                            Profile
-                        </a>
-                    </div>
-                    {% if app_role == 'admin' %}
-                    <div class="nav-item">
-                        <a href="{% url 'sms_settings' %}" class="nav-link">
-                            <i class="bi bi-chat-dots"></i>
-                            SMS Settings
-                        </a>
-                    </div>
-                    {% endif %}
-                    <div class="nav-item">
-                        <a href="{% url 'logout' %}" class="nav-link">
-                            <i class="bi bi-box-arrow-right"></i>
-                            Logout
-                        </a>
-                    </div>
+                    <h2 class="nav-section-title">Account</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'profile' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-person" aria-hidden="true"></i>
+                                <span>Profile</span>
+                            </a>
+                        </li>
+                        {% if app_role == 'admin' %}
+                        <li class="nav-item">
+                            <a href="{% url 'sms_settings' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                                <span>SMS Settings</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a href="{% url 'logout' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </nav>
@@ -641,16 +433,26 @@
                     <p class="header-subtitle">Welcome back! Here's what's happening with your business today.</p>
                 </div>
                 <div class="header-right">
-                    <div class="user-menu">
-                        <div class="dropdown">
-                            <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                            </ul>
-                        </div>
-                    </div>
+                    <!-- Mobile Menu Toggle Button -->
+                    <button id="mobileMenuToggle" 
+                            class="mobile-menu-btn"
+                            aria-label="Toggle navigation menu"
+                            aria-expanded="false"
+                            aria-controls="sidebar">
+                        <i class="bi bi-list" aria-hidden="true"></i>
+                        <span class="ms-1">Menu</span>
+                    </button>
+
+                     <div class="dropdown">
+                         <div class="user-avatar" data-bs-toggle="dropdown" style="background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
+                             <i class="bi bi-person"></i>
+                         </div>
+                         <ul class="dropdown-menu dropdown-menu-end">
+                             <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                             <li><hr class="dropdown-divider"></li>
+                             <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                         </ul>
+                     </div>
                 </div>
             </header>
 
@@ -1109,6 +911,77 @@
                     }
                 });
             }
+
+            // Mobile sidebar toggle functionality
+            const sidebar = document.querySelector('.sidebar');
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+            function toggleMobileMenu() {
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                    console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
+                    // Prevent body scroll when sidebar is open on mobile
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                }
+            }
+
+            // Handle mobile menu toggle click
+            if (mobileMenuToggle) {
+                console.log('Mobile menu button found in dashboard_full');
+                mobileMenuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Mobile menu button clicked in dashboard_full');
+                    toggleMobileMenu();
+                });
+            }
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                    if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from outside click');
+                    }
+                }
+            });
+
+            // Close sidebar when clicking on navigation links
+            if (sidebar) {
+                const navLinks = sidebar.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                            document.body.style.overflow = '';
+                            console.log('Mobile sidebar closed from nav link click');
+                        }
+                    });
+                });
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768 && sidebar) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed on resize');
+                }
+            });
+
+            // Handle escape key to close sidebar
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed from escape key');
+                }
+            });
         });
     </script>
 </body>

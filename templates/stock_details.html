@@ -3,7 +3,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
     <title>Stock Details - StockWise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -691,6 +696,52 @@
             document.getElementById('totalSold').textContent = totalSold;
         }
 
+        function formatBatchIdRange(batchIds) {
+            if (!Array.isArray(batchIds) || batchIds.length === 0) {
+                return [];
+            }
+            
+            if (batchIds.length === 1) {
+                return batchIds;
+            }
+            
+            // Group consecutive batch IDs with same prefix
+            const groups = [];
+            let currentGroup = [batchIds[0]];
+            
+            for (let i = 1; i < batchIds.length; i++) {
+                const current = batchIds[i];
+                const previous = batchIds[i - 1];
+                
+                // Check if they have the same prefix and consecutive sequence
+                const currentMatch = current.match(/^(.+?)(\d{2})$/);
+                const previousMatch = previous.match(/^(.+?)(\d{2})$/);
+                
+                if (currentMatch && previousMatch && 
+                    currentMatch[1] === previousMatch[1] && 
+                    parseInt(currentMatch[2]) === parseInt(previousMatch[2]) + 1) {
+                    // Consecutive, add to current group
+                    currentGroup.push(current);
+                } else {
+                    // Not consecutive, start new group
+                    groups.push(currentGroup);
+                    currentGroup = [current];
+                }
+            }
+            groups.push(currentGroup);
+            
+            // Format each group
+            return groups.map(group => {
+                if (group.length === 1) {
+                    return group[0];
+                } else if (group.length === 2) {
+                    return `${group[0]}, ${group[1]}`;
+                } else {
+                    return `${group[0]} to ${group[group.length - 1]}`;
+                }
+            });
+        }
+
         function renderStockAdditionsTable(groups) {
             if (groups.length === 0) {
                 showEmptyState();
@@ -726,7 +777,7 @@
                             const statusText = group.available_total > 0 ? 'Available' : 'Sold Out';
                             const statusIcon = group.available_total > 0 ? 'check-circle' : 'x-circle';
                             
-                            const batchIds = (group.batch_ids || []).map(id => 
+                            const batchIds = formatBatchIdRange(group.batch_ids || []).map(id => 
                                 `<span class="batch-id-badge">${id}</span>`
                             ).join('');
                             

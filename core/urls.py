@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/stock/add/', views.add_stock, name='add_stock'),
     path('api/stock/qr/create/', views.stock_qr_create, name='stock_qr_create'),
     path('api/stock/qr/apply/', views.stock_qr_apply, name='stock_qr_apply'),
+    path('api/stock/qr/decode/', views.stock_qr_decode, name='stock_qr_decode'),
     path('qr/stock-details/<int:product_id>/', views.stock_details, name='stock_details'),
     
     # SMS Notification URLs
@@ -62,4 +63,12 @@ urlpatterns = [
     path('api/pricing/recommendations/', views.get_pricing_recommendations, name='get_pricing_recommendations'),
     path('api/pricing/apply/', views.apply_pricing_recommendation, name='apply_pricing_recommendation'),
     path('api/pricing/test/', views.test_pricing_notification, name='test_pricing_notification'),
+    
+    # Inventory Reports URLs
+    path('api/inventory/reports/stock/', views.inventory_stock_report, name='inventory_stock_report'),
+    path('api/inventory/reports/movement/', views.inventory_movement_report, name='inventory_movement_report'),
+    path('api/inventory/reports/batches/', views.inventory_batch_report, name='inventory_batch_report'),
+    path('api/inventory/reports/turnover/', views.inventory_turnover_report, name='inventory_turnover_report'),
+    path('api/inventory/reports/suppliers/', views.inventory_supplier_report, name='inventory_supplier_report'),
+    path('api/inventory/reports/pdf/', views.generate_inventory_pdf_report, name='generate_inventory_pdf_report'),
 ] 

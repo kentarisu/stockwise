@@ -3,7 +3,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
     <title>StockWise - Record Sale</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -84,6 +89,14 @@
                   </div>
                   <div class="col-md-3">
                     <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
+                  </div>
+                </div>
+                <div class="row mt-2">
+                  <div class="col-12">
+                    <label class="form-label small">Batches to Sell (FIFO)</label>
+                    <div class="batches-to-sell p-2 bg-light border rounded small" style="font-family: 'Courier New', monospace;">
+                      <span class="batches-display text-muted">Select product and enter quantity to see which batches will be sold</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -196,15 +209,70 @@ function loadActiveProducts(){
 function updateProductSelects(){
   $('.product-select').each(function(){
     const $this=$(this);
+    const currentValue = $this.val(); // Store current selection
     let options='<option value="">Select a fruit</option>';
     products.forEach(p=>{ options+=`<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${p.stock||0}">${p.name} (${p.size||'N/A'}) - ₱${p.price.toFixed(2)}</option>`; });
     $this.html(options);
+    if(currentValue) {
+      $this.val(currentValue); // Restore previous selection
+    }
     if(!$this.hasClass('select2-hidden-accessible')){
       $this.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$this.closest('.card-modern')});
     } else { $this.trigger('change.select2'); }
   });
 }
 function updateTotal(){ let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price'))||0; const q=parseInt($qty.val())||0; total+=price*q; }}); $('#liveSaleTotalWithVATText').text(total.toFixed(2)); }
+
+async function updateBatchesToSell(itemRow) {
+  const $row = $(itemRow);
+  const productId = $row.find('.product-select').val();
+  const quantity = parseInt($row.find('.quantity-input').val()) || 0;
+  const $batchDisplay = $row.find('.batches-display');
+  
+  if (!productId || quantity <= 0) {
+    $batchDisplay.text('Select fruit and enter quantity to see which batches will be sold');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
+    return;
+  }
+  
+  try {
+    // Get available batches for this product
+    const response = await fetch(`/api/products/${productId}/stock_details/`, {
+      method: 'GET',
+      headers: {
+        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+      }
+    });
+    const data = await response.json();
+    
+    if (data.success && data.data.length > 0) {
+      const availableBatches = data.data.map(batch => batch.batch_id);
+      const totalAvailable = availableBatches.length;
+      
+      if (quantity > totalAvailable) {
+        $batchDisplay.text(`Only ${totalAvailable} boxes available`);
+        $batchDisplay.removeClass('text-muted text-success').addClass('text-warning fw-bold');
+      } else if (quantity === 1) {
+        // Single batch
+        $batchDisplay.text(availableBatches[0]);
+        $batchDisplay.removeClass('text-muted text-warning').addClass('text-success fw-bold');
+      } else {
+        // Multiple batches - show range
+        const firstBatch = availableBatches[0];
+        const lastBatch = availableBatches[quantity - 1];
+        $batchDisplay.text(firstBatch + ' to ' + lastBatch);
+        $batchDisplay.removeClass('text-muted text-warning').addClass('text-success fw-bold');
+      }
+    } else {
+      $batchDisplay.text('No stock available');
+      $batchDisplay.removeClass('text-success fw-bold').addClass('text-warning');
+    }
+  } catch (error) {
+    console.error('Error fetching batch info:', error);
+    $batchDisplay.text('Error loading batch info');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-danger');
+  }
+}
 function showStep(step){ $('#saleStep1,#saleStep2,#saleStep3').hide(); $('#stepIndicator1,#stepIndicator2,#stepIndicator3').removeClass('active'); if(step===1){ $('#saleStep1').show(); $('#nextToStep2').show(); $('#confirmPaymentStep,#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').hide(); $('#stepIndicator1').addClass('active'); } else if(step===2){ $('#saleStep2').show(); $('#nextToStep2').hide(); $('#confirmPaymentStep').show(); $('#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').show(); $('#stepIndicator2').addClass('active'); } else { $('#saleStep3').show(); $('#nextToStep2,#confirmPaymentStep').hide(); $('#recordSaleBtn,#printReceiptBtn').show(); $('#backToStep1').show(); $('#stepIndicator3').addClass('active'); } currentStep=step; }
 function generateReceipt(){ const items=window.saleItems||[]; const subtotal=parseFloat($('#paymentSubtotal').text())||0; const vat=parseFloat($('#paymentVAT').text())||0; const totalAmount=parseFloat($('#paymentTotalWithVAT').text())||0; const amountPaid=parseFloat($('#paymentTendered').val())||0; const change=parseFloat($('#paymentChange').text())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; let html=''; items.forEach(it=>{ let d=`${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${it.price.toFixed(2)}</td><td class="text-end">₱${it.amount.toFixed(2)}</td></tr>`; }); $('#receiptTableItems').html(html); $('#receiptSubtotal').text(subtotal.toFixed(2)); $('#receiptVAT').text(vat.toFixed(2)); $('#receiptTotalAmount').text(totalAmount.toFixed(2)); $('#receiptAmountPaid').text(amountPaid.toFixed(2)); $('#receiptChange').text(change.toFixed(2)); $('#transactionNumber').text(transactionNumber||''); $('#orNumber').text(orNumber||''); $('#receiptDate').text(new Date().toLocaleString()); $('#receiptCustomerName').text(customerName); $('#receiptCustomerContact').text(customerContact); $('#receiptCustomerAddress').text(customerAddress); }
 function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ transactionNumber = String(resp.sale_ids[0]); $('#transactionNumber').text(transactionNumber); } $('#orNumber').text(orNumber||''); }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }}); }
@@ -213,9 +281,22 @@ function printReceipt(){ const w=window.open('', '_blank'); const content=$('.re
 $(document).ready(function(){
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   loadActiveProducts();
-  $(document).on('change','.product-select',function(){ const $this=$(this); const pid=$this.val(); const $row=$this.closest('.item-row'); const $qty=$row.find('.quantity-input'); const $info=$row.find('.stock-info'); if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ $this.data('price',p.price); $this.data('name',p.name); $this.data('variant',p.variant); $this.data('size',p.size); $info.text(`Stock: ${p.stock||0} boxes`); $qty.attr('max',p.stock||999); } } else { $info.text(''); $qty.removeAttr('max'); } updateTotal(); });
-  $(document).on('input','.quantity-input',updateTotal);
-  $('#addItemBtn').on('click',function(){ const row=`<div class="item-row mb-3 p-3 border rounded"><div class="row"><div class="col-md-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted small mt-1"></div></div><div class="col-md-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div></div>`; $('#itemsContainer').append(row); updateProductSelects(); });
+  $(document).on('change','.product-select',function(){ const $this=$(this); const pid=$this.val(); const $row=$this.closest('.item-row'); const $qty=$row.find('.quantity-input'); const $info=$row.find('.stock-info'); if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ $this.data('price',p.price); $this.data('name',p.name); $this.data('variant',p.variant); $this.data('size',p.size); $info.text(`Stock: ${p.stock||0} boxes`); $qty.attr('max',p.stock||999); } } else { $info.text(''); $qty.removeAttr('max'); } updateTotal(); updateBatchesToSell($row); });
+  $(document).on('input','.quantity-input',function(){
+    updateTotal();
+    updateBatchesToSell($(this).closest('.item-row'));
+  });
+  $('#addItemBtn').on('click',function(){ 
+    const row=`<div class="item-row mb-3 p-3 border rounded"><div class="row"><div class="col-md-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted small mt-1"></div></div><div class="col-md-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small">Batches to Sell (FIFO)</label><div class="batches-to-sell p-2 bg-light border rounded small" style="font-family: 'Courier New', monospace;"><span class="batches-display text-muted">Select fruit and enter quantity to see which batches will be sold</span></div></div></div></div>`; 
+    $('#itemsContainer').append(row); 
+    // Only populate the new dropdown, not all dropdowns
+    const $newRow = $('#itemsContainer .item-row:last');
+    const $newSelect = $newRow.find('.product-select');
+    let options='<option value="">Select a fruit</option>';
+    products.forEach(p=>{ options+=`<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${p.stock||0}">${p.name} (${p.size||'N/A'}) - ₱${p.price.toFixed(2)}</option>`; });
+    $newSelect.html(options);
+    $newSelect.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$newSelect.closest('.card-modern')});
+  });
   $(document).on('click','.remove-item',function(){ $(this).closest('.item-row').remove(); updateTotal(); });
 
   $('#nextToStep2').on('click',function(){ const form=$('#buyForm')[0]; if(!form.checkValidity()){ form.reportValidity(); return; } const items=[]; let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price')); const q=parseInt($qty.val()); const amt=q*price; total+=amt; items.push({ product_id:$sel.val(), name:$sel.data('name')||'', variant:$sel.data('variant')||'', size:$sel.data['size']||'', quantity:q, price:price, amount:amt }); }}); if(items.length===0){ $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Please add at least one item to proceed.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; } const subtotal=total/1.12; const vat=total-subtotal; $('#paymentSubtotal').text(subtotal.toFixed(2)); $('#paymentVAT').text(vat.toFixed(2)); $('#paymentTotalWithVAT').text(total.toFixed(2)); let html=''; items.forEach(it=>{ let d=`#${it.product_id} ${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class=\"text-end\">${it.quantity}</td><td class=\"text-end\">₱${Number(it.price).toFixed(2)}</td><td class=\"text-end\">₱${Number(it.amount).toFixed(2)}</td></tr>`; }); $('#paymentTableItems').html(html); window.saleItems=items; const base=Date.now(); const txnSuffix=(base%1000000).toString().padStart(6,'0'); let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); if(orSuffix===Number(txnSuffix)){ orSuffix=(orSuffix+1)%1000000; } transactionNumber=`TXN${txnSuffix}`; orNumber=`OR${orSuffix.toString().padStart(6,'0')}`; showStep(2); });

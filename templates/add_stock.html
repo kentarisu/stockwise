@@ -3,7 +3,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="StockWise">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   <title>StockWise - Add Stock</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -24,7 +29,8 @@
     <div class="card-header-modern">
       <h5 class="m-0"><i class="bi bi-box-arrow-in-down me-2"></i>Add Stock</h5>
       <div>
-        <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Inventory</a>
+        <button type="button" class="btn btn-outline-success btn-sm" id="scanQRBtn"><i class="bi bi-qr-code-scan"></i> Scan QR Code</button>
+        <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary btn-sm ms-2"><i class="bi bi-arrow-left"></i> Back to Inventory</a>
         <a href="{% url 'print_stickers_page' %}" class="btn btn-outline-primary btn-sm ms-2"><i class="bi bi-printer"></i> Print QR Code Stickers</a>
       </div>
     </div>
@@ -52,6 +58,15 @@
               <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
             </div>
           </div>
+          <div class="row mt-3">
+            <div class="col-12">
+              <label class="form-label">Batch ID Preview</label>
+              <div class="batch-id-preview p-2 bg-light border rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+                <span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span>
+              </div>
+              <small class="text-muted">This shows the batch IDs that will be created for the stock addition</small>
+            </div>
+          </div>
         </div>
       </div>
       <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addStockItemBtn"><i class="bi bi-plus-circle"></i> Add Another Item</button>
@@ -71,9 +86,40 @@
   </div>
 </div>
 
+<!-- QR Scanner Modal -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-fullscreen-md-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="qrScannerModalLabel">
+          <i class="bi bi-qr-code-scan me-2"></i>Scan QR Code to Add Stock
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="qrScanner" class="text-center mb-3" style="min-height: 300px; max-height: 70vh; border: 2px dashed #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+          <div class="text-muted">
+            <i class="bi bi-camera" style="font-size: 2rem;"></i>
+            <p class="mt-2">Initializing camera...</p>
+          </div>
+        </div>
+        <div id="qrScanResult"></div>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          <strong>Instructions:</strong> Point your camera at a QR code containing stock information. The form will be automatically populated when a valid QR code is detected.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="{% static 'js/modern-inventory.js' %}"></script>
 <script>
 function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
@@ -81,8 +127,389 @@ const csrftoken=getCookie('csrftoken');
 $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 
 let products=[];
+let html5QrcodeInstance = null;
+
 function loadProducts(){
   return fetch("{% url 'get_active_products' %}").then(r=>r.json()).then(resp=>{ if(!resp.success) return []; products=resp.data.map(p=>{p.price=parseFloat(p.price)||0; return p;}); populateProductSelect('.stock-product-select'); return products;});
+}
+
+// QR Scanner functionality
+function initializeQRScanner() {
+  if (!window.Html5Qrcode) {
+    $('#qrScanner').html(`
+      <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        QR scanner library not available. Please ensure you have an internet connection.
+      </div>
+    `);
+    return;
+  }
+
+  // Use Html5Qrcode directly - it will request permission automatically
+  $('#qrScanner').html(`
+    <div class="text-center text-muted">
+      <i class="bi bi-camera" style="font-size: 2rem;"></i>
+      <p class="mt-2">Requesting camera permission...</p>
+    </div>
+  `);
+  
+  startQRScannerDirect();
+}
+
+function requestCameraPermission() {
+  return new Promise((resolve, reject) => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: "environment" // Prefer back camera
+        } 
+      }).then(stream => {
+        // Stop the stream immediately - we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        resolve();
+      }).catch(err => {
+        reject(err);
+      });
+    } else {
+      // Fallback for older browsers
+      resolve();
+    }
+  });
+}
+
+function startQRScannerDirect() {
+  html5QrcodeInstance = new Html5Qrcode('qrScanner');
+  
+  // Mobile-responsive QR box configuration
+  const isMobile = window.innerWidth <= 768;
+  const config = {
+    fps: 10,
+    qrbox: isMobile ? { width: 200, height: 200 } : { width: 250, height: 250 },
+    aspectRatio: 1.0,
+    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+  };
+
+  // Try back camera first (environment) - this will trigger permission request
+  html5QrcodeInstance.start(
+    { facingMode: "environment" },
+    config,
+    function(decodedText, decodedResult) {
+      $('#qrScanResult').html(`
+        <div class="alert alert-success">
+          <i class="bi bi-check-circle me-2"></i>
+          QR Code detected! Processing...
+        </div>
+      `);
+      
+      // Stop scanning after successful scan
+      html5QrcodeInstance.stop().then(() => {
+        processQRCode(decodedText);
+      }).catch(err => {
+        console.log("Error stopping scanner:", err);
+        processQRCode(decodedText);
+      });
+    },
+    function(errorMessage) {
+      // Handle scan errors silently - this is normal during scanning
+    }
+  ).catch(err => {
+    console.log("Back camera failed, trying front camera:", err);
+    // Try front camera if back camera fails
+    html5QrcodeInstance.start(
+      { facingMode: "user" },
+      config,
+      function(decodedText, decodedResult) {
+        $('#qrScanResult').html(`
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle me-2"></i>
+            QR Code detected! Processing...
+          </div>
+        `);
+        
+        html5QrcodeInstance.stop().then(() => {
+          processQRCode(decodedText);
+        }).catch(err => {
+          console.log("Error stopping scanner:", err);
+          processQRCode(decodedText);
+        });
+      },
+      function(errorMessage) {
+        // Handle scan errors silently
+      }
+    ).catch(err2 => {
+      console.log("All cameras failed:", err2);
+      $('#qrScanner').html(`
+        <div class="alert alert-danger">
+          <i class="bi bi-exclamation-circle me-2"></i>
+          <strong>Camera Access Failed</strong><br>
+          ${err2.message || 'Unable to access camera. Please ensure camera permissions are granted.'}<br>
+          <small>Go to Settings > Safari > Camera > Allow</small>
+          <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="initializeQRScanner()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Try Again
+          </button>
+        </div>
+      `);
+    });
+  });
+}
+
+function startQRScanner() {
+  html5QrcodeInstance = new Html5Qrcode('qrScanner');
+  
+  // Mobile-responsive QR box configuration
+  const isMobile = window.innerWidth <= 768;
+  const config = {
+    fps: 10,
+    qrbox: isMobile ? { width: 200, height: 200 } : { width: 250, height: 250 },
+    aspectRatio: 1.0,
+    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+  };
+
+  // Try different camera configurations - prioritize back camera on mobile
+  const cameraConfigs = isMobile ? [
+    { facingMode: "environment" }, // Back camera (preferred on mobile)
+    { facingMode: "user" },         // Front camera
+    "auto"                          // Auto-select
+  ] : [
+    { facingMode: "environment" }, // Back camera
+    { facingMode: "user" },         // Front camera
+    "auto"                          // Auto-select
+  ];
+
+  let cameraIndex = 0;
+
+  function tryNextCamera() {
+    if (cameraIndex >= cameraConfigs.length) {
+      $('#qrScanner').html(`
+        <div class="alert alert-warning">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Unable to access camera. Please ensure camera permissions are granted and try again.
+          <br><small class="text-muted">Device: ${navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'}</small>
+          <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="initializeQRScanner()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Try Again
+          </button>
+        </div>
+      `);
+      return;
+    }
+
+    html5QrcodeInstance.start(
+      cameraConfigs[cameraIndex],
+      config,
+      function(decodedText, decodedResult) {
+        $('#qrScanResult').html(`
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle me-2"></i>
+            QR Code detected! Processing...
+          </div>
+        `);
+        
+        // Stop scanning after successful scan
+        html5QrcodeInstance.stop().then(() => {
+          processQRCode(decodedText);
+        }).catch(err => {
+          console.log("Error stopping scanner:", err);
+          processQRCode(decodedText);
+        });
+      },
+      function(errorMessage) {
+        // Handle scan errors silently - this is normal during scanning
+      }
+    ).catch(err => {
+      console.log(`Camera ${cameraIndex} failed:`, err);
+      // Show more detailed error for mobile debugging
+      if (cameraIndex === 0 && isMobile) {
+        $('#qrScanResult').html(`
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Trying back camera... If this fails, please ensure camera permissions are granted in Safari settings.
+          </div>
+        `);
+      }
+      cameraIndex++;
+      tryNextCamera();
+    });
+  }
+
+  tryNextCamera();
+}
+
+function processQRCode(qrData) {
+  try {
+    // Check if it's a URL with stock information
+    if (qrData.includes('/qr/confirm/') || qrData.includes('/qr/generate/') || qrData.includes('stock_qr_apply')) {
+      // First, try to extract from new QR confirm URL pattern
+      const confirmMatch = qrData.match(/\/qr\/confirm\/([^\/]+)\//);
+      if (confirmMatch) {
+        const token = confirmMatch[1];
+        // Redirect to the dedicated confirm page so the normal auth + flow runs
+        window.location.href = `/qr/confirm/${token}/`;
+        return;
+      } else {
+        // Legacy: Extract product ID from URL
+        const productIdMatch = qrData.match(/\/qr\/generate\/(\d+)/);
+        if (productIdMatch) {
+          const productId = parseInt(productIdMatch[1]);
+          populateStockFormFromQR(productId);
+        } else {
+          // Try to extract from token-based URL
+          const tokenMatch = qrData.match(/[?&]t=([^&]+)/);
+          if (tokenMatch) {
+            fetchQRDataFromToken(tokenMatch[1]);
+          } else {
+            showQRError('Unable to extract product information from QR code.');
+          }
+        }
+      }
+    } else {
+      showQRError('Invalid QR code format. Please scan a valid stock QR code.');
+    }
+  } catch (e) {
+    showQRError('Error processing QR code: ' + e.message);
+  }
+}
+
+function populateStockFormFromQR(productId) {
+  const product = products.find(p => p.product_id == productId);
+  if (product) {
+    // Find the first empty stock item or create a new one
+    let $targetItem = $('.stock-item').first();
+    let $productSelect = $targetItem.find('.stock-product-select');
+    let $quantityInput = $targetItem.find('.stock-quantity');
+    
+    // If first item already has a product, add a new item
+    if ($productSelect.val()) {
+      $('#addStockItemBtn').click();
+      $targetItem = $('.stock-item').last();
+      $productSelect = $targetItem.find('.stock-product-select');
+      $quantityInput = $targetItem.find('.stock-quantity');
+    }
+    
+    // Populate the form
+    $productSelect.val(productId).trigger('change');
+    $quantityInput.val(1); // Default quantity
+    
+    // Close modal
+    $('#qrScannerModal').modal('hide');
+    
+    // Show success message
+    $('#addStockFormAlert').html(`
+      <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>
+        Product "${product.name}" added from QR scan. You can modify the quantity and add more items.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    `);
+    
+    // Focus on quantity input for easy editing
+    setTimeout(() => $quantityInput.focus(), 100);
+    
+  } else {
+    showQRError('Product not found in inventory.');
+  }
+}
+
+function fetchQRDataFromToken(token) {
+  // Make a request to decode the token and get the product information
+  fetch(`{% url 'stock_qr_decode' %}?t=${token}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.items.length > 0) {
+        // Populate form with decoded items
+        populateStockFormFromQRData(data.items);
+        $('#qrScanResult').html(`
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle me-2"></i>
+            QR data processed successfully! Form populated with ${data.items.length} item(s).
+          </div>
+        `);
+        setTimeout(() => $('#qrScannerModal').modal('hide'), 1000);
+      } else {
+        showQRError(data.message || 'No valid items found in QR code.');
+      }
+    })
+    .catch(error => {
+      showQRError('Error processing QR token: ' + error.message);
+    });
+}
+
+function fetchQRDataFromConfirmToken(token) {
+  // Decode the QR confirm token to get product information
+  // We'll make a request to decode the token and get the product data
+  fetch(`/qr/decode-token/?token=${encodeURIComponent(token)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.product_id) {
+        // Use the product ID to populate the form
+        populateStockFormFromQR(data.product_id);
+        $('#qrScanResult').html(`
+          <div class="alert alert-success">
+            <i class="bi bi-check-circle me-2"></i>
+            QR code processed successfully! Product added to form.
+          </div>
+        `);
+        setTimeout(() => $('#qrScannerModal').modal('hide'), 1000);
+      } else {
+        showQRError(data.message || 'Unable to decode QR token.');
+      }
+    })
+    .catch(error => {
+      showQRError('Error processing QR token: ' + error.message);
+    });
+}
+
+function populateStockFormFromQRData(items) {
+  items.forEach((item, index) => {
+    // For the first item, use existing form; for others, add new items
+    let $targetItem, $productSelect, $quantityInput, $supplierInput;
+    
+    if (index === 0) {
+      $targetItem = $('.stock-item').first();
+    } else {
+      // Add new item if needed
+      $('#addStockItemBtn').click();
+      $targetItem = $('.stock-item').last();
+    }
+    
+    $productSelect = $targetItem.find('.stock-product-select');
+    $quantityInput = $targetItem.find('.stock-quantity');
+    $supplierInput = $targetItem.find('.stock-supplier');
+    
+    // Populate the form
+    $productSelect.val(item.product_id).trigger('change');
+    $quantityInput.val(item.quantity || 1);
+    $supplierInput.val(item.supplier || '');
+  });
+  
+  // Show success message
+  const itemNames = items.map(item => item.name).join(', ');
+  $('#addStockFormAlert').html(`
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      <i class="bi bi-check-circle me-2"></i>
+      Products "${itemNames}" added from QR scan. You can modify quantities and suppliers as needed.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  `);
+}
+
+function showQRError(message) {
+  $('#qrScanResult').html(`
+    <div class="alert alert-danger">
+      <i class="bi bi-exclamation-circle me-2"></i>
+      ${message}
+    </div>
+  `);
+}
+
+function stopQRScanner() {
+  if (html5QrcodeInstance) {
+    html5QrcodeInstance.stop().then(() => {
+      html5QrcodeInstance.clear();
+    }).catch(err => {
+      console.log("Error stopping scanner:", err);
+    });
+    html5QrcodeInstance = null;
+  }
 }
 function populateProductSelect(sel){
   const $select=$(sel);
@@ -99,13 +526,94 @@ function populateProductSelect(sel){
 function validateStockItems(){ let ok=true; $('.stock-item').each(function(){ const p=$(this).find('.stock-product-select').val(); const q=$(this).find('.stock-quantity').val(); if(!p||!q||q<1){ ok=false; return false; } }); $('#saveStockBtn').prop('disabled', !ok); return ok; }
 function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ $disp.text(`Current Stock: ${product.stock||0} boxes`);} } else { $disp.text(''); } }
 
+async function updateBatchIdPreview(stockItem) {
+  const $item = $(stockItem);
+  const productId = $item.find('.stock-product-select').val();
+  const quantity = parseInt($item.find('.stock-quantity').val()) || 0;
+  const $batchDisplay = $item.find('.batch-id-display');
+  
+  if (!productId || quantity <= 0) {
+    $batchDisplay.text('Select a fruit and enter quantity to see batch ID');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/qr/next-batch-sequence/${productId}/`, {
+      method: 'GET',
+      headers: {
+        'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+      }
+    });
+    const data = await response.json();
+    
+    if (data.success) {
+      const nextSeq = data.next_sequence;
+      const baseBatchId = data.base_batch_id;
+      
+      if (quantity === 1) {
+        // Single box
+        const batchId = baseBatchId + nextSeq.toString().padStart(2, '0');
+        $batchDisplay.text(batchId);
+      } else {
+        // Multiple boxes - show range
+        const startBatchId = baseBatchId + nextSeq.toString().padStart(2, '0');
+        const endSeq = nextSeq + quantity - 1;
+        const endBatchId = baseBatchId + endSeq.toString().padStart(2, '0');
+        $batchDisplay.text(startBatchId + ' to ' + endBatchId);
+      }
+      $batchDisplay.removeClass('text-muted').addClass('text-success fw-bold');
+    } else {
+      $batchDisplay.text('Error calculating batch ID');
+      $batchDisplay.removeClass('text-success fw-bold').addClass('text-danger');
+    }
+  } catch (error) {
+    console.error('Error fetching batch sequence:', error);
+    $batchDisplay.text('Error calculating batch ID');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-danger');
+  }
+}
+
 $(document).ready(function(){
   $('#stockDateDisplay').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   $('#stockDate').val(new Date().toISOString().split('T')[0]);
   loadProducts();
 
-  $(document).on('change','.stock-product-select', function(){ updateCurrentStock(this); validateStockItems(); });
-  $(document).on('input','.stock-quantity', validateStockItems);
+  $(document).on('change','.stock-product-select', function(){ 
+    updateCurrentStock(this); 
+    validateStockItems(); 
+    updateBatchIdPreview($(this).closest('.stock-item'));
+  });
+  $(document).on('input','.stock-quantity', function(){
+    validateStockItems();
+    updateBatchIdPreview($(this).closest('.stock-item'));
+  });
+
+  // QR Scanner functionality
+  $('#scanQRBtn').on('click', function(){
+    const modal = new bootstrap.Modal(document.getElementById('qrScannerModal'));
+    modal.show();
+  });
+
+  // Initialize QR scanner when modal is shown
+  $('#qrScannerModal').on('shown.bs.modal', function(){
+    // Reset the scanner area
+    $('#qrScanner').html(`
+      <div class="text-center text-muted">
+        <i class="bi bi-camera" style="font-size: 2rem;"></i>
+        <p class="mt-2">Initializing camera...</p>
+      </div>
+    `);
+    $('#qrScanResult').html('');
+    
+    // Initialize scanner after a short delay
+    setTimeout(initializeQRScanner, 500);
+  });
+
+  // Stop scanner when modal is hidden
+  $('#qrScannerModal').on('hidden.bs.modal', function(){
+    stopQRScanner();
+  });
 
   $('#addStockItemBtn').on('click', function(){
     const html=`<div class="stock-item mb-3 p-3 border rounded"><div class="row"><div class="col-md-4"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label><select class="form-select stock-product-select" required><option value="">Select a fruit</option></select><div class="stock-indicator text-muted small mt-1"></div></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"></div><div class="col-md-2"><label class="form-label">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div></div>`;
@@ -144,6 +652,21 @@ $(document).ready(function(){
       }
     });
   });
+
+  // Handle QR product pre-selection
+  {% if qr_product %}
+  setTimeout(function() {
+    const $firstSelect = $('.stock-product-select').first();
+    $firstSelect.val('{{ qr_product.product_id|default:"" }}').trigger('change');
+    $('#addStockFormAlert').html(`
+      <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="bi bi-qr-code me-2"></i>
+        Product "{{ qr_product.name|default:"" }}" pre-selected from QR scan. You can modify the quantity and add more items.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    `);
+  }, 1000);
+  {% endif %}
 
   // Stickers section logic
   let allProducts=[];

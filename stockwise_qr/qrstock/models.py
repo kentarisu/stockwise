@@ -37,6 +37,7 @@ class StockAddition(models.Model):
     remaining_quantity = models.IntegerField()
     created_at = models.DateTimeField()
     supplier = models.CharField(max_length=100, blank=True, null=True)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
 
     class Meta:
         db_table = 'stock_additions'

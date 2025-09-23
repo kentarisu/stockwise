@@ -254,6 +254,151 @@
             outline: none;
         }
 
+        /* Inventory Reports Section */
+        .inventory-reports-section {
+            margin-bottom: 3rem;
+            display: none; /* Hidden for now */
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .section-header h3 {
+            color: var(--gray-800);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-subtitle {
+            color: var(--gray-600);
+            font-size: 1rem;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .report-item {
+            background: white;
+            border: 2px solid var(--gray-100);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .report-item:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+
+        .report-item.comprehensive {
+            background: linear-gradient(135deg, var(--primary-light) 0%, var(--accent) 100%);
+            border-color: var(--primary);
+        }
+
+        .report-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.75rem;
+            color: white;
+            box-shadow: var(--shadow-md);
+        }
+
+        .stock-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .movement-icon { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .batch-icon { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .turnover-icon { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .supplier-icon { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .comprehensive-icon { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+        .report-content h6 {
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .report-content p {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-report {
+            background: white;
+            border: 2px solid var(--gray-200);
+            border-radius: 10px;
+            padding: 0.625rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            flex: 1;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .btn-report:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-report.view {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-report.view:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-report.pdf {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .btn-report.pdf:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-report.comprehensive-btn {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            font-weight: 700;
+        }
+
+        .btn-report.comprehensive-btn:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            transform: translateY(-2px) scale(1.02);
+        }
+
         /* Stats Grid */
         .stats-grid {
             display: grid;
@@ -698,6 +843,18 @@
                 padding: 0 1rem;
             }
 
+            /* Mobile menu toggle button - SHOW ON MOBILE */
+            #mobileMenuToggle {
+                display: flex !important;
+                background: #007bff !important;
+                border: 2px solid #000000 !important;
+                color: #ffffff !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                position: relative !important;
+                z-index: 9999 !important;
+            }
+
             .content-area {
                 padding: 1rem;
             }
@@ -716,6 +873,13 @@
 
             .action-buttons {
                 flex-direction: column;
+            }
+        }
+
+        /* Desktop - Hide mobile menu button */
+        @media (min-width: 769px) {
+            #mobileMenuToggle {
+                display: none !important;
             }
         }
     </style>
@@ -798,6 +962,12 @@
                     <p class="header-subtitle">Comprehensive business insights and analytics</p>
                 </div>
                 <div class="header-right">
+                    <!-- Mobile Menu Toggle Button -->
+                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
+                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
+                        <span class="ms-1">Menu</span>
+                    </button>
+
                     <div class="dropdown">
                         <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -855,6 +1025,127 @@
                         <i class="bi bi-printer"></i>
                         Print Report
                     </button>
+                </div>
+
+                <!-- Inventory Reports Section -->
+                <div class="inventory-reports-section">
+                    <div class="section-header">
+                        <h3><i class="bi bi-file-earmark-bar-graph me-2"></i>Inventory Reports</h3>
+                        <p class="section-subtitle">Comprehensive inventory analysis and insights</p>
+                    </div>
+                    
+                    <div class="reports-grid">
+                        <!-- Stock Snapshot Report -->
+                        <div class="report-item">
+                            <div class="report-icon stock-icon">
+                                <i class="bi bi-clipboard-data"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Stock Snapshot</h6>
+                                <p>Current stock levels, values, and low stock alerts</p>
+                                <div class="report-actions">
+                                    <button class="btn-report view" onclick="viewInventoryReport('stock')">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn-report pdf" onclick="downloadInventoryPDF('stock')">
+                                        <i class="bi bi-file-pdf"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stock Movement Report -->
+                        <div class="report-item">
+                            <div class="report-icon movement-icon">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Stock Movement</h6>
+                                <p>Stock additions and sales history with FIFO tracking</p>
+                                <div class="report-actions">
+                                    <button class="btn-report view" onclick="viewInventoryReport('movement')">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn-report pdf" onclick="downloadInventoryPDF('movement')">
+                                        <i class="bi bi-file-pdf"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Report -->
+                        <div class="report-item">
+                            <div class="report-icon batch-icon">
+                                <i class="bi bi-layers"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Active Batches</h6>
+                                <p>Individual batch tracking, aging analysis, and expiry alerts</p>
+                                <div class="report-actions">
+                                    <button class="btn-report view" onclick="viewInventoryReport('batches')">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn-report pdf" onclick="downloadInventoryPDF('batches')">
+                                        <i class="bi bi-file-pdf"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Turnover Report -->
+                        <div class="report-item">
+                            <div class="report-icon turnover-icon">
+                                <i class="bi bi-speedometer2"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Inventory Turnover</h6>
+                                <p>Sales velocity, days of cover, and stock optimization</p>
+                                <div class="report-actions">
+                                    <button class="btn-report view" onclick="viewInventoryReport('turnover')">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn-report pdf" onclick="downloadInventoryPDF('turnover')">
+                                        <i class="bi bi-file-pdf"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Supplier Report -->
+                        <div class="report-item">
+                            <div class="report-icon supplier-icon">
+                                <i class="bi bi-truck"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Supplier Analysis</h6>
+                                <p>Supplier performance, delivery frequency, and reliability</p>
+                                <div class="report-actions">
+                                    <button class="btn-report view" onclick="viewInventoryReport('suppliers')">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                    <button class="btn-report pdf" onclick="downloadInventoryPDF('suppliers')">
+                                        <i class="bi bi-file-pdf"></i> PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Comprehensive PDF -->
+                        <div class="report-item comprehensive">
+                            <div class="report-icon comprehensive-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </div>
+                            <div class="report-content">
+                                <h6>Complete Inventory Report</h6>
+                                <p>All reports combined in a comprehensive PDF document</p>
+                                <div class="report-actions">
+                                    <button class="btn-report pdf comprehensive-btn" onclick="downloadInventoryPDF('comprehensive')">
+                                        <i class="bi bi-download"></i> Download Complete PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Report Stats -->
@@ -1763,6 +2054,474 @@
 
         // Initial load
         loadReports();
+
+        // Mobile sidebar toggle functionality
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+        function toggleMobileMenu() {
+            if (sidebar) {
+                sidebar.classList.toggle('active');
+                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
+                // Prevent body scroll when sidebar is open on mobile
+                if (sidebar.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
+        // Handle mobile menu toggle click
+        if (mobileMenuToggle) {
+            console.log('Mobile menu button found in reports_full');
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Mobile menu button clicked in reports_full');
+                toggleMobileMenu();
+            });
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed from outside click');
+                }
+            }
+        });
+
+        // Close sidebar when clicking on navigation links
+        if (sidebar) {
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from nav link click');
+                    }
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768 && sidebar) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed on resize');
+            }
+        });
+
+        // Handle escape key to close sidebar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed from escape key');
+            }
+        });
+
+        // ============================================================================
+        // INVENTORY REPORTS FUNCTIONALITY
+        // ============================================================================
+        
+        // Global variables for inventory report modals
+        let currentInventoryReportData = null;
+        let currentInventoryReportType = null;
+
+        // View inventory report in modal
+        function viewInventoryReport(reportType) {
+            showInventoryLoadingState();
+            currentInventoryReportType = reportType;
+            
+            // Fetch report data
+            const endpoints = {
+                'stock': '/api/inventory/reports/stock/',
+                'movement': '/api/inventory/reports/movement/',
+                'batches': '/api/inventory/reports/batches/',
+                'turnover': '/api/inventory/reports/turnover/',
+                'suppliers': '/api/inventory/reports/suppliers/'
+            };
+            
+            if (!endpoints[reportType]) {
+                hideInventoryLoadingState();
+                alert('Invalid report type');
+                return;
+            }
+            
+            fetch(endpoints[reportType])
+                .then(response => response.json())
+                .then(data => {
+                    hideInventoryLoadingState();
+                    if (data.success) {
+                        currentInventoryReportData = data;
+                        displayInventoryReportModal(reportType, data);
+                    } else {
+                        alert('Error loading report: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    hideInventoryLoadingState();
+                    console.error('Error fetching inventory report:', error);
+                    alert('Error loading report. Please try again.');
+                });
+        }
+
+        // Download PDF inventory report
+        function downloadInventoryPDF(reportType) {
+            showInventoryLoadingState();
+            
+            const url = `/api/inventory/reports/pdf/?type=${reportType}`;
+            
+            // Create a temporary link to download the PDF
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inventory_report_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            hideInventoryLoadingState();
+        }
+
+        // Display inventory report in modal
+        function displayInventoryReportModal(reportType, data) {
+            const reportTitles = {
+                'stock': 'Stock Snapshot Report',
+                'movement': 'Stock Movement Report',
+                'batches': 'Active Batches Report',
+                'turnover': 'Inventory Turnover Report',
+                'suppliers': 'Supplier Analysis Report'
+            };
+            
+            // Create modal HTML
+            const modalHtml = `
+                <div class="modal fade" id="inventoryReportModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${reportTitles[reportType]}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="report-content">
+                                    ${generateInventoryReportHTML(reportType, data)}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-danger" onclick="downloadInventoryPDF('${reportType}')">
+                                    <i class="bi bi-file-pdf"></i> Download PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            $('#inventoryReportModal').remove();
+            
+            // Add modal to body and show
+            $('body').append(modalHtml);
+            $('#inventoryReportModal').modal('show');
+        }
+
+        // Generate HTML for different inventory report types
+        function generateInventoryReportHTML(reportType, data) {
+            switch (reportType) {
+                case 'stock':
+                    return generateInventoryStockReportHTML(data);
+                case 'movement':
+                    return generateInventoryMovementReportHTML(data);
+                case 'batches':
+                    return generateInventoryBatchesReportHTML(data);
+                case 'turnover':
+                    return generateInventoryTurnoverReportHTML(data);
+                case 'suppliers':
+                    return generateInventorySuppliersReportHTML(data);
+                default:
+                    return '<p>Report type not supported</p>';
+            }
+        }
+
+        // Generate Stock Report HTML
+        function generateInventoryStockReportHTML(data) {
+            const summary = data.summary;
+            let html = `
+                <div class="inventory-report-summary mb-4">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="inventory-summary-card">
+                                <h6>Total Products</h6>
+                                <div class="inventory-summary-value">${summary.total_products}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="inventory-summary-card">
+                                <h6>Total Stock</h6>
+                                <div class="inventory-summary-value">${summary.total_stock_boxes} boxes</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="inventory-summary-card">
+                                <h6>Stock Value</h6>
+                                <div class="inventory-summary-value">₱${summary.total_value_price.toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="inventory-summary-card">
+                                <h6>Low Stock Items</h6>
+                                <div class="inventory-summary-value text-warning">${summary.low_stock_count}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Size</th>
+                                <th>Stock</th>
+                                <th>Unit Price</th>
+                                <th>Stock Value</th>
+                                <th>Margin %</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.data.forEach(item => {
+                const statusClass = item.low_stock_flag ? 'text-warning' : 'text-success';
+                const statusIcon = item.low_stock_flag ? '⚠️' : '✅';
+                html += `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.size || 'N/A'}</td>
+                        <td>${item.current_stock}</td>
+                        <td>₱${item.unit_price.toFixed(2)}</td>
+                        <td>₱${item.stock_value_price.toLocaleString()}</td>
+                        <td>${item.margin_pct.toFixed(1)}%</td>
+                        <td class="${statusClass}">${statusIcon}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        // Generate Movement Report HTML
+        function generateInventoryMovementReportHTML(data) {
+            const summary = data.summary;
+            let html = `
+                <div class="inventory-report-summary mb-4">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="inventory-summary-card">
+                                <h6>Total Movements</h6>
+                                <div class="inventory-summary-value">${summary.total_movements}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="inventory-summary-card">
+                                <h6>Net Movement</h6>
+                                <div class="inventory-summary-value">${summary.net_movement} boxes</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="inventory-summary-card">
+                                <h6>Period</h6>
+                                <div class="inventory-summary-value small">${summary.date_range}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Product</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Batch/Reference</th>
+                                <th>Supplier</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            data.data.forEach(item => {
+                const typeClass = item.type === 'Addition' ? 'text-success' : 'text-danger';
+                const quantityDisplay = item.type === 'Addition' ? `+${item.quantity}` : Math.abs(item.quantity);
+                html += `
+                    <tr>
+                        <td>${item.date}</td>
+                        <td>${item.time}</td>
+                        <td>${item.product_name}</td>
+                        <td class="${typeClass}">${item.type}</td>
+                        <td class="${typeClass}">${quantityDisplay}</td>
+                        <td><code>${item.batch_id}</code></td>
+                        <td>${item.supplier}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        // Generate other inventory report HTML functions (simplified for brevity)
+        function generateInventoryBatchesReportHTML(data) {
+            return generateInventoryGenericTableReport(data, [
+                { key: 'batch_id', title: 'Batch ID', format: 'code' },
+                { key: 'product_name', title: 'Product' },
+                { key: 'date_added', title: 'Date Added' },
+                { key: 'remaining_quantity', title: 'Remaining' },
+                { key: 'age_days', title: 'Age (Days)' },
+                { key: 'age_category', title: 'Category', format: 'badge' }
+            ]);
+        }
+
+        function generateInventoryTurnoverReportHTML(data) {
+            return generateInventoryGenericTableReport(data, [
+                { key: 'product_name', title: 'Product' },
+                { key: 'current_stock', title: 'Stock' },
+                { key: 'sales_qty_30d', title: '30d Sales' },
+                { key: 'daily_sales_rate', title: 'Daily Rate' },
+                { key: 'days_of_cover', title: 'Days Cover' },
+                { key: 'velocity_category', title: 'Velocity', format: 'badge' }
+            ]);
+        }
+
+        function generateInventorySuppliersReportHTML(data) {
+            return generateInventoryGenericTableReport(data, [
+                { key: 'supplier_name', title: 'Supplier' },
+                { key: 'total_deliveries', title: 'Deliveries' },
+                { key: 'total_boxes', title: 'Total Boxes' },
+                { key: 'unique_products', title: 'Products' },
+                { key: 'avg_delivery_size', title: 'Avg Size' },
+                { key: 'days_since_last_delivery', title: 'Days Since Last' }
+            ]);
+        }
+
+        // Generic table report generator for inventory
+        function generateInventoryGenericTableReport(data, columns) {
+            let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr>';
+            
+            columns.forEach(col => {
+                html += `<th>${col.title}</th>`;
+            });
+            
+            html += '</tr></thead><tbody>';
+            
+            data.data.forEach(item => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    let value = item[col.key];
+                    if (col.format === 'code') {
+                        value = `<code>${value}</code>`;
+                    } else if (col.format === 'badge') {
+                        const badgeClass = getInventoryBadgeClass(value);
+                        value = `<span class="badge ${badgeClass}">${value}</span>`;
+                    }
+                    html += `<td>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        // Helper function for inventory badge classes
+        function getInventoryBadgeClass(value) {
+            const badgeMap = {
+                'Fresh': 'bg-success',
+                'Aging': 'bg-warning',
+                'Old': 'bg-danger',
+                'Fast': 'bg-success',
+                'Medium': 'bg-warning',
+                'Slow': 'bg-danger',
+                'Normal': 'bg-success',
+                'Low Stock': 'bg-warning',
+                'Overstocked': 'bg-info',
+                'Out of Stock': 'bg-danger'
+            };
+            return badgeMap[value] || 'bg-secondary';
+        }
+
+        // Loading state functions for inventory reports
+        function showInventoryLoadingState() {
+            // Create loading overlay if it doesn't exist
+            if (!$('#inventoryLoadingOverlay').length) {
+                $('body').append(`
+                    <div id="inventoryLoadingOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+                        <div class="spinner-border text-light" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                `);
+            }
+            $('#inventoryLoadingOverlay').show();
+        }
+
+        function hideInventoryLoadingState() {
+            $('#inventoryLoadingOverlay').hide();
+        }
+
+        // Add custom CSS for inventory report modals
+        $('<style>').text(`
+            .inventory-report-summary {
+                background: #f8f9fa;
+                padding: 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1.5rem;
+            }
+            .inventory-summary-card {
+                text-align: center;
+                padding: 1.25rem;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                margin-bottom: 1rem;
+            }
+            .inventory-summary-card h6 {
+                margin-bottom: 0.75rem;
+                color: #6c757d;
+                font-size: 0.85rem;
+                text-transform: uppercase;
+                font-weight: 600;
+            }
+            .inventory-summary-value {
+                font-size: 1.75rem;
+                font-weight: bold;
+                color: #495057;
+            }
+            #inventoryReportModal .modal-dialog {
+                max-width: 95%;
+            }
+            #inventoryReportModal .table {
+                font-size: 0.9rem;
+            }
+            #inventoryReportModal .modal-header {
+                background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+                color: white;
+                border-radius: 0.5rem 0.5rem 0 0;
+            }
+            #inventoryReportModal .btn-close {
+                filter: invert(1);
+            }
+        `).appendTo('head');
     </script>
 </body>
 </html> 

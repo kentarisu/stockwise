@@ -492,6 +492,18 @@
                 padding: 0 1rem;
             }
 
+            /* Mobile menu toggle button - SHOW ON MOBILE */
+            #mobileMenuToggle {
+                display: flex !important;
+                background: #007bff !important;
+                border: 2px solid #000000 !important;
+                color: #ffffff !important;
+                min-width: 44px !important;
+                min-height: 44px !important;
+                position: relative !important;
+                z-index: 9999 !important;
+            }
+
             .content-area {
                 padding: 1rem;
             }
@@ -518,6 +530,13 @@
                 padding: 0.5rem 0.75rem;
                 margin-right: 0.25rem;
                 margin-bottom: 0.25rem;
+            }
+        }
+
+        /* Desktop - Hide mobile menu button */
+        @media (min-width: 769px) {
+            #mobileMenuToggle {
+                display: none !important;
             }
         }
     </style>
@@ -602,6 +621,12 @@
                     <p class="header-subtitle">Track and manage all your sales transactions</p>
                 </div>
                 <div class="header-right">
+                    <!-- Mobile Menu Toggle Button -->
+                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
+                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
+                        <span class="ms-1">Menu</span>
+                    </button>
+
                     <div class="dropdown">
                         <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
                         <ul class="dropdown-menu dropdown-menu-end">
@@ -1350,6 +1375,52 @@
         // Placeholder functions for sale actions
         function currency(n) { return `₱${Number(n || 0).toFixed(2)}`; }
 
+        function formatBatchIdRange(batchIds) {
+            if (!Array.isArray(batchIds) || batchIds.length === 0) {
+                return [];
+            }
+            
+            if (batchIds.length === 1) {
+                return batchIds;
+            }
+            
+            // Group consecutive batch IDs with same prefix
+            const groups = [];
+            let currentGroup = [batchIds[0]];
+            
+            for (let i = 1; i < batchIds.length; i++) {
+                const current = batchIds[i];
+                const previous = batchIds[i - 1];
+                
+                // Check if they have the same prefix and consecutive sequence
+                const currentMatch = current.match(/^(.+?)(\d{2})$/);
+                const previousMatch = previous.match(/^(.+?)(\d{2})$/);
+                
+                if (currentMatch && previousMatch && 
+                    currentMatch[1] === previousMatch[1] && 
+                    parseInt(currentMatch[2]) === parseInt(previousMatch[2]) + 1) {
+                    // Consecutive, add to current group
+                    currentGroup.push(current);
+                } else {
+                    // Not consecutive, start new group
+                    groups.push(currentGroup);
+                    currentGroup = [current];
+                }
+            }
+            groups.push(currentGroup);
+            
+            // Format each group
+            return groups.map(group => {
+                if (group.length === 1) {
+                    return group[0];
+                } else if (group.length === 2) {
+                    return `${group[0]}, ${group[1]}`;
+                } else {
+                    return `${group[0]} to ${group[group.length - 1]}`;
+                }
+            });
+        }
+
         function viewSaleDetails(saleId) {
             fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
                 .then(r => r.json())
@@ -1395,7 +1466,7 @@
                                         : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
                                         : null;
                         const batchHtml = batchArr && batchArr.length
-                            ? batchArr.map(b=>`<span class="badge bg-secondary me-1 mb-1">${safeText(b)}</span>`).join(' ')
+                            ? formatBatchIdRange(batchArr).map(b=>`<span class="badge bg-secondary me-1 mb-1">${safeText(b)}</span>`).join(' ')
                             : safeText(it.batch_id || it.batch, 'N/A');
                         tr.innerHTML = `
                             <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
@@ -1467,7 +1538,7 @@
                                         : Array.isArray(it.batches) ? it.batches
                                         : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
                                         : null;
-                        const batchText = batchArr && batchArr.length ? batchArr.map(b=>safeText(b)).join(', ') : safeText(it.batch_id || it.batch, 'N/A');
+                        const batchText = batchArr && batchArr.length ? formatBatchIdRange(batchArr).map(b=>safeText(b)).join(', ') : safeText(it.batch_id || it.batch, 'N/A');
                         tr.innerHTML = `
                             <td>${it.product_name || ''}${variant}${size}</td>
                             <td style="text-align:right">${qty}</td>
@@ -1620,6 +1691,77 @@
             const confirmButton = document.getElementById('confirmCompleteSale');
             confirmButton.disabled = false;
             confirmButton.innerHTML = 'Complete Sale';
+        });
+
+        // Mobile sidebar toggle functionality
+        const sidebar = document.querySelector('.sidebar');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+        function toggleMobileMenu() {
+            if (sidebar) {
+                sidebar.classList.toggle('active');
+                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
+                // Prevent body scroll when sidebar is open on mobile
+                if (sidebar.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+        }
+
+        // Handle mobile menu toggle click
+        if (mobileMenuToggle) {
+            console.log('Mobile menu button found in sales_full');
+            mobileMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Mobile menu button clicked in sales_full');
+                toggleMobileMenu();
+            });
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                    console.log('Mobile sidebar closed from outside click');
+                }
+            }
+        });
+
+        // Close sidebar when clicking on navigation links
+        if (sidebar) {
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from nav link click');
+                    }
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768 && sidebar) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed on resize');
+            }
+        });
+
+        // Handle escape key to close sidebar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                document.body.style.overflow = '';
+                console.log('Mobile sidebar closed from escape key');
+            }
         });
     </script>
 </body>

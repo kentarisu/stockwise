@@ -133,47 +133,19 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error generating pricing recommendations: {str(e)}'))
 
     def send_sms(self, phone_number, message):
-        """Send SMS using Twilio"""
+        """Send SMS using iProg SMS API"""
         try:
-            from twilio.rest import Client
-            import os
-            from django.conf import settings
+            from core.sms_service import sms_service
             
-            # Get Twilio credentials
-            account_sid = os.getenv('TWILIO_ACCOUNT_SID') or getattr(settings, 'TWILIO_ACCOUNT_SID', None)
-            auth_token = os.getenv('TWILIO_AUTH_TOKEN') or getattr(settings, 'TWILIO_AUTH_TOKEN', None)
-            twilio_phone = os.getenv('TWILIO_FROM_PHONE') or os.getenv('TWILIO_PHONE_NUMBER') or getattr(settings, 'TWILIO_FROM_PHONE', None)
+            result = sms_service.send_sms(phone_number, message)
             
-            if not all([account_sid, auth_token, twilio_phone]):
-                self.stdout.write(
-                    self.style.ERROR('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_PHONE.')
-                )
+            if result['success']:
+                self.stdout.write(self.style.SUCCESS(result['message']))
+                return True
+            else:
+                self.stdout.write(self.style.ERROR(result['message']))
                 return False
-            
-            # Normalize phone number
-            normalized = phone_number.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-            if normalized.startswith('00'):
-                normalized = '+' + normalized[2:]
-            if normalized.startswith('0'):
-                normalized = '+63' + normalized.lstrip('0')
-            elif not normalized.startswith('+'):
-                normalized = '+63' + normalized
-
-            client = Client(account_sid, auth_token)
-            message_obj = client.messages.create(
-                body=message,
-                from_=twilio_phone,
-                to=normalized
-            )
-            
-            self.stdout.write(f'SMS sent successfully. SID: {message_obj.sid}')
-            return True
-            
-        except ImportError:
-            self.stdout.write(
-                self.style.ERROR('Twilio not installed. Run: pip install twilio')
-            )
-            return False
+                
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Failed to send SMS: {str(e)}'))
             return False

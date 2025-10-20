@@ -2,9 +2,9 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.db.models import Sum
 from django.utils import timezone
-from twilio.rest import Client
 
 from core.models import Sale, AppUser
+from core.sms_service import sms_service
 
 
 class Command(BaseCommand):
@@ -29,16 +29,11 @@ class Command(BaseCommand):
             return
 
         to_phone = admin_obj.phone_number
-        # normalise to +63xxxxxxxxxx
-        to_phone = to_phone.strip()
-        if to_phone.startswith('0'):
-            to_phone = '+63' + to_phone.lstrip('0')
-        elif not to_phone.startswith('+'):
-            to_phone = '+63' + to_phone
 
-        try:
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            client.messages.create(body=msg, from_=settings.TWILIO_FROM_PHONE, to=to_phone)
+        # Send SMS using iProg API
+        result = sms_service.send_sms(to_phone, msg)
+        
+        if result['success']:
             self.stdout.write(self.style.SUCCESS(f"SMS sent to {to_phone}"))
-        except Exception as exc:
-            self.stderr.write(f"Failed to send SMS: {exc}") 
+        else:
+            self.stderr.write(f"Failed to send SMS: {result['message']}") 

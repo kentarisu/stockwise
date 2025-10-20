@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - QR Code Data Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 30px;
+        }
+        
+        .product-info {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .qr-data {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            margin: 20px 0;
+        }
+        
+        .copy-button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .copy-button:hover {
+            background: #4338ca;
+        }
+        
+        .back-button {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .back-button:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{% url 'qr_scanner' %}" class="back-button">← Back to Scanner</a>
+        
+        <h1 class="title">QR Code Data Generator</h1>
+        
+        <div class="product-info">
+            <h3>Product Information:</h3>
+            <p><strong>Name:</strong> {{ product.name }}</p>
+            <p><strong>Size:</strong> {{ product.size }}</p>
+            <p><strong>Price:</strong> ₱{{ product.price }}</p>
+            <p><strong>Stock:</strong> {{ product.stock }}</p>
+            <p><strong>Variant:</strong> {{ product.variant|default:"Standard" }}</p>
+        </div>
+        
+        <h3>QR Code Data:</h3>
+        <div class="qr-data" id="qrData">{{ qr_data }}</div>
+        
+        <button class="copy-button" onclick="copyQRData()">Copy QR Data</button>
+        
+        <h3>How to Use:</h3>
+        <ol>
+            <li>Copy the QR data above</li>
+            <li>Go to the <a href="{% url 'qr_scanner' %}">QR Scanner</a> page</li>
+            <li>Paste the data in the input field</li>
+            <li>Click "Scan QR Code" to test</li>
+            <li>Or scan directly with your phone to open the QR Confirm page</li>
+        </ol>
+    </div>
+
+    <script>
+        function copyQRData() {
+            const qrData = document.getElementById('qrData').textContent;
+            navigator.clipboard.writeText(qrData).then(function() {
+                alert('QR data copied to clipboard!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+            });
+        }
+    </script>
+</body>
+</html>

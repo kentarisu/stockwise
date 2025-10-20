@@ -4,452 +4,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockWise - QR Code Stickers - {{ name_only }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
+    <title>StockWise - QR Code Stickers - {{ product.name }}</title>
     <style>
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             min-height: 100vh;
         }
         
-        .page-header {
-            background: #fff;
-            border-radius: 16px;
-            margin: 1rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px 0 rgb(0 0 0/0.1), 0 1px 2px -1px rgb(0 0 0/0.1);
-            border: 1px solid #e5e7eb;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        
-        .page-title {
-            color: #111827;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .product-info {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem;
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .info-item {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .info-label {
-            color: #6b7280;
-            font-weight: 500;
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-        
-        .info-value {
-            color: #111827;
-            font-weight: 600;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            transition: all 0.15s ease-in-out;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn-outline-secondary {
-            border-color: #d1d5db;
-            color: #6b7280;
-            border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 600;
-            transition: all 0.15s ease-in-out;
-        }
-        
-        .btn-outline-secondary:hover {
-            background: #f9fafb;
-            border-color: #9ca3af;
-            color: #374151;
-        }
-        
-        @page {
-            size: A4;
-            margin: 0.5in;
-        }
-        
         .sticker-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: flex-start;
-            align-items: flex-start;
-            padding: 1rem;
-            background: #fff;
-            margin: 1rem;
-            border-radius: 16px;
-            box-shadow: 0 1px 3px 0 rgb(0 0 0/0.1), 0 1px 2px -1px rgb(0 0 0/0.1);
-            border: 1px solid #e5e7eb;
-        }
-        
-        .sticker {
-            width: 3.5in;
-            height: 2.5in;
-            border: 2px solid #667eea;
+            background: white;
+            border: 2px solid #4F46E5;
             border-radius: 12px;
-            padding: 12px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            page-break-inside: avoid;
-            margin-bottom: 10px;
+            padding: 20px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             position: relative;
-            overflow: hidden;
         }
         
-        .sticker::before {
+        .sticker-container::before {
             content: '';
             position: absolute;
+            left: -2px;
             top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            bottom: 0;
+            width: 4px;
+            background: #4F46E5;
+            border-radius: 2px 0 0 2px;
         }
         
-        .sticker-header {
+        .sticker-container::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #4F46E5;
+            border-radius: 0 2px 2px 0;
+        }
+        
+        .product-header {
             text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
         }
         
         .product-name {
-            font-size: 14px;
-            font-weight: 700;
-            color: #111827;
-            margin: 0;
-            line-height: 1.2;
+            font-size: 28px;
+            font-weight: bold;
+            color: #1f2937;
+            margin: 0 0 8px 0;
         }
         
-        .product-details {
-            font-size: 10px;
+        .product-variant {
+            font-size: 16px;
             color: #6b7280;
-            margin: 2px 0;
-            font-weight: 500;
+            margin: 0 0 4px 0;
+        }
+        
+        .product-size {
+            font-size: 16px;
+            color: #6b7280;
+            margin: 0;
         }
         
         .qr-section {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            flex: 1;
-            gap: 8px;
+            gap: 20px;
         }
         
         .qr-code {
-            width: 80px;
-            height: 80px;
-            border: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+        
+        .qr-code img {
+            width: 120px;
+            height: 120px;
+            border: 1px solid #d1d5db;
             border-radius: 8px;
-            background: #fff;
-            padding: 4px;
+            background: white;
+        }
+        
+        .qr-info {
+            flex: 1;
         }
         
         .batch-info {
-            flex: 1;
-            margin-left: 8px;
-            font-size: 9px;
-        }
-        
-        .batch-id {
-            font-weight: 700;
-            color: #111827;
-            margin-bottom: 4px;
-            font-size: 10px;
-        }
-        
-        .delivery-date {
+            font-size: 14px;
             color: #6b7280;
-            margin-bottom: 4px;
-            font-weight: 500;
+            margin: 0 0 8px 0;
         }
         
-        .scan-text {
-            color: #667eea;
-            font-size: 8px;
-            font-style: italic;
-            font-weight: 600;
-            background: #f0f4ff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            display: inline-block;
+        .date-info {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0 0 15px 0;
         }
         
-        .stockwise-logo {
-            position: absolute;
-            bottom: 4px;
-            right: 8px;
-            font-size: 6px;
-            color: #9ca3af;
-            font-weight: 600;
-        }
-        
-        .print-controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        
-        .print-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .scan-button {
+            background: #4F46E5;
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
+            padding: 10px 16px;
+            border-radius: 6px;
             font-size: 14px;
-            font-weight: 600;
-            transition: all 0.15s ease-in-out;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
         
-        .print-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-        
-        .instructions {
-            background: #f0f4ff;
-            border: 1px solid #e0e7ff;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem;
-            color: #3730a3;
-        }
-        
-        .instructions h6 {
-            color: #3730a3;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        
-        .instructions ul {
-            margin: 0;
-            padding-left: 1.5rem;
-        }
-        
-        .instructions li {
-            margin-bottom: 0.25rem;
-            font-size: 0.875rem;
+        .scan-button:hover {
+            background: #4338ca;
         }
         
         @media print {
             body {
                 background: white;
-            }
-            
-            .print-controls,
-            .page-header,
-            .product-info,
-            .instructions {
-                display: none;
+                padding: 0;
             }
             
             .sticker-container {
-                margin: 0;
-                padding: 0;
+                border: 2px solid #000;
                 box-shadow: none;
-                border: none;
-                background: white;
-            }
-            
-            .sticker {
                 margin: 0;
-                border: 1px solid #667eea;
-                box-shadow: none;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .print-controls {
-                position: relative;
-                top: auto;
-                right: auto;
-                margin: 1rem;
-            }
-            
-            .sticker {
-                width: 100%;
-                max-width: 3.5in;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Print Controls -->
-    <div class="print-controls">
-        <button class="print-button" onclick="window.print()">
-            <i class="bi bi-printer"></i>
-            Print Stickers
-        </button>
-        <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i>
-            Back to Inventory
-        </a>
-    </div>
-    
-    <!-- Page Header -->
-    <div class="page-header">
-        <div class="header-content">
-            <h1 class="page-title">
-                <i class="bi bi-qr-code-scan"></i>
-                QR Code Stickers
-            </h1>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-primary">
-                    <i class="bi bi-check-circle me-1"></i>
-                    Ready to Print
-                </span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Product Information -->
-    <div class="product-info">
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">Product Name</span>
-                <span class="info-value">{{ name_only }}</span>
-            </div>
-            {% if variant %}
-            <div class="info-item">
-                <span class="info-label">Variant</span>
-                <span class="info-value">{{ variant }}</span>
-            </div>
-            {% endif %}
-            {% if size %}
-            <div class="info-item">
-                <span class="info-label">Size</span>
-                <span class="info-value">{{ size }}</span>
-            </div>
-            {% endif %}
-            <div class="info-item">
-                <span class="info-label">Total Stickers</span>
-                <span class="info-value">30 stickers per page</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Instructions -->
-    <div class="instructions">
-        <h6><i class="bi bi-info-circle me-2"></i>How to Use These Stickers</h6>
-        <ul>
-            <li>Print these stickers on adhesive paper or regular paper</li>
-            <li>Attach stickers to product boxes or containers</li>
-            <li>When receiving new stock, scan the QR code with your phone's camera</li>
-            <li>The system will automatically open the stock addition form</li>
-            <li>Enter the quantity and supplier information</li>
-            <li>Confirm to add the stock to your inventory</li>
-        </ul>
-    </div>
-    
-    <!-- Stickers Container -->
     <div class="sticker-container">
-        <!-- Generate 30 stickers for easy printing -->
-        {% for i in "123456789012345678901234567890" %}
-        <div class="sticker">
-            <div class="sticker-header">
-                <div class="product-name">{{ name_only }}</div>
-                {% if variant %}
-                <div class="product-details">Variant: {{ variant }}</div>
-                {% endif %}
-                {% if size %}
-                <div class="product-details">Size: {{ size }}</div>
-                {% endif %}
-            </div>
-            
-            <div class="qr-section">
-                <img src="data:image/png;base64,{{ qr_base64 }}" 
-                     alt="QR Code" 
-                     class="qr-code">
-                
-                <div class="batch-info">
-                    <div class="batch-id">Batch: Set when scanned</div>
-                    <div class="delivery-date">Date: Set when scanned</div>
-                    <div class="scan-text">Scan to add stock</div>
-                </div>
-            </div>
-            
-            <div class="stockwise-logo">StockWise</div>
+        <div class="product-header">
+            <h1 class="product-name">{{ product.name }}</h1>
+            <p class="product-variant">Variant: {{ product.variant|default:"Standard" }}</p>
+            <p class="product-size">Size: {{ product.size|default:"N/A" }}</p>
         </div>
-        {% endfor %}
-    </div>
-
-    <script>
-        // Auto-print when page loads (optional - uncomment if needed)
-        // window.onload = function() { 
-        //     setTimeout(() => window.print(), 1000); 
-        // }
         
-        // Add some interactivity
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add click effect to stickers
-            const stickers = document.querySelectorAll('.sticker');
-            stickers.forEach(sticker => {
-                sticker.addEventListener('click', function() {
-                    this.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        this.style.transform = 'scale(1)';
-                    }, 150);
-                });
-            });
-        });
-    </script>
+        <div class="qr-section">
+            <div class="qr-code">
+                <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code">
+            </div>
+            
+            <div class="qr-info">
+                <p class="batch-info">Batch: Set when scanned</p>
+                <p class="date-info">Date: Set when scanned</p>
+                <button class="scan-button" onclick="window.print()">Print Sticker</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

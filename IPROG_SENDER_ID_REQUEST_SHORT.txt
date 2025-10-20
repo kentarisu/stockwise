@@ -1,0 +1,42 @@
+========================================
+SHORT VERSION - Quick Email to iProg
+========================================
+
+Subject: Custom Sender ID Approval Request - STOCKWISE
+
+Hello iProg Support Team,
+
+I am a student working on my capstone project, and I would like to request approval for a custom sender ID for my account.
+
+This is for an academic capstone project - an inventory management system with SMS notifications.
+
+Account Details:
+- API Token: ca42e08b40ba51019938dca6599f28b5a9605acd
+- Phone: +639630675254
+
+Sender ID Request:
+- Requested Name: STOCKWISE
+- Project: StockWise Inventory Management System (Capstone Project)
+- Purpose: Academic project - automated business notifications (sales reports, inventory alerts)
+- Project Type: Educational/Academic demonstration
+
+Use Case:
+- Daily sales summaries (for project demonstration)
+- Low stock alerts
+- AI-powered pricing recommendations
+- Estimated volume: 3-10 messages per day
+- All transactional messages only
+- Limited to capstone project testing and demonstration
+
+As a student, I've already configured the sender ID in my system and it's ready to use once approved. This will complete the SMS notification feature of my capstone project.
+
+Please let me know if you need any additional information or documentation.
+
+Thank you!
+
+Best regards,
+StockWise Team
++639630675254
+
+========================================
+

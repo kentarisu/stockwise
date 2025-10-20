@@ -26,7 +26,26 @@ SECRET_KEY = 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.206', '127.0.0.1', 'localhost', '172.20.10.4', '0.0.0.0', 'da443ad746d5.ngrok-free.app', '.ngrok-free.app']
+ALLOWED_HOSTS = ['192.168.1.206', '127.0.0.1', 'localhost', '172.20.10.4', '0.0.0.0', 'da443ad746d5.ngrok-free.app', 'e8a6825b9d6a.ngrok-free.app', '.ngrok-free.app']
+
+# Additional CSRF settings for ngrok
+CSRF_COOKIE_SECURE = False  # Allow non-HTTPS cookies for development
+CSRF_COOKIE_SAMESITE = 'Lax'  # More permissive SameSite policy
+CSRF_USE_SESSIONS = False  # Use cookies instead of sessions for CSRF tokens
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access to CSRF token
+CSRF_TRUSTED_ORIGINS = [
+    'https://da443ad746d5.ngrok-free.app',
+    'https://e8a6825b9d6a.ngrok-free.app',
+    'https://e8a6825b9d6a.ngrok-free.app/',
+    'https://da443ad746d5.ngrok-free.app/',
+    'https://e8a6825b9d6a.ngrok-free.app',
+    'https://da443ad746d5.ngrok-free.app',
+    'https://*.ngrok-free.app',  # Wildcard for all ngrok URLs
+    'https://*.ngrok.app',  # Alternative ngrok domain
+]
+
+# Temporary workaround for ngrok CSRF issues
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
 
 # Application definition
@@ -47,11 +66,14 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # Disabled for ngrok development
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# NOTE: CSRF middleware is disabled for ngrok development
+# Re-enable 'django.middleware.csrf.CsrfViewMiddleware' for production
 
 ROOT_URLCONF = 'stockwise_py.urls'
 
@@ -136,22 +158,29 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Twilio (SMS) credentials – configured via env vars with safe fallbacks
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', 'AC0bf4c5c75150f71311c71426d1e34bad')
-TWILIO_AUTH_TOKEN  = os.getenv('TWILIO_AUTH_TOKEN', '7fe5f40b944b7b74a9579e2e973caa09')
-TWILIO_FROM_PHONE  = os.getenv('TWILIO_FROM_PHONE', '+12673774157')  # Twilio trial number
+# iProg SMS API credentials – configured via env vars
+# Get your API token from: https://sms.iprogtech.com/
+IPROG_API_TOKEN = os.getenv('IPROG_API_TOKEN', 'ca42e08b40ba51019938dca6599f28b5a9605acd')
+IPROG_SENDER_ID = os.getenv('IPROG_SENDER_ID', 'STOCKWISE')  # Custom sender name (max 11 characters)
+# Route selector for iProg (0 or 1). We'll switch to 1 for delivery testing.
+IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
 
 # Admin phone number (Philippines local format without +63)
 ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9630675254')
 
 CRONJOBS = [
     # Daily sales SMS at 20:00 (8 PM) server local time
-    ('0 20 * * *', 'django.core.management.call_command', ['send_daily_report']),
+    ('0 20 * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
+    # Low stock alerts every 6 hours (6 AM, 12 PM, 6 PM, 12 AM)
+    ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
+    # Pricing recommendations every 3 days at 9 AM
+    ('0 9 */3 * *', 'django.core.management.call_command', ['send_notifications', '--type=pricing']),
 ]
 
 # CSRF Configuration for ngrok
 CSRF_TRUSTED_ORIGINS = [
-    'https://da443ad746d5.ngrok-free.app',
+    # Trust any rotating ngrok subdomain
+    'https://c59af87671d6.ngrok-free.app',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'https://localhost:8000',
@@ -162,6 +191,7 @@ CSRF_TRUSTED_ORIGINS = [
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
+    '45689adbba85.ngrok-free.app',
     'da443ad746d5.ngrok-free.app',
     '.ngrok-free.app',  # Allow all ngrok subdomains
     '.ngrok.io',        # Allow legacy ngrok domains

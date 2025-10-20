@@ -1,0 +1,138 @@
+========================================
+iProg SMS API - Custom Sender ID Request
+========================================
+
+TO: iProg Support Team (support@iprogtech.com or via https://sms.iprogtech.com/)
+FROM: StockWise Inventory System
+DATE: October 19, 2025
+
+---
+
+Subject: Request for Custom Sender ID Registration - "STOCKWISE"
+
+---
+
+Dear iProg Support Team,
+
+I am a student working on my capstone project, and I am writing to request the registration and approval of a custom Sender ID for my iProg SMS API account.
+
+This is for an academic capstone project - a fully functional inventory management system with SMS notification capabilities. The system is being developed as part of my final year project and will demonstrate real-world business application integration.
+
+ACCOUNT DETAILS:
+- API Token: ca42e08b40ba51019938dca6599f28b5a9605acd
+- Registered Phone Number: +639630675254
+
+SENDER ID REQUEST:
+- Requested Sender ID: STOCKWISE
+- Length: 9 characters (within 11-character limit)
+- Type: Alphanumeric
+
+BUSINESS INFORMATION:
+- Business Name: StockWise
+- Business Type: Inventory Management System
+- Industry: Retail/Wholesale Distribution
+- Location: Philippines
+- Project Type: **Academic Capstone Project**
+- Purpose: Educational demonstration and real-world implementation
+
+PURPOSE & USE CASE:
+The custom sender ID "STOCKWISE" will be used for sending automated business notifications to our admin users, including:
+
+1. Daily Sales Summary Reports
+   - Sent daily at 8:00 PM
+   - Contains revenue, transaction count, and top-selling products
+   
+2. Low Stock Alerts
+   - Real-time notifications when inventory falls below threshold
+   - Helps prevent stockouts
+   
+3. AI-Powered Pricing Recommendations
+   - Demand-driven pricing suggestions
+   - Sent every 3 days based on sales analytics
+
+MESSAGE RECIPIENTS:
+- Primary: Business owner/admin (verified number: +639630675254)
+- All recipients are authorized users of our system
+- No marketing or promotional messages
+
+TECHNICAL DETAILS:
+- Integration: Python Django application
+- API Endpoint: https://sms.iprogtech.com/api/v1/sms_messages
+- Implementation Status: Already configured and tested
+- Currently shows: "IPROGSMS" (awaiting approval for "STOCKWISE")
+
+EXPECTED VOLUME:
+- Estimated daily messages: 3-10 SMS
+- Peak volume: 15-20 SMS per day
+- All messages are transactional/informational
+
+BENEFITS OF APPROVAL:
+1. Professional branding for our business communications
+2. Improved recipient recognition and trust
+3. Better customer experience
+4. Clear identification of business notifications
+
+COMPLIANCE:
+- All messages comply with Philippine SMS regulations
+- Recipients have opted-in to receive notifications
+- Only transactional messages (no spam or marketing)
+- This is an academic capstone project for educational purposes
+- System demonstrates professional-grade implementation
+- Limited to project demonstration and testing
+
+---
+
+REQUEST:
+Please approve and activate the sender ID "STOCKWISE" for my account so that all SMS sent via my API token will display "STOCKWISE" instead of "IPROGSMS".
+
+I am available to provide any additional information or documentation required for this approval.
+
+---
+
+CONTACT INFORMATION:
+Email: [Your email address]
+Phone: +639630675254
+Business: StockWise Inventory Management System
+API Token: ca42e08b40ba51019938dca6599f28b5a9605acd
+
+Thank you for your assistance. I look forward to your approval.
+
+Best regards,
+StockWise Team
+
+========================================
+NOTES FOR SUBMISSION:
+========================================
+
+1. SEND VIA:
+   - iProg website contact form: https://sms.iprogtech.com/
+   - Or their support email (check website for current email)
+   - Or their Facebook page if they have one
+
+2. WHAT TO INCLUDE:
+   - Copy the entire message above
+   - Add your actual email address
+   - Attach business documents if available:
+     * Business permit (if you have one)
+     * DTI registration (if registered)
+     * Valid ID
+     * Proof of phone ownership
+
+3. EXPECTED TIMELINE:
+   - Response time: 1-2 business days
+   - Approval time: 1-3 business days
+   - Total wait: Usually 2-5 business days
+
+4. AFTER APPROVAL:
+   - No code changes needed (already configured!)
+   - Test by sending SMS via your system
+   - Sender will show "STOCKWISE" automatically
+
+5. IF THEY ASK FOR MORE INFO:
+   - Your system is legitimate and for business use
+   - You have proper API token
+   - Phone number is verified and owned by you
+   - Messages are transactional, not marketing
+
+========================================
+

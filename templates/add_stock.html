@@ -512,6 +512,8 @@ function stopQRScanner() {
   }
 }
 function populateProductSelect(sel){
+  console.log('populateProductSelect called with selector:', sel); // Debug log
+  console.log('Products array length:', products.length); // Debug log
   const $select=$(sel);
   $select.html('<option value="">Select a fruit</option>');
   products.forEach(product=>{
@@ -522,6 +524,7 @@ function populateProductSelect(sel){
   if(!$select.hasClass('select2-hidden-accessible')){
     $select.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$select.closest('.card-modern')});
   } else { $select.trigger('change.select2'); }
+  console.log('Product select populated with', products.length, 'products'); // Debug log
 }
 function validateStockItems(){ let ok=true; $('.stock-item').each(function(){ const p=$(this).find('.stock-product-select').val(); const q=$(this).find('.stock-quantity').val(); if(!p||!q||q<1){ ok=false; return false; } }); $('#saveStockBtn').prop('disabled', !ok); return ok; }
 function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ $disp.text(`Current Stock: ${product.stock||0} boxes`);} } else { $disp.text(''); } }
@@ -615,9 +618,15 @@ $(document).ready(function(){
     stopQRScanner();
   });
 
-  $('#addStockItemBtn').on('click', function(){
+  $('#addStockItemBtn').on('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Add Another Item button clicked - Event received!'); // Debug log
+    
     const html=`<div class="stock-item mb-3 p-3 border rounded"><div class="row"><div class="col-md-4"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label><select class="form-select stock-product-select" required><option value="">Select a fruit</option></select><div class="stock-indicator text-muted small mt-1"></div></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"></div><div class="col-md-2"><label class="form-label">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div></div>`;
-    $('#stockItemsContainer').append(html); populateProductSelect($('#stockItemsContainer .stock-item:last .stock-product-select'));
+    $('#stockItemsContainer').append(html); 
+    console.log('New item added, populating product select'); // Debug log
+    populateProductSelect($('#stockItemsContainer .stock-item:last .stock-product-select'));
   });
   $(document).on('click','.remove-stock-item', function(){ $(this).closest('.stock-item').remove(); if($('.stock-item').length===1){ $('.remove-stock-item').hide(); } validateStockItems(); });
 
@@ -632,7 +641,9 @@ $(document).ready(function(){
       const q=$(this).find('.stock-quantity');
       const s=$(this).find('.stock-supplier');
       if(p.val()&&q.val()){
-        items.push({product_id:p.val(), quantity:parseInt(q.val()), supplier:s.val().trim()||''});
+        const supplierValue = s.val().trim()||'';
+        console.log('DEBUG: Frontend supplier value:', supplierValue, 'Length:', supplierValue.length);
+        items.push({product_id:p.val(), quantity:parseInt(q.val()), supplier:supplierValue});
       }
     });
     const data={ action:'add_stock', items: JSON.stringify(items), date_added: $('#stockDate').val(), csrfmiddlewaretoken: csrftoken };
@@ -658,10 +669,26 @@ $(document).ready(function(){
   setTimeout(function() {
     const $firstSelect = $('.stock-product-select').first();
     $firstSelect.val('{{ qr_product.product_id|default:"" }}').trigger('change');
+    
+    // Lock the product selection if accessed via QR scan
+    {% if qr_product.locked %}
+    $firstSelect.prop('disabled', true);
+    $firstSelect.addClass('bg-light');
+    {% endif %}
+    
+    // Ensure Add Another Item button is enabled and visible
+    const $addButton = $('#addStockItemBtn');
+    console.log('Add Another Item button state:', {
+      exists: $addButton.length > 0,
+      visible: $addButton.is(':visible'),
+      enabled: !$addButton.prop('disabled'),
+      clickable: $addButton.css('pointer-events') !== 'none'
+    });
+    
     $('#addStockFormAlert').html(`
       <div class="alert alert-info alert-dismissible fade show" role="alert">
         <i class="bi bi-qr-code me-2"></i>
-        Product "{{ qr_product.name|default:"" }}" pre-selected from QR scan. You can modify the quantity and add more items.
+        Product "{{ qr_product.name|default:"" }}" pre-selected from QR scan.{% if qr_product.locked %} Product is locked and cannot be changed.{% endif %} You can modify the quantity and add more items.
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
     `);

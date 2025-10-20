@@ -3,10 +3,6 @@ from django.utils import timezone
 from django.db.models import Sum, Count
 from datetime import datetime, timedelta
 from core.models import Sale, AppUser
-from django.conf import settings
-import requests
-import os
-from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -110,56 +106,19 @@ class Command(BaseCommand):
         return message
 
     def send_sms(self, phone_number, message):
-        """Send SMS using Twilio (you can replace with other SMS providers)"""
+        """Send SMS using iProg SMS API"""
         try:
-            # Using Twilio as the SMS provider
-            # You'll need to install: pip install twilio
-            # And configure these in Django settings or environment variables:
-            # TWILIO_ACCOUNT_SID
-            # TWILIO_AUTH_TOKEN
-            # TWILIO_FROM_PHONE
+            from core.sms_service import sms_service
             
-            from twilio.rest import Client
+            result = sms_service.send_sms(phone_number, message)
             
-            # Try environment variables first, then Django settings
-            account_sid = os.getenv('TWILIO_ACCOUNT_SID') or getattr(settings, 'TWILIO_ACCOUNT_SID', None)
-            auth_token = os.getenv('TWILIO_AUTH_TOKEN') or getattr(settings, 'TWILIO_AUTH_TOKEN', None)
-            twilio_phone = os.getenv('TWILIO_FROM_PHONE') or os.getenv('TWILIO_PHONE_NUMBER') or getattr(settings, 'TWILIO_FROM_PHONE', None)
-            
-            if not all([account_sid, auth_token, twilio_phone]):
-                self.stdout.write(
-                    self.style.ERROR('Twilio credentials not configured. Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_PHONE in Django settings or environment variables.')
-                )
+            if result['success']:
+                self.stdout.write(self.style.SUCCESS(result['message']))
+                return True
+            else:
+                self.stdout.write(self.style.ERROR(result['message']))
                 return False
-            
-            # Normalize phone number to E.164 format. Default to +63 if no country code
-            normalized = (phone_number or '').strip()
-            # remove spaces, hyphens, and parentheses commonly typed by users
-            normalized = normalized.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-            if normalized.startswith('00'):
-                normalized = '+' + normalized[2:]
-            if normalized.startswith('0'):
-                normalized = '+63' + normalized.lstrip('0')
-            elif not normalized.startswith('+'):
-                # If no explicit country code, assume Philippines by default
-                normalized = '+63' + normalized
-
-            client = Client(account_sid, auth_token)
-
-            message_obj = client.messages.create(
-                body=message,
-                from_=twilio_phone,
-                to=normalized
-            )
-            
-            self.stdout.write(f'SMS sent successfully. SID: {message_obj.sid}')
-            return True
-            
-        except ImportError:
-            self.stdout.write(
-                self.style.ERROR('Twilio not installed. Please install with: pip install twilio')
-            )
-            return False
+                
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error sending SMS: {str(e)}')

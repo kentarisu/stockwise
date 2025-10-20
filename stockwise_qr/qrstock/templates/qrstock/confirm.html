@@ -2,251 +2,226 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockWise - Confirm Add Stock</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
-  <style>
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
-      padding: 0;
-    }
-    .page-container {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1rem;
-    }
-    .card-modern {
-      width: 100%;
-      max-width: 500px;
-      background: #fff;
-      border-radius: 16px;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 1px 3px 0 rgb(0 0 0/0.1), 0 1px 2px -1px rgb(0 0 0/0.1);
-      overflow: hidden;
-    }
-    .card-header-modern {
-      background: #f3f4f6;
-      padding: 1rem 1.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .card-body-modern {
-      padding: 1.5rem;
-    }
-    .product-info {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
-    .info-row:last-child {
-      margin-bottom: 0;
-    }
-    .info-label {
-      color: #6b7280;
-      font-weight: 500;
-      font-size: 0.875rem;
-    }
-    .info-value {
-      color: #111827;
-      font-weight: 600;
-    }
-    .batch-id {
-      font-family: 'Courier New', monospace;
-      background: #f3f4f6;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.875rem;
-    }
-    .form-label {
-      color: #374151;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-    .form-control, .form-select {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 0.75rem;
-      font-size: 1rem;
-      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    }
-    .form-control:focus, .form-select:focus {
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border: none;
-      border-radius: 8px;
-      padding: 0.75rem 1.5rem;
-      font-weight: 600;
-      transition: all 0.15s ease-in-out;
-    }
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    }
-    .btn-primary:disabled {
-      opacity: 0.6;
-      transform: none;
-      box-shadow: none;
-    }
-    .alert {
-      border-radius: 8px;
-      border: none;
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-    .alert-success {
-      background: #f0f9ff;
-      color: #065f46;
-      border-left: 4px solid #10b981;
-    }
-    .alert-danger {
-      background: #fef2f2;
-      color: #991b1b;
-      border-left: 4px solid #ef4444;
-    }
-    .alert-warning {
-      background: #fffbeb;
-      color: #92400e;
-      border-left: 4px solid #f59e0b;
-    }
-    .instruction-text {
-      color: #6b7280;
-      font-size: 0.875rem;
-      text-align: center;
-      margin-top: 1rem;
-      padding: 0.75rem;
-      background: #f9fafb;
-      border-radius: 6px;
-    }
-    .loading-spinner {
-      display: none;
-      width: 1rem;
-      height: 1rem;
-      border: 2px solid #ffffff;
-      border-top: 2px solid transparent;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-right: 0.5rem;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .btn-primary.loading .loading-spinner {
-      display: inline-block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>StockWise - Confirm Add Stock</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        }
+        .page-container { 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 2rem 1rem; 
+        }
+        .card-modern { 
+            width: 100%; 
+            max-width: 600px; 
+            background: #fff; 
+            border-radius: 16px; 
+            border: 1px solid #e5e7eb; 
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); 
+            overflow: hidden; 
+        }
+        .card-header-modern { 
+            background: #f3f4f6; 
+            padding: 1rem 1.25rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        }
+        .qr-verified-badge {
+            background: #10b981;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .admin-badge {
+            background: #8b5cf6;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .product-info-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+        .action-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .action-card:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+            transform: translateY(-2px);
+            text-decoration: none;
+            color: inherit;
+        }
+        .action-card.add-stock {
+            border-color: #10b981;
+        }
+        .action-card.add-stock:hover {
+            border-color: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+        .action-card.record-sale {
+            border-color: #3b82f6;
+        }
+        .action-card.record-sale:hover {
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        .action-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .action-icon.add-stock {
+            background: #d1fae5;
+            color: #10b981;
+        }
+        .action-icon.record-sale {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+        .action-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .action-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        .back-button {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .back-button:hover {
+            background: #4b5563;
+            color: white;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-  <div class="page-container">
-    <div class="card-modern">
-      <div class="card-header-modern">
-        <h5 class="m-0 text-dark">
-          <i class="bi bi-qr-code-scan me-2"></i>Confirm Add Stock
-        </h5>
-        <div class="d-flex align-items-center">
-          <span class="badge bg-success me-2">
-            <i class="bi bi-check-circle me-1"></i>QR Verified
-          </span>
-          {% if app_username %}
-          <span class="badge bg-primary">
-            <i class="bi bi-person me-1"></i>{{ app_username }} ({{ app_role }})
-          </span>
-          {% endif %}
+<div class="page-container">
+  <div class="card-modern">
+    <div class="card-header-modern">
+      <h5 class="m-0"><i class="bi bi-qr-code me-2"></i>Confirm Add Stock</h5>
+      <div>
+        <div class="qr-verified-badge">
+          <i class="bi bi-check-circle"></i>
+          QR VERIFIED
         </div>
-      </div>
-      <div class="card-body-modern">
-        <!-- Product Information Card -->
-        <div class="product-info">
-          <div class="info-row">
-            <span class="info-label">Product:</span>
-            <span class="info-value">{{ product.name }}</span>
-          </div>
-          {% if product.size %}
-          <div class="info-row">
-            <span class="info-label">Size:</span>
-            <span class="info-value">{{ product.size }}</span>
-          </div>
-          {% endif %}
-          <div class="info-row">
-            <span class="info-label">Date Arrived:</span>
-            <span class="info-value">{{ delivery_date|date:"M. d, Y" }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Batch ID:</span>
-            <span class="info-value">
-              <code class="batch-id">{{ batch_id }}</code>
-            </span>
-          </div>
-        </div>
-
-        {% if not app_username %}
-        <!-- Login Required Message -->
-        <div class="alert alert-warning">
-          <i class="bi bi-shield-exclamation me-2"></i>
-          <strong>Authentication Required:</strong> Please log in with your admin or secretary credentials before adding stock to inventory.
-        </div>
-        {% endif %}
-
-        <!-- Action Selection -->
-        <div class="action-selection mb-4">
-          <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Choose Action</h6>
-          <p class="text-muted mb-3">What would you like to do with this product?</p>
-          
-          <div class="row g-3">
-            <div class="col-md-6">
-              <a href="/qr/add-stock/{{ token }}/" class="btn btn-outline-success btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                <i class="bi bi-plus-circle mb-2" style="font-size: 2rem;"></i>
-                <strong>Add Stock</strong>
-                <small class="text-muted mt-1">Add inventory to this product</small>
-              </a>
-            </div>
-            <div class="col-md-6">
-              <a href="/qr/record-sale/{{ token }}/" class="btn btn-outline-primary btn-lg w-100 h-100 d-flex flex-column align-items-center justify-content-center py-4">
-                <i class="bi bi-cart-plus mb-2" style="font-size: 2rem;"></i>
-                <strong>Record Sale</strong>
-                <small class="text-muted mt-1">Record a sale for this product</small>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Instruction Text -->
-        <div class="instruction-text">
-          <i class="bi bi-info-circle me-1"></i>
-          {% if app_username %}
-            Scanning this QR lets you add stock to inventory or record sales for this specific product.
-          {% else %}
-            Please log in first with your admin or secretary credentials to add stock or record sales.
-          {% endif %}
+        <div class="admin-badge">
+          <i class="bi bi-person"></i>
+          ADMIN (ADMIN)
         </div>
       </div>
     </div>
-  </div>
+    <div class="p-3">
+      
+      <!-- Product Information -->
+      <div class="product-info-card">
+        <h6 class="mb-3"><i class="bi bi-box me-2"></i>Product Information</h6>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Product:</strong> {{ product.name }}</p>
+            <p class="mb-1"><strong>Size:</strong> {{ product.size }}</p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Date Arrived:</strong> {{ date_arrived }}</p>
+            <p class="mb-1"><strong>Batch ID:</strong> <span style="background: #fce7f3; padding: 2px 6px; border-radius: 4px;">{{ batch_id }}</span></p>
+          </div>
+        </div>
+        {% if product.variant %}
+        <p class="mb-0 mt-2"><strong>Variant:</strong> {{ product.variant }}</p>
+        {% endif %}
+      </div>
 
-  <script>
-    // Simple script for QR action selection page
-    console.log('QR Action Selection Page Loaded');
-  </script>
+      <!-- Action Selection -->
+      <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Choose Action</h6>
+      <p class="text-muted mb-4">What would you like to do with this product?</p>
+
+      <!-- Add Stock Action -->
+      <a href="{% url 'add_stock_page' %}?product_id={{ product.product_id }}" class="action-card add-stock">
+        <div class="action-icon add-stock">
+          <i class="bi bi-plus-circle"></i>
+        </div>
+        <div class="action-title">Add Stock</div>
+        <div class="action-description">Add inventory to this product.</div>
+      </a>
+
+      <!-- Record Sale Action -->
+      <a href="{% url 'record_sale_page' %}?product_id={{ product.product_id }}" class="action-card record-sale">
+        <div class="action-icon record-sale">
+          <i class="bi bi-cart-plus"></i>
+        </div>
+        <div class="action-title">Record Sale</div>
+        <div class="action-description">Record a sale transaction for this product.</div>
+      </a>
+
+      <!-- Back Button -->
+      <div class="text-center mt-4">
+        <a href="{% url 'products_inventory' %}" class="back-button">
+          <i class="bi bi-arrow-left"></i>
+          Back to Inventory
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</script>
 </body>
 </html>

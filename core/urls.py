@@ -50,6 +50,7 @@ urlpatterns = [
     path('api/stock/qr/create/', views.stock_qr_create, name='stock_qr_create'),
     path('api/stock/qr/apply/', views.stock_qr_apply, name='stock_qr_apply'),
     path('api/stock/qr/decode/', views.stock_qr_decode, name='stock_qr_decode'),
+    path('qr/next-batch-sequence/<int:product_id>/', views.qr_next_batch_sequence, name='qr_next_batch_sequence'),
     path('qr/stock-details/<int:product_id>/', views.stock_details, name='stock_details'),
     
     # SMS Notification URLs
@@ -58,6 +59,9 @@ urlpatterns = [
     path('api/sms/test-type/', views.test_notification_type, name='test_notification_type'),
     path('api/sms/settings/', views.update_notification_settings, name='update_notification_settings'),
     path('api/sms/stats/', views.get_notification_stats, name='get_notification_stats'),
+    path('api/sms/send-all/', views.send_all_notifications_now, name='send_all_notifications_now'),
+    path('api/sms/status/', views.check_sms_status, name='check_sms_status'),
+    path('api/sms/credits/', views.check_sms_credits, name='check_sms_credits'),
     
     # Pricing AI URLs
     path('api/pricing/recommendations/', views.get_pricing_recommendations, name='get_pricing_recommendations'),

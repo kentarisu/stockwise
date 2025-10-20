@@ -305,6 +305,29 @@ $(document).ready(function(){
   $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text())||0; const change=t-total; $('#paymentChange').text(change.toFixed(2)); $('#confirmPaymentStep').prop('disabled', t<total); });
   $('#recordSaleBtn').on('click',recordSale);
   $('#printReceiptBtn,#printReceiptAfterBtn').on('click',printReceipt);
+  
+  // Auto-select product if preselected_product_id is provided (from QR code scan)
+  {% if preselected_product_id %}
+  setTimeout(function() {
+    const preselectedId = {{ preselected_product_id }};
+    if (preselectedId && products.length > 0) {
+      // Find the first product select dropdown and set the value
+      const $firstSelect = $('.product-select').first();
+      if ($firstSelect.length > 0) {
+        $firstSelect.val(preselectedId).trigger('change');
+        
+        // Lock the product selection if accessed via QR scan
+        {% if product_locked %}
+        $firstSelect.prop('disabled', true);
+        $firstSelect.addClass('bg-light');
+        {% endif %}
+        
+        // Show a success message
+        $('#buyFormAlert').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-qr-code me-2"></i>Product automatically selected from QR code scan!{% if product_locked %} Product is locked and cannot be changed.{% endif %}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+      }
+    }
+  }, 1000); // Delay to ensure products are loaded
+  {% endif %}
 });
 </script>
 </body>

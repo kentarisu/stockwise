@@ -3,8 +3,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StockWise - SMS Notification Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="StockWise">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>StockWise - SMS Notification</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -42,17 +47,214 @@
             box-sizing: border-box;
         }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--gray-50);
-            color: var(--gray-800);
-            line-height: 1.6;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid var(--gray-100);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+
+        .sidebar-brand i {
+            font-size: 2rem;
+            margin-right: 0.75rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .sidebar-nav {
+            padding: 1.5rem 0;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-400);
+            padding: 0 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-item {
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.875rem 1.5rem;
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-radius: 0;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            background: var(--primary-light);
+            border-right: 3px solid var(--primary);
+        }
+
+        .nav-link i {
+            font-size: 1.25rem;
+            margin-right: 0.75rem;
+            width: 1.5rem;
+            text-align: center;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            background: var(--gray-50);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            height: var(--header-height);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-left h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0;
+        }
+
+        .header-subtitle {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .content-area {
             padding: 2rem;
+        }
+
+        .mobile-menu-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
+            color: #495057 !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            z-index: 1001;
+        }
+
+        @media (min-width: 769px) {
+            .mobile-menu-btn {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 100vw;
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content-area {
+                padding: 1rem;
+            }
         }
 
         .page-header {
@@ -364,21 +566,126 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Page Header -->
-        <div class="page-header">
-            <div class="d-flex align-items-center mb-3">
-                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary me-3">
-                    <i class="bi bi-arrow-left me-1"></i>
-                    Back to Dashboard
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+            <div class="sidebar-header">
+                <a href="{% url 'dashboard' %}" class="sidebar-brand" aria-label="StockWise - Go to Dashboard">
+                    <i class="bi bi-basket-fill" aria-hidden="true"></i>
+                    <span>StockWise</span>
                 </a>
             </div>
-            <h1 class="page-title">
-                <i class="bi bi-bell me-2"></i>
-                SMS Notification Center
-            </h1>
-            <p class="page-subtitle">Configure automated notifications for sales summaries, stock alerts, and more</p>
-        </div>
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <h2 class="nav-section-title">Main</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'dashboard' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'dashboard' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-speedometer2" aria-hidden="true"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'products_inventory' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'products_inventory' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'products_inventory' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-box-seam" aria-hidden="true"></i>
+                                <span>Inventory</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'sales' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'sales' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'sales' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-cart-check" aria-hidden="true"></i>
+                                <span>Sales</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="nav-section">
+                    <h2 class="nav-section-title">Analytics</h2>
+                    <ul class="nav-list" role="list">
+                        {% if app_role == 'admin' %}
+                        <li class="nav-item">
+                            <a href="{% url 'reports' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'reports' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-graph-up" aria-hidden="true"></i>
+                                <span>Reports</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="nav-section">
+                    <h2 class="nav-section-title">Account</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'profile' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-person" aria-hidden="true"></i>
+                                <span>Profile</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'sms_settings' %}" 
+                               class="nav-link active"
+                               aria-current="page">
+                                <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                                <span>SMS Notification</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'logout' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header" role="banner">
+                <div class="header-left">
+                    <h1>SMS Notification</h1>
+                    <p class="header-subtitle">Automated SMS alerts and business notifications</p>
+                </div>
+                <div class="header-right">
+                    <button id="mobileMenuToggle" 
+                            class="mobile-menu-btn"
+                            aria-label="Toggle navigation menu"
+                            aria-expanded="false"
+                            aria-controls="sidebar">
+                        <i class="bi bi-list" aria-hidden="true"></i>
+                        <span class="ms-1">Menu</span>
+                    </button>
+
+                    <div class="dropdown">
+                        <div class="user-avatar" data-bs-toggle="dropdown" style="background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
 
         <!-- Messages -->
         {% if messages %}
@@ -393,10 +700,15 @@
 
         <!-- Phone Number Setup -->
         <div class="settings-card">
-            <h5 class="mb-4">
-                <i class="bi bi-telephone me-2"></i>
-                Phone Number Configuration
-            </h5>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0">
+                    <i class="bi bi-telephone me-2"></i>
+                    Phone Number Configuration
+                </h5>
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle me-1"></i>iProg SMS Active
+                </span>
+            </div>
 
             <form method="post" id="phoneForm">
                 {% csrf_token %}
@@ -405,37 +717,60 @@
                         <div class="mb-3">
                             <label for="phone_number" class="form-label">
                                 <i class="bi bi-phone me-1"></i>
-                                Phone Number
+                                Philippine Mobile Number
                             </label>
                             <input 
                                 type="tel" 
-                                class="form-control" 
+                                class="form-control form-control-lg" 
                                 id="phone_number" 
                                 name="phone_number" 
                                 value="{{ sms_notification.phone_number }}"
-                                placeholder="+1234567890"
+                                placeholder="09123456789"
+                                pattern="^(09|\+639|639)[0-9]{9}$"
                                 required
                             >
                             <div class="form-text">
-                                Include country code (e.g., +1 for US, +63 for Philippines)
+                                <i class="bi bi-info-circle me-1"></i>
+                                Accepts formats: <strong>09xxxxxxxxx</strong>, +639xxxxxxxxx, or 639xxxxxxxxx
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="mb-3">
-                            <div class="form-check form-switch">
+                            <label class="form-label d-block">
+                                <i class="bi bi-bell me-1"></i>
+                                Notifications Status
+                            </label>
+                            <div class="form-check form-switch" style="padding-top: 0.5rem;">
                                 <input 
                                     class="form-check-input" 
                                     type="checkbox" 
                                     id="is_active" 
                                     name="is_active"
+                                    style="width: 48px; height: 24px;"
                                     {% if sms_notification.is_active %}checked{% endif %}
                                 >
-                                <label class="form-check-label" for="is_active">
-                                    Enable SMS Notifications
+                                <label class="form-check-label ms-2" for="is_active" style="font-weight: 500;">
+                                    {% if sms_notification.is_active %}
+                                        <span class="text-success">Enabled</span>
+                                    {% else %}
+                                        <span class="text-muted">Disabled</span>
+                                    {% endif %}
                                 </label>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- iProg API Info -->
+                <div class="alert alert-info d-flex align-items-start mb-3">
+                    <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                    <div>
+                        <strong>SMS Provider: iProg SMS API</strong><br>
+                        <small>
+                            Sender ID: <strong>STOCKWISE</strong> (pending approval - currently shows as IPROGSMS)<br>
+                            Supports all Philippine mobile networks: Globe, Smart, TNT, Sun
+                        </small>
                     </div>
                 </div>
 
@@ -445,9 +780,9 @@
                         Save Phone Number
                     </button>
                     {% if sms_notification.is_active and sms_notification.phone_number %}
-                        <button type="button" class="btn btn-outline-primary" id="testSmsBtn">
+                        <button type="button" class="btn btn-outline-primary" id="sendAllNowBtn">
                             <i class="bi bi-send me-1"></i>
-                            Send Test SMS
+                            Send All Now
                         </button>
                     {% endif %}
                 </div>
@@ -464,7 +799,7 @@
                     </div>
                     <h6 class="notification-title">Daily Sales Summary</h6>
                     <p class="notification-description">
-                        Receive daily reports with total revenue, transactions, and top-selling products.
+                        Automatically receive daily reports with total revenue, transactions, and top-selling products at 8:00 PM.
                     </p>
                     
                     <div class="notification-settings">
@@ -482,12 +817,12 @@
                         <div class="setting-row">
                             <span class="setting-label">Send Time</span>
                             <select class="form-select form-select-sm" id="sales_time" style="width: auto;">
+                                <option value="20:00" selected>8:00 PM</option>
                                 <option value="21:00">9:00 PM</option>
-                                <option value="22:00" selected>10:00 PM</option>
+                                <option value="22:00">10:00 PM</option>
                                 <option value="23:00">11:00 PM</option>
                                 <option value="06:00">6:00 AM</option>
                                 <option value="07:00">7:00 AM</option>
-                                <option value="08:00">8:00 AM</option>
                             </select>
                         </div>
                         
@@ -498,21 +833,33 @@
                     </div>
                     
                     <div class="preview-box" id="salesPreview" style="display: none;">
-                        <strong>Sample Message:</strong><br>
-                        📊 Daily Sales Summary<br>
-                        Date: Yesterday<br>
-                        Revenue: ₱12,450<br>
-                        Transactions: 23<br>
-                        Boxes Sold: 45<br>
-                        Top Product: Apples (12 boxes)
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                        </div>
+                        <strong>Today's Sales Summary:</strong><br>
+                        📊 StockWise Daily Sales Summary<br>
+                        📅 Date: {{ today_date|date:"F d, Y" }}<br><br>
+                        💰 Revenue: ₱{{ today_stats.total_revenue|floatformat:2|default:"0.00" }}<br>
+                        📦 Boxes Sold: {{ today_stats.total_boxes|default:"0" }}<br>
+                        🛒 Transactions: {{ today_stats.total_sales|default:"0" }}<br><br>
+                        {% if top_products %}
+                        🏆 Top Products:<br>
+                        {% for product in top_products %}
+                        {{ forloop.counter }}. {{ product.product__name }} ({{ product.quantity }} boxes)<br>
+                        {% endfor %}
+                        {% else %}
+                        🏆 Top Products:<br>
+                        No sales data yet for today<br>
+                        {% endif %}<br>
+                        📱 Sent by StockWise System
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('salesPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="testNotification('sales')">
-                            <i class="bi bi-send me-1"></i>Test
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('sales')">
+                            <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
                 </div>
@@ -526,7 +873,7 @@
                     </div>
                     <h6 class="notification-title">Low Stock Alerts</h6>
                     <p class="notification-description">
-                        Get notified when product inventory falls below your specified threshold.
+                        Automatically get notified when product inventory falls below your specified threshold (real-time monitoring).
                     </p>
                     
                     <div class="notification-settings">
@@ -556,20 +903,37 @@
                     </div>
                     
                     <div class="preview-box" id="stockPreview" style="display: none;">
-                        <strong>Sample Message:</strong><br>
-                        ⚠️ Low Stock Alert<br>
-                        Product: Apples<br>
-                        Current Stock: 8 boxes<br>
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                        </div>
+                        <strong>Low Stock Alert:</strong><br>
+                        ⚠️ StockWise Low Stock Alert<br><br>
+                        {% if low_stock_products %}
+                        {% with low_stock_products|first as product %}
+                        Product: {{ product.name }}<br>
+                        Current Stock: {{ product.stock }} boxes<br>
                         Threshold: 10 boxes<br>
-                        Action: Restock recommended
+                        Status: RESTOCK NEEDED<br><br>
+                        {% endwith %}
+                        {% if low_stock_products|length > 1 %}
+                        Other low stock items:<br>
+                        {% for product in low_stock_products|slice:"1:" %}
+                        - {{ product.name }} ({{ product.stock }} boxes)<br>
+                        {% endfor %}
+                        {% endif %}
+                        {% else %}
+                        All products are well-stocked!<br>
+                        No items below threshold.<br><br>
+                        {% endif %}
+                        📱 Sent by StockWise System
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('stockPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="testNotification('stock')">
-                            <i class="bi bi-send me-1"></i>Test
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('stock')">
+                            <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
                 </div>
@@ -583,7 +947,7 @@
                     </div>
                     <h6 class="notification-title">Demand-Driven Pricing</h6>
                     <p class="notification-description">
-                        Get AI-powered pricing recommendations based on demand elasticity and market conditions.
+                        Automatically receive AI-powered pricing recommendations based on demand elasticity and market conditions every 3 days.
                     </p>
                     
                     <div class="notification-settings">
@@ -614,24 +978,31 @@
                     </div>
                     
                     <div class="preview-box" id="pricingPreview" style="display: none;">
-                        <strong>Sample Message:</strong><br>
-                        💰 Pricing Recommendation<br>
-                        Product: Apples<br>
-                        Current: ₱150.00<br>
-                        Suggested: ₱165.00 (+10%)<br>
-                        Reason: High demand; elasticity≈-1.2; R²=0.61<br>
-                        Confidence: HIGH
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                        </div>
+                        <strong>Pricing Recommendation:</strong><br>
+                        💰 StockWise Pricing Recommendation<br>
+                        📊 Based on 30 days of sales data<br><br>
+                        <em>AI-powered pricing analysis based on demand elasticity and sales patterns.</em><br><br>
+                        <div id="pricingRecommendationsContent">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-hourglass-split"></i> Generating recommendations...
+                            </div>
+                        </div>
+                        <br>
+                        📱 Sent by StockWise System
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('pricingPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="testNotification('pricing')">
-                            <i class="bi bi-send me-1"></i>Test
-                        </button>
-                        <button type="button" class="btn btn-outline-info btn-sm" onclick="loadPricingRecommendations()">
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="getPricingRecommendations()">
                             <i class="bi bi-lightbulb me-1"></i>Get Recommendations
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('pricing')">
+                            <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
                 </div>
@@ -681,41 +1052,6 @@
             </div>
             </div>
         </div>
-
-        <!-- Setup Instructions -->
-        <div class="settings-card">
-            <h5 class="mb-4">
-                <i class="bi bi-tools me-2"></i>
-                SMS Service Setup
-            </h5>
-            
-            <div class="alert alert-info">
-                <h6><i class="bi bi-exclamation-triangle me-1"></i> SMS Service Configuration Required</h6>
-                <p class="mb-2">To enable SMS notifications, configure these environment variables:</p>
-                <ul class="mb-0">
-                    <li><code>TWILIO_ACCOUNT_SID</code> - Your Twilio Account SID</li>
-                    <li><code>TWILIO_AUTH_TOKEN</code> - Your Twilio Auth Token</li>
-                    <li><code>TWILIO_PHONE_NUMBER</code> - Your Twilio phone number</li>
-                </ul>
-                <p class="mt-2 mb-0">
-                    <strong>Installation:</strong> <code>pip install twilio</code>
-                </p>
-            </div>
-            
-            <div class="alert alert-warning">
-                <h6><i class="bi bi-shield-exclamation me-1"></i> Phone Number Verification Required</h6>
-                <p class="mb-2">If you're using a Twilio trial account, you must verify your phone number:</p>
-                <ol class="mb-2">
-                    <li>Go to <a href="https://console.twilio.com" target="_blank">Twilio Console</a></li>
-                    <li>Navigate to "Phone Numbers" → "Manage" → "Verified Caller IDs"</li>
-                    <li>Add your phone number: <code>+639630675254</code></li>
-                    <li>Verify with the SMS code sent to your phone</li>
-                </ol>
-                <p class="mb-0">
-                    <strong>Alternative:</strong> Upgrade to a paid Twilio account to send to any number.
-                </p>
-            </div>
-        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -740,30 +1076,32 @@
     
     <script>
         $(document).ready(function() {
-            // Test SMS functionality
-            $('#testSmsBtn').on('click', function() {
+            // Send All Now functionality
+            $('#sendAllNowBtn').on('click', function() {
                 const $btn = $(this);
                 const originalText = $btn.html();
                 
                 $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i>Sending...');
                 
                 $.ajax({
-                    url: "{% url 'send_test_sms' %}",
+                    url: "{% url 'send_all_notifications_now' %}",
                     method: 'POST',
-                    data: {
-                        csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
-                    },
+                    data: { csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() },
                     success: function(response) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
-                        bodyEl.textContent = response.success ? 'Test SMS sent successfully!' : ('Failed to send test SMS: ' + (response.message || 'Unknown error'));
+                        if (response.success) {
+                            bodyEl.textContent = 'All notifications sent successfully.';
+                        } else {
+                            bodyEl.textContent = 'Failed to send notifications: ' + (response.message || 'Unknown error');
+                        }
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
                     },
                     error: function() {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
-                        bodyEl.textContent = 'Error sending test SMS. Please try again.';
+                        bodyEl.textContent = 'Error sending notifications. Please try again.';
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
                     },
@@ -803,11 +1141,15 @@
                 $preview.slideUp();
             } else {
                 $preview.slideDown();
+                // If it's the pricing preview, load recommendations
+                if (previewId === 'pricingPreview') {
+                    getPricingRecommendations();
+                }
             }
         }
 
-        // Test notification function
-        function testNotification(type) {
+        // Send notification now function
+        function sendNotificationNow(type) {
             const $btn = event.target.closest('button');
             const originalText = $btn.innerHTML;
             
@@ -844,13 +1186,57 @@
                 error: function() {
                     const modalEl = document.getElementById('feedbackModal');
                     const bodyEl = document.getElementById('feedbackModalBody');
-                    bodyEl.textContent = 'Error sending test notification. Please try again.';
+                    bodyEl.textContent = 'Error sending notification. Please try again.';
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                 },
                 complete: function() {
                     $btn.disabled = false;
                     $btn.innerHTML = originalText;
+                }
+            });
+        }
+
+        // Get pricing recommendations function
+        function getPricingRecommendations() {
+            const $content = $('#pricingRecommendationsContent');
+            $content.html('<div class="text-center text-muted"><i class="bi bi-hourglass-split"></i> Generating recommendations...</div>');
+            
+            $.ajax({
+                url: "{% url 'get_pricing_recommendations' %}",
+                method: 'GET',
+                success: function(response) {
+                    if (response.success && response.recommendations.length > 0) {
+                        let html = '';
+                        const actionable = response.recommendations.filter(r => r.action === 'INCREASE' || r.action === 'DECREASE');
+                        
+                        if (actionable.length > 0) {
+                            actionable.slice(0, 3).forEach((rec, index) => {
+                                const actionEmoji = rec.action === 'INCREASE' ? '📈' : '📉';
+                                const changePct = Math.abs(rec.change_pct);
+                                
+                                html += `${index + 1}. ${actionEmoji} ${rec.name}<br>`;
+                                html += `   Current: ₱${rec.current_price.toFixed(2)}<br>`;
+                                html += `   Suggested: ₱${rec.suggested_price.toFixed(2)} (${changePct.toFixed(1)}% ${rec.action.toLowerCase()})<br>`;
+                                html += `   Reason: ${rec.reason}<br><br>`;
+                            });
+                            
+                            const increaseCount = actionable.filter(r => r.action === 'INCREASE').length;
+                            const decreaseCount = actionable.filter(r => r.action === 'DECREASE').length;
+                            
+                            html += `📋 Summary: ${increaseCount} increases, ${decreaseCount} decreases<br>`;
+                            html += `💡 Total actionable recommendations: ${actionable.length}`;
+                        } else {
+                            html = '✅ No pricing changes recommended at this time.<br>📊 All products are optimally priced.';
+                        }
+                        
+                        $content.html(html);
+                    } else {
+                        $content.html('⚠️ Insufficient sales data for pricing analysis.<br>📊 Need more sales history to generate recommendations.');
+                    }
+                },
+                error: function() {
+                    $content.html('❌ Error generating pricing recommendations.<br>Please try again later.');
                 }
             });
         }
@@ -863,6 +1249,9 @@
                 sales_enabled: $('#sales_enabled').is(':checked'),
                 stock_enabled: $('#stock_enabled').is(':checked')
             };
+            
+            // Save to localStorage
+            localStorage.setItem('sms_notification_settings', JSON.stringify(settings));
             
             // Call the API to save settings
             $.ajax({
@@ -893,7 +1282,7 @@
 
         // Load saved settings
         function loadNotificationSettings() {
-            const saved = localStorage.getItem('sms_settings');
+            const saved = localStorage.getItem('sms_notification_settings');
             if (saved) {
                 const settings = JSON.parse(saved);
                 $('#sales_time').val(settings.sales_time || '22:00');
@@ -1082,5 +1471,70 @@
             loadNotificationStats();
         });
     </script>
+
+    <!-- Mobile Menu JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+
+            function toggleMobileMenu() {
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                }
+            }
+
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleMobileMenu();
+                });
+            }
+
+            // Close sidebar when clicking outside
+            document.addEventListener('click', function(e) {
+                if (sidebar && !sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // Close sidebar when clicking on nav links
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
+                });
+            });
+
+            // Close sidebar on window resize
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 768) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // Close sidebar with escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+    </script>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

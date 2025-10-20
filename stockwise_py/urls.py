@@ -21,8 +21,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
 	path('admin/', admin.site.urls),
-	path('', include('core.urls')),
 	path('qr/', include('stockwise_qr.qrstock.urls')),
+	path('', include('core.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,163 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - QR Code Scanner Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .scanner-container {
+            background: white;
+            border: 2px solid #4F46E5;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .scanner-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+        
+        .qr-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .scan-button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .scan-button:hover {
+            background: #4338ca;
+        }
+        
+        .result {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .result.success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+        
+        .result.error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        .product-info {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <h1 class="scanner-title">QR Code Scanner Test</h1>
+        
+        <input type="text" class="qr-input" id="qrInput" placeholder="Paste QR code data here or scan with your phone...">
+        
+        <button class="scan-button" onclick="scanQR()">Scan QR Code</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function scanQR() {
+            const qrData = document.getElementById('qrInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            
+            if (!qrData) {
+                resultDiv.innerHTML = '<div class="result error">Please enter QR code data</div>';
+                return;
+            }
+            
+            // Parse the QR data
+            if (qrData.startsWith('STOCKWISE_PRODUCT:')) {
+                const parts = qrData.split(':');
+                if (parts.length >= 6) {
+                    const productId = parts[1];
+                    const productName = parts[2];
+                    const productSize = parts[3];
+                    const productPrice = parts[4];
+                    const productStock = parts[5];
+                    
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Valid StockWise QR Code!</strong>
+                            <div class="product-info">
+                                <strong>Product ID:</strong> ${productId}<br>
+                                <strong>Name:</strong> ${productName}<br>
+                                <strong>Size:</strong> ${productSize}<br>
+                                <strong>Price:</strong> ₱${productPrice}<br>
+                                <strong>Stock:</strong> ${productStock}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<div class="result error">❌ Invalid QR code format</div>';
+                }
+            } else if (qrData.includes('/qr/confirm/')) {
+                // Handle URL-based QR codes for QR confirm page
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        <strong>✅ Valid StockWise QR Confirm Code!</strong>
+                        <div class="product-info">
+                            <strong>Type:</strong> QR Confirm Link<br>
+                            <strong>Action:</strong> Opens QR confirm page<br>
+                            <strong>URL:</strong> <a href="${qrData}" target="_blank">${qrData}</a>
+                        </div>
+                        <button class="scan-button" onclick="window.open('${qrData}', '_blank')" style="margin-top: 10px;">Open QR Confirm</button>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = '<div class="result error">❌ Not a StockWise product QR code</div>';
+            }
+        }
+        
+        // Allow Enter key to scan
+        document.getElementById('qrInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                scanQR();
+            }
+        });
+    </script>
+</body>
+</html>

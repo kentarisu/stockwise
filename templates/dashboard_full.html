@@ -231,6 +231,12 @@
             text-align: center;
         }
 
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
         /* Main Content */
         .main-content {
             flex: 1;
@@ -294,6 +300,69 @@
 
         .sidebar::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Dashboard Sections */
+        .dashboard-section {
+            margin-bottom: 3rem;
+        }
+
+        .section-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title i {
+            color: var(--primary);
+            font-size: 1.75rem;
+        }
+
+        .section-subtitle {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        /* Sales Summary Styles */
+        .sales-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            font-size: 1.1rem;
         }
 
         /* Responsive */
@@ -644,143 +713,178 @@
                     </div>
                 </div>
 
-                <!-- Comprehensive Overview Sections -->
-                <div class="overview-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                    <!-- Top Products -->
-                    <div class="modern-card">
-                        <div class="table-header">
-                            <h3 class="table-title">
-                                <i class="bi bi-trophy"></i>
-                                Top Selling Products
-                            </h3>
-                        </div>
-                        <div style="padding: 1.5rem;">
-                            {% if top_products %}
-                                {% for product in top_products %}
-                                <div class="overview-item">
-                                    <div class="overview-rank">{{ forloop.counter }}</div>
-                                    <div class="overview-content">
-                                        <h6>{{ product.product__name }}</h6>
-                                        <p>{{ product.quantity }} units sold</p>
-                                    </div>
-                                    <div class="overview-value">
-                                        <i class="bi bi-graph-up text-success"></i>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <p class="text-muted text-center">No sales data available</p>
-                            {% endif %}
-                        </div>
+                <!-- Sales Performance Section -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="bi bi-bar-chart-line"></i>
+                            Sales Performance
+                        </h2>
+                        <p class="section-subtitle">Track your best-performing products and sales trends</p>
                     </div>
-
-                    <!-- Top Customers -->
-                    <div class="modern-card">
-                        <div class="table-header">
-                            <h3 class="table-title">
-                                <i class="bi bi-people"></i>
-                                Top Customers
-                            </h3>
-                        </div>
-                        <div style="padding: 1.5rem;">
-                            {% if top_customers %}
-                                {% for customer in top_customers %}
-                                <div class="overview-item">
-                                    <div class="overview-rank">{{ forloop.counter }}</div>
-                                    <div class="overview-content">
-                                        <h6>{{ customer.customer_name }}</h6>
-                                        <p>{{ customer.sales_count }} purchases</p>
+                    <div class="overview-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <!-- Top Selling Products -->
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-trophy"></i>
+                                    Top Selling Products
+                                </h3>
+                                <span class="badge bg-success">{{ today|date:"M d" }} - {{ week_start|date:"M d" }}</span>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                {% if top_products %}
+                                    {% for product in top_products %}
+                                    <div class="overview-item">
+                                        <div class="overview-rank">{{ forloop.counter }}</div>
+                                        <div class="overview-content">
+                                            <h6>{{ product.product__name }}</h6>
+                                            <p>{{ product.quantity }} units sold</p>
+                                            <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
+                                        </div>
+                                        <div class="overview-value">
+                                            <i class="bi bi-graph-up text-success"></i>
+                                        </div>
                                     </div>
-                                    <div class="overview-value">
-                                        <span class="text-success">₱{{ customer.total_spent|floatformat:2 }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted text-center">No sales data available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Sales Summary -->
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-cash-stack"></i>
+                                    Sales Summary
+                                </h3>
+                                <span class="badge bg-primary">{{ today|date:"M d, Y" }}</span>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                <div class="sales-summary">
+                                    <div class="summary-item">
+                                        <div class="summary-label">Total Sales</div>
+                                        <div class="summary-value text-success">₱{{ total_sales|default:"0.00"|floatformat:2 }}</div>
+                                    </div>
+                                    <div class="summary-item">
+                                        <div class="summary-label">Transactions</div>
+                                        <div class="summary-value">{{ total_transactions|default:"0" }}</div>
+                                    </div>
+                                    <div class="summary-item">
+                                        <div class="summary-label">Avg. Order Value</div>
+                                        <div class="summary-value">₱{{ avg_order_value|default:"0.00"|floatformat:2 }}</div>
                                     </div>
                                 </div>
-                                {% endfor %}
-                            {% else %}
-                                <p class="text-muted text-center">No customer data available</p>
-                            {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Product Categories & Recent Transactions -->
-                <div class="overview-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
-                    <!-- Product Categories -->
-                    <div class="modern-card">
-                        <div class="table-header">
-                            <h3 class="table-title">
-                                <i class="bi bi-tags"></i>
-                                Product Categories
-                            </h3>
-                        </div>
-                        <div style="padding: 1.5rem;">
-                            {% if product_categories %}
-                                {% for category in product_categories %}
-                                <div class="overview-item">
-                                    <div class="overview-content">
-                                        <h6>{{ category.size }}</h6>
-                                        <p>{{ category.count }} products</p>
-                                    </div>
-                                    <div class="overview-value">
-                                        <span class="badge bg-primary">{{ category.total_stock }} in stock</span>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <p class="text-muted text-center">No category data available</p>
-                            {% endif %}
-                        </div>
+                <!-- Business Overview Section -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="bi bi-briefcase"></i>
+                            Business Overview
+                        </h2>
+                        <p class="section-subtitle">Monitor your recent business activities and transactions</p>
                     </div>
-
-                    <!-- Recent Transactions -->
-                    <div class="modern-card">
-                        <div class="table-header">
-                            <h3 class="table-title">
-                                <i class="bi bi-clock-history"></i>
-                                Recent Transactions
-                            </h3>
+                    <div class="overview-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <!-- Recent Transactions -->
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-clock-history"></i>
+                                    Recent Transactions
+                                </h3>
+                                <span class="badge bg-info">Last 10 Transactions</span>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                {% if recent_transactions %}
+                                    {% for transaction in recent_transactions %}
+                                    <div class="overview-item">
+                                        <div class="overview-content">
+                                            <h6>{{ transaction.product.name }}</h6>
+                                            <p>{{ transaction.recorded_at|date:"M d, Y g:i A" }}</p>
+                                        </div>
+                                        <div class="overview-value">
+                                            <span class="text-success">₱{{ transaction.total|floatformat:2 }}</span>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted text-center">No recent transactions</p>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div style="padding: 1.5rem;">
-                            {% if recent_transactions %}
-                                {% for transaction in recent_transactions %}
-                                <div class="overview-item">
-                                    <div class="overview-content">
-                                        <h6>{{ transaction.product.name }}</h6>
-                                        <p>{{ transaction.recorded_at|timesince }} ago</p>
+
+                        <!-- Inventory Status -->
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-box-seam"></i>
+                                    Inventory Status
+                                </h3>
+                                <span class="badge bg-warning">As of {{ today|date:"M d, g:i A" }}</span>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                {% if low_stock_products %}
+                                    {% for product in low_stock_products %}
+                                    <div class="overview-item">
+                                        <div class="overview-content">
+                                            <h6>{{ product.name }}</h6>
+                                            <p>{{ product.stock }} units remaining</p>
+                                        </div>
+                                        <div class="overview-value">
+                                            <span class="badge bg-warning">Low Stock</span>
+                                        </div>
                                     </div>
-                                    <div class="overview-value">
-                                        <span class="text-success">₱{{ transaction.total|floatformat:2 }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center">
+                                        <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                        <p class="text-muted mt-2">All products well stocked</p>
                                     </div>
-                                </div>
-                                {% endfor %}
-                            {% else %}
-                                <p class="text-muted text-center">No recent transactions</p>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sales Chart Overview -->
-                <div class="modern-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i class="bi bi-bar-chart"></i>
-                            Weekly Sales Trend
-                        </h3>
+                <!-- Analytics & Activity Section -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="bi bi-graph-up-arrow"></i>
+                            Analytics & Activity
+                        </h2>
+                        <p class="section-subtitle">Visual insights and real-time business activity monitoring</p>
                     </div>
-                    <div style="padding: 1.5rem;">
-                        <canvas id="salesChart" width="400" height="200"></canvas>
-                    </div>
-                </div>
+                    <div class="overview-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                        <!-- Sales Chart Overview -->
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-bar-chart"></i>
+                                    Weekly Sales Trend
+                                </h3>
+                                <span class="badge bg-info">{{ week_start|date:"M d" }} - {{ today|date:"M d" }}</span>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                <canvas id="salesChart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
 
-                <!-- Enhanced Recent Activity -->
-                <div class="activity-card animate-fade-in">
+                        <!-- Enhanced Recent Activity -->
+                        <div class="activity-card animate-fade-in">
                     <div class="table-header">
                         <h3 class="table-title">
                             <i class="bi bi-clock-history"></i>
                             Recent Activity
                         </h3>
-                        <div class="results-counter">Live Updates</div>
+                        <div class="results-counter">Last updated: {{ now|date:"M d, g:i A" }}</div>
                     </div>
                     {% for sale in recent_sales %}
                     <div class="activity-item">
@@ -791,7 +895,7 @@
                             <h6>New sale recorded</h6>
                             <p>₱{{ sale.total|floatformat:2 }} - {{ sale.product.name }} {% if sale.product.variant %}({{ sale.product.variant }}, {{ sale.product.size }}){% else %}({{ sale.product.size }}){% endif %} x{{ sale.quantity }}</p>
                         </div>
-                        <span class="activity-time">{{ sale.recorded_at|timesince }} ago</span>
+                        <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
                     </div>
                     {% endfor %}
                     {% for stock in recent_stock_additions %}
@@ -803,7 +907,7 @@
                             <h6>Stock added</h6>
                             <p>{{ stock.product.name }} {% if stock.product.variant %}({{ stock.product.variant }}, {{ stock.product.size }}){% else %}({{ stock.product.size }}){% endif %} - Added {{ stock.quantity }} units</p>
                         </div>
-                        <span class="activity-time">{{ stock.created_at|timesince }} ago</span>
+                        <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
                     </div>
                     {% endfor %}
                     {% for product in low_stock_products %}
@@ -825,6 +929,7 @@
                         </div>
                     </div>
                     {% endif %}
+                    </div>
                 </div>
             </div>
         </main>

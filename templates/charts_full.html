@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Charts & Analytics - StockWise</title>
+    <title>Charts - StockWise</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -32,91 +32,40 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--gray-50);
             color: var(--gray-800);
-        }
-
-        .sidebar {
-            width: 280px;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            position: fixed;
-            height: 100vh;
-            left: 0;
-            top: 0;
-            z-index: 1000;
-            overflow-y: auto;
-        }
-
-        .sidebar-header {
-            padding: 2rem;
-            border-bottom: 1px solid var(--gray-200);
-            background: linear-gradient(135deg, var(--primary), #1d4ed8);
-            color: white;
-        }
-
-        .sidebar-header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
             margin: 0;
+            padding: 0;
         }
 
-        .sidebar-header p {
-            margin: 0.5rem 0 0 0;
-            opacity: 0.9;
-            font-size: 0.875rem;
-        }
-
-        .sidebar-nav {
-            padding: 1.5rem 0;
-        }
-
-        .nav-section {
-            margin-bottom: 2rem;
-        }
-
-        .nav-section-title {
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--gray-500);
-            padding: 0 2rem;
-            margin-bottom: 1rem;
-        }
-
-        .nav-item {
-            margin-bottom: 0.25rem;
-        }
-
-        .nav-link {
-            display: flex;
+        .back-button {
+            display: inline-flex;
             align-items: center;
-            padding: 0.75rem 2rem;
-            color: var(--gray-600);
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
             text-decoration: none;
-            transition: all 0.2s ease;
+            border-radius: 8px;
             font-weight: 500;
+            transition: all 0.2s ease;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .nav-link:hover {
-            background: var(--primary-light);
-            color: var(--primary);
+        .back-button:hover {
+            background: #1d4ed8;
+            color: white;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
-        .nav-link.active {
-            background: var(--primary-light);
-            color: var(--primary);
-            border-right: 3px solid var(--primary);
-        }
-
-        .nav-link i {
-            margin-right: 0.75rem;
-            font-size: 1.125rem;
+        .back-button i {
+            margin-right: 0.5rem;
         }
 
         .main-content {
-            margin-left: 280px;
             padding: 2rem;
             min-height: 100vh;
+            width: 100%;
         }
 
         .page-header {
@@ -255,121 +204,48 @@
 
         /* Mobile Responsive */
         @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
             .main-content {
-                margin-left: 0;
+                padding: 1rem;
             }
-
-            /* Mobile menu toggle button - SHOW ON MOBILE */
-            #mobileMenuToggle {
-                display: flex !important;
-                background: #007bff !important;
-                border: 2px solid #000000 !important;
-                color: #ffffff !important;
-                min-width: 44px !important;
-                min-height: 44px !important;
-                position: relative !important;
-                z-index: 9999 !important;
+            
+            .back-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
             }
-        }
-
-        /* Desktop - Hide mobile menu button */
-        @media (min-width: 769px) {
-            #mobileMenuToggle {
-                display: none !important;
+            
+            .page-header {
+                padding: 1.5rem;
+            }
+            
+            .action-buttons {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>StockWise</h1>
-            <p>Fruit Inventory Management</p>
-        </div>
-        
-        <div class="sidebar-nav">
-            <div class="nav-section">
-                <div class="nav-section-title">Main</div>
-                <div class="nav-item">
-                    <a href="{% url 'dashboard' %}" class="nav-link">
-                        <i class="bi bi-speedometer2"></i>
-                        Dashboard
-                    </a>
-                </div>
-                <div class="nav-item">
-                    <a href="{% url 'products_inventory' %}" class="nav-link">
-                        <i class="bi bi-basket"></i>
-                        Inventory
-                    </a>
-                </div>
-                <div class="nav-item">
-                    <a href="{% url 'sales' %}" class="nav-link">
-                        <i class="bi bi-cart"></i>
-                        Sales
-                    </a>
-                </div>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Analytics</div>
-                <div class="nav-item">
-                    <a href="{% url 'reports' %}" class="nav-link">
-                        <i class="bi bi-graph-up"></i>
-                        Reports
-                    </a>
-                </div>
-                
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Tools</div>
-                <div class="nav-item">
-                    <a href="{% url 'sms_settings' %}" class="nav-link">
-                        <i class="bi bi-chat-dots"></i>
-                        SMS Settings
-                    </a>
-                </div>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">Account</div>
-                <div class="nav-item">
-                    <a href="{% url 'profile' %}" class="nav-link">
-                        <i class="bi bi-person"></i>
-                        Profile
-                    </a>
-                </div>
-                <div class="nav-item">
-                    <a href="{% url 'logout' %}" class="nav-link">
-                        <i class="bi bi-box-arrow-right"></i>
-                        Logout
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="main-content">
+        <!-- Back Button -->
+        <a href="{% url 'reports' %}" class="back-button">
+            <i class="bi bi-arrow-left"></i>
+            Back to Reports
+        </a>
+
         <div class="page-header">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <div>
-                    <h1 class="page-title">Charts & Analytics</h1>
-                    <p class="page-subtitle">Interactive visualizations and data insights</p>
+                    <h1 class="page-title">Charts</h1>
+                    <p class="page-subtitle">Interactive visualizations</p>
                 </div>
-                <!-- Mobile Menu Toggle Button -->
-                <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                    <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                    <span class="ms-1">Menu</span>
-                </button>
             </div>
             
             <div class="action-buttons">
@@ -763,77 +639,6 @@
 
         // Load charts on page load
         document.addEventListener('DOMContentLoaded', loadCharts);
-
-        // Mobile sidebar toggle functionality
-        const sidebar = document.querySelector('.sidebar');
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-
-        function toggleMobileMenu() {
-            if (sidebar) {
-                sidebar.classList.toggle('active');
-                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
-                // Prevent body scroll when sidebar is open on mobile
-                if (sidebar.classList.contains('active')) {
-                    document.body.style.overflow = 'hidden';
-                } else {
-                    document.body.style.overflow = '';
-                }
-            }
-        }
-
-        // Handle mobile menu toggle click
-        if (mobileMenuToggle) {
-            console.log('Mobile menu button found in charts_full');
-            mobileMenuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Mobile menu button clicked in charts_full');
-                toggleMobileMenu();
-            });
-        }
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-                    sidebar.classList.remove('active');
-                    document.body.style.overflow = '';
-                    console.log('Mobile sidebar closed from outside click');
-                }
-            }
-        });
-
-        // Close sidebar when clicking on navigation links
-        if (sidebar) {
-            const navLinks = sidebar.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    if (window.innerWidth <= 768) {
-                        sidebar.classList.remove('active');
-                        document.body.style.overflow = '';
-                        console.log('Mobile sidebar closed from nav link click');
-                    }
-                });
-            });
-        }
-
-        // Handle window resize
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 768 && sidebar) {
-                sidebar.classList.remove('active');
-                document.body.style.overflow = '';
-                console.log('Mobile sidebar closed on resize');
-            }
-        });
-
-        // Handle escape key to close sidebar
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
-                sidebar.classList.remove('active');
-                document.body.style.overflow = '';
-                console.log('Mobile sidebar closed from escape key');
-            }
-        });
     </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.core import signing
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_GET, require_POST
+from django.views.decorators.csrf import csrf_exempt
 import os
 import csv
 from django.conf import settings
@@ -45,6 +46,7 @@ def redirect_to_login(request):
 
 
 @require_http_methods(["GET", "POST"])
+@csrf_exempt
 def login_view(request):
 	if request.method == 'POST':
 		username = request.POST.get('username', '').strip()
@@ -287,13 +289,8 @@ def products_inventory(request):
         sort_column = request.GET.get('sort_column', 'name')
         sort_order = request.GET.get('sort_order', 'asc')
 
-        # Base queryset: only products actually added to inventory. If the column doesn't exist yet,
-        # avoid querying it and return none (so built-ins don't leak into the list).
-        try:
-            # is_inventory may not exist; rely on is_built_in flag
-            products = Product.objects.filter(is_built_in=False)
-        except Exception:
-            products = Product.objects.none()
+        # Base queryset: ALL products for accurate counting
+        products = Product.objects.all()
 
         # Apply filters
         if search:
@@ -316,18 +313,21 @@ def products_inventory(request):
         
         products = products.order_by(sort_field)
 
-        # Calculate dashboard stats
+        # Calculate dashboard stats - count ALL products
         total_products = products.count()
         active_products = products.filter(status='active').count()
         total_stock = products.aggregate(total=Sum('stock'))['total'] or 0
         restock_alerts = products.filter(status='active', stock__lt=10).count()
+
+        # For the table display, filter to non-built-in products only
+        table_products = products.filter(is_built_in=False)
 
         # Get unique fruits and suppliers for client-side dropdown
         unique_fruits = list(Product.objects.filter(is_built_in=True).values_list('name', flat=True).distinct())
         unique_suppliers = list(Product.objects.filter(is_built_in=False).exclude(supplier__isnull=True).exclude(supplier='').values_list('supplier', flat=True).distinct())
         
         context = {
-            'products': products,
+            'products': table_products,  # Use filtered products for table
             'total_products': total_products,
             'active_products': active_products,
             'total_stock': total_stock,
@@ -369,10 +369,15 @@ def add_product_page(request):
 @require_app_login
 def record_sale_page(request):
     """Standalone page that mirrors the Record Sale modal (UI + JS)."""
+    # Get product_id from URL parameters (from QR code scan)
+    product_id = request.GET.get('product_id')
+    
     context = {
         'app_role': request.session.get('app_role', 'user'),
         'today': timezone.now().date(),
         'show_cost': request.session.get('app_role') == 'admin',
+        'preselected_product_id': product_id,  # Pass to template for auto-selection
+        'product_locked': bool(product_id),  # Lock product selection when accessed via QR
     }
     return render(request, 'record_sale.html', context)
 
@@ -384,8 +389,10 @@ def add_stock_page(request):
         'today': timezone.now().date(),
     }
     
-    # Handle QR token from scanned QR codes
+    # Handle QR token from scanned QR codes or direct product_id
     qr_token = request.GET.get('qr_token')
+    product_id = request.GET.get('product_id')
+    
     if qr_token:
         try:
             # Import the QR system's serializer to decode the token
@@ -393,19 +400,20 @@ def add_stock_page(request):
             s = URLSafeSerializer(settings.SECRET_KEY)
             data = s.loads(qr_token)
             product_id = data.get('p')
-            
-            if product_id:
-                try:
-                    product = Product.objects.get(product_id=product_id)
-                    context['qr_product'] = {
-                        'product_id': product.product_id,
-                        'name': product.name,
-                        'pre_selected': True
-                    }
-                except Product.DoesNotExist:
-                    pass
         except Exception:
             # If QR token is invalid, just ignore it
+            pass
+    
+    if product_id:
+        try:
+            product = Product.objects.get(product_id=product_id)
+            context['qr_product'] = {
+                'product_id': product.product_id,
+                'name': product.name,
+                'pre_selected': True,
+                'locked': True  # Lock the product selection when accessed via QR
+            }
+        except Product.DoesNotExist:
             pass
     
     return render(request, 'add_stock.html', context)
@@ -561,6 +569,7 @@ def product_delete(request, product_id):
 
 @require_app_login
 @require_http_methods(["POST"])
+@csrf_exempt
 def add_stock(request):
 	"""Add stock for multiple products."""
 	if request.method != 'POST':
@@ -589,6 +598,9 @@ def add_stock(request):
 				quantity = item.get('quantity')
 				supplier = item.get('supplier', '')
 				
+				# Debug: Print what supplier value we're receiving
+				print(f"DEBUG: Received supplier value: '{supplier}' (type: {type(supplier)}, length: {len(supplier) if supplier else 0})")
+				
 				if not product_id or not quantity:
 					continue
 				
@@ -604,13 +616,18 @@ def add_stock(request):
 							variant = ''
 					# Create one stock addition record with total quantity and base batch ID
 					batch_id = generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+					
+					# Debug: Print what we're about to save
+					supplier_to_save = supplier if supplier else None
+					print(f"DEBUG: About to save supplier: '{supplier_to_save}' (type: {type(supplier_to_save)})")
+					
 					StockAddition.objects.create(
 						product=product,
 						quantity=int(quantity),
-						date_added=date_added or timezone.now().date(),
+						date_added=timezone.now(),  # Use full datetime instead of just date
 						remaining_quantity=int(quantity),
 						batch_id=batch_id,
-						supplier=supplier
+						supplier=supplier_to_save
 					)
 					
 					# Update product stock directly
@@ -719,6 +736,47 @@ def stock_qr_apply(request):
 		return HttpResponse('Invalid or expired QR token.', status=400)
 	except Exception as e:
 		return HttpResponse(f'Error: {str(e)}', status=500)
+
+@require_http_methods(["GET"])
+def qr_next_batch_sequence(request, product_id):
+	"""Get next batch sequence number for a product"""
+	try:
+		# Lazy import to avoid circulars and guarantee availability
+		from core.models import StockAddition  # noqa: WPS433
+		product = Product.objects.get(product_id=product_id)
+		
+		# Simple, robust rule: next sequence is count of existing additions + 1
+		# This avoids depending on historical batch_id string formats
+		existing_count = StockAddition.objects.filter(product=product).count()
+		next_sequence = (existing_count % 99) + 1  # keep it within 1..99 for two-digit suffixes
+		
+		# Generate base batch ID using product name and size
+		from datetime import date
+		today = date.today()
+		base_name = product.name or ''
+		variant = ''
+		if '(' in base_name and base_name.endswith(')'):
+			try:
+				variant = base_name.split('(')[1].rstrip(')').strip()
+			except Exception:
+				variant = ''
+		
+		# Create base batch ID: first 2 chars of product name + size + date
+		product_prefix = base_name.replace(f"({variant})", '').strip()[:2].upper() if variant else base_name[:2].upper()
+		size_clean = product.size.replace('-', '') if product.size else ''
+		date_str = today.strftime('%m%d%Y')
+		base_batch_id = f"{product_prefix}{size_clean}{date_str}"
+		
+		return JsonResponse({
+			'success': True, 
+			'next_sequence': next_sequence,
+			'base_batch_id': base_batch_id
+		})
+		
+	except Product.DoesNotExist:
+		return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
+	except Exception as e:
+		return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 def stock_qr_decode(request):
@@ -962,7 +1020,7 @@ def sales_view(request):
                     'product_id': sale.product.product_id,
                     'product_name': sale.product.name,
                     'size': sale.product.size,
-                    'quantity': sale.quantity,
+                        'units_sold': sale.quantity,
                     'price': float(sale.price),
                     'subtotal': float(sale.total)
                 }]
@@ -1360,27 +1418,35 @@ def _apply_report_filters(queryset, filter_type, start_date, end_date):
     """Apply time filters case-insensitively and accept synonyms like 'today'."""
     today = timezone.now().date()
     ft = (filter_type or 'Daily').strip().lower()
+    
+    # Use explicit start_date and end_date when provided
+    if start_date and end_date:
+        try:
+            s = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e = datetime.strptime(end_date, '%Y-%m-%d').date()
+            queryset = queryset.filter(recorded_at__date__range=[s, e])
+            return queryset
+        except ValueError:
+            pass
+    
+    # Fallback to filter_type
     if ft in ('daily', 'today'):
-        # Prefer explicit start_date if provided to avoid timezone mismatches
-        if start_date:
-            try:
-                s = datetime.strptime(start_date, '%Y-%m-%d').date()
-                queryset = queryset.filter(recorded_at__date=s)
-            except ValueError:
-                queryset = queryset.filter(recorded_at__date=today)
-        else:
-            queryset = queryset.filter(recorded_at__date=today)
+        queryset = queryset.filter(recorded_at__date=today)
+    elif ft in ('yesterday',):
+        yesterday = today - timedelta(days=1)
+        queryset = queryset.filter(recorded_at__date=yesterday)
     elif ft in ('weekly', 'week'):
         queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=7))
     elif ft in ('monthly', 'month'):
         queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=30))
-    elif ft in ('custom',) and start_date and end_date:
-        try:
-            s = datetime.strptime(start_date,'%Y-%m-%d').date()
-            e = datetime.strptime(end_date,'%Y-%m-%d').date()
-            queryset = queryset.filter(recorded_at__date__range=[s,e])
-        except ValueError:
-            queryset = queryset.filter(recorded_at__date=today)
+    elif ft in ('quarter',):
+        queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=90))
+    elif ft in ('year',):
+        queryset = queryset.filter(recorded_at__gte=timezone.now()-timedelta(days=365))
+    elif ft in ('custom',):
+        # Custom without dates defaults to all time
+        pass
+    
     return queryset
 
 @require_app_login
@@ -1393,9 +1459,19 @@ def fetch_reports(request):
     start_date=request.GET.get('start_date','')
     end_date=request.GET.get('end_date','')
 
+    # Debug logging
+    print(f"=== FETCH_REPORTS DEBUG ===")
+    print(f"Filter type: {filter_type}")
+    print(f"Start date: {start_date}")
+    print(f"End date: {end_date}")
+    print(f"Search: {search}")
+
     try:
         sales_q=Sale.objects.filter(status__iexact='completed')
+        print(f"Total completed sales: {sales_q.count()}")
         sales_q=_apply_report_filters(sales_q,filter_type,start_date,end_date)
+        print(f"After filtering: {sales_q.count()}")
+        print(f"==========================")
         if search:
             if search.isdigit():
                 sales_q=sales_q.filter(sale_id=search)
@@ -1414,17 +1490,18 @@ def fetch_reports(request):
             'avg_order_value': float(total_rev/trans_cnt) if trans_cnt else 0
         }
 
-        # top fruits - using single-table sales
+        # top fruits - using single-table sales (already filtered by sales_q)
         top=sales_q.values('product__product_id','product__name','product__size').annotate(boxes_sold=Sum('quantity'),revenue=Sum(F('quantity')*F('product__price'))).order_by('-boxes_sold')[:5]
         top_fruits=[{
             'product_id':t['product__product_id'],
             'name':t['product__name'],
             'size':t['product__size'],
             'boxes_sold':t['boxes_sold'],
-            'revenue':float(t['revenue']) if t['revenue'] else 0
+            'revenue':float(t['revenue']) if t['revenue'] else 0,
+            'date': end_date if end_date else timezone.now().strftime('%Y-%m-%d')  # Add date field
         } for t in top]
 
-        # fruit summary - using single-table sales
+        # fruit summary - using single-table sales (already filtered by sales_q)
         fs=sales_q.values('product__product_id','product__name','product__size','product__price').annotate(boxes_sold=Sum('quantity'),revenue=Sum(F('quantity')*F('product__price'))).order_by('-revenue')
         fruit_summary=[{
             'product_id':r['product__product_id'],
@@ -1432,35 +1509,85 @@ def fetch_reports(request):
             'size':r['product__size'],
             'boxes_sold':r['boxes_sold'],
             'price_per_box':float(r['product__price']),
-            'revenue':float(r['revenue']) if r['revenue'] else 0
+            'revenue':float(r['revenue']) if r['revenue'] else 0,
+            'date': end_date if end_date else timezone.now().strftime('%Y-%m-%d')  # Add date field
         } for r in fs]
 
         # low stock fruits - using Product model directly
+        # Note: Low stock shows current inventory status regardless of date filter
+        # This is intentional - users want to see ALL current low stock items
         low_q=Product.objects.filter(stock__lte=10,status='Active').order_by('stock')
         low_stock=[{
             'product_id':inv.product_id,
             'name':inv.name,
             'size':inv.size,
             'stock':inv.stock,
-            'price':float(inv.price)
+            'price':float(inv.price),
+            'date': timezone.now().strftime('%Y-%m-%d')  # Current date - inventory is real-time
         } for inv in low_q]
 
-        # transactions - using single-table sales
-        tx_data=[]
-        for sale in sales_q.order_by('-recorded_at')[:100]:
-            tx_data.append({
-                'sale_id':sale.sale_id,
-                'recorded_at':sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'total':float(sale.total),
-                'status':sale.status,
-                'fruit_count':1,
-                'total_boxes':sale.quantity,
-                'fruits':sale.product.name if sale.product else 'Unknown',
-                'sizes':sale.product.size if sale.product else '',
-            })
+        # transactions - group by transaction_number to avoid showing each line item separately
+        rows = sales_q.select_related('user','product').order_by('-recorded_at','transaction_number','sale_id')[:200]
+        grouped = {}
+        for row in rows:
+            key = row.transaction_number or f"ORD{row.sale_id:06d}"
+            g = grouped.get(key)
+            if not g:
+                grouped[key] = {
+                    'sale_id': row.sale_id,
+                    'transaction_number': row.transaction_number if row.transaction_number else key,
+                    'or_number': row.or_number or 'N/A',
+                    'recorded_at': row.recorded_at.strftime('%m/%d/%Y, %I:%M:%S %p'),
+                    'customer_name': row.customer_name or 'N/A',
+                    'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
+                    'address': row.address or 'N/A',
+                    'processed_by': row.user.username if row.user else 'admin',
+                    'fruits': row.product.name if row.product else 'Unknown',
+                    'sizes': row.product.size if row.product else '',
+                    'total_boxes': int(row.quantity or 0),
+                    'boxes': int(row.quantity or 0),
+                    'items': int(row.quantity or 0),
+                    'subtotal': float(row.total or 0),
+                    'vat': float((row.total or 0) * Decimal('0.12')),
+                    'total': float(row.total or 0),
+                    'amount_paid': float(row.amount_paid or 0) if row.amount_paid else float(row.total or 0),
+                    'status': row.status,
+                    'fruit_count': 1,
+                }
+            else:
+                # Add to existing transaction
+                g['total_boxes'] += int(row.quantity or 0)
+                g['boxes'] += int(row.quantity or 0)
+                g['items'] += int(row.quantity or 0)
+                g['subtotal'] += float(row.total or 0)
+                g['vat'] += float((row.total or 0) * Decimal('0.12'))
+                g['total'] += float(row.total or 0)
+                g['fruit_count'] += 1
+                if row.product:
+                    if g['fruits'] and row.product.name not in g['fruits']:
+                        g['fruits'] += f", {row.product.name}"
+                    if row.product.size and row.product.size not in g['sizes']:
+                        g['sizes'] += f", {row.product.size}" if g['sizes'] else row.product.size
+
+        tx_data = list(grouped.values())[:100]  # Limit to 100 transactions
 
         # Product summary reports from report_product_summary table
-        summary_reports = ReportProductSummary.objects.select_related('product').order_by('-generated_at')[:50]
+        # Filter by date range if provided
+        summary_reports_q = ReportProductSummary.objects.select_related('product')
+        
+        # Apply date filtering to summary reports
+        if start_date and end_date:
+            try:
+                s = datetime.strptime(start_date,'%Y-%m-%d').date()
+                e = datetime.strptime(end_date,'%Y-%m-%d').date()
+                # Filter reports that overlap with the selected date range
+                summary_reports_q = summary_reports_q.filter(
+                    Q(period_start__lte=e) & Q(period_end__gte=s)
+                )
+            except ValueError:
+                pass
+        
+        summary_reports = summary_reports_q.order_by('-generated_at')[:50]
         summary_reports_data = [{
             'product_name': r.product.name if r.product else 'Unknown',
             'period_start': r.period_start.strftime('%Y-%m-%d'),
@@ -1483,6 +1610,7 @@ def fetch_reports(request):
             'last_price': float(r.last_price) if r.last_price else None,
             'suggested_price': float(r.suggested_price) if r.suggested_price else None,
             'first_sale_at': r.first_sale_at.strftime('%Y-%m-%d %H:%M') if r.first_sale_at else None,
+            'date': r.generated_at.strftime('%Y-%m-%d') if r.generated_at else None,  # Add date field
             'last_sale_at': r.last_sale_at.strftime('%Y-%m-%d %H:%M') if r.last_sale_at else None,
             'sms_low_stock_count': r.sms_low_stock_count,
             'sms_expiry_count': r.sms_expiry_count,
@@ -1531,59 +1659,209 @@ def export_report(request):
     transaction_count = int(agg['transaction_count'] or 0)
     total_boxes = int(agg['total_boxes'] or 0)
 
-    # Build PDF
+    # Build PDF with proper margins for landscape A4
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=24, rightMargin=24, topMargin=24, bottomMargin=24)
+    # A4 landscape is 297mm x 210mm = 841.89 x 595.27 points
+    # Use smaller margins to maximize usable space
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
+                          leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
     styles = getSampleStyleSheet()
+    from reportlab.lib.styles import ParagraphStyle
     elems = []
 
-    # Title
-    title = f"StockWise {report_type.replace('_',' ').title()} Report"
-    elems.append(Paragraph(title, styles['Title']))
-    meta = f"Filter: {filter_type}  |  Generated: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    elems.append(Paragraph(meta, styles['Normal']))
-    elems.append(Spacer(1, 12))
+    # Calculate available width: 841.89 - 36 - 36 = 769.89 points
+    available_width = 770
 
-    # Summary table
+    # Title - compact style
+    title_text = "StockWise - Complete Sales Report"
+    elems.append(Paragraph(title_text, styles['Title']))
+    
+    # Report metadata - more compact
+    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type
+    meta = f"<b>Date Range:</b> {period_text} | <b>Generated:</b> {timezone.now().strftime('%m/%d/%Y')}"
+    elems.append(Paragraph(meta, styles['Normal']))
+    elems.append(Spacer(1, 10))
+
+    # ========== SECTION 1: SALES SUMMARY ==========
+    section_style = ParagraphStyle('SectionHeader', parent=styles['Heading2'], textColor=colors.HexColor('#4F46E5'), spaceAfter=8)
+    elems.append(Paragraph("📊 SALES SUMMARY", section_style))
+    elems.append(Spacer(1, 6))
+    
+    avg_order = (total_revenue / transaction_count) if transaction_count > 0 else 0
     summary_data = [
-        ['Total Revenue', 'Transactions', 'Total Boxes'],
-        [f"₱{total_revenue:,.2f}", f"{transaction_count}", f"{total_boxes}"]
+        ['Metric', 'Value'],
+        ['Total Revenue', f"₱{total_revenue:,.2f}"],
+        ['Total Transactions', f"{transaction_count}"],
+        ['Total Boxes Sold', f"{total_boxes}"],
+        ['Average Order Value', f"₱{avg_order:,.2f}"]
     ]
-    summary_tbl = Table(summary_data, hAlign='LEFT')
+    summary_tbl = Table(summary_data, colWidths=[250, 150])
     summary_tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F46E5')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,-1), 10),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('ALIGN', (1,1), (1,-1), 'RIGHT'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
     elems.append(summary_tbl)
     elems.append(Spacer(1, 12))
 
-    # Transactions table (real-time)
-    rows = [['Sale ID','Date','Product','Size','Qty','Price','Total','Status','User']]
-    for s in sales_q.order_by('-recorded_at')[:1000]:
+    # ========== SECTION 2: TOP PRODUCTS ==========
+    elems.append(Paragraph("🏆 TOP PRODUCTS BY SALES", section_style))
+    elems.append(Spacer(1, 6))
+    
+    # Get top products
+    top_products = sales_q.values('product__product_id','product__name','product__size').annotate(
+        boxes_sold=Sum('quantity'),
+        revenue=Sum(F('quantity')*F('product__price'))
+    ).order_by('-boxes_sold')[:10]
+    
+    if top_products:
+        top_rows = [['Rank', 'Product', 'Size', 'Boxes Sold', 'Revenue']]
+        for idx, prod in enumerate(top_products, 1):
+            top_rows.append([
+                str(idx),
+                str(prod['product__name'] or 'N/A')[:30],
+                str(prod['product__size'] or '')[:15],
+                str(prod['boxes_sold'] or 0),
+                f"₱{float(prod['revenue'] or 0):,.2f}"
+            ])
+        
+        # Adjusted widths to fit in 770 points: 35+250+100+80+120 = 585
+        top_table = Table(top_rows, colWidths=[35, 300, 120, 80, 120])
+        top_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('ALIGN', (3,1), (4,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F0FDF4')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elems.append(top_table)
+    else:
+        elems.append(Paragraph("No product data available.", styles['Normal']))
+    
+    elems.append(Spacer(1, 16))
+
+    # ========== SECTION 3: LOW STOCK INVENTORY ==========
+    elems.append(Paragraph("⚠️ LOW STOCK ITEMS", section_style))
+    elems.append(Spacer(1, 6))
+    
+    # Get low stock items
+    low_stock_items = Product.objects.filter(stock__lte=10, status='Active').order_by('stock')[:15]
+    
+    if low_stock_items:
+        low_rows = [['Product', 'Size', 'Current Stock', 'Price', 'Status']]
+        for item in low_stock_items:
+            status = '🔴 Critical' if item.stock <= 5 else '🟡 Low'
+            low_rows.append([
+                str(item.name)[:30],
+                str(item.size)[:15],
+                str(int(item.stock)),
+                f"₱{float(item.price):,.2f}",
+                status
+            ])
+        
+        # Adjusted widths: 300+100+100+100+80 = 680
+        low_table = Table(low_rows, colWidths=[300, 120, 100, 100, 80])
+        low_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('ALIGN', (2,1), (3,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elems.append(low_table)
+    else:
+        elems.append(Paragraph("✅ All products have sufficient stock.", styles['Normal']))
+    
+    elems.append(Spacer(1, 16))
+
+    # ========== SECTION 4: DETAILED TRANSACTIONS ==========
+    elems.append(Paragraph("💳 DETAILED TRANSACTIONS", section_style))
+    elems.append(Spacer(1, 6))
+
+    # Group transactions by transaction_number (same as display logic)
+    sale_rows = sales_q.order_by('-recorded_at','transaction_number','sale_id')[:500]
+    grouped = {}
+    for row in sale_rows:
+        key = row.transaction_number or f"ORD{row.sale_id:06d}"
+        g = grouped.get(key)
+        if not g:
+            grouped[key] = {
+                'sale_id': row.sale_id,
+                'transaction_number': row.transaction_number if row.transaction_number else key,
+                'or_number': row.or_number or 'N/A',
+                'recorded_at': row.recorded_at.strftime('%m/%d/%Y %I:%M %p'),
+                'customer_name': row.customer_name or 'Walk-in',
+                'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
+                'address': row.address or 'N/A',
+                'processed_by': row.user.username if row.user else 'admin',
+                'fruits': row.product.name if row.product else 'Unknown',
+                'sizes': row.product.size if row.product else '',
+                'total_boxes': int(row.quantity or 0),
+                'subtotal': float(row.total or 0),
+                'vat': float((row.total or 0) * Decimal('0.12')),
+                'total': float(row.total or 0),
+                'status': row.status,
+                'fruit_count': 1,
+            }
+        else:
+            # Add to existing transaction
+            g['total_boxes'] += int(row.quantity or 0)
+            g['subtotal'] += float(row.total or 0)
+            g['vat'] += float((row.total or 0) * Decimal('0.12'))
+            g['total'] += float(row.total or 0)
+            g['fruit_count'] += 1
+            if row.product:
+                if g['fruits'] and row.product.name not in g['fruits']:
+                    g['fruits'] += f", {row.product.name}"
+                if row.product.size and row.product.size not in g['sizes']:
+                    g['sizes'] += f", {row.product.size}" if g['sizes'] else row.product.size
+
+    tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
+
+    # Transactions table with complete details - optimized widths for 770pt width
+    # Total: 30+60+55+75+90+60+110+40+65+55+65+45 = 750 points
+    rows = [['ID','Trans#','OR#','Date','Customer','Contact','Fruits','Boxes','Subtotal','VAT','Total','Status']]
+    for tx in tx_data:
         rows.append([
-            s.sale_id,
-            s.recorded_at.strftime('%Y-%m-%d %H:%M'),
-            getattr(s.product, 'name', ''),
-            getattr(s.product, 'size', ''),
-            int(s.quantity or 0),
-            f"₱{float(s.price or 0):,.2f}",
-            f"₱{float(s.total or 0):,.2f}",
-            s.status.title() if isinstance(s.status, str) else s.status,
-            getattr(s.user, 'username', '')
+            str(tx['sale_id']),
+            str(tx['transaction_number'])[:10],  # Truncate long transaction numbers
+            str(tx['or_number'])[:12],
+            tx['recorded_at'][:16] if len(tx['recorded_at']) > 16 else tx['recorded_at'],  # Shorten date
+            str(tx['customer_name'])[:15],  # Truncate long names
+            str(tx['contact_number'])[:11],
+            str(tx['fruits'])[:20],  # Truncate long product lists
+            str(tx['total_boxes']),
+            f"₱{tx['subtotal']:,.2f}",
+            f"₱{tx['vat']:,.2f}",
+            f"₱{tx['total']:,.2f}",
+            tx['status'].title()[:8]
         ])
-    table = Table(rows, repeatRows=1)
+    
+    # Adjusted column widths to fit in 770 points
+    table = Table(rows, repeatRows=1, colWidths=[30, 60, 55, 75, 90, 60, 110, 40, 65, 55, 65, 45])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F1F5F9')),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F46E5')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 9),
-        ('FONTSIZE', (0,1), (-1,-1), 8),
-        ('ALIGN', (4,1), (6,-1), 'RIGHT'),
+        ('FONTSIZE', (0,0), (-1,0), 7),
+        ('FONTSIZE', (0,1), (-1,-1), 6),
+        ('ALIGN', (7,1), (10,-1), 'RIGHT'),  # Right align numbers
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center ID column
         ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FBFDFF')])
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('WORDWRAP', (0,0), (-1,-1), True),  # Enable word wrap
     ]))
     elems.append(table)
 
@@ -1591,8 +1869,10 @@ def export_report(request):
     pdf = buffer.getvalue()
     buffer.close()
 
+    # Generate filename with date
+    filename = f"StockWise_Complete_Report_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{report_type}_report.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response.write(pdf)
     return response
 
@@ -1890,6 +2170,7 @@ def fruit_master_variants(request):
 
 @require_app_login
 @require_POST
+@csrf_exempt
 def record_sale(request):
     """Record a new sale: creates one sales row per item and updates product stock (FIFO)."""
     try:
@@ -2108,6 +2389,7 @@ def stock_details(request, product_id):
 # POST request handlers for product operations
 @require_app_login
 @require_http_methods(["POST"])
+@csrf_exempt
 def handle_product_post(request):
     """Handle POST requests for product operations"""
     try:
@@ -2492,7 +2774,7 @@ def can_print_receipt(sale_id, user_id, user_role):
 # SMS Notification Views
 @require_app_login
 def sms_settings_view(request):
-    """SMS settings page bound to current admin's AppUser (phone only)."""
+    """SMS notification page with real-time data."""
     if request.session.get('app_role') != 'admin':
         return redirect('dashboard')
 
@@ -2501,12 +2783,55 @@ def sms_settings_view(request):
 
     if request.method == 'POST':
         phone_number = request.POST.get('phone_number', '').strip()
-        if phone_number and not phone_number.startswith('+'):
-            messages.error(request, 'Phone number must include country code (e.g., +1234567890)')
+        
+        # Validate and normalize Philippine phone number
+        if phone_number:
+            # Remove common formatting
+            cleaned = phone_number.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+            
+            # Check if it's a valid Philippine number
+            valid_formats = (
+                cleaned.startswith('09') and len(cleaned) == 11,  # 09xxxxxxxxx
+                cleaned.startswith('+639') and len(cleaned) == 13,  # +639xxxxxxxxx
+                cleaned.startswith('639') and len(cleaned) == 12,  # 639xxxxxxxxx
+                cleaned.startswith('9') and len(cleaned) == 10,  # 9xxxxxxxxx
+            )
+            
+            if not any(valid_formats):
+                messages.error(request, 'Invalid Philippine mobile number. Use format: 09xxxxxxxxx, +639xxxxxxxxx, or 639xxxxxxxxx')
+            else:
+                user_obj.phone_number = phone_number
+                user_obj.save(update_fields=['phone_number'])
+                messages.success(request, f'SMS settings saved! Number: {phone_number}')
         else:
-            user_obj.phone_number = phone_number
+            user_obj.phone_number = ''
             user_obj.save(update_fields=['phone_number'])
-            messages.success(request, 'SMS settings saved.')
+            messages.success(request, 'Phone number cleared.')
+
+    # Get real-time data for SMS previews
+    from datetime import timedelta
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+    
+    # Today's sales data
+    today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+    today_stats = {
+        'total_sales': today_sales.count(),
+        'total_revenue': today_sales.aggregate(total=Sum('total'))['total'] or 0,
+        'total_boxes': today_sales.aggregate(total=Sum('quantity'))['total'] or 0,
+    }
+    
+    # Top selling products today
+    top_products = (today_sales
+        .values('product__name')
+        .annotate(quantity=Sum('quantity'))
+        .order_by('-quantity')[:3])
+    
+    # Low stock products
+    low_stock_products = Product.objects.filter(
+        status='active',
+        stock__lte=10
+    ).order_by('stock')[:5]
 
     context = {
         'sms_notification': type('Obj', (), {
@@ -2514,6 +2839,10 @@ def sms_settings_view(request):
             'is_active': bool(getattr(user_obj, 'phone_number', '')),
         })(),
         'app_role': request.session.get('app_role'),
+        'today_stats': today_stats,
+        'top_products': top_products,
+        'low_stock_products': low_stock_products,
+        'today_date': today,
     }
     return render(request, 'sms_settings.html', context)
 
@@ -2554,10 +2883,10 @@ def send_test_sms(request):
 
         hint = ''
         lowered = cleaned.lower()
-        if 'invalid \"to\" phone number' in lowered or "invalid 'to' phone number" in lowered:
-            hint = ' Tip: Use a valid mobile number in E.164 format (e.g., +639xxxxxxxxx) and ensure the recipient is verified on your Twilio trial account.'
-        elif 'authenticate' in lowered or 'credentials' in lowered:
-            hint = ' Tip: Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_PHONE in your environment.'
+        if 'invalid' in lowered and 'phone' in lowered:
+            hint = ' Tip: Use a valid Philippine mobile number (e.g., 09123456789 or +639123456789).'
+        elif 'authenticate' in lowered or 'credentials' in lowered or 'token' in lowered:
+            hint = ' Tip: Check IPROG_API_TOKEN in your environment or settings.py.'
 
         short_msg = cleaned[:300]
         return JsonResponse({'success': False, 'message': f'Failed to send test SMS: {short_msg}{hint}'})
@@ -2582,36 +2911,212 @@ def test_notification_type(request):
         if not user_obj.phone_number:
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
-        # Generate test message based on notification type
-        test_messages = {
-            'sales': "📊 Test Sales Summary\nDate: Today\nRevenue: ₱12,450\nTransactions: 23\nBoxes Sold: 45\nTop Product: Apples (12 boxes)",
-            'stock': "⚠️ Test Stock Alert\nProduct: Apples\nCurrent Stock: 8 boxes\nThreshold: 10 boxes\nAction: Restock recommended",
-            'pricing': "💰 Test Pricing Alert\nProduct: Apples\nCurrent Price: ₱150\nRecommended: ₱165\nReason: High demand detected"
-        }
-        
-        message = test_messages.get(notification_type, "Test SMS from StockWise. Notifications are working.")
+        # Generate real data message based on notification type
+        if notification_type == 'sales':
+            # Get real sales data for today
+            today = timezone.now().date()
+            today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+            total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
+            total_transactions = today_sales.count()
+            total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
+            
+            # Get top product
+            top_product = today_sales.values('product__name').annotate(
+                quantity=Sum('quantity')
+            ).order_by('-quantity').first()
+            
+            top_product_name = top_product['product__name'] if top_product else 'None'
+            top_product_qty = top_product['quantity'] if top_product else 0
+            
+            message = f"📊 StockWise Today's Sales Summary\n"
+            message += f"📅 Date: {today.strftime('%B %d, %Y')}\n\n"
+            message += f"💰 Total Revenue: ₱{total_revenue:,.2f}\n"
+            message += f"📦 Total Boxes Sold: {total_boxes}\n"
+            message += f"🛒 Total Transactions: {total_transactions}\n\n"
+            if top_product_name != 'None':
+                message += f"🏆 Top Product: {top_product_name} ({top_product_qty} boxes)\n"
+            message += "\n📱 Sent by StockWise System"
+            
+        elif notification_type == 'stock':
+            # Get real low stock data
+            low_stock_products = Product.objects.filter(
+                stock__lte=10,
+                stock__gt=0,
+                status='active'
+            ).order_by('stock')[:3]
+            
+            out_of_stock_products = Product.objects.filter(
+                stock=0,
+                status='active'
+            ).order_by('name')[:2]
+            
+            message = "⚠️ StockWise Low Stock Alert\n\n"
+            
+            if out_of_stock_products.exists():
+                message += "🚨 OUT OF STOCK:\n"
+                for product in out_of_stock_products:
+                    message += f"• {product.name} ({product.size})\n"
+                message += "\n"
+            
+            if low_stock_products.exists():
+                message += "📉 LOW STOCK (≤10):\n"
+                for product in low_stock_products:
+                    message += f"• {product.name} ({product.size}): {product.stock} boxes\n"
+                message += "\n"
+            
+            if not low_stock_products.exists() and not out_of_stock_products.exists():
+                message += "✅ All products have sufficient stock.\n\n"
+            
+            message += "📱 Sent by StockWise System"
+            
+        elif notification_type == 'pricing':
+            # Get real pricing recommendations
+            try:
+                from core.pricing_ai import DemandPricingAI, PolicyConfig
+                import pandas as pd
+                
+                # Get recent sales data (last 30 days)
+                end_date = timezone.now()
+                start_date = end_date - timezone.timedelta(days=30)
+                
+                sales = Sale.objects.filter(
+                    recorded_at__gte=start_date,
+                    recorded_at__lte=end_date,
+                    status='completed'
+                ).select_related('product')
+                
+                if sales.exists():
+                    # Convert to DataFrame
+                    sales_data = []
+                    for sale in sales:
+                        sales_data.append({
+                            'product_id': sale.product.product_id,
+                            'date': sale.recorded_at.date(),
+                            'quantity': sale.quantity,
+                            'price': sale.product.price,
+                            'revenue': sale.total
+                        })
+                    
+                    sales_df = pd.DataFrame(sales_data)
+                    sales_df['date'] = pd.to_datetime(sales_df['date'])
+                    
+                    # Get product catalog
+                    products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
+                    catalog_df = pd.DataFrame(list(products))
+                    catalog_df.columns = ['product_id', 'name', 'price', 'cost']
+                    catalog_df['last_change_date'] = None
+                    
+                    # Generate recommendations
+                    cfg = PolicyConfig(
+                        min_margin_pct=0.10,
+                        max_move_pct=0.20,
+                        cooldown_days=3,
+                        planning_horizon_days=7,
+                        min_obs_per_product=3,
+                        default_elasticity=-1.0,
+                        hold_band_pct=0.02,
+                    )
+                    
+                    engine = DemandPricingAI(cfg)
+                    proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+                    
+                    # Get actionable recommendations
+                    actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
+                    
+                    if not actionable.empty:
+                        message = "💰 StockWise Pricing Recommendation\n"
+                        message += "📊 Based on 30 days of sales data\n\n"
+                        
+                        # Add top recommendation
+                        top_rec = actionable.iloc[0]
+                        action_emoji = "📈" if top_rec['action'] == 'INCREASE' else "📉"
+                        change_pct = abs(top_rec['change_pct'])
+                        
+                        message += f"1. {action_emoji} {top_rec['name']}\n"
+                        message += f"   Current: ₱{top_rec['current_price']:.2f}\n"
+                        message += f"   Suggested: ₱{top_rec['suggested_price']:.2f} ({change_pct:.1f}% {top_rec['action'].lower()})\n"
+                        message += f"   Reason: {top_rec['reason']}\n\n"
+                        
+                        message += f"💡 Total actionable recommendations: {len(actionable)}\n"
+                        message += "📱 Sent by StockWise System"
+                    else:
+                        message = "💰 StockWise Pricing Recommendation\n\n"
+                        message += "✅ No pricing changes recommended at this time.\n"
+                        message += "📊 All products are optimally priced.\n\n"
+                        message += "📱 Sent by StockWise System"
+                else:
+                    message = "💰 StockWise Pricing Recommendation\n\n"
+                    message += "⚠️ Insufficient sales data for pricing analysis.\n"
+                    message += "📊 Need more sales history to generate recommendations.\n\n"
+                    message += "📱 Sent by StockWise System"
+                    
+            except Exception as e:
+                message = "💰 StockWise Pricing Recommendation\n\n"
+                message += f"⚠️ Error generating recommendations: {str(e)}\n\n"
+                message += "📱 Sent by StockWise System"
+        else:
+            # Fallback generic message (should rarely be used)
+            message = "StockWise Notification\n\nThis is a live notification triggered from the SMS settings page."
         
         # Send SMS using the existing SMS service
         from core.management.commands.send_daily_sms import Command
         sms_command = Command()
         
         try:
-            if sms_command.send_sms(user_obj.phone_number, message):
-                return JsonResponse({'success': True, 'message': f'Test {notification_type} notification sent successfully!'})
+            # allow multipart for full details
+            from core.sms_service import sms_service as _svc
+            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=True):
+                return JsonResponse({'success': True, 'message': f'{notification_type.capitalize()} notification sent successfully!'})
             else:
-                return JsonResponse({'success': False, 'message': 'Failed to send test notification'})
+                return JsonResponse({'success': False, 'message': 'Failed to send notification'})
         except Exception as e:
             error_msg = str(e)
-            if 'unverified' in error_msg.lower():
+            if 'invalid' in error_msg.lower() and 'phone' in error_msg.lower():
                 return JsonResponse({
                     'success': False, 
-                    'message': 'Phone number not verified. Please verify your number in Twilio console or use a verified number.'
+                    'message': 'Invalid phone number format. Please use a valid Philippine mobile number (e.g., 09123456789).'
                 })
             else:
-                return JsonResponse({'success': False, 'message': f'Failed to send test notification: {error_msg}'})
+                return JsonResponse({'success': False, 'message': f'Failed to send notification: {error_msg}'})
             
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def check_sms_status(request):
+    """Check the status of a sent SMS message"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        message_code = request.GET.get('message_code')
+        if not message_code:
+            return JsonResponse({'success': False, 'message': 'Message code required'})
+        
+        from core.sms_service import sms_service
+        result = sms_service.check_sms_status(message_code)
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error checking SMS status: {str(e)}'})
+
+
+@require_app_login
+def check_sms_credits(request):
+    """Check remaining SMS credits"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from core.sms_service import sms_service
+        result = sms_service.check_credits()
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error checking credits: {str(e)}'})
 
 
 @require_app_login
@@ -3521,7 +4026,7 @@ def apply_pricing_recommendation(request):
 
 @require_app_login
 def test_pricing_notification(request):
-    """Send test pricing notification"""
+    """Send pricing notification with real data"""
     if request.session.get('app_role') != 'admin':
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
@@ -3532,18 +4037,102 @@ def test_pricing_notification(request):
         if not user_obj.phone_number:
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
-        # Generate test pricing message
-        message = "💰 Test Pricing Alert\nProduct: Apples\nCurrent Price: ₱150\nRecommended: ₱165\nReason: High demand detected\nConfidence: HIGH (R²=0.75)"
+        # Generate real pricing recommendation message
+        try:
+            from core.pricing_ai import DemandPricingAI, PolicyConfig
+            import pandas as pd
+            
+            # Get recent sales data (last 30 days)
+            end_date = timezone.now()
+            start_date = end_date - timezone.timedelta(days=30)
+            
+            sales = Sale.objects.filter(
+                recorded_at__gte=start_date,
+                recorded_at__lte=end_date,
+                status='completed'
+            ).select_related('product')
+            
+            if sales.exists():
+                # Convert to DataFrame
+                sales_data = []
+                for sale in sales:
+                    sales_data.append({
+                        'product_id': sale.product.product_id,
+                        'date': sale.recorded_at.date(),
+                        'units_sold': sale.quantity,
+                        'price': sale.product.price,
+                        'revenue': sale.total
+                    })
+                
+                sales_df = pd.DataFrame(sales_data)
+                sales_df['date'] = pd.to_datetime(sales_df['date'])
+                
+                # Get product catalog
+                products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
+                catalog_df = pd.DataFrame(list(products))
+                catalog_df.columns = ['product_id', 'name', 'price', 'cost']
+                catalog_df['last_change_date'] = None
+                
+                # Generate recommendations
+                cfg = PolicyConfig(
+                    min_margin_pct=0.10,
+                    max_move_pct=0.20,
+                    cooldown_days=3,
+                    planning_horizon_days=7,
+                    min_obs_per_product=3,
+                    default_elasticity=-1.0,
+                    hold_band_pct=0.02,
+                )
+                
+                engine = DemandPricingAI(cfg)
+                proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+                
+                # Get actionable recommendations
+                actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
+                
+                if not actionable.empty:
+                    # Format recommendations
+                    message = "💰 StockWise Pricing Recommendation\n"
+                    message += "📊 Based on 30 days of sales data\n\n"
+                    
+                    # Add top recommendation
+                    top_rec = actionable.iloc[0]
+                    action_emoji = "📈" if top_rec['action'] == 'INCREASE' else "📉"
+                    change_pct = abs(top_rec['change_pct'])
+                    
+                    message += f"1. {action_emoji} {top_rec['name']}\n"
+                    message += f"   Current: ₱{top_rec['current_price']:.2f}\n"
+                    message += f"   Suggested: ₱{top_rec['suggested_price']:.2f} ({change_pct:.1f}% {top_rec['action'].lower()})\n"
+                    message += f"   Reason: {top_rec['reason']}\n\n"
+                    
+                    message += f"💡 Total actionable recommendations: {len(actionable)}\n"
+                    message += "📱 Sent by StockWise System"
+                else:
+                    message = "💰 StockWise Pricing Recommendation\n\n"
+                    message += "✅ No pricing changes recommended at this time.\n"
+                    message += "📊 All products are optimally priced.\n\n"
+                    message += "📱 Sent by StockWise System"
+            else:
+                message = "💰 StockWise Pricing Recommendation\n\n"
+                message += "⚠️ Insufficient sales data for pricing analysis.\n"
+                message += "📊 Need more sales history to generate recommendations.\n\n"
+                message += "📱 Sent by StockWise System"
+                
+        except Exception as e:
+            message = "💰 StockWise Pricing Recommendation\n\n"
+            message += f"⚠️ Error generating recommendations: {str(e)}\n\n"
+            message += "📱 Sent by StockWise System"
         
         # Send SMS using the existing SMS service
         from core.management.commands.send_daily_sms import Command
         sms_command = Command()
         
         try:
-            if sms_command.send_sms(user_obj.phone_number, message):
-                return JsonResponse({'success': True, 'message': 'Test pricing notification sent successfully!'})
+            from core.sms_service import sms_service as _svc
+            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=True):
+                return JsonResponse({'success': True, 'message': 'Pricing recommendation sent successfully!'})
             else:
-                return JsonResponse({'success': False, 'message': 'Failed to send test pricing notification'})
+                return JsonResponse({'success': False, 'message': 'Failed to send pricing recommendation'})
         except Exception as e:
             error_msg = str(e)
             if 'unverified' in error_msg.lower():
@@ -3552,7 +4141,7 @@ def test_pricing_notification(request):
                     'message': 'Phone number not verified. Please verify your number in Twilio console or use a verified number.'
                 })
             else:
-                return JsonResponse({'success': False, 'message': f'Failed to send test pricing notification: {error_msg}'})
+                return JsonResponse({'success': False, 'message': f'Failed to send pricing recommendation: {error_msg}'})
             
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
@@ -3571,3 +4160,110 @@ def get_product_id(request):
         return JsonResponse({'success': False, 'message': 'Product not found'})
 
 
+@require_app_login
+@require_POST
+def send_all_notifications_now(request):
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    try:
+        user_id = request.session.get('app_user_id')
+        user_obj = AppUser.objects.get(user_id=user_id)
+        if not user_obj.phone_number:
+            return JsonResponse({'success': False, 'message': 'No phone number configured'})
+
+        from core.sms_service import sms_service as _svc
+        results = {}
+
+        # Sales summary (full list)
+        today = timezone.now().date()
+        today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+        total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
+        total_transactions = today_sales.count()
+        total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
+        sales_msg = "📊 StockWise Today's Sales Summary\n"
+        sales_msg += f"📅 Date: {today.strftime('%B %d, %Y')}\n\n"
+        sales_msg += f"💰 Total Revenue: ₱{total_revenue:,.2f}\n"
+        sales_msg += f"📦 Total Boxes Sold: {total_boxes}\n"
+        sales_msg += f"🛒 Total Transactions: {total_transactions}\n\n"
+        if today_sales.exists():
+            sales_msg += "🏆 Products:\n"
+            for row in (today_sales.values('product__name')
+                        .annotate(quantity=Sum('quantity'))
+                        .order_by('-quantity')):
+                sales_msg += f"• {row['product__name']}: {row['quantity']} boxes\n"
+            sales_msg += "\n"
+        sales_msg += "📱 Sent by StockWise System"
+        results['sales'] = _svc.send_sms(user_obj.phone_number, sales_msg, allow_multipart=True)
+
+        # Low stock (full list)
+        low_stock = Product.objects.filter(stock__lte=10, stock__gt=0, status='active').order_by('stock')
+        oos = Product.objects.filter(stock=0, status='active').order_by('name')
+        stock_msg = "⚠️ StockWise Low Stock Alert\n\n"
+        if oos.exists():
+            stock_msg += "🚨 OUT OF STOCK:\n"
+            for p in oos:
+                stock_msg += f"• {p.name} ({p.size})\n"
+            stock_msg += "\n"
+        if low_stock.exists():
+            stock_msg += "📉 LOW STOCK (≤10):\n"
+            for p in low_stock:
+                stock_msg += f"• {p.name} ({p.size}): {p.stock} boxes\n"
+            stock_msg += "\n"
+        if not low_stock.exists() and not oos.exists():
+            stock_msg += "✅ All products have sufficient stock.\n\n"
+        stock_msg += "📱 Sent by StockWise System"
+        results['stock'] = _svc.send_sms(user_obj.phone_number, stock_msg, allow_multipart=True)
+
+        # Pricing (full actionable list)
+        try:
+            from core.pricing_ai import DemandPricingAI, PolicyConfig
+            import pandas as pd
+            end_date = timezone.now()
+            start_date = end_date - timezone.timedelta(days=30)
+            sales = Sale.objects.filter(recorded_at__gte=start_date, recorded_at__lte=end_date, status='completed').select_related('product')
+            if sales.exists():
+                rows = [{
+                    'product_id': s.product.product_id,
+                    'date': s.recorded_at.date(),
+                    'quantity': s.quantity,
+                    'price': s.product.price,
+                    'revenue': s.total
+                } for s in sales]
+                sales_df = pd.DataFrame(rows)
+                sales_df['date'] = pd.to_datetime(sales_df['date'])
+                catalog = Product.objects.all().values('product_id', 'name', 'price', 'cost')
+                catalog_df = pd.DataFrame(list(catalog))
+                catalog_df.columns = ['product_id', 'name', 'price', 'cost']
+                catalog_df['last_change_date'] = None
+                cfg = PolicyConfig(min_margin_pct=0.10, max_move_pct=0.20, cooldown_days=3,
+                                   planning_horizon_days=7, min_obs_per_product=3, default_elasticity=-1.0,
+                                   hold_band_pct=0.02)
+                engine = DemandPricingAI(cfg)
+                proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+                actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
+                if not actionable.empty:
+                    pricing_msg = "💰 StockWise Pricing Recommendation\n"
+                    pricing_msg += "📊 Based on 30 days of sales data\n\n"
+                    for i, (_, rec) in enumerate(actionable.iterrows(), 1):
+                        emoji = "📈" if rec['action'] == 'INCREASE' else "📉"
+                        change_pct = abs(rec['change_pct'])
+                        pricing_msg += f"{i}. {emoji} {rec['name']}\n"
+                        pricing_msg += f"   Current: ₱{rec['current_price']:.2f}\n"
+                        pricing_msg += f"   Suggested: ₱{rec['suggested_price']:.2f} ({change_pct:.1f}% {rec['action'].lower()})\n"
+                        pricing_msg += f"   Reason: {rec['reason']}\n\n"
+                    pricing_msg += f"💡 Total actionable recommendations: {len(actionable)}\n"
+                    pricing_msg += "📱 Sent by StockWise System"
+                else:
+                    pricing_msg = "💰 StockWise Pricing Recommendation\n\n✅ No pricing changes recommended at this time.\n📊 All products are optimally priced.\n\n📱 Sent by StockWise System"
+            else:
+                pricing_msg = "💰 StockWise Pricing Recommendation\n\n⚠️ Insufficient sales data for pricing analysis.\n📊 Need more sales history to generate recommendations.\n\n📱 Sent by StockWise System"
+        except Exception as e:
+            pricing_msg = f"💰 StockWise Pricing Recommendation\n\n⚠️ Error generating recommendations: {str(e)}\n\n📱 Sent by StockWise System"
+        results['pricing'] = _svc.send_sms(user_obj.phone_number, pricing_msg, allow_multipart=True)
+
+        summary = {k: bool(v) for k, v in results.items()}
+        return JsonResponse({'success': any(summary.values()), 'results': summary})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})

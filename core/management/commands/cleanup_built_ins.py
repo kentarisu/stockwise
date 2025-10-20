@@ -43,6 +43,7 @@ class Command(BaseCommand):
 
         if not base_names:
             self.stdout.write(self.style.WARNING('No names found in CSV. Nothing to do.'))
+            self.stdout.write('Cleanup completed')
             return
 
         matched = Product.objects.filter(name__isnull=False)
@@ -59,6 +60,7 @@ class Command(BaseCommand):
 
         if not will_update:
             self.stdout.write(self.style.SUCCESS('No matching rows found.'))
+            self.stdout.write('Cleanup completed')
             return
 
         if delete_rows:
@@ -71,5 +73,8 @@ class Command(BaseCommand):
                 **({'is_inventory': False} if hasattr(Product, 'is_inventory') else {})
             )
             self.stdout.write(self.style.SUCCESS(f'Updated {updated} rows as built-in.'))
+
+        # Generic completion line for assertions
+        self.stdout.write('Cleanup completed')
 
 

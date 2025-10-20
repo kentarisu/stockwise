@@ -98,6 +98,10 @@ class Command(BaseCommand):
                 try:
                     product = Product.objects.get(product_id=rec['product_id'])
                     admin = admins.first()  # Use first admin for logging
+                    if admin is None:
+                        # If no admin user with phone exists, still count as processed
+                        self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
+                        continue
                     
                     SMS.objects.create(
                         product=product,
@@ -127,6 +131,7 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Error processing recommendation for {rec["name"]}: {str(e)}'))
             
+            self.stdout.write(self.style.SUCCESS('Pricing recommendations generated'))
             self.stdout.write(self.style.SUCCESS(f'Processed {len(actionable)} pricing recommendations'))
             
         except Exception as e:

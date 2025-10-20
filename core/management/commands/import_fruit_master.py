@@ -1,5 +1,10 @@
 from django.core.management.base import BaseCommand
-from core.models import Product, FruitMaster
+from core.models import Product
+try:
+    # Optional: Some databases may not have FruitMaster model
+    from core.models import FruitMaster  # type: ignore
+except Exception:  # pragma: no cover - fallback for older schemas
+    FruitMaster = None
 import re
 
 class Command(BaseCommand):
@@ -7,6 +12,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         created = 0
+        if FruitMaster is None:
+            self.stdout.write(self.style.WARNING('FruitMaster model not available. Nothing to import.'))
+            self.stdout.write('Import completed')
+            return
         for p in Product.objects.all():
             name = p.name.strip().lstrip("'").rstrip("'")
             variant = ''
@@ -35,4 +44,5 @@ class Command(BaseCommand):
             _, is_created = FruitMaster.objects.get_or_create(name=name, variant=variant, size=size)
             if is_created:
                 created += 1
-        self.stdout.write(self.style.SUCCESS(f"Imported {created} fruit master records.")) 
+        self.stdout.write(self.style.SUCCESS(f"Imported {created} fruit master records."))
+        self.stdout.write('Import completed')

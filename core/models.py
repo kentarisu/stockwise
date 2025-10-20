@@ -111,8 +111,8 @@ class Sale(models.Model):
 
 class SMS(models.Model):
 	sms_id = models.AutoField(primary_key=True)
-	product = models.ForeignKey(Product, on_delete=models.CASCADE, unique=True)
-	user = models.ForeignKey(AppUser, on_delete=models.CASCADE, unique=True)
+	product = models.ForeignKey(Product, on_delete=models.CASCADE)
+	user = models.ForeignKey(AppUser, on_delete=models.CASCADE)
 	MESSAGE_TYPE_CHOICES = (
 		('sales_summary_daily', 'sales_summary_daily'),
 		('sales_summary_weekly', 'sales_summary_weekly'),
@@ -133,6 +133,9 @@ class SMS(models.Model):
 		db_table = 'sms'
 		verbose_name = 'SMS'
 		verbose_name_plural = 'SMS'
+		constraints = [
+			models.UniqueConstraint(fields=['product', 'user'], name='uq_sms_product_user')
+		]
 
 	def __str__(self):
 		return f"SMS {self.sms_id}"

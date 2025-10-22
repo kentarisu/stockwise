@@ -914,6 +914,58 @@
 
         .cashbook-table tbody tr:hover {
             background: var(--primary-light);
+            cursor: pointer;
+        }
+
+        .cashbook-table tbody tr.clickable {
+            cursor: pointer;
+        }
+
+        .cashbook-table tbody tr.clickable:hover {
+            background: var(--primary-light);
+        }
+
+        /* Modal Styles */
+        .report-modal .modal-dialog {
+            max-width: 800px;
+        }
+
+        .report-modal .modal-header {
+            background: var(--primary);
+            color: white;
+        }
+
+        .report-modal .modal-body {
+            padding: 2rem;
+        }
+
+        .detail-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-section h6 {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 0.5rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+        }
+
+        .detail-label {
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--gray-900);
         }
 
         /* Financial columns alignment */
@@ -1907,12 +1959,12 @@
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab" aria-controls="analytics" aria-selected="false">
+                                    <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab" aria-controls="reports" aria-selected="false">
                                         <i class="bi bi-graph-up me-2"></i>Product Performance
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="inventory-analytics-tab" data-bs-toggle="tab" data-bs-target="#inventory-analytics" type="button" role="tab" aria-controls="inventory-analytics" aria-selected="false">
+                                    <button class="nav-link" id="inventory-reports-tab" data-bs-toggle="tab" data-bs-target="#inventory-reports" type="button" role="tab" aria-controls="inventory-reports" aria-selected="false">
                                         <i class="bi bi-boxes me-2"></i>Inventory Reports
                                     </button>
                                 </li>
@@ -2070,7 +2122,7 @@
                                 </div>
 
                                 <!-- Product Performance Tab -->
-                                <div class="tab-pane fade" id="analytics" role="tabpanel" aria-labelledby="analytics-tab">
+                                <div class="tab-pane fade" id="reports" role="tabpanel" aria-labelledby="reports-tab">
                                     <div class="cashbook-table-container mt-3">
                                         <table class="cashbook-table">
                                             <thead>
@@ -2096,7 +2148,7 @@
                                 </div>
 
                                 <!-- Inventory Reports Tab -->
-                                <div class="tab-pane fade" id="inventory-analytics" role="tabpanel" aria-labelledby="inventory-analytics-tab">
+                                <div class="tab-pane fade" id="inventory-reports" role="tabpanel" aria-labelledby="inventory-reports-tab">
                                     <div class="cashbook-table-container mt-3">
                                         <table class="cashbook-table">
                                             <thead>
@@ -2113,7 +2165,7 @@
                                                     <th>Status</th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="inventoryAnalyticsBody"></tbody>
+                                            <tbody id="inventoryReportsBody"></tbody>
                                         </table>
                                     </div>
                                 </div>
@@ -2345,16 +2397,16 @@
                 runningBalance += revenue;
                 
                 return `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('sales', ${index}, ${JSON.stringify(r).replace(/"/g, '&quot;')})">
                         <td class="date-col">${date}</td>
-                    <td><strong>${r.name}</strong></td>
+                        <td><strong>${r.name}</strong></td>
                         <td>Sales Transaction</td>
                         <td class="reference-col">SALE-${String(index + 1).padStart(3, '0')}</td>
                         <td class="amount-col">${r.boxes_sold ?? 0}</td>
                         <td class="amount-col currency">${revenue.toFixed(2)}</td>
                         <td class="amount-col currency">${(revenue * 0.3).toFixed(2)}</td>
                         <td class="amount-col currency">${runningBalance.toFixed(2)}</td>
-                </tr>
+                    </tr>
                 `;
             }).join('');
             
@@ -2385,15 +2437,15 @@
                 const performance = revenue > 1000 ? 'High' : revenue > 500 ? 'Medium' : 'Low';
                 
                 return `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('top_products', ${index}, ${JSON.stringify(t).replace(/"/g, '&quot;')})">
                         <td class="amount-col">#${index + 1}</td>
-                    <td><strong>${t.name}</strong></td>
-                    <td><span class="badge bg-secondary">${t.size||''}</span></td>
+                        <td><strong>${t.name}</strong></td>
+                        <td><span class="badge bg-secondary">${t.size||''}</span></td>
                         <td>Top Product Performance</td>
                         <td class="amount-col">${t.boxes_sold??0}</td>
                         <td class="amount-col currency">${revenue.toFixed(2)}</td>
                         <td><span class="badge ${performance === 'High' ? 'bg-success' : performance === 'Medium' ? 'bg-warning' : 'bg-secondary'}">${performance}</span></td>
-                </tr>
+                    </tr>
                 `;
             }).join('');
         }
@@ -2419,16 +2471,16 @@
                 const action = stock === 0 ? 'Restock Immediately' : stock <= 5 ? 'Order Soon' : 'Monitor';
                 
                 return `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('low_stock', ${rows.indexOf(i)}, ${JSON.stringify(i).replace(/"/g, '&quot;')})">
                         <td class="date-col">${date}</td>
-                    <td><strong>${i.name}</strong></td>
-                    <td><span class="badge bg-secondary">${i.size||''}</span></td>
+                        <td><strong>${i.name}</strong></td>
+                        <td><span class="badge bg-secondary">${i.size||''}</span></td>
                         <td>Low Stock Alert</td>
                         <td class="amount-col"><span class="badge bg-danger">${stock}</span></td>
                         <td class="amount-col currency">${Number(i.price||0).toFixed(2)}</td>
                         <td><span class="badge ${status === 'Out of Stock' ? 'bg-danger' : status === 'Critical' ? 'bg-warning' : 'bg-info'}">${status}</span></td>
                         <td><span class="badge bg-primary">${action}</span></td>
-                </tr>
+                    </tr>
                 `;
             }).join('');
         }
@@ -2478,7 +2530,7 @@
                 }
                 
                 return `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('transactions', ${rows.indexOf(x)}, ${JSON.stringify(x).replace(/"/g, '&quot;')})">
                         <td class="reference-col"><strong>${x.sale_id}</strong></td>
                         <td class="reference-col">${transactionNo}</td>
                         <td class="reference-col">${orNumber}</td>
@@ -2573,10 +2625,10 @@
         }
 
         function populateInventoryReportsTable(data, dateContext = {}) {
-            const inventoryReportsBody = document.getElementById('inventoryAnalyticsBody');
+            const inventoryReportsBody = document.getElementById('inventoryReportsBody');
             const rows = (data.summary_reports||[]);
             if(!rows.length){ 
-                inventoryReportsBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No inventory analytics data available.</td></tr>'; 
+                inventoryReportsBody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No inventory reports data available.</td></tr>'; 
                 return; 
             }
             
@@ -2650,6 +2702,309 @@
         }
 
         // Add event listeners to update header when tabs change
+        // Function to show report details in modal
+        function showReportDetails(type, index, data) {
+            const modal = new bootstrap.Modal(document.getElementById('reportDetailsModal'));
+            const modalTitle = document.getElementById('reportDetailsModalLabel');
+            const modalContent = document.getElementById('reportDetailsContent');
+            
+            let title = '';
+            let content = '';
+            
+            switch(type) {
+                case 'sales':
+                    title = 'Sales Transaction Details';
+                    content = generateSalesDetails(data, index);
+                    break;
+                case 'top_products':
+                    title = 'Top Product Performance Details';
+                    content = generateTopProductDetails(data, index);
+                    break;
+                case 'low_stock':
+                    title = 'Low Stock Alert Details';
+                    content = generateLowStockDetails(data);
+                    break;
+                case 'transactions':
+                    title = 'Transaction Details';
+                    content = generateTransactionDetails(data);
+                    break;
+                case 'inventory':
+                    title = 'Inventory Report Details';
+                    content = generateInventoryDetails(data);
+                    break;
+                default:
+                    title = 'Report Details';
+                    content = '<p>No details available.</p>';
+            }
+            
+            modalTitle.textContent = title;
+            modalContent.innerHTML = content;
+            modal.show();
+        }
+
+        // Generate sales details content
+        function generateSalesDetails(data, index) {
+            const date = new Date(data.date || data.created_at || new Date()).toLocaleDateString('en-US', { 
+                month: '2-digit', day: '2-digit', year: 'numeric' 
+            });
+            const revenue = Number(data.revenue || 0);
+            
+            return `
+                <div class="detail-section">
+                    <h6>Transaction Information</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Product Name:</span>
+                        <span class="detail-value">${data.name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Transaction Date:</span>
+                        <span class="detail-value">${date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Reference Number:</span>
+                        <span class="detail-value">SALE-${String(index + 1).padStart(3, '0')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quantity Sold:</span>
+                        <span class="detail-value">${data.boxes_sold ?? 0} boxes</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Financial Summary</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Revenue:</span>
+                        <span class="detail-value">₱${revenue.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Estimated Profit:</span>
+                        <span class="detail-value">₱${(revenue * 0.3).toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Profit Margin:</span>
+                        <span class="detail-value">30%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate top product details content
+        function generateTopProductDetails(data, index) {
+            const date = new Date(data.date || data.created_at || new Date()).toLocaleDateString('en-US', { 
+                month: '2-digit', day: '2-digit', year: 'numeric' 
+            });
+            const revenue = Number(data.revenue || 0);
+            const performance = revenue > 1000 ? 'High' : revenue > 500 ? 'Medium' : 'Low';
+            
+            return `
+                <div class="detail-section">
+                    <h6>Product Performance</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Product Name:</span>
+                        <span class="detail-value">${data.name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Product Size:</span>
+                        <span class="detail-value">${data.size || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Performance Rank:</span>
+                        <span class="detail-value">#${index + 1}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Boxes Sold:</span>
+                        <span class="detail-value">${data.boxes_sold ?? 0}</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Financial Performance</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Revenue:</span>
+                        <span class="detail-value">₱${revenue.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Performance Level:</span>
+                        <span class="detail-value"><span class="badge ${performance === 'High' ? 'bg-success' : performance === 'Medium' ? 'bg-warning' : 'bg-secondary'}">${performance}</span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Report Date:</span>
+                        <span class="detail-value">${date}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate low stock details content
+        function generateLowStockDetails(data) {
+            const date = new Date(data.date || data.last_updated || new Date()).toLocaleDateString('en-US', { 
+                month: '2-digit', day: '2-digit', year: 'numeric' 
+            });
+            const stock = Number(data.stock || 0);
+            const status = stock === 0 ? 'Out of Stock' : stock <= 5 ? 'Critical' : 'Low';
+            const action = stock === 0 ? 'Restock Immediately' : stock <= 5 ? 'Order Soon' : 'Monitor';
+            
+            return `
+                <div class="detail-section">
+                    <h6>Stock Alert Information</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Product Name:</span>
+                        <span class="detail-value">${data.name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Product Size:</span>
+                        <span class="detail-value">${data.size || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Current Stock:</span>
+                        <span class="detail-value"><span class="badge bg-danger">${stock}</span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Alert Date:</span>
+                        <span class="detail-value">${date}</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Action Required</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Stock Status:</span>
+                        <span class="detail-value"><span class="badge ${status === 'Out of Stock' ? 'bg-danger' : status === 'Critical' ? 'bg-warning' : 'bg-info'}">${status}</span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Recommended Action:</span>
+                        <span class="detail-value"><span class="badge bg-primary">${action}</span></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Current Price:</span>
+                        <span class="detail-value">₱${Number(data.price || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Priority Level:</span>
+                        <span class="detail-value">${stock === 0 ? 'HIGH' : stock <= 5 ? 'MEDIUM' : 'LOW'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate transaction details content
+        function generateTransactionDetails(data) {
+            const subtotal = Number(data.subtotal || 0);
+            const vat = Number(data.vat || 0);
+            const total = Number(data.total || 0);
+            const amountPaid = Number(data.amount_paid || 0);
+            const change = amountPaid - total;
+            
+            return `
+                <div class="detail-section">
+                    <h6>Transaction Information</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Transaction ID:</span>
+                        <span class="detail-value">${data.sale_id || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Transaction Number:</span>
+                        <span class="detail-value">${data.transaction_number || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">OR Number:</span>
+                        <span class="detail-value">${data.or_number || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Date & Time:</span>
+                        <span class="detail-value">${data.recorded_at || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Processed By:</span>
+                        <span class="detail-value">${data.processed_by || 'admin'}</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Customer Information</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Customer Name:</span>
+                        <span class="detail-value">${data.customer_name || 'Walk-in'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact Number:</span>
+                        <span class="detail-value">${data.contact_number || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Address:</span>
+                        <span class="detail-value">${data.address || 'N/A'}</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Product Details</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Fruits:</span>
+                        <span class="detail-value">${data.fruits || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Sizes:</span>
+                        <span class="detail-value">${data.sizes || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Items:</span>
+                        <span class="detail-value">${data.items || data.fruit_count || 0}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Boxes:</span>
+                        <span class="detail-value">${data.boxes || data.total_boxes || 0}</span>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h6>Financial Summary</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Subtotal:</span>
+                        <span class="detail-value">₱${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">VAT (12%):</span>
+                        <span class="detail-value">₱${vat.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Total Amount:</span>
+                        <span class="detail-value">₱${total.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Amount Paid:</span>
+                        <span class="detail-value">₱${amountPaid.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Change:</span>
+                        <span class="detail-value">₱${change.toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value"><span class="badge status-${data.status}">${data.status}</span></span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate inventory details content
+        function generateInventoryDetails(data) {
+            return `
+                <div class="detail-section">
+                    <h6>Inventory Information</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Product:</span>
+                        <span class="detail-value">${data.name || 'N/A'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Current Stock:</span>
+                        <span class="detail-value">${data.stock || 0}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Price:</span>
+                        <span class="detail-value">₱${Number(data.price || 0).toFixed(2)}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value">${data.status || 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Update header info on page load
             updateReportHeaderInfo();
@@ -2988,7 +3343,7 @@
             const summaryReportsBody = document.getElementById('summaryReportsBody');
             if (summaryReportsBody) {
                 const rows = Array.from(summaryReportsBody.querySelectorAll('tr')).filter(row => !row.querySelector('.text-center.text-muted'));
-                tabsData.analytics = {
+                tabsData.reports = {
                     title: 'Product Performance',
                     headers: ['Date', 'Product', 'Particulars', 'Period', 'Opening Qty', 'Added Qty', 'Sold Qty', 'Closing Qty', 'Revenue', 'COGS', 'Gross Profit', 'Margin %', 'Performance'],
                     data: rows.map(row => {
@@ -2998,12 +3353,12 @@
                 };
             }
 
-            // Extract inventory analytics data
-            const inventoryAnalyticsBody = document.getElementById('inventoryAnalyticsBody');
-            if (inventoryAnalyticsBody) {
-                const rows = Array.from(inventoryAnalyticsBody.querySelectorAll('tr')).filter(row => !row.querySelector('.text-center.text-muted'));
-                tabsData.inventoryAnalytics = {
-                    title: 'Inventory Analytics',
+            // Extract inventory reports data
+            const inventoryReportsBody = document.getElementById('inventoryReportsBody');
+            if (inventoryReportsBody) {
+                const rows = Array.from(inventoryReportsBody.querySelectorAll('tr')).filter(row => !row.querySelector('.text-center.text-muted'));
+                tabsData.inventoryReports = {
+                    title: 'Inventory Reports',
                     headers: ['Date', 'Product', 'Particulars', 'Last Price', 'Suggested Price', 'Price Action', 'Demand Level', 'First Sale', 'Last Sale', 'Status'],
                     data: rows.map(row => {
                         const cells = row.querySelectorAll('td');
@@ -3234,8 +3589,8 @@
             const productsTab = document.getElementById('products');
             const inventoryTab = document.getElementById('inventory');
             const transactionsTab = document.getElementById('transactions');
-            const analyticsTab = document.getElementById('analytics');
-            const inventoryAnalyticsTab = document.getElementById('inventory-analytics');
+            const reportsTab = document.getElementById('reports');
+            const inventoryReportsTab = document.getElementById('inventory-reports');
 
             // Build the report content
             const reportHTML = `
@@ -3323,16 +3678,16 @@
                         ${transactionsTab.innerHTML}
                     </div>` : ''}
 
-                    ${analyticsTab ? `
+                    ${reportsTab ? `
                     <div class="section">
                         <h3>Product Performance</h3>
-                        ${analyticsTab.innerHTML}
+                        ${reportsTab.innerHTML}
                     </div>` : ''}
 
-                    ${inventoryAnalyticsTab ? `
+                    ${inventoryReportsTab ? `
                     <div class="section">
                         <h3>Inventory Reports</h3>
-                        ${inventoryAnalyticsTab.innerHTML}
+                        ${inventoryReportsTab.innerHTML}
                     </div>` : ''}
                 </body>
                 </html>
@@ -3602,11 +3957,11 @@
                         <tbody>
             `;
             
-            data.data.forEach(item => {
+            data.data.forEach((item, index) => {
                 const statusClass = item.low_stock_flag ? 'text-warning' : 'text-success';
                 const statusIcon = item.low_stock_flag ? '⚠️' : '✅';
                 html += `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('inventory', ${index}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
                         <td>${item.name}</td>
                         <td>${item.size || 'N/A'}</td>
                         <td>${item.current_stock}</td>
@@ -3664,11 +4019,11 @@
                         <tbody>
             `;
             
-            data.data.forEach(item => {
+            data.data.forEach((item, index) => {
                 const typeClass = item.type === 'Addition' ? 'text-success' : 'text-danger';
                 const quantityDisplay = item.type === 'Addition' ? `+${item.quantity}` : Math.abs(item.quantity);
                 html += `
-                    <tr>
+                    <tr class="clickable" onclick="showReportDetails('movement', ${index}, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
                         <td>${item.date}</td>
                         <td>${item.time}</td>
                         <td>${item.product_name}</td>
@@ -3822,6 +4177,30 @@
                 color: white;
                 border-radius: 0.5rem 0.5rem 0 0;
             }
+            #inventoryReportModal .btn-close {
+                filter: invert(1);
+            }
+    <!-- Report Details Modal -->
+    <div class="modal fade report-modal" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportDetailsModalLabel">Report Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="reportDetailsContent">
+                    <!-- Content will be populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $('<style>')
+            .text(`
             #inventoryReportModal .btn-close {
                 filter: invert(1);
             }

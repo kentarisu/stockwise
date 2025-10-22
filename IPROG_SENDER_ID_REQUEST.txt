@@ -48,7 +48,7 @@ The custom sender ID "STOCKWISE" will be used for sending automated business not
    
 3. AI-Powered Pricing Recommendations
    - Demand-driven pricing suggestions
-   - Sent every 3 days based on sales analytics
+   - Sent every 3 days based on sales reports
 
 MESSAGE RECIPIENTS:
 - Primary: Business owner/admin (verified number: +639630675254)

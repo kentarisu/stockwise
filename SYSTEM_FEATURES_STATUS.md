@@ -76,16 +76,16 @@
 
 ---
 
-### ✅ 5. **Reports & Analytics**
+### ✅ 5. **Reports & Insights**
 | Feature | Status | Details |
 |---------|--------|---------|
 | **Sales Reports** | ✅ Working | Daily, weekly, monthly views |
-| **Revenue Analytics** | ✅ Working | Total revenue calculations |
+| **Revenue Reports** | ✅ Working | Total revenue calculations |
 | **Product Reports** | ✅ Working | Top sellers, quantities |
 | **Export to CSV** | ✅ Working | Download reports |
 | **Export to PDF** | ✅ Working | Professional PDF reports |
 | **Date Range Filters** | ✅ Working | Custom date selection |
-| **Charts View** | ✅ Working | Visual analytics |
+| **Charts View** | ✅ Working | Visual reports |
 | **Inventory Reports** | ✅ Working | Stock levels, movement |
 | **Batch Reports** | ✅ Working | FIFO batch tracking |
 | **Turnover Reports** | ✅ Working | Inventory turnover rates |
@@ -221,7 +221,7 @@
 - QR code system
 - SMS notifications
 - AI pricing recommendations
-- Real-time analytics
+- Real-time reports
 - Batch tracking
 - Export capabilities
 
@@ -282,7 +282,7 @@
    - QR Code integration
    - SMS notifications (API integration)
    - AI/ML pricing recommendations
-   - Real-time analytics
+   - Real-time reports
 
 4. **Professional Implementation** ✅
    - Proper MVC architecture

@@ -58,18 +58,17 @@
               <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
             </div>
           </div>
-          <div class="row mt-3">
+          <div class="row mt-2">
             <div class="col-12">
-              <label class="form-label">Batch ID Preview</label>
-              <div class="batch-id-preview p-2 bg-light border rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem;">
+              <label class="form-label small">Batch ID Preview</label>
+              <div class="batch-id-preview p-2 bg-light border rounded" style="font-family: 'Courier New', monospace; font-size: 0.8rem;">
                 <span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span>
               </div>
-              <small class="text-muted">This shows the batch IDs that will be created for the stock addition</small>
             </div>
           </div>
         </div>
       </div>
-      <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addStockItemBtn"><i class="bi bi-plus-circle"></i> Add Another Item</button>
+      <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addStockItemBtn"><i class="bi bi-plus-circle"></i> Add Another Product</button>
       <div class="mt-3 d-flex align-items-center gap-2">
         <label class="form-label mb-0">Date Added:</label>
         <input type="text" class="form-control form-control-sm w-auto" id="stockDateDisplay" readonly>
@@ -621,9 +620,9 @@ $(document).ready(function(){
   $('#addStockItemBtn').on('click', function(e){
     e.preventDefault();
     e.stopPropagation();
-    console.log('Add Another Item button clicked - Event received!'); // Debug log
+    console.log('Add Another Product button clicked - Event received!'); // Debug log
     
-    const html=`<div class="stock-item mb-3 p-3 border rounded"><div class="row"><div class="col-md-4"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label><select class="form-select stock-product-select" required><option value="">Select a fruit</option></select><div class="stock-indicator text-muted small mt-1"></div></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"></div><div class="col-md-2"><label class="form-label">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div></div>`;
+    const html=`<div class="stock-item mb-3 p-3 border rounded"><div class="row"><div class="col-md-4"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label><select class="form-select stock-product-select" required><option value="">Select a fruit</option></select><div class="stock-indicator text-muted small mt-1"></div></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"></div><div class="col-md-2"><label class="form-label">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small">Batch ID Preview</label><div class="batch-id-preview p-2 bg-light border rounded" style="font-family: 'Courier New', monospace; font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div></div></div></div>`;
     $('#stockItemsContainer').append(html); 
     console.log('New item added, populating product select'); // Debug log
     populateProductSelect($('#stockItemsContainer .stock-item:last .stock-product-select'));
@@ -676,9 +675,9 @@ $(document).ready(function(){
     $firstSelect.addClass('bg-light');
     {% endif %}
     
-    // Ensure Add Another Item button is enabled and visible
+    // Ensure Add Another Product button is enabled and visible
     const $addButton = $('#addStockItemBtn');
-    console.log('Add Another Item button state:', {
+    console.log('Add Another Product button state:', {
       exists: $addButton.length > 0,
       visible: $addButton.is(':visible'),
       enabled: !$addButton.prop('disabled'),

@@ -1,0 +1,114 @@
+Test Case ID,Actor,Use Case,Test Type,Priority,Test Scenario,Preconditions,Steps to Execute,Test Data,Expected Result,Actual Result,Pass/Fail,Defect ID,Retest,Retest Count,Original Test Date,Retest Date,Retest Reason,Notes
+TC-001,Admin,Login,ISO/IEC 25010 – Functional suitability (functional correctness),High,Login succeeds with valid credentials and active account,User account exists; Status=Active,"1) Open login page
+2) Enter valid username/password
+3) Click Login",user=admin@example.com; pass=Valid#123,Access granted; user lands on Dashboard; session token issued,,,,,,,,,
+TC-002,Admin,Login,ISO/IEC 25010 – Functional suitability (functional correctness),High,Invalid password is rejected without creating a session,User exists; Status=Active,"1) Open login page
+2) Enter valid username + wrong password
+3) Click Login",user=admin@example.com; pass=Wrong#123,Error message 'Invalid credentials'; no session created,,,,,,,,,
+TC-003,Admin,Login,ISO/IEC 25010 – Functional suitability (functional correctness),High,Inactive/Locked user cannot login,User exists; Status=Inactive/Locked,1) Attempt login with correct credentials for locked user,user=locked@example.com; pass=Valid#123,Error 'Account inactive/locked'; no session created,,,,,,,,,
+TC-004,Admin,Logout,ISO/IEC 25010 – Functional suitability (functional completeness),Medium,Logout terminates the session and requires re-authentication,User is logged in,"1) Click Logout
+2) Confirm logout",N/A,Session terminated; subsequent requests redirect to login,,,,,,,,,
+TC-005,Admin,View Dashboard,ISO/IEC 25010 – Functional suitability (functional completeness),High,KPIs load correctly with existing data,At least 1 day of sales and stock data exists,"1) Login
+2) Navigate to Dashboard",N/A,"KPIs show revenue, units, low-stock, and near-expiry without errors",,,,,,,,,
+TC-006,Admin,View Sales Detail,ISO/IEC 25010 – Functional suitability (functional correctness),Medium,Open a sale receipt and verify items/totals,At least one completed sale exists,"1) From Dashboard, open latest sale
+2) Review line items and totals",sale_id=latest,"Items, quantities, prices, and totals are accurate",,,,,,,,,
+TC-007,Admin,Add Product,ISO/IEC 25010 – Functional suitability (functional correctness),High,Add product with valid inputs,User has permission to add products,"1) Open Add Product
+2) Fill required fields
+3) Save",name=Apple Fuji; sku=APL-FJ-001; cost=60; price=80; threshold=20,Product is saved and visible in catalog search,,,,,,,,,
+TC-008,Admin,Add Product,ISO/IEC 25010 – Functional suitability (functional correctness),High,Duplicate SKU/QR is rejected,A product with same SKU/QR exists,"1) Open Add Product
+2) Enter existing SKU/QR
+3) Save",sku=APL-FJ-001,Validation error 'Duplicate SKU/QR'; product not saved,,,,,,,,,
+TC-009,Admin,Add Product,ISO/IEC 25010 – Functional suitability (appropriateness),High,Min margin rule enforced (price ≥ cost×(1+min_margin)),min_margin=10% configured,"1) Add product cost=100 price=105
+2) Save",cost=100; price=105,Validation error; minimum price must be 110 or higher,,,,,,,,,
+TC-010,Admin,Add Product,ISO/IEC 25010 – Usability (operability & error protection),Medium,Required fields show clear validation messages,N/A,"1) Open Add Product
+2) Leave required fields blank
+3) Save",N/A,Field-level messages appear; user guided to fix inputs,,,,,,,,,
+TC-011,Admin,Add Stock,ISO/IEC 25010 – Functional suitability (functional correctness),High,Add stock batch (valid) updates on-hand,Product exists,"1) Open Add Stock
+2) Enter batch (qty,cost,mfg,expiry)
+3) Save",qty=100; cost=60; mfg=today-5; expiry=today+15,Batch inserted; on-hand increases; last_addition timestamp set,,,,,,,,,
+TC-012,Admin,Add Stock,ISO/IEC 25010 – Usability (operability & error protection),High,Invalid expiry is blocked with message,Product exists,"1) Open Add Stock
+2) Enter expiry in the past
+3) Save",expiry=today-1,Validation error; batch not created,,,,,,,,,
+TC-013,Admin,Dashboard Update,ISO/IEC 25010 – Reliability (availability & maturity),Medium,Dashboard reflects stock changes after addition,Dashboard subscription/polling enabled,"1) Add stock
+2) Navigate/refresh Dashboard",N/A,New on-hand visible without inconsistency or delay beyond design,,,,,,,,,
+TC-014,Secretary,Record Sale,ISO/IEC 25010 – Functional suitability (functional correctness),High,Record sale with sufficient single-batch stock,Product on-hand ≥ requested qty,"1) Start sale
+2) Add item qty within one batch
+3) Checkout",qty=5,Sale saved; FIFO decremented; totals correct,,,,,,,,,
+TC-015,Secretary,Record Sale,ISO/IEC 25010 – Functional suitability (functional correctness),High,Record sale spanning multiple batches follows FIFO,Two batches exist (older and newer),"1) Start sale
+2) Add qty > older batch qty
+3) Checkout",older_batch=3; newer_batch=10; sale_qty=8,"Older batch consumed first, then newer; on-hand accurate",,,,,,,,,
+TC-016,Secretary,Record Sale,ISO/IEC 25010 – Functional suitability (functional correctness),High,Block sale when insufficient stock,On-hand < required qty,"1) Start sale
+2) Add qty > on-hand
+3) Checkout",on_hand=3; sale_qty=10,Sale blocked with 'Insufficient stock',,,,,,,,,
+TC-017,Secretary,Checkout Pricing,ISO/IEC 25010 – Functional suitability (functional correctness),Medium,Line price equals catalog price at checkout,Product price defined,"1) Start sale
+2) Add item
+3) Checkout",N/A,Line price equals current catalog price; totals correct,,,,,,,,,
+TC-018,Admin,Void Sale,ISO/IEC 25010 – Reliability (fault tolerance & recoverability),High,Voiding a sale restores batch stock sequence,A sale exists within voidable window,"1) Open sale
+2) Click Void
+3) Confirm",sale_id=recent,Sale marked Voided; inventory restored to original batches,,,,,,,,,
+TC-019,Admin,Void Sale,ISO/IEC 25010 – Reliability (fault tolerance & recoverability),Medium,Prevent double-void of the same sale,Sale already voided,"1) Open voided sale
+2) Attempt void again",N/A,System blocks duplicate void and shows status,,,,,,,,,
+TC-020,Admin,Generate Report,ISO/IEC 25010 – Functional suitability (functional completeness),High,Generate daily report and store summary,Sales & stock movements present for the day,"1) Open Reports
+2) Select Daily + date
+3) Generate",date=today,"Report stored with opening, added, sold, expired, closing, revenue, margin",,,,,,,,,
+TC-021,Admin,Generate Report,ISO/IEC 25010 – Usability (operability & error protection),Medium,Invalid date range is rejected with clear message,N/A,"1) Open Reports
+2) Set end < start
+3) Generate",start=2025-10-01; end=2025-09-30,Validation error; no report generated,,,,,,,,,
+TC-022,Admin,Generate Report,ISO/IEC 25010 – Functional suitability (appropriateness),Low,Filter by product limits rows correctly,Multiple products exist,"1) Open Reports
+2) Choose product filter
+3) Generate",product=Apple Fuji,Only selected product appears in report,,,,,,,,,
+TC-023,System,Low-Stock SMS,ISO/IEC 25010 – Reliability (availability & maturity),High,Low-stock condition triggers SMS and logs status,Product closing_qty ≤ threshold,"1) Reduce stock below threshold
+2) Run alert job",threshold=20; on_hand=15,SMS sent via gateway; D6 logs 'Queued' → 'Sent/Delivered/Failed',,,,,,,,,
+TC-024,System,Near-Expiry SMS,ISO/IEC 25010 – Reliability (availability & maturity),High,Near-expiry batch triggers SMS and logs,Batch within X days to expiry,"1) Add batch expiring soon
+2) Run alert job",expiry=today+2; policy=3 days,SMS sent and logged with delivery status in D6,,,,,,,,,
+TC-025,System,Gateway Failure Handling,ISO/IEC 25010 – Reliability (fault tolerance & recoverability),Medium,Handle SMS gateway failure with retry and logging,Gateway temporarily unavailable,"1) Trigger SMS
+2) Simulate gateway error
+3) Observe retry/log",simulate=HTTP 500,System retries or marks Failed; D6 updated with error details,,,,,,,,,
+TC-026,Admin,Generate Price Suggestion,ISO/IEC 25010 – Functional suitability (appropriateness),High,Suggest price based on recent demand with explanation,≥ 30 days sales; pricing module enabled,"1) Open Pricing
+2) Select product
+3) Generate suggestion",product=Banana,"Suggested price shown with reason codes (elasticity, R², demand ratio)",,,,,,,,,
+TC-027,Admin,Low-Data Fallback,ISO/IEC 25010 – Functional suitability (appropriateness),Medium,Fallback elasticity used when observations are insufficient,< 15 observations,"1) Open Pricing for low-data product
+2) Generate",obs=10,Default elasticity applied; confidence LOW in message,,,,,,,,,
+TC-028,Admin,Pricing Constraints,ISO/IEC 25010 – Functional suitability (appropriateness),High,"Min margin, stock horizon, and max move enforced",min_margin configured; horizon=7d; max move=±20%,"1) Generate suggestion
+2) Inspect output",cost=60; price=80; min_margin=10%,No suggestion violates constraints; action may be HOLD,,,,,,,,,
+TC-029,Admin,Cooldown Respect,ISO/IEC 25010 – Reliability (availability & maturity),Medium,Cooldown blocks frequent price changes,Last change < cooldown_days,1) Generate suggestion for recently changed product,cooldown_days=3,Action shown as HOLD; explanation cites cooldown window,,,,,,,,,
+TC-030,Admin,Apply Approved Price,ISO/IEC 25010 – Functional suitability (functional correctness),High,Price change is applied only after approval,Suggestion exists; Admin logged in,"1) Click Approve
+2) Confirm action",N/A,Catalog price updated; change logged; optional SMS notification,,,,,,,,,
+TC-031,Admin,Update Profile,ISO/IEC 25010 – Functional suitability (functional correctness),Low,Update contact information persists,User logged in,"1) Open Profile
+2) Edit email/phone
+3) Save",new_email=user2@example.com,Profile saved; confirmation shown,,,,,,,,,
+TC-032,Admin,Change Password,ISO/IEC 25010 – Usability (operability & error protection),Medium,Password change requires old password and invalidates sessions,User knows current password,"1) Open Profile
+2) Enter old/new passwords
+3) Save",old=Valid#123; new=New#12345,Password updated; other sessions invalidated,,,,,,,,,
+TC-033,System,Dashboard Load Time,ISO/IEC 25010 – Performance efficiency (time behaviour),High,Dashboard loads KPIs within target response time,DB seeded with 100k sales rows,"1) Login
+2) Load Dashboard
+3) Measure time",target ≤ 2.0s (p95),Measured time ≤ target; no timeouts,,,,,,,,,
+TC-034,System,Report Generation Time,ISO/IEC 25010 – Performance efficiency (time behaviour),High,Daily report generates within SLA,1 day with 50k line items,"1) Open Reports
+2) Generate Daily
+3) Measure time",target ≤ 10s,Report generated within SLA; stored in D5,,,,,,,,,
+TC-035,System,Concurrent Sales Capacity,ISO/IEC 25010 – Performance efficiency (capacity),High,System handles concurrent cashiers without deadlocks,Simulate 10 parallel users posting sales,"1) Start 10 concurrent sale sessions
+2) Checkout simultaneously",users=10; overlap=80% SKUs,No deadlocks; success rate 100%; response p95 ≤ 3s; inventory consistent,,,,,,,,,
+TC-036,System,Resource Utilization,ISO/IEC 25010 – Performance efficiency (resource utilization),Medium,"Under typical load, CPU/memory remain within limits",Monitoring enabled,"1) Run standard workload for 30 min
+2) Observe metrics",cpu ≤ 70%; mem ≤ 75%,Utilization within limits; no thrashing,,,,,,,,,
+TC-037,Admin,Error Messages Quality,ISO/IEC 25010 – Usability (operability & error protection),Medium,Validation errors are clear and help resolution,Form with multiple invalid fields,"1) Submit form with errors
+2) Read messages",N/A,Messages specify field and rule; focus moves to first error,,,,,,,,,
+TC-038,Admin,Learnability (First-time Use),ISO/IEC 25010 – Usability (learnability & recognizability),Low,First-time user completes key tasks without training,New user account,"1) Login first time
+2) Add product
+3) Add stock
+4) Record sale",N/A,Tasks completed within expected time; no external help needed,,,,,,,,,
+TC-039,System,Recoverability on App Restart,ISO/IEC 25010 – Reliability (fault tolerance & recoverability),High,Mid-transaction restart does not duplicate or lose confirmed sales,A sale is in progress,"1) Start sale
+2) Force app restart after payment
+3) Resume",N/A,Exactly one sale recorded; inventory consistent; user notified,,,,,,,,,
+TC-040,System,Availability Window,ISO/IEC 25010 – Reliability (availability & maturity),Medium,Planned maintenance displays notice and preserves data integrity,Maintenance window defined,"1) Start maintenance mode
+2) Attempt user actions",N/A,Read-only notice shown; writes blocked; no data loss,,,,,,,,,
+TC-041,Admin,Config-Driven Thresholds,ISO/IEC 25010 – Maintainability (modifiability),Low,Low-stock threshold change via config reflects across modules,Admin access to settings,"1) Change threshold in Settings
+2) Add stock/sales
+3) Check Dashboard/Alerts",threshold from 20→30,Alerts and flags use new threshold without code change,,,,,,,,,
+TC-042,QA,Diagnostics & Logs,ISO/IEC 25010 – Maintainability (testability/analysability),Low,Key actions write traceable logs for debugging,Logging enabled,"1) Add product/stock/sale
+2) Generate report
+3) Inspect logs",N/A,"Logs contain action IDs, user, timestamps, references for root-cause analysis",,,,,,,,,
+TC-043,Unauthorized,Access Control,ISO/IEC 25010 – Security (confidentiality),High,Direct URL access redirects to login,User not authenticated,"1) Paste protected URL in browser",url=/dashboard,Access denied; redirect to /login,,,,,,,,,
+TC-044,Secretary,Role-based Access,ISO/IEC 25010 – Security (integrity),High,Secretary blocked from Admin-only function,User logged in as Secretary,"1) Navigate to /products/add",N/A,403 Forbidden or redirect with error,,,,,,,,,
+TC-045,Admin,Complete Workflow,ISO/IEC 25010 – Functional suitability (functional completeness),High,End-to-end product lifecycle works cleanly,Database clean,"1) Add product 2) Add stock 3) Record sale 4) Generate report",N/A,All steps succeed without errors; data consistent,,,,,,,,,
+TC-046,System,Diagnostics & Logs,ISO/IEC 25010 – Maintainability (analysability),Low,Every key action writes traceable logs,Logging enabled,"1) Add product 2) Add stock 3) Record sale 4) Generate report",N/A,Logs contain action-ID, user, timestamp for each step,,,,,,,,,
+TC-047,System,Recoverability on App Restart,ISO/IEC 25010 – Reliability (recoverability),High,Mid-transaction restart doesn’t duplicate or lose sale,A sale is in payment step,"1) Start payment 2) Simulate app restart 3) Resume",N/A,Exactly one sale stored; inventory correct; user sees recovery notice,,,,,,,,,

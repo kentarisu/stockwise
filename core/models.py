@@ -22,6 +22,7 @@ class Product(models.Model):
 	is_built_in = models.BooleanField(default=False)  # Distinguishes built-in products from inventory products
 	supplier = models.CharField(max_length=100, null=True, blank=True)
 	qr_code = models.BinaryField(default=b'')  # VARBINARY(MAX)
+	sku = models.CharField(max_length=50, unique=True, null=True, blank=True)  # TC-009: SKU with unique constraint
 	created_at = models.DateTimeField(default=timezone.now)
 	last_updated = models.DateTimeField(auto_now=True)
 
@@ -35,7 +36,7 @@ class Product(models.Model):
 # Removed Inventory per 6-table schema
 
 
-# Stock additions table remains unchanged
+# Stock additions table with expiry tracking
 class StockAddition(models.Model):
 	addition_id = models.AutoField(primary_key=True)
 	product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -46,12 +47,15 @@ class StockAddition(models.Model):
 	cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	batch_id = models.CharField(max_length=20)
 	supplier = models.CharField(max_length=100, null=True, blank=True)
+	manufacturing_date = models.DateField(null=True, blank=True)  # TC-013, TC-027: Expiry tracking
+	expiry_date = models.DateField(null=True, blank=True)  # TC-013, TC-027: Expiry tracking
 
 	class Meta:
 		db_table = 'stock_additions'
 		indexes = [
 			models.Index(fields=['product', 'date_added'], name='idx_sa_product_date'),
 			models.Index(fields=['batch_id'], name='idx_sa_batch'),
+			models.Index(fields=['expiry_date'], name='idx_sa_expiry'),  # Index for expiry alerts
 		]
 
 
@@ -67,6 +71,8 @@ class AppUser(models.Model):
 	phone_number = models.CharField(max_length=15)
 	role = models.CharField(max_length=9, choices=ROLE_CHOICES, default='Secretary')
 	profile_picture = models.CharField(max_length=100, null=True, blank=True)
+	is_active = models.BooleanField(default=True)  # TC-003: User account status
+	email = models.EmailField(max_length=100, null=True, blank=True)  # TC-034: Profile email
 
 	class Meta:
 		db_table = 'users'

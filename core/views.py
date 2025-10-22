@@ -52,11 +52,25 @@ def login_view(request):
 	if request.method == 'POST':
 		username = request.POST.get('username', '').strip()
 		password = request.POST.get('password', '').strip()
+		
+		# TC-005, TC-006: Server-side validation for empty fields
+		if not username:
+			messages.error(request, 'Username is required.')
+			return render(request, 'login_modern.html')
+		if not password:
+			messages.error(request, 'Password is required.')
+			return render(request, 'login_modern.html')
+		
 		try:
 			user = AppUser.objects.filter(username=username).first()
 			if not user:
 				messages.error(request, 'Username not found.')
 			else:
+				# TC-003: Check if user account is active
+				if not getattr(user, 'is_active', True):
+					messages.error(request, 'Account is inactive or locked. Please contact administrator.')
+					return render(request, 'login_modern.html')
+				
 				from passlib.hash import bcrypt
 				import re
 				
@@ -503,6 +517,15 @@ def product_add(request):
 			return JsonResponse({'success': False, 'message': 'Product name is required.'})
 		if not size:
 			return JsonResponse({'success': False, 'message': 'Product size is required.'})
+		
+		# TC-010: Min-margin validation (price >= cost × 1.10)
+		MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
+		if cost > 0 and price < cost * (1 + MIN_MARGIN):
+			min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
+			return JsonResponse({
+				'success': False, 
+				'message': f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).'
+			})
 		# Enforce numeric-only size (allow one decimal point)
 		try:
 			# Normalize size by parsing to Decimal then back to string without trailing zeros
@@ -643,6 +666,8 @@ def add_stock(request):
                     'supplier': request.POST.get('supplier', ''),
                     'batch_id': request.POST.get('batch_id') or '',
                     'cost': request.POST.get('cost') or None,
+                    'manufacturing_date': request.POST.get('manufacturing_date') or None,
+                    'expiry_date': request.POST.get('expiry_date') or None,
 				}]
 			else:
 				return JsonResponse({'success': False, 'message': 'No items provided.'})
@@ -674,6 +699,32 @@ def add_stock(request):
 					provided_batch = item.get('batch_id')
 					batch_id = provided_batch or generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
 					
+					# TC-013: Parse and validate expiry date
+					expiry_date = None
+					manufacturing_date = None
+					if item.get('expiry_date'):
+						from datetime import datetime
+						try:
+							expiry_date = datetime.strptime(item['expiry_date'], '%Y-%m-%d').date()
+							# Validate expiry is not in the past
+							if expiry_date < timezone.now().date():
+								return JsonResponse({
+									'success': False, 
+									'message': 'Expiry date cannot be in the past.'
+								})
+						except ValueError:
+							return JsonResponse({
+								'success': False, 
+								'message': 'Invalid expiry date format. Use YYYY-MM-DD.'
+							})
+					
+					if item.get('manufacturing_date'):
+						from datetime import datetime
+						try:
+							manufacturing_date = datetime.strptime(item['manufacturing_date'], '%Y-%m-%d').date()
+						except ValueError:
+							pass
+					
 					# Debug: Print what we're about to save
 					supplier_to_save = supplier if supplier else None
 					print(f"DEBUG: About to save supplier: '{supplier_to_save}' (type: {type(supplier_to_save)})")
@@ -685,7 +736,9 @@ def add_stock(request):
 						remaining_quantity=int(quantity),
 						batch_id=batch_id,
 						supplier=supplier_to_save,
-						cost=Decimal(str(item.get('cost') or 0))
+						cost=Decimal(str(item.get('cost') or 0)),
+						expiry_date=expiry_date,
+						manufacturing_date=manufacturing_date
 					)
 					
 					# Update product stock directly
@@ -2549,6 +2602,12 @@ def add_product(request):
             if status not in ['Active', 'Discontinued']:
                 raise ValueError("Invalid status.")
             
+            # TC-010: Min-margin validation for add_product (price >= cost × 1.10)
+            MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
+            if cost > 0 and price < cost * (1 + MIN_MARGIN):
+                min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
+                raise ValueError(f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).')
+            
             # Build full product name
             full_name = f"{name} ({variant})" if variant else name
             
@@ -2646,6 +2705,12 @@ def edit_product(request):
             
             if status not in ['Active', 'Discontinued']:
                 raise ValueError("Invalid status.")
+            
+            # TC-010: Min-margin validation for add_product (price >= cost × 1.10)
+            MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
+            if cost > 0 and price < cost * (1 + MIN_MARGIN):
+                min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
+                raise ValueError(f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).')
             
             # Build full product name
             full_name = f"{name} ({variant})" if variant else name

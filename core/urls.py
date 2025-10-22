@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
+from .password_change_view import change_password
 
 urlpatterns = [
 	path('', views.redirect_to_login, name='root'),
@@ -16,6 +17,7 @@ path('stock/add/', views.add_stock_page, name='add_stock_page'),
 path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('products_inventory/post/', views.handle_product_post, name='handle_product_post'),
 	path('profile/', views.profile_view, name='profile'),
+	path('change-password/', change_password, name='change_password'),  # TC-035
 	
 	# Product API endpoints
 	path('api/products/add/', views.product_add, name='product_add'),

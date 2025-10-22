@@ -63,6 +63,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'core.maintenance.MaintenanceModeMiddleware',  # TC-043: Maintenance mode
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -199,3 +200,7 @@ ALLOWED_HOSTS = [
 
 # Disable HTTPS redirect for ngrok
 SECURE_SSL_REDIRECT = False
+
+# TC-043: Maintenance mode (set to True to enable)
+# Can also be controlled via MAINTENANCE_MODE environment variable
+MAINTENANCE_MODE = False

@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db.models import Sum
 from datetime import datetime, timedelta
 from core.models import Sale, Product, AppUser
 from core.sms_service import sms_service
@@ -57,8 +58,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('Low stock alerts sent to 0 admin(s)'))
                 return
 
-            # Get today's sales data
-            today = timezone.now().date()
+            # Get today's sales data (since we're sending at 8:00 PM)
+            today = timezone.localtime().date()
             today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
             
             if not today_sales.exists() and not force:
@@ -70,13 +71,16 @@ class Command(BaseCommand):
             total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
             total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
             
-            # Get top selling products
+            # Get top selling products with revenue
             top_products = (today_sales
-                .values('product__name')
-                .annotate(quantity=Sum('quantity'))
-                .order_by('-quantity')[:3])
+                .values('product__name', 'product__size', 'product__stock')
+                .annotate(
+                    quantity=Sum('quantity'),
+                    revenue=Sum('total')
+                )
+                .order_by('-quantity')[:5])
             
-            # Format the message
+            # Format the message (report shows today's date)
             message = self.format_sales_summary(today, total_sales, total_revenue, total_boxes, top_products)
             
             # Send SMS to all admins
@@ -106,16 +110,26 @@ class Command(BaseCommand):
             low_stock_products = Product.objects.filter(
                 stock__lte=10,
                 stock__gt=0,
-                status='active'
+                status__iexact='active'
             ).order_by('stock')
 
             out_of_stock_products = Product.objects.filter(
                 stock=0,
-                status='active'
+                status__iexact='active'
             ).order_by('name')
 
-            if not low_stock_products.exists() and not out_of_stock_products.exists() and not force:
-                self.stdout.write(self.style.SUCCESS('No low stock or out of stock items found.'))
+            if not low_stock_products.exists() and not out_of_stock_products.exists():
+                message = "ALERT! STOCKWISE Stock Alert\n\n"
+                message += "All products have sufficient stock.\n\n"
+                message += "- STOCKWISE System"
+                
+                # Only send if forced, otherwise just log
+                if force:
+                    for admin in admins:
+                        send_sms_notification(admin.phone_number, message)
+                    self.stdout.write(self.style.SUCCESS('Forced alert: All products have sufficient stock.'))
+                else:
+                    self.stdout.write(self.style.SUCCESS('No low stock or out of stock items found.'))
                 return
 
             # Format the alert message
@@ -180,46 +194,53 @@ class Command(BaseCommand):
         """Format the sales summary message"""
         date_str = date.strftime('%B %d, %Y')
         
-        message = f"📊 StockWise Daily Sales Summary\n"
-        message += f"📅 Date: {date_str}\n\n"
-        message += f"💰 Total Revenue: ₱{total_revenue:,.2f}\n"
-        message += f"📦 Total Boxes Sold: {total_boxes}\n"
-        message += f"🛒 Total Transactions: {total_sales}\n\n"
+        message = f"STOCKWISE Daily Sales Report\n"
+        message += f"Date: {date_str}\n\n"
+        message += f"==== OVERALL SUMMARY ====\n"
+        message += f"Total Revenue: PHP {total_revenue:,.2f}\n"
+        message += f"Total Boxes Sold: {total_boxes}\n"
+        message += f"Total Transactions: {total_sales}\n\n"
         
         if top_products:
-            message += "🏆 Top Selling Products:\n"
+            message += f"==== TOP PRODUCTS TODAY ====\n"
             for i, product in enumerate(top_products, 1):
-                message += f"{i}. {product['product__name']}: {product['quantity']} boxes\n"
+                product_name = f"{product['product__name']} ({product['product__size']})"
+                boxes_sold = product['quantity']
+                revenue = product.get('revenue', 0) or 0
+                remaining = product.get('product__stock', 0) or 0
+                message += f"{i}. {product_name}\n"
+                message += f"   Sold: {boxes_sold} boxes\n"
+                message += f"   Revenue: PHP {revenue:,.2f}\n"
+                message += f"   Remaining: {remaining} boxes\n\n"
         
-        message += "\n📱 Sent by StockWise System"
+        message += "- STOCKWISE"
         
         return message
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products):
         """Format the low stock alert message"""
-        message = "⚠️ StockWise Low Stock Alert\n\n"
+        message = "STOCKWISE Stock Alert\n\n"
         
         # Add out of stock items first
         if out_of_stock_products.exists():
-            message += "🚨 OUT OF STOCK:\n"
+            message += "CRITICAL - OUT OF STOCK:\n"
             for product in out_of_stock_products[:5]:  # Limit to 5 items
-                message += f"• {product.name} ({product.size})\n"
+                message += f"- {product.name} ({product.size})\n"
             message += "\n"
         
         # Add low stock items
         if low_stock_products.exists():
-            message += "📉 LOW STOCK (≤10):\n"
+            message += "WARNING - LOW STOCK:\n"
             for product in low_stock_products[:5]:  # Limit to 5 items
-                message += f"• {product.name} ({product.size}): {product.stock} boxes\n"
+                box_text = "box" if product.stock == 1 else "boxes"
+                message += f"- {product.name} ({product.size}): {product.stock} {box_text} left\n"
             message += "\n"
         
-        # Add action recommendation
-        if out_of_stock_products.exists():
-            message += "🔴 Action: Restock immediately!\n"
-        elif low_stock_products.exists():
-            message += "🟡 Action: Consider restocking soon.\n"
+        # If no alerts, show all products OK
+        if not out_of_stock_products.exists() and not low_stock_products.exists():
+            message += "All products have sufficient stock.\n\n"
         
-        message += "\n📱 Sent by StockWise System"
+        message += "- STOCKWISE System"
         
         return message
 
@@ -242,6 +263,8 @@ class Command(BaseCommand):
             
             sales_df = pd.DataFrame(sales_data)
             sales_df['date'] = pd.to_datetime(sales_df['date'])
+            # Rename quantity to units_sold for pricing AI
+            sales_df.rename(columns={'quantity': 'units_sold'}, inplace=True)
             
             # Get product catalog
             products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
@@ -267,40 +290,47 @@ class Command(BaseCommand):
             actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
             
             if actionable.empty:
-                message = "💰 StockWise Pricing Recommendation\n\n"
-                message += "✅ No pricing changes recommended at this time.\n"
-                message += "📊 All products are optimally priced.\n\n"
-                message += "📱 Sent by StockWise System"
+                message = "STOCKWISE Pricing Report\n\n"
+                message += "No pricing changes recommended.\n"
+                message += "All products are optimally priced.\n\n"
+                message += "- STOCKWISE"
                 return message
             
             # Format recommendations
-            message = "💰 StockWise Pricing Recommendation\n"
-            message += "📊 Based on 30 days of sales data\n\n"
+            message = "STOCKWISE Pricing Recommendation\n"
+            message += "Based on 30 days of sales data\n\n"
             
             # Add top recommendations (limit to 3)
             top_recommendations = actionable.head(3)
             
             for i, (_, rec) in enumerate(top_recommendations.iterrows(), 1):
-                action_emoji = "📈" if rec['action'] == 'INCREASE' else "📉"
+                action_text = "INCREASE" if rec['action'] == 'INCREASE' else "DECREASE"
                 change_pct = abs(rec['change_pct'])
                 
-                message += f"{i}. {action_emoji} {rec['name']}\n"
-                message += f"   Current: ₱{rec['current_price']:.2f}\n"
-                message += f"   Suggested: ₱{rec['suggested_price']:.2f} ({change_pct:.1f}% {rec['action'].lower()})\n"
-                message += f"   Reason: {rec['reason']}\n\n"
+                # Extract clean reason (without technical details)
+                reason = rec['reason']
+                if '[Data:' in reason:
+                    reason = reason.split('[Data:')[0].strip()
+                
+                message += f"==== RECOMMENDATION {i} ====\n"
+                message += f"Product: {rec['name']}\n\n"
+                message += f"Current: PHP {rec['current_price']:.2f}\n"
+                message += f"Suggested: PHP {rec['suggested_price']:.2f}\n"
+                message += f"Action: {action_text} by {change_pct:.1f}%\n\n"
+                message += f"Why: {reason}\n\n"
             
             # Add summary
             increase_count = len(actionable[actionable['action'] == 'INCREASE'])
             decrease_count = len(actionable[actionable['action'] == 'DECREASE'])
             
-            message += f"📋 Summary: {increase_count} increases, {decrease_count} decreases\n"
-            message += f"💡 Total actionable recommendations: {len(actionable)}\n\n"
-            message += "📱 Sent by StockWise System"
+            message += f"Summary: {increase_count} increases, {decrease_count} decreases\n"
+            message += f"Total recommendations: {len(actionable)}\n\n"
+            message += "- STOCKWISE AI Analytics"
             
             return message
             
         except Exception as e:
-            message = "💰 StockWise Pricing Recommendation\n\n"
-            message += f"⚠️ Error generating recommendations: {str(e)}\n\n"
-            message += "📱 Sent by StockWise System"
+            message = "STOCKWISE Pricing Recommendation Alert\n\n"
+            message += f"Error generating recommendations: {str(e)}\n\n"
+            message += "- STOCKWISE System"
             return message

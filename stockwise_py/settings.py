@@ -134,7 +134,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -170,12 +170,12 @@ IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
 ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9630675254')
 
 CRONJOBS = [
-    # Daily sales SMS at 20:00 (8 PM) server local time
+    # Daily sales SMS at 20:00 (8:00 PM) server local time
     ('0 20 * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
     # Low stock alerts every 6 hours (6 AM, 12 PM, 6 PM, 12 AM)
     ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
-    # Pricing recommendations every 3 days at 9 AM
-    ('0 9 */3 * *', 'django.core.management.call_command', ['send_notifications', '--type=pricing']),
+    # AI Pricing recommendations automatically every 3 days at 8 PM
+    ('0 20 */3 * *', 'django.core.management.call_command', ['send_auto_pricing']),
 ]
 
 # CSRF Configuration for ngrok
@@ -204,3 +204,13 @@ SECURE_SSL_REDIRECT = False
 # TC-043: Maintenance mode (set to True to enable)
 # Can also be controlled via MAINTENANCE_MODE environment variable
 MAINTENANCE_MODE = False
+
+# SMS Configuration for IPROG SMS API
+# NOTE: IPROG SMS currently does NOT support custom sender IDs
+# All messages use system sender route (sender ID is ignored by API)
+IPROG_SENDER_ID = 'IPROGSMS'  # API sender ID (will work when iProg supports custom IDs)
+IPROG_SMS_ADMIN_PHONE = '09630675254'  # Admin phone for SMS notifications
+SMS_APP_NAME = 'STOCKWISE'  # App name displayed in message content
+
+# IMPORTANT: Set your IPROG API token as environment variable or here
+# IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com

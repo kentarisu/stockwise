@@ -203,11 +203,13 @@ class DemandPricingAI:
             # Cool-down check
             days_since_change = days_between(last_change, latest_date)
             if days_since_change is not None and days_since_change < cfg.cooldown_days:
-                reason = f"COOLDOWN: last change {days_since_change}d ago (<{cfg.cooldown_days}d)"
+                days_remaining = cfg.cooldown_days - days_since_change
+                reason = f"Price was recently changed {days_since_change} days ago. Wait {days_remaining} more day(s) before changing again to see customer response."
                 proposals.append({
                     "product_id": pid, "name": name, "current_price": current_price,
                     "suggested_price": current_price, "change_pct": 0.0, "action": "HOLD",
                     "reason": reason, "elasticity": None, "r2": None, "confidence": "N/A",
+                    "sales_count": 0, "total_qty_sold": 0,
                 })
                 continue
 
@@ -253,11 +255,14 @@ class DemandPricingAI:
                 candidates.append((p_new, revenue, stock_ok, daily_pred))
 
             if not candidates:
+                total_sales_count = len(hist)
+                reason = f"Current price is optimal. {total_sales_count} sales recorded. Any price change would violate margin requirements or stock constraints."
                 proposals.append({
                     "product_id": pid, "name": name, "current_price": current_price,
                     "suggested_price": current_price, "change_pct": 0.0, "action": "HOLD",
-                    "reason": "No valid candidate prices after constraints",
+                    "reason": reason,
                     "elasticity": e, "r2": r2, "confidence": "LOW" if r2 < 0.3 else "MED",
+                    "sales_count": total_sales_count, "total_qty_sold": 0,
                 })
                 continue
 
@@ -276,16 +281,26 @@ class DemandPricingAI:
             if not math.isnan(on_hand):
                 days_cover = self._days_of_cover(on_hand, base_daily)
 
-            if ratio >= 1.2:
-                signal = "High recent demand"
-            elif ratio <= 0.8:
-                signal = "Low recent demand"
+            # Calculate actual sales statistics for user-friendly reason
+            total_sales_count = len(hist)
+            total_qty_sold = hist['quantity'].sum() if 'quantity' in hist.columns else nobs
+            
+            # Generate user-friendly reason
+            if action == "INCREASE":
+                if ratio >= 1.2:
+                    reason = f"Strong demand: {total_sales_count} sales in past 30 days ({int(total_qty_sold)} boxes sold). Customers are buying frequently - you can increase price to boost profit margin."
+                else:
+                    reason = f"Good sales: {total_sales_count} transactions in past 30 days ({int(total_qty_sold)} boxes). Price increase of {abs(change_pct*100):.1f}% can improve your profit while maintaining demand."
+            elif action == "DECREASE":
+                if ratio <= 0.8:
+                    reason = f"Low demand: Only {total_sales_count} sales in past 30 days ({int(total_qty_sold)} boxes). Lowering price by {abs(change_pct*100):.1f}% can attract more customers and increase total revenue."
+                else:
+                    reason = f"Moderate sales: {total_sales_count} transactions in past 30 days. Small price decrease of {abs(change_pct*100):.1f}% can boost sales volume and overall revenue."
             else:
-                signal = "Stable demand"
-
-            reason_bits = [signal, f"elasticity≈{e:.2f}", f"R²={r2:.2f}", f"n={nobs}"]
-            if days_cover is not None and not math.isinf(days_cover):
-                reason_bits.append(f"days_cover≈{days_cover:.1f}")
+                reason = f"Optimal pricing: {total_sales_count} sales in past 30 days. Current price is well-balanced for demand and profit."
+            
+            # Add technical details for reference (optional)
+            technical_info = f" [Data: n={nobs}, confidence={'HIGH' if r2 >= 0.6 else 'MED' if r2 >= 0.3 else 'LOW'}]"
 
             proposals.append({
                 "product_id": pid,
@@ -294,10 +309,12 @@ class DemandPricingAI:
                 "suggested_price": round(p_new, 2),
                 "change_pct": round(change_pct * 100, 2),
                 "action": action,
-                "reason": "; ".join(reason_bits),
+                "reason": reason + technical_info,
                 "elasticity": round(e, 3),
                 "r2": round(r2, 3),
                 "confidence": "HIGH" if r2 >= 0.6 else ("MED" if r2 >= 0.3 else "LOW"),
+                "sales_count": total_sales_count,
+                "total_qty_sold": int(total_qty_sold),
             })
 
         proposals_df = pd.DataFrame(proposals).sort_values(["action", "change_pct"], ascending=[True, False])

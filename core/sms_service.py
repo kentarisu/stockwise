@@ -16,7 +16,11 @@ class IPROGSMSService:
         """Initialize iProg SMS service with credentials"""
         self.api_token = os.getenv('IPROG_API_TOKEN') or getattr(settings, 'IPROG_API_TOKEN', None)
         self.api_url = 'https://sms.iprogtech.com/api/v1/sms_messages'
-        self.sender_id = os.getenv('IPROG_SENDER_ID') or getattr(settings, 'IPROG_SENDER_ID', 'STOCKWISE')
+        # NOTE: IPROG SMS does not support custom sender IDs - all messages use system sender route
+        # Keeping this for future when custom sender IDs are supported
+        self.sender_id = os.getenv('IPROG_SENDER_ID') or getattr(settings, 'IPROG_SENDER_ID', 'PHILSMS')
+        # App display name (used in message content, not sender ID)
+        self.app_name = 'STOCKWISE'
         # Optional provider selector (0 or 1)
         try:
             self.sms_provider = int(os.getenv('IPROG_SMS_PROVIDER', getattr(settings, 'IPROG_SMS_PROVIDER', 0)))
@@ -63,19 +67,45 @@ class IPROGSMSService:
     
     def _to_gsm_plaintext(self, text: str, max_len: int | None = 160) -> str:
         """Convert message to GSM-7 friendly plain text.
+        Removes Unicode characters to avoid telco delivery issues.
+        
+        IMPORTANT: IPROG SMS rejects Unicode/special characters:
+        - Replace peso sign (₱) with "PHP"
+        - Remove emojis, smart quotes, Unicode symbols
+        - Use only GSM-7 compatible characters
+        
         If max_len is provided, cap to that many characters; if None, do not truncate
         (allows multipart messages when needed).
         """
         if not text:
             return ''
+        
+        # Replace common Unicode characters with plain text equivalents
         replacements = {
+            # Currency symbols
+            '₱': 'PHP ', '₽': 'PHP ', '€': 'EUR ', '£': 'GBP ', '$': 'USD ',
+            
+            # Emojis (if any slip through)
             '📊': 'Stats', '📅': 'Date', '💰': 'Revenue', '📦': 'Boxes', '🛒': 'Txns',
-            '🏆': 'Top', '⚠️': 'Alert', '🚨': 'ALERT', '💡': 'Tip', '📈': 'Up', '📉': 'Down', '📱': 'StockWise'
+            '🏆': 'Top', '⚠️': 'Alert', '🚨': 'ALERT', '💡': 'Tip', '📈': 'Up', '📉': 'Down', 
+            '📱': 'STOCKWISE', '❤️': '', '™': '', '®': '', '©': '',
+            
+            # Smart quotes and punctuation
+            '"': '"', '"': '"', ''': "'", ''': "'", '—': '-', '–': '-',
+            '…': '...',
         }
+        
         for k, v in replacements.items():
             text = text.replace(k, v)
-        text = ''.join(ch if ord(ch) < 128 else ' ' for ch in text)
-        text = ' '.join(text.split())
+        
+        # Remove any remaining non-ASCII characters (except newlines)
+        text = ''.join(ch if ord(ch) < 128 or ch == '\n' else ' ' for ch in text)
+        
+        # Clean up extra whitespace but preserve line breaks
+        lines = text.split('\n')
+        cleaned_lines = [' '.join(line.split()) for line in lines]
+        text = '\n'.join(cleaned_lines)
+        
         return text if max_len is None else text[:max_len]
 
     def send_sms(self, phone_number, message, allow_multipart: bool = False, max_retries: int = 3, retry_delay: float = 2.0):

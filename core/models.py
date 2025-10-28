@@ -96,7 +96,7 @@ class Sale(models.Model):
 	customer_name = models.CharField(max_length=50, default='')
 	address = models.CharField(max_length=50, default='')
 	contact_number = models.IntegerField(default=0)
-	recorded_at = models.DateTimeField(default=timezone.now)
+	recorded_at = models.DateTimeField(default=timezone.localtime)
 	total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	change_given = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

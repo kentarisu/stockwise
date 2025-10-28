@@ -122,3 +122,4 @@ TC-043,QA,Diagnostics & Logs,Maintainability,Low,Key actions write traceable log
 TC-044,Unauthorized,Access Control,Security,High,Direct URL access redirects,User not authenticated,"1. Paste protected URL in browser (url=/dashboard)",Not logged in,Redirected to login page,Tested: @require_app_login decorator working,PASS,N/A,No,0,2025-10-21,N/A,N/A,ISO 25010: Security - Authenticity. Access control enforced
 TC-045,Secretary,Role-based Access,Security,High,Secretary blocked from Admin functions,User logged in as Secretary,"1. Navigate to /products/add",Secretary role,Access denied or hidden,Tested: void_sale checks role=admin,PASS,N/A,No,0,2025-10-21,N/A,N/A,ISO 25010: Security - Accountability. Role checks in place
 
+

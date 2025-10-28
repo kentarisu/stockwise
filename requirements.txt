@@ -6,3 +6,5 @@ factory-boy==3.3.0
 django-crontab==0.7.1
 reportlab==4.0.7
 passlib==1.7.4
+numpy>=2.3.0
+pandas>=2.3.0

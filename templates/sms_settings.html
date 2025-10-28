@@ -819,6 +819,7 @@
                             <span class="setting-label">Send Time</span>
                             <select class="form-select form-select-sm" id="sales_time" style="width: auto;">
                                 <option value="20:00" selected>8:00 PM</option>
+                                <option value="00:15">12:15 AM</option>
                                 <option value="21:00">9:00 PM</option>
                                 <option value="22:00">10:00 PM</option>
                                 <option value="23:00">11:00 PM</option>
@@ -983,16 +984,14 @@
                             <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
                         </div>
                         <strong>Pricing Recommendation:</strong><br>
-                        💰 StockWise Pricing Recommendation<br>
-                        📊 Based on 30 days of sales data<br><br>
-                        <em>AI-powered pricing analysis based on demand elasticity and sales patterns.</em><br><br>
+                        STOCKWISE Pricing<br><br>
                         <div id="pricingRecommendationsContent">
                             <div class="text-center text-muted">
                                 <i class="bi bi-hourglass-split"></i> Generating recommendations...
                             </div>
                         </div>
                         <br>
-                        📱 Sent by StockWise System
+                        STOCKWISE
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
@@ -1213,31 +1212,23 @@
                         
                         if (actionable.length > 0) {
                             actionable.slice(0, 3).forEach((rec, index) => {
-                                const actionEmoji = rec.action === 'INCREASE' ? '📈' : '📉';
+                                const actionSymbol = rec.action === 'INCREASE' ? '+' : '-';
                                 const changePct = Math.abs(rec.change_pct);
                                 
-                                html += `${index + 1}. ${actionEmoji} ${rec.name}<br>`;
-                                html += `   Current: ₱${rec.current_price.toFixed(2)}<br>`;
-                                html += `   Suggested: ₱${rec.suggested_price.toFixed(2)} (${changePct.toFixed(1)}% ${rec.action.toLowerCase()})<br>`;
-                                html += `   Reason: ${rec.reason}<br><br>`;
+                                html += `${rec.name}<br>`;
+                                html += `PHP ${Math.round(rec.current_price)} -> ${Math.round(rec.suggested_price)} (${actionSymbol}${Math.round(changePct)}%)<br><br>`;
                             });
-                            
-                            const increaseCount = actionable.filter(r => r.action === 'INCREASE').length;
-                            const decreaseCount = actionable.filter(r => r.action === 'DECREASE').length;
-                            
-                            html += `📋 Summary: ${increaseCount} increases, ${decreaseCount} decreases<br>`;
-                            html += `💡 Total actionable recommendations: ${actionable.length}`;
                         } else {
-                            html = '✅ No pricing changes recommended at this time.<br>📊 All products are optimally priced.';
+                            html = 'No changes recommended.<br>All products optimally priced.';
                         }
                         
                         $content.html(html);
                     } else {
-                        $content.html('⚠️ Insufficient sales data for pricing analysis.<br>📊 Need more sales history to generate recommendations.');
+                        $content.html('Insufficient sales data.<br>Need more sales history.');
                     }
                 },
                 error: function() {
-                    $content.html('❌ Error generating pricing recommendations.<br>Please try again later.');
+                    $content.html('Error generating recommendations.<br>Please try again later.');
                 }
             });
         }

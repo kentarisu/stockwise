@@ -58,6 +58,9 @@ path('sales/record/', views.record_sale_page, name='record_sale'),
     path('qr/next-batch-sequence/<int:product_id>/', views.qr_next_batch_sequence, name='qr_next_batch_sequence'),
     path('qr/stock-details/<int:product_id>/', views.stock_details, name='stock_details'),
     
+    # API for fetching individual transaction details
+    path('api/transaction_details/<int:sale_id>/', views.transaction_details, name='transaction_details'),
+    
     # SMS Notification URLs
     path('sms-settings/', views.sms_settings_view, name='sms_settings'),
     path('api/sms/test/', views.send_test_sms, name='send_test_sms'),

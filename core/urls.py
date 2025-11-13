@@ -17,6 +17,8 @@ path('stock/add/', views.add_stock_page, name='add_stock_page'),
 path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('products_inventory/post/', views.handle_product_post, name='handle_product_post'),
 	path('profile/', views.profile_view, name='profile'),
+	path('api/user/toggle-status/', views.toggle_user_status, name='toggle_user_status'),
+	path('api/user/update-secretary/', views.update_secretary_account, name='update_secretary_account'),
 	path('change-password/', change_password, name='change_password'),  # TC-035
 	
 	# Product API endpoints
@@ -41,6 +43,9 @@ path('api/products/<int:product_id>/delete/', views.product_delete, name='delete
 	path('api/sales/<int:sale_id>/details/', views.get_sale_details, name='get_sale_details'),
 	path('api/sales/<int:sale_id>/check_print_limit/', views.check_print_limit, name='check_print_limit'),
 	path('api/sales/<int:sale_id>/record_print/', views.record_print, name='record_print'),
+    path('api/printer/receipt/<int:sale_id>/', views.print_thermal_receipt, name='print_thermal_receipt'),
+    path('api/printer/test/', views.test_thermal_printer, name='test_thermal_printer'),
+    path('api/printer/ports/', views.get_printer_ports, name='get_printer_ports'),
 	path('reports/', views.reports_view, name='reports'),
 	path('charts/', views.charts_view, name='charts'),
 	path('api/reports/fetch/', views.fetch_reports, name='fetch_reports'),

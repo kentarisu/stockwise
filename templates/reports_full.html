@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive-enhancements.css' %}">
 
     <style>
         :root {
@@ -32,8 +33,17 @@
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
-            --sidebar-width: 280px;
-            --header-height: 80px;
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -49,12 +59,12 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
-            margin: 0;
-            padding: 0;
         }
 
         .app-container {
@@ -69,72 +79,117 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(16px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
-            height: 100vh;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: none;
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             text-decoration: none;
             color: white;
+            flex: 1;
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-sm) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .nav-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--gray-400);
-            padding: 0 1.5rem;
-            margin-bottom: 0.75rem;
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
         }
 
         .nav-item {
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--space-2xs);
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: var(--space-sm);
             color: var(--gray-600);
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
+            gap: 0.5rem;
         }
 
         .nav-link:hover {
@@ -149,61 +204,153 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
             text-align: center;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
         /* Main Content */
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
-            min-height: 100vh;
-            background: var(--gray-50);
-            padding: 1rem;
-            overflow-x: auto;
-            width: calc(100% - var(--sidebar-width));
-            box-sizing: border-box;
+            margin-top: var(--header-height);
+            padding: var(--space-lg);
+            transition: none;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+            }
+
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
         }
 
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+            background: white;
+            min-height: var(--header-height);
             border-bottom: 1px solid var(--gray-200);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1001;
             box-shadow: var(--shadow-sm);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex: 1;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
         .header-left h1 {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
+            line-height: 1.25;
         }
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: var(--space-sm);
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             border: 2px solid var(--primary-light);
             cursor: pointer;
@@ -215,9 +362,183 @@
             transform: scale(1.05);
         }
 
+        /* Burger Menu Button */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(2.5px, 2.5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(2.5px, -2.5px);
+        }
+
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
         /* Content Area */
         .content-area {
-            padding: 2rem;
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        /* Modern Cards - Matching other pages */
+        .modern-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            overflow: hidden;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
+        }
+
+        .modern-card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Table Card */
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            overflow: visible;
+        }
+
+        .table-header {
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .table-tabs-section {
+            padding: 0 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .table-tabs-section .nav-link {
+            padding: 0.5rem 1.25rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            border: none;
+            border-radius: 999px;
+            transition: all 0.2s ease;
+        }
+
+        #reportsTabContent {
+            padding: 1.5rem;
+        }
+
+        .cashbook-table-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-100);
+            padding: 1rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .table-responsive-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+        }
+
+        /* Ensure table containers don't overflow parent */
+        .cashbook-table-container.table-responsive-wrapper {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        /* Make sure tables can scroll horizontally when needed */
+        .tab-content .cashbook-table-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .cashbook-table thead th {
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .table-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-title i {
+            color: var(--primary);
+            font-size: 1.125rem;
         }
 
         /* Report Filters */
@@ -250,11 +571,12 @@
         }
 
         .form-control, .form-select {
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            padding: 0.75rem;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            border-radius: 10px;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .form-control:focus, .form-select:focus {
@@ -282,8 +604,8 @@
 
         .reports-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
@@ -403,73 +725,126 @@
             transform: translateY(-2px) scale(1.02);
         }
 
-        /* Stats Grid */
+        /* Compact Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
         }
 
         .stat-card {
             background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
             box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-sm);
         }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-        }
-
-        .stat-card.primary::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
-        .stat-card.success::before { background: linear-gradient(90deg, var(--success), #059669); }
-        .stat-card.warning::before { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .stat-card.danger::before { background: linear-gradient(90deg, var(--danger), #dc2626); }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
         .stat-icon {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 12px;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            margin-bottom: 1rem;
         }
 
-        .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-        .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
-        .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
-        .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
+        .stat-content {
+            flex: 1;
+            min-width: 0;
+        }
 
         .stat-value {
-            font-size: 2rem;
+            font-size: 1.2rem;
             font-weight: 700;
             color: var(--gray-900);
-            line-height: 1;
+            margin-bottom: var(--space-2xs);
         }
 
         .stat-label {
+            font-size: 0.72rem;
             color: var(--gray-500);
-            font-size: 0.875rem;
             font-weight: 500;
-            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .stat-subtitle {
+            font-size: 0.7rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+            margin-bottom: 0;
+        }
+
+        /* Pagination - Matching Stock Details */
+        .pagination-container {
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .pagination .page-link {
+            color: var(--primary);
+            border-color: var(--gray-300);
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--gray-400);
+            pointer-events: none;
+            background-color: var(--gray-50);
+            border-color: var(--gray-200);
+        }
+
+        .pagination .page-link:hover:not(.disabled) {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pagination-container .d-flex {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 1rem;
+            }
+
+            .pagination-info {
+                text-align: center;
+            }
+
+            .pagination {
+                justify-content: center;
+            }
         }
 
         /* Enhanced Chart Styling */
@@ -483,7 +858,6 @@
         }
 
         .chart-card:hover {
-            transform: translateY(-2px);
             box-shadow: var(--shadow-lg);
         }
 
@@ -507,68 +881,7 @@
             margin-bottom: 0;
         }
 
-        /* Professional Stats Cards */
-        .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            border-radius: 16px 16px 0 0;
-        }
-
-        .stat-card.primary::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
-        .stat-card.success::before { background: linear-gradient(90deg, var(--success), #059669); }
-        .stat-card.warning::before { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .stat-card.danger::before { background: linear-gradient(90deg, var(--danger), #dc2626); }
-
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .stat-icon {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-            margin-bottom: 1rem;
-        }
-
-        .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-        .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
-        .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
-        .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            line-height: 1;
-        }
-
-        .stat-label {
-            color: var(--gray-500);
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-top: 0.5rem;
-        }
+        /* Removed duplicate stat-card styles - using the ones defined earlier */
 
         /* Professional Filters */
         .filters-card {
@@ -600,11 +913,12 @@
         }
 
         .form-control, .form-select {
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            padding: 0.75rem;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            border-radius: 10px;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .form-control:focus, .form-select:focus {
@@ -616,20 +930,20 @@
         /* Professional Action Buttons */
         .action-buttons {
             display: flex;
-            flex-wrap: nowrap;
-            gap: 0.5rem;
-            align-items: center;
-            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
         }
 
         .btn-modern {
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
             font-weight: 600;
             border: none;
             transition: all 0.2s ease;
-            display: flex;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
             box-shadow: var(--shadow-sm);
         }
@@ -649,14 +963,9 @@
             color: white;
         }
 
-        .btn-modern.warning {
-            background: linear-gradient(135deg, var(--warning), #d97706);
-            color: white;
-        }
-
-        .btn-modern.warning {
-            background: linear-gradient(135deg, var(--warning), #d97706);
-            color: white;
+        .btn-modern.secondary {
+            background: linear-gradient(135deg, var(--gray-300), var(--gray-400));
+            color: var(--gray-900);
         }
 
         /* Professional Tab Styling */
@@ -870,10 +1179,10 @@
         /* Professional Table Styles */
         .cashbook-table-container {
             background: white;
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: var(--shadow-md);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-100);
+            padding: var(--space-sm);
             width: 100%;
             max-width: 100%;
         }
@@ -885,15 +1194,13 @@
         }
 
         .cashbook-table thead th {
-            background: var(--gray-100);
-            border: 1px solid var(--gray-300);
-            padding: 1rem 0.75rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            text-align: left;
-            font-size: 0.85rem;
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-600);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.025em;
+            font-size: 0.72rem;
+            border-bottom: 1px solid var(--gray-200);
         }
 
         .cashbook-table tbody td {
@@ -953,14 +1260,158 @@
             padding: 0.25rem 0;
         }
 
-        .detail-label {
-            font-weight: 500;
-            color: var(--gray-700);
+        .transaction-report {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
-        .detail-value {
+        .report-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 12px;
+            color: #fff;
+        }
+
+        .report-banner .banner-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .report-banner .banner-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .report-banner h6 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .report-banner p {
+            margin: 0;
+            opacity: 0.85;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #d1fae5;
+        }
+
+        .status-pending {
+            background: rgba(251, 191, 36, 0.25);
+            color: #fef3c7;
+        }
+
+        .status-cancelled,
+        .status-voided {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fecaca;
+        }
+
+        .status-default {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .report-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1.25rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+        }
+
+        .meta-value {
+            font-size: 0.9rem;
             font-weight: 600;
             color: var(--gray-900);
+        }
+
+        .report-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .report-card {
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            background: #fff;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .report-card span {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+        }
+
+        .report-card strong {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            font-family: 'Courier New', monospace;
+        }
+
+        .report-card small {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .report-table-section h6 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.75rem;
         }
 
         /* Financial columns alignment */
@@ -1092,28 +1543,64 @@
 
         /* Compact table styling */
         .cashbook-table {
-            font-size: 0.8rem;
-        }
-
-        .cashbook-table thead th {
-            padding: 0.5rem 0.3rem;
             font-size: 0.75rem;
         }
 
+        .cashbook-table thead th {
+            padding: 0.4rem 0.4rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
         .cashbook-table tbody td {
-            padding: 0.4rem 0.3rem;
-            font-size: 0.8rem;
+            padding: 0.35rem 0.4rem;
+            font-size: 0.75rem;
         }
 
-        /* Remove horizontal scroll */
+        /* Enable horizontal scroll for wide tables */
         .cashbook-table-container {
-            overflow-x: visible;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Ensure table fits in viewport */
+        /* Make tables fit container with responsive width */
         .cashbook-table {
-            min-width: auto;
             width: 100%;
+            table-layout: auto;
+        }
+
+        /* Optimize column widths for better fit */
+        .cashbook-table th,
+        .cashbook-table td {
+            white-space: nowrap;
+            padding: 0.35rem 0.4rem;
+        }
+
+        /* Allow text wrapping for specific columns */
+        .cashbook-table .product-name,
+        .cashbook-table .customer-info {
+            white-space: normal;
+            word-break: break-word;
+            max-width: 100px;
+        }
+
+        /* Compact numeric columns */
+        .cashbook-table th:nth-child(1),
+        .cashbook-table td:nth-child(1) {
+            min-width: 60px;
+        }
+
+        /* Optimize percentage and numeric columns */
+        .cashbook-table .amount-col,
+        .cashbook-table .currency {
+            min-width: 90px;
+            text-align: right;
+        }
+
+        /* Center align percentage columns */
+        .cashbook-table th:last-child,
+        .cashbook-table td:last-child {
+            text-align: center;
         }
 
         /* Status badges for detailed transactions */
@@ -1130,6 +1617,14 @@
         .status-cancelled {
             background: var(--danger);
             color: white;
+        }
+
+        /* Compact View Details button */
+        .view-details-btn {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.75rem !important;
+            line-height: 1.2 !important;
+            min-height: auto !important;
         }
 
         /* Responsive adjustments */
@@ -1194,14 +1689,20 @@
                 gap: 1rem;
             }
 
-            .date-input-group {
+            .table-filters {
                 flex-direction: column;
-                align-items: stretch;
+                gap: 0.5rem;
             }
 
-            .action-buttons {
-                justify-content: center;
+            .table-filters .form-control,
+            .table-filters .form-select {
+                width: 100%;
             }
+
+            .table-filters .btn {
+                width: 100%;
+            }
+
 
             .summary-card {
                 margin-bottom: 1rem;
@@ -1293,41 +1794,23 @@
             }
         }
 
-        /* Reports Container Styling */
-        .reports-container {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: var(--shadow-md);
-            margin-bottom: 2rem;
-        }
+        /* Removed .reports-container - now using .content-area directly */
 
-        /* Reports Controls Section */
-        .reports-controls-section {
+        /* Removed .sales-table-card - now using .modern-card */
+
+        .table-tabs-section {
+            padding: 0 var(--space-md);
+            border-bottom: 1px solid var(--gray-200);
             background: var(--gray-50);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border: 1px solid var(--gray-200);
         }
 
-        .date-range-section .form-label {
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
-        }
-
-        .date-input-group {
+        .table-filters {
             display: flex;
             gap: 1rem;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        .action-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            align-items: center;
-        }
 
         /* Summary Cards Section */
         .summary-cards-section {
@@ -1348,7 +1831,6 @@
         }
 
         .summary-card:hover {
-            transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
 
@@ -1495,13 +1977,14 @@
 
 
         .btn-modern {
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
             font-weight: 600;
             border: none;
             transition: all 0.2s ease;
-            display: flex;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
             box-shadow: var(--shadow-sm);
         }
@@ -1521,16 +2004,23 @@
             color: white;
         }
 
-        .btn-modern.warning {
-            background: linear-gradient(135deg, var(--warning), #d97706);
-            color: white;
+        .btn-modern.secondary {
+            background: linear-gradient(135deg, var(--gray-300), var(--gray-400));
+            color: var(--gray-900);
         }
 
         /* Responsive */
         @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 280px;
+                --header-height: 90px;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px;
+                width: var(--sidebar-width);
+                max-width: 85vw;
             }
 
             .sidebar.active {
@@ -1542,14 +2032,64 @@
             }
 
             .header {
-                padding: 0 1rem;
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left h1 {
+                font-size: 1.5rem;
+                line-height: 1.2;
+            }
+
+            .header-subtitle {
+                font-size: 0.8125rem;
+                margin-top: 0.25rem;
+            }
+
+            .header-right {
+                gap: 0.75rem;
+                flex-wrap: wrap;
+            }
+
+            /* Burger Menu Button - Show on Mobile */
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.875rem !important;
+                height: 0.875rem !important;
+            }
+
+            .header-left {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+                gap: 0.5rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                flex: 1;
+                min-width: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                flex-shrink: 0;
             }
 
             /* Mobile menu toggle button - SHOW ON MOBILE */
             #mobileMenuToggle {
                 display: flex !important;
-                background: #007bff !important;
-                border: 2px solid #000000 !important;
+                background: var(--primary) !important;
+                border: 2px solid var(--gray-900) !important;
                 color: #ffffff !important;
                 min-width: 44px !important;
                 min-height: 44px !important;
@@ -1559,24 +2099,145 @@
 
             .content-area {
                 padding: 1rem;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Cards - Mobile */
+            .card-modern, .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 12px;
             }
 
             .stats-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem 0.75rem;
+                min-height: auto;
             }
 
             .charts-grid {
                 grid-template-columns: 1fr;
+                gap: 1rem;
             }
 
             .filters-grid {
                 grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .filters-grid .form-group {
+                width: 100%;
             }
 
             .action-buttons {
-                flex-wrap: wrap;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .action-buttons .btn-modern,
+            .action-buttons .btn {
+                width: 100%;
                 justify-content: center;
+            }
+
+            .table-responsive {
+                margin: 0 -1rem;
+                padding: 0 1rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .table {
+                font-size: 0.8125rem;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.625rem 0.5rem;
+            }
+
+            /* Buttons - Mobile */
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 20px;
+                font-size: 15px;
+                border-radius: 10px;
+            }
+
+            /* Forms - Mobile */
+            .form-control, .form-select {
+                min-height: 44px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+
+            /* Modals - Mobile */
+            .modal-dialog {
+                margin: 0.75rem;
+                max-width: calc(100vw - 1.5rem);
+            }
+
+            .modal-footer {
+                flex-direction: column;
                 gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --content-padding: 0.75rem;
+                --header-height: 80px;
+            }
+
+            .header {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.625rem;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .table {
+                font-size: 0.75rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.5rem 0.375rem;
+            }
+
+            .btn-modern, .btn {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100vw - 1rem);
             }
         }
 
@@ -1587,84 +2248,58 @@
             }
         }
 
-        // Add custom CSS for inventory report modals
-        $('<style>').text(`
-            .inventory-report-summary {
-                background: #f8f9fa;
-                padding: 1.5rem;
-                border-radius: 12px;
-                margin-bottom: 1.5rem;
-            }
-            .inventory-summary-card {
-                text-align: center;
-                padding: 1.25rem;
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                margin-bottom: 1rem;
-            }
-            .inventory-summary-card h6 {
-                margin-bottom: 0.75rem;
-                color: #6c757d;
-                font-size: 0.85rem;
-                text-transform: uppercase;
-                font-weight: 600;
-            }
-            .inventory-summary-value {
-                font-size: 1.75rem;
-                font-weight: bold;
-                color: #495057;
-            }
-            #inventoryReportModal .modal-dialog {
-                max-width: 95%;
-            }
-            #inventoryReportModal .table {
-                font-size: 0.9rem;
-            }
-            #inventoryReportModal .modal-header {
-                background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-                color: white;
-                border-radius: 0.5rem 0.5rem 0 0;
-            }
-            #inventoryReportModal .btn-close {
-                filter: invert(1);
-            }
-        `).appendTo('head');
-
-        // Report Details Modal (existing modal, no change here)
-        <div class="modal fade report-modal" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="reportDetailsModalLabel">Report Details</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="reportDetailsContent">
-                        <!-- Content will be populated dynamically -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         /* Print Styles */
         @media print {
-            /* Hide sidebar, header, and controls */
+            /* Hide sidebar, header, filters, buttons, tabs */
             .sidebar,
             .main-header,
             .reports-controls-section,
+            .table-header,
+            .table-tabs-section,
+            .table-filters,
             .action-buttons,
             .nav-tabs,
             button,
-            .btn {
+            .btn,
+            #generateReport,
+            #exportPDFBtn,
+            #printReportBtn {
                 display: none !important;
+            }
+            
+            /* Show only report content */
+            .summary-cards-section,
+            .tab-content,
+            .tab-pane.active,
+            .cashbook-table-container,
+            table {
+                display: block !important;
             }
             
             /* Adjust layout for print */
             .app-container {
                 display: block;
+            }
+            
+            .reports-container {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Remove shadows and borders for clean print */
+            .sales-table-card {
+                box-shadow: none !important;
+                border: none !important;
+            }
+            
+            /* Show active tab content */
+            .tab-pane {
+                display: none !important;
+            }
+            
+            .tab-pane.active {
+                display: block !important;
             }
             
             .main-content {
@@ -1687,101 +2322,138 @@
             }
         }
     </style>
+    <style>
+        /* Local mobile card overrides (standalone page) */
+        @media (max-width: 768px) {
+            table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
+            table.table-mobile-card thead { display: none !important; }
+            table.table-mobile-card tbody { display: block !important; }
+            table.table-mobile-card tr { display: block !important; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            table.table-mobile-card td { display: flex !important; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0 !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important; white-space: normal !important; color: #111827; }
+            table.table-mobile-card td:last-child { border-bottom: none !important; }
+            table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand">
+        <!-- Unified Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand">
                     <i class="bi bi-basket-fill"></i>
-                    StockWise
+                    <span>StockWise</span>
                 </a>
+                <div class="header-title-section">
+                    <h1>Reports</h1>
+                    <p class="header-subtitle">Sales and inventory data analysis</p>
         </div>
+            </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active">
 
             <div class="sidebar-nav">
                 <div class="nav-section">
-                    <div class="nav-section-title">Main</div>
-                    <div class="nav-item">
-                        <a href="{% url 'dashboard' %}" class="nav-link">
-                            <i class="bi bi-speedometer2"></i>
-                            Dashboard
-                        </a>
+                    <h2 class="nav-section-title">Main</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'dashboard' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-speedometer2" aria-hidden="true"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'products_inventory' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-basket" aria-hidden="true"></i>
+                                <span>Inventory</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'sales' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-cart" aria-hidden="true"></i>
+                                <span>Sales</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
-                    <div class="nav-item">
-                        <a href="{% url 'products_inventory' %}" class="nav-link">
-                            <i class="bi bi-basket"></i>
-                            Inventory
-                        </a>
+
+                {% if app_role == 'admin' %}
+                <div class="nav-section">
+                    <h2 class="nav-section-title">Reports</h2>
+                    <ul class="nav-list" role="list">
+                        <li class="nav-item">
+                            <a href="{% url 'reports' %}" 
+                               class="nav-link active"
+                               aria-current="page">
+                                <i class="bi bi-graph-up" aria-hidden="true"></i>
+                                <span>Reports</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
-                    <div class="nav-item">
-                        <a href="{% url 'sales' %}" class="nav-link">
-                            <i class="bi bi-cart"></i>
-                            Sales
-                        </a>
-            </div>
-        </div>
+                {% endif %}
 
                 <div class="nav-section">
-                    <div class="nav-section-title">Reports</div>
-                    <div class="nav-item">
-                        <a href="{% url 'reports' %}" class="nav-link active">
-                            <i class="bi bi-table"></i>
-                            Reports
-                        </a>
-            </div>
-        </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">Account</div>
-                    <div class="nav-item">
-                        <a href="{% url 'profile' %}" class="nav-link">
-                            <i class="bi bi-person"></i>
-                            Profile
-                        </a>
-                    </div>
-                    {% if app_role == 'admin' %}
-                    <div class="nav-item">
-                        <a href="{% url 'sms_settings' %}" class="nav-link">
-                            <i class="bi bi-chat-dots"></i>
-                            SMS Settings
-                        </a>
-                    </div>
-                    {% endif %}
-                    <div class="nav-item">
-                        <a href="{% url 'logout' %}" class="nav-link">
-                            <i class="bi bi-box-arrow-right"></i>
-                            Logout
-                        </a>
-                    </div>
+                    <h2 class="nav-section-title">Account</h2>
+                    <ul class="nav-list" role="list">
+                        {% if app_role == 'admin' %}
+                        <li class="nav-item">
+                            <a href="{% url 'sms_settings' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                                <span>SMS Settings</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a href="{% url 'profile' %}" 
+                               class="nav-link"
+                               aria-current="false">
+                                <i class="bi bi-person" aria-hidden="true"></i>
+                                <span>Profile</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'logout' %}" 
+                               class="nav-link logout-link"
+                               aria-current="false">
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                                <span>Logout</span>
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header class="header">
-                <div class="header-left">
-                    <h1>Reports</h1>
-                    <p class="header-subtitle">Sales and inventory data analysis</p>
-                </div>
-                <div class="header-right">
-                    <!-- Mobile Menu Toggle Button -->
-                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
-                    <div class="dropdown">
-                        <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+        <main class="main-content sidebar-open">
 
             <div class="content-area">
                 <!-- Main Content Layout -->
@@ -1814,95 +2486,89 @@
 
                 
 
-                <!-- Main Content Layout -->
-                <div class="reports-container">
-                    <!-- Controls Section -->
-                    <div class="reports-controls-section">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <div class="date-range-section">
-                                    <label class="form-label fw-bold">DATE RANGE</label>
-                                    <div class="date-input-group">
-                                        <select class="form-select" id="dateRange">
-                                            <option value="today">Today</option>
-                                            <option value="week">This Week</option>
-                                            <option value="month">This Month</option>
-                                            <option value="custom">Custom Range</option>
-                                        </select>
-                                    </div>
-                                </div>
+                <!-- Summary Cards Section -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon primary">
+                                <i class="bi bi-currency-dollar"></i>
                             </div>
-                            <div class="col-md-6">
-                                <div class="action-buttons">
-                                    <button type="button" class="btn btn-modern primary" id="generateReport">
-                                        <i class="bi bi-bar-chart"></i> Generate Report
-                                    </button>
-                                    <button type="button" class="btn btn-success me-2" onclick="exportCompletePDF()">
-                                        <i class="bi bi-file-pdf"></i> Export PDF
-                                    </button>
-                                    <button type="button" class="btn btn-primary" onclick="window.print()">
-                                        <i class="bi bi-printer"></i> Print Report
-                                    </button>
-                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="statTotalRevenue">₱0.00</div>
+                                <div class="stat-label">Total Revenue</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total revenue amount</div>
                             </div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-icon success">
+                                <i class="bi bi-cart-check"></i>
                             </div>
-
-
-                    <!-- Summary Cards Section -->
-                    <div class="summary-cards-section">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="summary-card revenue-card">
-                                    <div class="card-icon">
-                                        <i class="bi bi-currency-dollar"></i>
-                                    </div>
-                                    <div class="card-content">
-                                        <div class="card-value" id="statTotalRevenue">₱0.00</div>
-                                        <div class="card-label">TOTAL REVENUE</div>
-                                    </div>
-                                </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="statTransactions">0</div>
+                                <div class="stat-label">Total Transactions</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of sales transactions</div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="summary-card transactions-card">
-                                    <div class="card-icon">
-                                        <i class="bi bi-cart"></i>
-                                    </div>
-                                    <div class="card-content">
-                                        <div class="card-value" id="statTransactions">0</div>
-                                        <div class="card-label">TOTAL TRANSACTIONS</div>
-                                    </div>
-                                </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon warning">
+                                <i class="bi bi-boxes"></i>
                             </div>
-                            <div class="col-md-3">
-                                <div class="summary-card items-card">
-                                    <div class="card-icon">
-                                        <i class="bi bi-boxes"></i>
-                                    </div>
-                                    <div class="card-content">
-                                        <div class="card-value" id="statItemsSold">0</div>
-                                        <div class="card-label">ITEMS SOLD</div>
-                                    </div>
-                                </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="statItemsSold">0</div>
+                                <div class="stat-label">Items Sold</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity of items sold</div>
                             </div>
-                            <div class="col-md-3">
-                                <div class="summary-card average-card">
-                                    <div class="card-icon">
-                                        <i class="bi bi-graph-up"></i>
-                                    </div>
-                                    <div class="card-content">
-                                        <div class="card-value" id="statAvgOrder">₱0.00</div>
-                                        <div class="card-label">AVERAGE SALE</div>
-                                    </div>
-                                </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon info">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="statAvgOrder">₱0.00</div>
+                                <div class="stat-label">Average Sale</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Average transaction amount</div>
                             </div>
                         </div>
                     </div>
 
-                            
-                            <!-- Tab Navigation -->
-                    <div class="tabs-section">
-                            <ul class="nav nav-tabs" id="reportsTab" role="tablist">
+                    <!-- Reports Table Card -->
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3 class="table-title">
+                                <i class="bi bi-graph-up"></i>
+                                Reports
+                            </h3>
+                            <div class="table-filters" style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <select class="form-control" id="dateRange" style="width: auto; min-width: 140px;">
+                                    <option value="today">Today</option>
+                                    <option value="week">This Week</option>
+                                    <option value="month">This Month</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                                <select class="form-control" id="userFilter" style="width: auto; min-width: 140px;">
+                                    <option value="all">All Users</option>
+                                    {% for user in all_users %}
+                                    <option value="{{ user.user_id }}">{{ user.username }}</option>
+                                    {% endfor %}
+                                </select>
+                                <select class="form-control" id="fruitFilter" style="width: auto; min-width: 140px;">
+                                    <option value="all">All Products</option>
+                                    {% for fruit in fruits %}
+                                    <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn-modern primary" id="generateReport">
+                                    <i class="bi bi-bar-chart"></i> Generate Report
+                                </button>
+                                <button type="button" class="btn-modern success" id="exportPDFBtn" onclick="exportCompletePDF()">
+                                    <i class="bi bi-file-pdf"></i> Export PDF
+                                </button>
+                                <button type="button" class="btn-modern secondary" id="printReportBtn" onclick="printReport()">
+                                    <i class="bi bi-printer"></i> Print
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-tabs-section">
+                            <ul class="nav nav-tabs border-0" role="tablist" id="reportsTab">
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link active" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales" type="button" role="tab" aria-controls="sales" aria-selected="true">
                                         <i class="bi bi-graph-up me-2"></i>Sales Summary
@@ -1923,16 +2589,10 @@
                                         <i class="bi bi-receipt me-2"></i>Transactions
                                     </button>
                                 </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab" aria-controls="reports" aria-selected="false">
-                                        <i class="bi bi-graph-up me-2"></i>Product Performance
-                                    </button>
-                                </li>
                             </ul>
                     </div>
-
                             <!-- Tab Content -->
-                            <div class="tab-content" id="reportsTabContent">
+                        <div class="tab-content p-3 pt-0" id="reportsTabContent">
                                 <!-- Sales Summary Tab -->
                                 <div class="tab-pane fade show active" id="sales" role="tabpanel" aria-labelledby="sales-tab">
                                     <div class="cashbook-table-container table-responsive-wrapper mt-3">
@@ -1941,15 +2601,17 @@
                                                 <tr>
                                                     <th>Date</th>
                                                     <th>Product</th>
-                                                    <th>Reference</th>
                                                     <th>Quantity</th>
+                                                    <th>Boxes Sold</th>
                                                     <th>Revenue</th>
                                                     <th>Profit</th>
-                                                    <th>Balance</th>
+                                                    <th>Gross Margin %</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="summaryBody"></tbody>
                                         </table>
+                                        <div id="pagination-summary" class="mt-3"></div>
                                     </div>
                                 </div>
 
@@ -1961,14 +2623,17 @@
                                                 <tr>
                                                     <th>Rank</th>
                                                     <th>Product</th>
-                                                    <th>Size</th>
+                                                    <th>Quantity</th>
                                                     <th>Boxes Sold</th>
                                                     <th>Revenue</th>
-                                                    <th>Performance</th>
+                                                    <th>Profit Margin %</th>
+                                                    <th>Growth %</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="topBody"></tbody>
                                         </table>
+                                        <div id="pagination-top" class="mt-3"></div>
                                     </div>
                                 </div>
 
@@ -1978,131 +2643,46 @@
                                         <table class="cashbook-table table-mobile-card">
                                             <thead>
                                                 <tr>
-                                                    <th>Date</th>
                                                     <th>Product</th>
-                                                    <th>Size</th>
+                                                    <th>Quantity</th>
                                                     <th>Current Stock</th>
-                                                    <th>Price</th>
+                                                    <th>Days of Supply</th>
+                                                    <th>Reorder Point</th>
                                                     <th>Status</th>
                                                     <th>Action Required</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="lowBody"></tbody>
                                         </table>
+                                        <div id="pagination-low" class="mt-3"></div>
                                     </div>
                                 </div>
 
                                 <!-- Transactions Tab -->
                                 <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="transactions-tab">
                                     <div class="detailed-transactions-container mt-3">
-                                        <!-- Transaction Summary Cards -->
-                                        <div class="stats-grid mb-4">
-                                            <div class="stat-card">
-                                                <div class="card-header">
-                                                    <i class="bi bi-receipt"></i>
-                                                    <span>Total Transactions</span>
-                                                </div>
-                                                <div class="card-value" id="totalTransactionsCount">0</div>
-                                            </div>
-                                            <div class="stat-card">
-                                                <div class="card-header">
-                                                    <i class="bi bi-currency-dollar"></i>
-                                                    <span>Total Revenue</span>
-                                                </div>
-                                                <div class="card-value" id="totalRevenueAmount">₱0.00</div>
-                                            </div>
-                                            <div class="stat-card">
-                                                <div class="card-header">
-                                                    <i class="bi bi-percent"></i>
-                                                    <span>Total VAT</span>
-                                                </div>
-                                                <div class="card-value" id="totalVATAmount">₱0.00</div>
-                                            </div>
-                                            <div class="stat-card">
-                                                <div class="card-header">
-                                                    <i class="bi bi-people"></i>
-                                                    <span>Unique Customers</span>
-                                                </div>
-                                                <div class="card-value" id="uniqueCustomersCount">0</div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Main Transactions Table -->
                                         <div class="cashbook-table-container table-responsive-wrapper">
                                             <table class="cashbook-table table-mobile-card">
                                             <thead>
                                                 <tr>
-                                                        <th>Sale ID</th>
-                                                        <th>Transaction No.</th>
-                                                        <th>OR No.</th>
+                                                        <th>Sale No.</th>
                                                         <th>Date & Time</th>
                                                         <th>Customer</th>
-                                                        <th>Contact</th>
-                                                        <th>Address</th>
-                                                        <th>Processed By</th>
-                                                        <th>Fruits</th>
-                                                        <th>Size</th>
-                                                        <th>Items</th>
+                                                        <th>Products</th>
+                                                        <th>Quantity</th>
                                                     <th>Boxes</th>
-                                                        <th>Subtotal</th>
-                                                        <th>VAT (12%)</th>
                                                     <th>Total</th>
-                                                        <th>Amount Paid</th>
-                                                        <th>Change</th>
                                                     <th>Status</th>
+                                                        <th></th>
                                                 </tr>
                                             </thead>
-                                            <tbody id="txBody"></tbody>
+                                                <tbody id="transactionsBody"></tbody>
                                         </table>
-                                        </div>
-
-                                        <!-- Itemized Details Section -->
-                                        <div class="itemized-details-section mt-4">
-                                            <h5 class="section-title">Itemized Transaction Details</h5>
-                                            <div class="cashbook-table-container table-responsive-wrapper">
-                                                <table class="cashbook-table table-mobile-card">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Sale ID</th>
-                                                            <th>Description</th>
-                                                            <th>Qty</th>
-                                                            <th>Batch ID(s)</th>
-                                                            <th>Price</th>
-                                                            <th>Amount</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="itemizedDetailsBody"></tbody>
-                                                </table>
-                                            </div>
+                                        <div id="pagination-transactions" class="mt-3"></div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Product Performance Tab -->
-                                <div class="tab-pane fade" id="reports" role="tabpanel" aria-labelledby="reports-tab">
-                                    <div class="cashbook-table-container mt-3">
-                                        <table class="cashbook-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Product</th>
-                                                    <th>Period</th>
-                                                    <th>Opening Qty</th>
-                                                    <th>Added Qty</th>
-                                                    <th>Sold Qty</th>
-                                                    <th>Closing Qty</th>
-                                                    <th>Revenue</th>
-                                                    <th>COGS</th>
-                                                    <th>Gross Profit</th>
-                                                    <th>Margin %</th>
-                                                    <th>Performance</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="summaryReportsBody"></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
 
                             </div>
                         </div>
@@ -2116,10 +2696,19 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- Add this line for jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
     <script>
+        // Currency formatting helper function
+        function formatCurrency(value) {
+            const num = parseFloat(value || 0);
+            return num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+        function formatPercent(value, decimals = 1) {
+            const num = parseFloat(value ?? 0);
+            if (!isFinite(num)) return '0%';
+            return `${num.toFixed(decimals)}%`;
+        }
         let startDate = '';
         let endDate = '';
         let currentReportType = 'sales'; // Default to Sales Summary
@@ -2212,6 +2801,8 @@
             try {
                 // Determine filter_type based on whether custom dates are provided
                 const filterType = (startDate && endDate) ? 'custom' : 'today';
+                const userFilter = $('#userFilter').val() || 'all';
+                const fruitFilter = $('#fruitFilter').val() || 'all';
                 
                 const response = await $.ajax({
                     url: '/api/reports/fetch/', // Corrected URL
@@ -2220,7 +2811,9 @@
                         filter_type: filterType,
                         start_date: startDate,
                         end_date: endDate,
-                        report_type: currentReportType
+                        report_type: currentReportType,
+                        user: userFilter,
+                        fruit: fruitFilter
                     },
                     dataType: 'json'
                 });
@@ -2230,7 +2823,6 @@
                 populateTopProductsTable(response.data.top_products);
                 populateLowStockTable(response.data.low_stock);
                 populateTransactionsTable(response.data.transactions);
-                populateProductPerformanceTable(response.data.product_performance);
 
             } catch (error) {
                 console.error('Error loading reports:', error);
@@ -2240,184 +2832,283 @@
             }
         }
 
+        // Pagination helpers for reports tables
+        const reportsPagination = { currentPage: {}, perPage: 10, totalPages: {} };
+        const repData = { summary: [], top: [], low: [], transactions: [], itemized: [] };
+        function repSlice(arr, page){ const s=(page-1)*reportsPagination.perPage; return arr.slice(s, s+reportsPagination.perPage); }
+        function updateRepControls(sectionKey, totalItems){
+            const container = document.getElementById(`pagination-${sectionKey}`);
+            if(!container) return;
+            const current = reportsPagination.currentPage[sectionKey] || 1;
+            const pages = Math.max(1, Math.ceil((totalItems||0)/reportsPagination.perPage));
+            reportsPagination.totalPages[sectionKey] = pages;
+            const hasPrevious = current > 1;
+            const hasNext = current < pages;
+            const startNumber = ((current - 1) * reportsPagination.perPage) + 1;
+            const endNumber = Math.min(startNumber + reportsPagination.perPage - 1, totalItems);
+            const itemType = sectionKey === 'summary' ? 'items' : sectionKey === 'top' ? 'products' : sectionKey === 'low' ? 'items' : sectionKey === 'transactions' ? 'transactions' : sectionKey === 'itemized' ? 'items' : 'items';
+            
+            let html = '';
+            if(pages > 1 || totalItems > 0) {
+                html = `<div class="pagination-container mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="pagination-info">
+                            <span class="text-muted">Showing ${startNumber} to ${endNumber} of ${totalItems} ${itemType}</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-section="${sectionKey}" data-page="1" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-section="${sectionKey}" data-page="${current - 1}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-left"></i> Previous
+                                    </a>
+                                </li>`;
+                
+                // Show up to 5 page numbers
+                const pageNumbers = [];
+                if(pages <= 5) {
+                    for(let i = 1; i <= pages; i++) pageNumbers.push(i);
+                } else if(current <= 3) {
+                    for(let i = 1; i <= 5; i++) pageNumbers.push(i);
+                } else if(current >= pages - 2) {
+                    for(let i = pages - 4; i <= pages; i++) pageNumbers.push(i);
+                } else {
+                    for(let i = current - 2; i <= current + 2; i++) pageNumbers.push(i);
+                }
+                
+                pageNumbers.forEach(pageNum => {
+                    html += `<li class="page-item ${pageNum === current ? 'active' : ''}">
+                        <a class="page-link" href="#" data-section="${sectionKey}" data-page="${pageNum}">${pageNum}</a>
+                    </li>`;
+                });
+                
+                html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-section="${sectionKey}" data-page="${current + 1}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-section="${sectionKey}" data-page="${pages}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>`;
+            }
+            container.innerHTML = html;
+            container.querySelectorAll('a.page-link').forEach(a=>{
+                a.addEventListener('click',(e)=>{
+                    e.preventDefault();
+                    // Skip if parent is disabled
+                    if(a.closest('.page-item.disabled')) return;
+                    const p = parseInt(a.dataset.page,10);
+                    const sec = a.dataset.section;
+                    if(!p || p<1 || p>reportsPagination.totalPages[sec]) return;
+                    reportsPagination.currentPage[sec]=p;
+                    switch(sec){
+                        case 'summary': renderSalesSummaryPage(); break;
+                        case 'top': renderTopProductsPage(); break;
+                        case 'low': renderLowStockPage(); break;
+                        case 'transactions': renderTransactionsPage(); break;
+                        case 'itemized': renderItemizedPage(); break;
+                    }
+                });
+            });
+        }
+
         // Placeholder functions for populating data
         function updateSummaryCards(data) {
-            $('#statTotalRevenue').text(`₱${parseFloat(data.total_revenue || 0).toFixed(2)}`);
+            $('#statTotalRevenue').text(`₱${formatCurrency(data.total_revenue || 0)}`);
             $('#statTransactions').text(parseInt(data.total_transactions || 0).toLocaleString());
             $('#statItemsSold').text(parseInt(data.total_items_sold || 0).toLocaleString());
-            $('#statAvgOrder').text(`₱${parseFloat(data.average_sale || 0).toFixed(2)}`);
+            $('#statAvgOrder').text(`₱${formatCurrency(data.average_sale || 0)}`);
         }
-        function populateSalesSummaryTable(data) {
+        function renderSalesSummaryPage(){
             const tbody = $('#summaryBody');
-            tbody.empty(); // Clear existing rows
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
-                    const row = `
-                        <tr>
-                            <td class="date-col">${item.date}</td>
-                            <td>${item.product_name}</td>
-                            <td class="reference-col">${item.reference || 'N/A'}</td>
-                            <td>${item.quantity}</td>
-                            <td class="amount-col currency">${parseFloat(item.revenue || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.profit || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.balance || 0).toFixed(2)}</td>
-                    </tr>
-                `;
-                    tbody.append(row);
-                });
-            } else {
-                tbody.append('<tr><td colspan="7" class="text-center">No sales summary data available for this period.</td></tr>');
-            }
-        }
-        function populateTopProductsTable(data) {
-            const tbody = $('#topBody');
             tbody.empty();
-
-            if (data && data.length > 0) {
-                data.forEach((item, index) => {
-                    const row = `
-                        <tr>
-                            <td>${index + 1}</td>
-                            <td>${item.product_name}</td>
-                            <td>${item.size || 'N/A'}</td>
-                            <td>${item.boxes_sold}</td>
-                            <td class="amount-col currency">${parseFloat(item.revenue || 0).toFixed(2)}</td>
-                            <td>${item.performance || 'N/A'}</td>
-                    </tr>
-                `;
-                    tbody.append(row);
-                });
-            } else {
-                tbody.append('<tr><td colspan="6" class="text-center">No top products data available for this period.</td></tr>');
-            }
+            const rows = repSlice(repData.summary, reportsPagination.currentPage.summary||1);
+            if(!rows.length){ tbody.append('<tr><td colspan="8" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            rows.forEach((item, idx) => {
+                const boxesSold = Number(item.boxes_sold ?? 0);
+                const row = `
+                    <tr>
+                        <td class="date-col">${item.date || 'N/A'}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.size || 'N/A'}</td>
+                        <td>${boxesSold.toLocaleString()}</td>
+                        <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
+                        <td class="amount-col currency">${formatCurrency(item.profit || 0)}</td>
+                        <td>${formatPercent(item.gross_margin_pct || 0)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary view-summary-details" data-index="${idx}" type="button">
+                                Details
+                            </button>
+                        </td>
+                </tr>`;
+                tbody.append(row);
+            });
+            // Bind click handlers for view details buttons
+            tbody.find('.view-summary-details').off('click').on('click', function(e) {
+                e.stopPropagation();
+                const index = $(this).data('index');
+                const item = repSlice(repData.summary, reportsPagination.currentPage.summary||1)[index];
+                if (item) showSalesSummaryDetails(item);
+            });
+            updateRepControls('summary', repData.summary.length);
         }
-        function populateLowStockTable(data) {
-            const tbody = $('#lowBody');
-            tbody.empty();
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
-                    const row = `
-                        <tr>
-                            <td class="date-col">${item.date}</td>
-                            <td>${item.product_name}</td>
-                            <td>${item.size || 'N/A'}</td>
-                            <td>${item.current_stock}</td>
-                            <td class="amount-col currency">${parseFloat(item.price || 0).toFixed(2)}</td>
-                            <td>${item.status}</td>
-                            <td>${item.action_required || 'N/A'}</td>
-                    </tr>
-                `;
-                    tbody.append(row);
-                });
-            } else {
-                tbody.append('<tr><td colspan="7" class="text-center">No low stock data available.</td></tr>');
-            }
+        function populateSalesSummaryTable(data){ repData.summary = Array.isArray(data)?data:[]; reportsPagination.currentPage.summary=1; renderSalesSummaryPage(); }
+        function renderTopProductsPage(){
+            const tbody = $('#topBody'); tbody.empty();
+            const all = repData.top; const page = reportsPagination.currentPage.top||1; const rows = repSlice(all, page);
+            if(!rows.length){ tbody.append('<tr><td colspan="8" class="text-center">No top products data available for this period.</td></tr>'); updateRepControls('top',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            rows.forEach((item, idx)=>{
+                const row = `
+                    <tr>
+                        <td>${item.rank || '-'}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.size || 'N/A'}</td>
+                        <td>${Number(item.boxes_sold ?? 0).toLocaleString()}</td>
+                        <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
+                        <td>${formatPercent(item.profit_margin_pct || 0)}</td>
+                        <td>${formatPercent(item.growth_rate_pct || 0)}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary view-top-details" data-index="${idx}" type="button">
+                                Details
+                            </button>
+                        </td>
+                </tr>`;
+                tbody.append(row);
+            });
+            // Bind click handlers for view details buttons
+            tbody.find('.view-top-details').off('click').on('click', function(e) {
+                e.stopPropagation();
+                const index = $(this).data('index');
+                const item = repSlice(repData.top, reportsPagination.currentPage.top||1)[index];
+                if (item) showTopProductsDetails(item);
+            });
+            updateRepControls('top', all.length);
         }
-        function populateTransactionsTable(data) {
-            const tbody = $('#txBody');
+        function populateTopProductsTable(data){ repData.top = Array.isArray(data)?data:[]; reportsPagination.currentPage.top=1; renderTopProductsPage(); }
+        function renderLowStockPage(){
+            const tbody = $('#lowBody'); tbody.empty();
+            const rows = repSlice(repData.low, reportsPagination.currentPage.low||1);
+            if(!rows.length){ tbody.append('<tr><td colspan="8" class="text-center">No low stock data available.</td></tr>'); updateRepControls('low',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            rows.forEach((item, idx)=>{
+                const daysSupply = item.days_of_supply !== null && item.days_of_supply !== undefined
+                    ? Number(item.days_of_supply).toFixed(1)
+                    : '∞';
+                const row = `
+                    <tr>
+                        <td>${item.product_name}</td>
+                        <td>${item.size || 'N/A'}</td>
+                        <td>${(item.current_stock ?? 0).toLocaleString()}</td>
+                        <td>${daysSupply}</td>
+                        <td>${item.reorder_point ?? 0}</td>
+                        <td>${item.status}</td>
+                        <td>${item.action_required || 'Monitor'}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-primary view-low-details" data-index="${idx}" type="button">
+                                Details
+                            </button>
+                        </td>
+                </tr>`;
+                tbody.append(row);
+            });
+            // Bind click handlers for view details buttons
+            tbody.find('.view-low-details').off('click').on('click', function(e) {
+                e.stopPropagation();
+                const index = $(this).data('index');
+                const item = repSlice(repData.low, reportsPagination.currentPage.low||1)[index];
+                if (item) showLowStockDetails(item);
+            });
+            updateRepControls('low', repData.low.length);
+        }
+        function populateLowStockTable(data){ repData.low = Array.isArray(data)?data:[]; reportsPagination.currentPage.low=1; renderLowStockPage(); }
+        function renderTransactionsPage(){
+            const tbody = $('#transactionsBody');
             tbody.empty();
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
-                    const statusClass = item.status === 'Completed' ? 'status-completed' :
-                                        item.status === 'Pending' ? 'status-pending' :
-                                        item.status === 'Cancelled' ? 'status-cancelled' : '';
+            const rows = repSlice(repData.transactions, reportsPagination.currentPage.transactions || 1);
+            if (rows && rows.length > 0) {
+                rows.forEach(item => {
+                    const status = (item.status || '').toLowerCase();
+                    const statusClass = status === 'completed' ? 'badge bg-success text-white' :
+                                        status === 'pending' ? 'badge bg-warning text-dark' :
+                                        (status === 'cancelled' || status === 'voided') ? 'badge bg-danger text-white' :
+                                        'badge bg-secondary text-white';
+                    const productsText = Array.isArray(item.fruits) && item.fruits.length
+                        ? item.fruits.join(', ')
+                        : (item.product_name || 'N/A');
+                    const sizeText = Array.isArray(item.size) && item.size.length
+                        ? item.size.join(', ')
+                        : 'N/A';
                     const row = `
-                        <tr class="clickable" data-sale-id="${item.sale_id}">
-                            <td>${item.sale_id}</td>
-                            <td>${item.transaction_no}</td>
-                            <td>${item.or_no || 'N/A'}</td>
-                            <td class="date-col">${item.date_time}</td>
+                        <tr class="clickable" data-sale-id="${item.sale_id || ''}">
+                            <td>${item.sale_id || 'N/A'}</td>
+                            <td class="date-col">${item.date_time || 'N/A'}</td>
                             <td class="customer-info">${item.customer_name || 'N/A'}</td>
-                            <td>${item.contact_number || 'N/A'}</td>
-                            <td class="address-info">${item.address || 'N/A'}</td>
-                            <td>${item.processed_by}</td>
-                            <td>${item.fruits.join(', ')}</td>
-                            <td>${item.size || 'N/A'}</td>
-                            <td>${item.items_count}</td>
-                            <td>${item.boxes_count}</td>
-                            <td class="amount-col currency">${parseFloat(item.subtotal || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.vat_amount || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.total_amount || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.amount_paid || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.change_amount || 0).toFixed(2)}</td>
-                            <td><span class="badge ${statusClass}">${item.status}</span></td>
-                    </tr>
-                `;
+                            <td>${productsText}</td>
+                            <td>${sizeText}</td>
+                            <td>${item.boxes_count ?? 'N/A'}</td>
+                            <td class="amount-col currency">${formatCurrency(item.total_amount || 0)}</td>
+                            <td><span class="${statusClass}">${item.status || 'N/A'}</span></td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary view-details-btn" data-sale-id="${item.sale_id ?? ''}" type="button">
+                                    Details
+                                </button>
+                            </td>
+                        </tr>`;
                     tbody.append(row);
                 });
 
-                $('#totalTransactionsCount').text(data.length);
-                $('#totalRevenueAmount').text(`₱${data.reduce((sum, t) => sum + (t.total_amount || 0), 0).toFixed(2)}`);
-                $('#totalVATAmount').text(`₱${data.reduce((sum, t) => sum + (t.vat_amount || 0), 0).toFixed(2)}`);
-                $('#uniqueCustomersCount').text(new Set(data.map(t => t.customer_name)).size);
+                updateRepControls('transactions', repData.transactions.length);
 
-                // Add click listener for transaction details
-                $('#txBody tr').on('click', function() {
+                tbody.find('.view-details-btn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const saleId = $(this).data('sale-id');
+                    if (!saleId) {
+                        alert('Transaction details are unavailable for this record.');
+                        return;
+                    }
                     showTransactionDetailsModal(saleId);
                 });
 
             } else {
-                tbody.append('<tr><td colspan="19" class="text-center">No transaction data available for this period.</td></tr>');
-                $('#totalTransactionsCount').text(0);
-                $('#totalRevenueAmount').text('₱0.00');
-                $('#totalVATAmount').text('₱0.00');
-                $('#uniqueCustomersCount').text(0);
+                tbody.append('<tr><td colspan="9" class="text-center">No transactions found for this range.</td></tr>');
+                updateRepControls('transactions', 0);
+                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
             }
         }
-        function populateProductPerformanceTable(data) {
-            const tbody = $('#summaryReportsBody');
-            tbody.empty();
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
-                    const row = `
-                        <tr>
-                            <td class="date-col">${item.date}</td>
-                            <td>${item.product_name}</td>
-                            <td>${item.period || 'N/A'}</td>
-                            <td>${item.opening_qty}</td>
-                            <td>${item.added_qty}</td>
-                            <td>${item.sold_qty}</td>
-                            <td>${item.closing_qty}</td>
-                            <td class="amount-col currency">${parseFloat(item.revenue || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.cogs || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.gross_profit || 0).toFixed(2)}</td>
-                            <td>${parseFloat(item.gross_margin_pct || 0).toFixed(2)}%</td>
-                            <td>${item.performance || 'N/A'}</td>
-                </tr>
-                `;
-                    tbody.append(row);
-                });
-            } else {
-                tbody.append('<tr><td colspan="12" class="text-center">No product performance data available for this period.</td></tr>');
-            }
-        }
-        function populateItemizedDetailsTable(data) {
-            const tbody = $('#itemizedDetailsBody');
-            tbody.empty();
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
+        function populateTransactionsTable(data){ repData.transactions = Array.isArray(data)?data:[]; reportsPagination.currentPage.transactions=1; renderTransactionsPage(); }
+        function renderItemizedPage(){
+            const tbody = $('#itemizedDetailsBody'); tbody.empty();
+            const rows = repSlice(repData.itemized, reportsPagination.currentPage.itemized||1);
+            if (rows && rows.length > 0) {
+                rows.forEach(item => {
                     const row = `
                         <tr>
                             <td>${item.sale_id}</td>
                             <td>${item.description}</td>
                             <td>${item.qty}</td>
                             <td class="batch-ids">${item.batch_ids.join(', ')}</td>
-                            <td class="amount-col currency">${parseFloat(item.price || 0).toFixed(2)}</td>
-                            <td class="amount-col currency">${parseFloat(item.amount || 0).toFixed(2)}</td>
+                            <td class="amount-col currency">${formatCurrency(item.price || 0)}</td>
+                            <td class="amount-col currency">${formatCurrency(item.amount || 0)}</td>
                 </tr>
                 `;
                     tbody.append(row);
                 });
+                updateRepControls('itemized', repData.itemized.length);
             } else {
-                tbody.append('<tr><td colspan="6" class="text-center">No itemized details available for this transaction.</td></tr>');
+                tbody.append('<tr><td colspan="6" class="text-center">No itemized details available for this transaction.</td></tr>'); if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
             }
         }
+        function populateItemizedDetailsTable(data){ repData.itemized = Array.isArray(data)?data:[]; reportsPagination.currentPage.itemized=1; renderItemizedPage(); }
 
         async function showTransactionDetailsModal(saleId) {
             try {
@@ -2427,70 +3118,100 @@
                     dataType: 'json'
                 });
 
-                const modalBody = $('#reportDetailsContent');
-                modalBody.empty();
+                if (!response || !response.success) {
+                    alert(response?.message || 'Transaction details not found.');
+                    return;
+                }
 
-                if (response) {
-                    const transaction = response.transaction;
-                    const items = response.items;
+                const transaction = response.transaction || {};
+                const items = Array.isArray(response.items) ? response.items : [];
+                const payments = Array.isArray(response.payments) ? response.payments : [];
+                const auditTrail = Array.isArray(response.audit_trail) ? response.audit_trail : [];
 
-                    let detailHtml = `
-                <div class="detail-section">
-                            <h6>Transaction Overview</h6>
-                            <div class="detail-row"><span class="detail-label">Sale ID:</span> <span class="detail-value">${transaction.sale_id}</span></div>
-                            <div class="detail-row"><span class="detail-label">Transaction No.:</span> <span class="detail-value">${transaction.transaction_no}</span></div>
-                            <div class="detail-row"><span class="detail-label">OR No.:</span> <span class="detail-value">${transaction.or_no || 'N/A'}</span></div>
-                            <div class="detail-row"><span class="detail-label">Date & Time:</span> <span class="detail-value">${transaction.date_time}</span></div>
-                            <div class="detail-row"><span class="detail-label">Customer:</span> <span class="detail-value">${transaction.customer_name || 'N/A'}</span></div>
-                            <div class="detail-row"><span class="detail-label">Contact:</span> <span class="detail-value">${transaction.contact_number || 'N/A'}</span></div>
-                            <div class="detail-row"><span class="detail-label">Address:</span> <span class="detail-value">${transaction.address || 'N/A'}</span></div>
-                            <div class="detail-row"><span class="detail-label">Processed By:</span> <span class="detail-value">${transaction.processed_by}</span></div>
-                            <div class="detail-row"><span class="detail-label">Total Amount:</span> <span class="detail-value currency">${parseFloat(transaction.total_amount || 0).toFixed(2)}</span></div>
-                            <div class="detail-row"><span class="detail-label">Amount Paid:</span> <span class="detail-value currency">${parseFloat(transaction.amount_paid || 0).toFixed(2)}</span></div>
-                            <div class="detail-row"><span class="detail-label">Change:</span> <span class="detail-value currency">${parseFloat(transaction.change_amount || 0).toFixed(2)}</span></div>
-                            <div class="detail-row"><span class="detail-label">Status:</span> <span class="detail-value"><span class="badge ${transaction.status === 'Completed' ? 'status-completed' : transaction.status === 'Pending' ? 'status-pending' : transaction.status === 'Cancelled' ? 'status-cancelled' : ''}">${transaction.status}</span></span></div>
-                </div>
-            `;
-            
-                    if (items && items.length > 0) {
-                        detailHtml += `
-                            <div class="detail-section mt-4">
-                                <h6>Itemized Details</h6>
-                                <table class="table table-sm table-bordered">
-                        <thead>
-                            <tr>
-                                            <th>Description</th>
-                                            <th>Qty</th>
-                                            <th>Price</th>
-                                            <th>Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+                $('#reportDetailBannerTitle').text(transaction.sale_id ? `Transaction Report · #${transaction.sale_id}` : 'Transaction Report');
+                $('#reportDetailBannerDate').text(transaction.updated_at ? `Generated on ${transaction.updated_at}` : 'Generated from current dataset');
+
+                $('#reportDetailSaleId').text(transaction.sale_id ? `#${transaction.sale_id}` : 'N/A');
+                $('#reportDetailTransactionNo').text(transaction.transaction_no || 'N/A');
+                $('#reportDetailOrNo').text(transaction.or_no || 'N/A');
+                $('#reportDetailDate').text(transaction.date_time || 'N/A');
+                $('#reportDetailCustomer').text(transaction.customer_name || 'N/A');
+                $('#reportDetailContact').text(transaction.contact_number || 'N/A');
+                $('#reportDetailAddress').text(transaction.address || 'N/A');
+                $('#reportDetailProcessedBy').text(transaction.processed_by || 'N/A');
+                $('#reportDetailCreatedBy').text(transaction.created_by || 'System');
+                $('#reportDetailUpdatedAt').text(transaction.updated_at || 'N/A');
+                $('#reportDetailPaymentRef').text(transaction.payment_reference || 'N/A');
+                $('#reportDetailDepositRef').text(transaction.deposit_reference || 'N/A');
+                $('#reportDetailNotes').text(transaction.notes || 'None');
+                $('#reportDetailVoidReason').text(transaction.void_reason || 'N/A');
+                $('#reportDetailRestocked').text(transaction.restocked || 'No');
+
+                const statusBadge = $('#reportDetailStatus');
+                statusBadge.removeClass('status-completed status-pending status-cancelled status-voided status-default');
+                const status = (transaction.status || '').toLowerCase();
+                if (status === 'completed') statusBadge.addClass('status-completed');
+                else if (status === 'pending') statusBadge.addClass('status-pending');
+                else if (status === 'cancelled' || status === 'voided') statusBadge.addClass('status-cancelled');
+                else statusBadge.addClass('status-default');
+                statusBadge.text((transaction.status || 'N/A').toUpperCase());
+
+                const itemsBody = $('#reportDetailItems');
+                itemsBody.empty();
+                if (items.length) {
                         items.forEach(item => {
-                            detailHtml += `
+                        itemsBody.append(`
                                 <tr>
-                                    <td>${item.product_name} (${item.size || 'N/A'})</td>
-                                    <td>${item.quantity}</td>
-                                    <td class="amount-col currency">${parseFloat(item.price || 0).toFixed(2)}</td>
-                                    <td class="amount-col currency">${parseFloat(item.total_price || 0).toFixed(2)}</td>
+                                <td>${item.product_name || 'N/A'} ${item.size ? `(${item.size})` : ''}</td>
+                                <td class="text-end">${item.quantity ?? 0}</td>
+                                <td class="text-end amount-col">${formatCurrency(item.price || 0)}</td>
+                                <td class="text-end amount-col">${formatCurrency(item.total_price || 0)}</td>
                     </tr>
-                `;
+                        `);
             });
-                        detailHtml += `
-                                    </tbody>
-                                </table>
-                </div>
-            `;
+                } else {
+                    itemsBody.append('<tr><td colspan="4" class="text-center text-muted">No itemized details available.</td></tr>');
         }
 
-                    modalBody.append(detailHtml);
-                    const reportDetailsModal = new bootstrap.Modal(document.getElementById('reportDetailsModal'));
-                    reportDetailsModal.show();
+                $('#reportDetailSubtotal').text(`₱${formatCurrency(transaction.subtotal || 0)}`);
+                $('#reportDetailVat').text(`₱${formatCurrency(transaction.vat_amount || 0)}`);
+                $('#reportDetailTotal').text(`₱${formatCurrency(transaction.total_amount || 0)}`);
+                $('#reportDetailAmountPaid').text(`₱${formatCurrency(transaction.amount_paid || 0)}`);
+                $('#reportDetailChange').text(`₱${formatCurrency(transaction.change_amount || 0)}`);
 
+                const paymentsBody = $('#reportDetailPayments');
+                paymentsBody.empty();
+                if (payments.length) {
+                    payments.forEach(pay => {
+                        paymentsBody.append(`
+                            <tr>
+                                <td>${pay.mode || 'N/A'}</td>
+                                <td class="text-end">${pay.reference || 'N/A'}</td>
+                                <td class="text-end amount-col">${formatCurrency(pay.amount || 0)}</td>
+                            </tr>
+                        `);
+                    });
                 } else {
-                    alert('Transaction details not found.');
+                    paymentsBody.append('<tr><td colspan="3" class="text-center text-muted">No payment breakdown available.</td></tr>');
                 }
+
+                const trailBody = $('#reportDetailTrail');
+                trailBody.empty();
+                if (auditTrail.length) {
+                    auditTrail.forEach(entry => {
+                        trailBody.append(`
+                            <tr>
+                                <td>${entry.user || 'System'}</td>
+                                <td>${entry.action || 'Activity'}</td>
+                                <td class="text-end">${entry.timestamp || 'N/A'}</td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    trailBody.append('<tr><td colspan="3" class="text-center text-muted">No audit trail recorded.</td></tr>');
+                }
+
+                new bootstrap.Modal(document.getElementById('reportDetailsModal')).show();
 
             } catch (error) {
                 console.error('Error fetching transaction details:', error);
@@ -2498,38 +3219,357 @@
             }
         }
 
-        function exportCompletePDF() {
-            // Temporarily hide controls and action buttons
-            $('.reports-controls-section').hide();
-            $('.action-buttons').hide();
-            
-            const element = document.querySelector('.reports-container');
-                const opt = {
-                margin: 0.5,
-                filename: 'complete_stockwise_report.pdf',
-                    image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
+        // Sales Summary Details Modal
+        function showSalesSummaryDetails(item) {
+            const modal = $('#salesSummaryDetailsModal');
+            modal.find('.modal-title').text(`Sales Summary Details - ${item.product_name}`);
+            modal.find('#ssDate').text(item.date || 'N/A');
+            modal.find('#ssProduct').text(item.product_name || 'N/A');
+            modal.find('#ssQuantity').text(item.size || 'N/A');
+            modal.find('#ssBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
+            modal.find('#ssUnitPrice').text(formatCurrency(item.unit_price || 0));
+            modal.find('#ssUnitCost').text(formatCurrency(item.unit_cost || 0));
+            modal.find('#ssRevenue').text(formatCurrency(item.revenue || 0));
+            modal.find('#ssCOGS').text(formatCurrency(item.cogs || 0));
+            modal.find('#ssProfit').text(formatCurrency(item.profit || 0));
+            modal.find('#ssGrossMargin').text(formatPercent(item.gross_margin_pct || 0));
+            modal.find('#ssVAT').text(formatCurrency(item.vat_amount || 0));
+            modal.find('#ssTransactions').text(Number(item.transaction_count || 0).toLocaleString());
+            modal.find('#ssAvgTransaction').text(formatCurrency(item.avg_transaction_value || 0));
+            modal.find('#ssSalesGrowth').text(formatPercent(item.sales_growth_pct || 0));
+            new bootstrap.Modal(modal[0]).show();
+        }
 
-            html2pdf().set(opt).from(element).save().then(() => {
-                // Restore controls and buttons after PDF is generated
-                $('.reports-controls-section').show();
-                $('.action-buttons').show();
-            });
+        // Top Products Details Modal
+        function showTopProductsDetails(item) {
+            const modal = $('#topProductsDetailsModal');
+            modal.find('.modal-title').text(`Top Product Details - ${item.product_name}`);
+            modal.find('#tpRank').text(item.rank || '-');
+            modal.find('#tpProduct').text(item.product_name || 'N/A');
+            modal.find('#tpQuantity').text(item.size || 'N/A');
+            modal.find('#tpBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
+            modal.find('#tpAvgPrice').text(formatCurrency(item.avg_price || 0));
+            modal.find('#tpRevenue').text(formatCurrency(item.revenue || 0));
+            modal.find('#tpProfitMargin').text(formatPercent(item.profit_margin_pct || 0));
+            modal.find('#tpGrowth').text(formatPercent(item.growth_rate_pct || 0));
+            modal.find('#tpMarketShare').text(formatPercent(item.market_share_pct || 0));
+            const unitsChange = (item.units_change || 0);
+            modal.find('#tpUnitsChange').text((unitsChange > 0 ? '▲ ' : unitsChange < 0 ? '▼ ' : '') + Math.abs(unitsChange));
+            modal.find('#tpInventoryTurnover').text(Number(item.inventory_turnover || 0).toFixed(2));
+            new bootstrap.Modal(modal[0]).show();
+        }
+
+        // Low Stock Details Modal
+        function showLowStockDetails(item) {
+            const modal = $('#lowStockDetailsModal');
+            modal.find('.modal-title').text(`Low Stock Details - ${item.product_name}`);
+            modal.find('#lsProduct').text(item.product_name || 'N/A');
+            modal.find('#lsQuantity').text(item.size || 'N/A');
+            modal.find('#lsCurrentStock').text((item.current_stock ?? 0).toLocaleString());
+            modal.find('#lsStockValue').text(formatCurrency(item.stock_value || 0));
+            modal.find('#lsAvgDailySales').text(Number(item.average_daily_sales || 0).toFixed(2));
+            const daysSupply = item.days_of_supply !== null && item.days_of_supply !== undefined
+                ? Number(item.days_of_supply).toFixed(1)
+                : '∞';
+            modal.find('#lsDaysSupply').text(daysSupply);
+            modal.find('#lsReorderPoint').text(item.reorder_point ?? 0);
+            modal.find('#lsReorderQty').text(item.reorder_quantity ?? 0);
+            modal.find('#lsLeadTime').text(item.lead_time_days ?? 'N/A');
+            modal.find('#lsLastSale').text(item.last_sale_date || 'N/A');
+            modal.find('#lsStatus').text(item.status || 'N/A');
+            modal.find('#lsActionRequired').text(item.action_required || 'Monitor');
+            new bootstrap.Modal(modal[0]).show();
+        }
+
+        async function exportCompletePDF() {
+            try {
+                // Get current filter values
+                const filterType = $('#dateRange').val() || 'today';
+                const userFilter = $('#userFilter').val() || 'all';
+                const fruitFilter = $('#fruitFilter').val() || 'all';
+                
+                // Determine start and end dates based on filter
+                let startDate = '';
+                let endDate = '';
+                const today = new Date();
+                
+                if (filterType === 'custom' && customStart && customEnd) {
+                    startDate = customStart;
+                    endDate = customEnd;
+                } else if (filterType === 'today') {
+                    startDate = endDate = today.toISOString().slice(0, 10);
+                } else if (filterType === 'week') {
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - 6);
+                    startDate = weekStart.toISOString().slice(0, 10);
+                    endDate = today.toISOString().slice(0, 10);
+                } else if (filterType === 'month') {
+                    const monthStart = new Date(today);
+                    monthStart.setDate(today.getDate() - 29);
+                    startDate = monthStart.toISOString().slice(0, 10);
+                    endDate = today.toISOString().slice(0, 10);
+                }
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('report_type', 'comprehensive');
+                formData.append('filter', filterType);
+                formData.append('start_date', startDate);
+                formData.append('end_date', endDate);
+                formData.append('search', '');
+                formData.append('user', userFilter);
+                formData.append('fruit', fruitFilter);
+                
+                // Show loading indicator
+                const exportBtn = $('#exportPDFBtn');
+                const originalText = exportBtn.html();
+                exportBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Generating...');
+                
+                // Make request to backend
+                const response = await fetch('/api/reports/export/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to generate PDF');
+                }
+                
+                // Get the PDF blob
+                const blob = await response.blob();
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `StockWise_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                // Restore button
+                exportBtn.prop('disabled', false).html(originalText);
+                
+            } catch (error) {
+                console.error('PDF export error:', error);
+                alert('Failed to export PDF. Please try again.');
+                
+                // Restore button on error
+                const exportBtn = $('#exportPDFBtn');
+                exportBtn.prop('disabled', false).html('<i class="bi bi-file-pdf"></i> Export PDF');
+            }
+        }
+        
+        // Helper function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function printReport() {
+            try {
+                // Get current filter values
+                const filterType = $('#dateRange').val() || 'today';
+                const userFilter = $('#userFilter').val() || 'all';
+                const fruitFilter = $('#fruitFilter').val() || 'all';
+                
+                // Determine start and end dates based on filter
+                let startDate = '';
+                let endDate = '';
+                const today = new Date();
+                
+                if (filterType === 'custom' && customStart && customEnd) {
+                    startDate = customStart;
+                    endDate = customEnd;
+                } else if (filterType === 'today') {
+                    startDate = endDate = today.toISOString().slice(0, 10);
+                } else if (filterType === 'week') {
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - 6);
+                    startDate = weekStart.toISOString().slice(0, 10);
+                    endDate = today.toISOString().slice(0, 10);
+                } else if (filterType === 'month') {
+                    const monthStart = new Date(today);
+                    monthStart.setDate(today.getDate() - 29);
+                    startDate = monthStart.toISOString().slice(0, 10);
+                    endDate = today.toISOString().slice(0, 10);
+                }
+                
+                // Create form data
+                const formData = new FormData();
+                formData.append('report_type', 'comprehensive');
+                formData.append('filter', filterType);
+                formData.append('start_date', startDate);
+                formData.append('end_date', endDate);
+                formData.append('search', '');
+                formData.append('user', userFilter);
+                formData.append('fruit', fruitFilter);
+                
+                // Show loading indicator
+                const printBtn = $('#printReportBtn');
+                const originalText = printBtn.html();
+                printBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Generating...');
+                
+                // Make request to backend
+                const response = await fetch('/api/reports/export/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to generate PDF');
+                }
+                
+                // Get the PDF blob
+                const blob = await response.blob();
+                
+                // Open PDF in new window for printing
+                const url = window.URL.createObjectURL(blob);
+                const printWindow = window.open(url);
+                
+                printWindow.onload = function() {
+                    printWindow.print();
+                    // Clean up after printing
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        printBtn.prop('disabled', false).html(originalText);
+                    }, 1000);
+                };
+                
+            } catch (error) {
+                console.error('Print error:', error);
+                alert('Failed to generate print report. Please try again.');
+                
+                // Restore button on error
+                const printBtn = $('#printReportBtn');
+                printBtn.prop('disabled', false).html('<i class="bi bi-printer"></i> Print Report');
+            }
+        }
+
+        // Filter Persistence Functions for Reports
+        function isManualRefresh() {
+            // Check if page was manually refreshed (F5 or refresh button)
+            try {
+                // Modern Navigation Timing API
+                const navEntries = performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    return navEntries[0].type === 'reload';
+                }
+                // Legacy API
+                if (performance.navigation && performance.navigation.type !== undefined) {
+                    return performance.navigation.type === 1; // TYPE_RELOAD
+                }
+            } catch (e) {
+                // API not available
+            }
+            // Fallback: check if page was navigated to (not refreshed)
+            // On navigation, the page will be loaded fresh, so we check if we came from another page
+            return !document.referrer || document.referrer.includes(window.location.hostname);
+        }
+
+        function saveReportsFilters() {
+            if (typeof Storage === 'undefined') return;
+            const filters = {
+                dateRange: $('#dateRange').val() || 'today',
+                userFilter: $('#userFilter').val() || 'all',
+                fruitFilter: $('#fruitFilter').val() || 'all',
+                currentReportType: currentReportType || 'sales',
+                startDate: startDate || '',
+                endDate: endDate || ''
+            };
+            localStorage.setItem('reports_filters', JSON.stringify(filters));
+        }
+
+        function loadReportsFilters() {
+            if (typeof Storage === 'undefined') return null;
+            const saved = localStorage.getItem('reports_filters');
+            if (!saved) return null;
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function clearReportsFilters() {
+            if (typeof Storage === 'undefined') return;
+            localStorage.removeItem('reports_filters');
+        }
+
+        function applySavedReportsFilters() {
+            // If manually refreshed, clear filters and use defaults
+            if (isManualRefresh()) {
+                clearReportsFilters();
+                return;
+            }
+            
+            // Otherwise, restore saved filters
+            const saved = loadReportsFilters();
+            if (!saved) return;
+            
+            if (saved.dateRange) $('#dateRange').val(saved.dateRange);
+            if (saved.userFilter) $('#userFilter').val(saved.userFilter);
+            if (saved.fruitFilter) $('#fruitFilter').val(saved.fruitFilter);
+            if (saved.currentReportType) {
+                currentReportType = saved.currentReportType;
+                const tabButton = $(`#reportsTab button[data-bs-target="#${saved.currentReportType}"]`);
+                if (tabButton.length) {
+                    tabButton.tab('show');
+                }
+            }
+            if (saved.startDate) startDate = saved.startDate;
+            if (saved.endDate) endDate = saved.endDate;
         }
 
         $(document).ready(function() {
             console.log('Document ready. Initializing date range and reports.');
+            
+            // Restore saved filters first
+            applySavedReportsFilters();
+            
             updateRangeLabels(); // Initialize date range
-            loadReports(); // Load reports on initial page load
+            
+            // Load reports after filters are restored
+            setTimeout(function() {
+                loadReports();
+            }, 100);
 
             $('#dateRange').on('change', function() {
                 console.log('dateRange changed to:', $(this).val());
+                saveReportsFilters();
                 updateRangeLabels();
                 if ($(this).val() !== 'custom') {
                     loadReports();
                 }
+            });
+
+            $('#userFilter').on('change', function() {
+                console.log('userFilter changed to:', $(this).val());
+                saveReportsFilters();
+                loadReports();
+            });
+
+            $('#fruitFilter').on('change', function() {
+                console.log('fruitFilter changed to:', $(this).val());
+                saveReportsFilters();
+                loadReports();
             });
 
             $('#applyCustomRange').on('click', function() {
@@ -2542,6 +3582,7 @@
                     customEnd = customEndInput;
                     startDate = customStart;
                     endDate = customEnd;
+                    saveReportsFilters();
                     $('#customRangeModal').modal('hide');
                     loadReports();
                 } else {
@@ -2550,6 +3591,7 @@
             });
 
             $('#generateReport').on('click', function() {
+                saveReportsFilters();
                 loadReports();
             });
 
@@ -2557,6 +3599,7 @@
             $('#reportsTab button').on('shown.bs.tab', function (event) {
                 const targetTabId = $(event.target).attr('data-bs-target');
                 currentReportType = targetTabId.replace('#', ''); // e.g., '#sales' -> 'sales'
+                saveReportsFilters();
                 loadReports();
             });
 
@@ -2566,18 +3609,146 @@
 </body>
 
     <!-- Report Details Modal -->
-    <div class="modal fade report-modal" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="reportDetailsModalLabel">Report Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="reportDetailsModalLabel">Transaction Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" id="reportDetailsContent">
-                    <!-- Content will be populated dynamically -->
+                <div class="modal-body">
+                    <div class="transaction-report">
+                        <div class="report-banner">
+                            <div class="banner-title">
+                                <div class="banner-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                                <div>
+                                    <h6 id="reportDetailBannerTitle">Transaction Report</h6>
+                                    <p id="reportDetailBannerDate">Generated -</p>
+                                </div>
+                            </div>
+                            <div class="banner-status">
+                                <span id="reportDetailStatus" class="status-badge status-default">N/A</span>
+                            </div>
+                        </div>
+
+                        <div class="report-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Sale ID</span>
+                                <span class="meta-value" id="reportDetailSaleId">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Transaction No.</span>
+                                <span class="meta-value" id="reportDetailTransactionNo">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">OR No.</span>
+                                <span class="meta-value" id="reportDetailOrNo">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Customer</span>
+                                <span class="meta-value" id="reportDetailCustomer">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Contact</span>
+                                <span class="meta-value" id="reportDetailContact">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Address</span>
+                                <span class="meta-value" id="reportDetailAddress">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Processed By</span>
+                                <span class="meta-value" id="reportDetailProcessedBy">N/A</span>
+                            </div>
+                        </div>
+
+                        <div class="report-cards">
+                            <div class="report-card">
+                                <span>Subtotal</span>
+                                <strong id="reportDetailSubtotal">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Plus 12% VAT</span>
+                                <strong id="reportDetailVat">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Total Amount</span>
+                                <strong id="reportDetailTotal">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Amount Paid</span>
+                                <strong id="reportDetailAmountPaid">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Change</span>
+                                <strong id="reportDetailChange">₱0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="report-table-section">
+                            <h6>Itemized Details</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Description</th>
+                                            <th class="text-end">Qty</th>
+                                            <th class="text-end">Price</th>
+                                            <th class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportDetailItems">
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted">No itemized details available.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="report-table-section">
+                            <h6>Payment Breakdown</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Mode</th>
+                                            <th class="text-end">Reference</th>
+                                            <th class="text-end">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportDetailPayments">
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">No payment breakdown available.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="report-table-section">
+                            <h6>Audit Trail</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th class="text-end">Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportDetailTrail">
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted">No audit trail recorded.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -2592,6 +3763,271 @@
             }
             `)
             .appendTo('head');
+
+        // Sidebar toggle functionality (works on both desktop and mobile)
+        const sidebar = document.querySelector('.sidebar');
+        const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        // Sidebar starts open via HTML; no animation adjustments needed on desktop
+
+        // Enable transitions after initial render
+        requestAnimationFrame(() => {
+        });
+
+        // Burger menu button toggle
+        if (burgerMenuBtn && sidebar) {
+            burgerMenuBtn.addEventListener('click', function() {
+                sidebar.classList.toggle('active');
+                burgerMenuBtn.classList.toggle('active');
+                const mainContent = document.querySelector('.main-content');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: toggle sidebar and adjust main content
+                    if (sidebar.classList.contains('active')) {
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    } else {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
+                } else {
+                    // Mobile: show overlay and prevent body scroll
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('active');
+                    }
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                }
+            });
+        }
+
+        // Close sidebar when clicking overlay (mobile only)
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                    sidebarOverlay.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+
+        // Close sidebar when clicking on navigation links
+        if (sidebar) {
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    const mainContent = document.querySelector('.main-content');
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                        document.body.style.overflow = '';
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
+                });
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const mainContent = document.querySelector('.main-content');
+            if (window.innerWidth > 768) {
+                // Desktop: keep sidebar state but remove mobile-specific styles
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+                if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                    mainContent.classList.add('sidebar-open');
+                } else if (mainContent) {
+                    mainContent.classList.remove('sidebar-open');
+                }
+            } else {
+                // Mobile: remove desktop-specific styles
+                if (mainContent) mainContent.classList.remove('sidebar-open');
+            }
+        });
+
+        // Handle escape key to close sidebar
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                sidebar.classList.remove('active');
+                if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                const mainContent = document.querySelector('.main-content');
+                if (window.innerWidth > 768) {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                } else {
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
+        });
+
+        // Handle logout confirmation
+        document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                // Check if Bootstrap modal is available
+                if (typeof bootstrap !== 'undefined') {
+                    e.preventDefault();
+                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                    logoutModal.show();
+                }
+            });
+        });
+    </script>
+
+    <!-- Sales Summary Details Modal -->
+    <div class="modal fade" id="salesSummaryDetailsModal" tabindex="-1" aria-labelledby="salesSummaryDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="salesSummaryDetailsModalLabel">Sales Summary Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered">
+                        <tr><th style="width: 40%;">Date</th><td id="ssDate">-</td></tr>
+                        <tr><th>Product</th><td id="ssProduct">-</td></tr>
+                        <tr><th>Quantity</th><td id="ssQuantity">-</td></tr>
+                        <tr><th>Boxes Sold</th><td id="ssBoxesSold">-</td></tr>
+                        <tr><th>Unit Price</th><td class="currency" id="ssUnitPrice">-</td></tr>
+                        <tr><th>Unit Cost</th><td class="currency" id="ssUnitCost">-</td></tr>
+                        <tr><th>Revenue</th><td class="currency" id="ssRevenue">-</td></tr>
+                        <tr><th>COGS</th><td class="currency" id="ssCOGS">-</td></tr>
+                        <tr><th>Profit</th><td class="currency" id="ssProfit">-</td></tr>
+                        <tr><th>Gross Margin %</th><td id="ssGrossMargin">-</td></tr>
+                        <tr><th>VAT</th><td class="currency" id="ssVAT">-</td></tr>
+                        <tr><th>Transactions</th><td id="ssTransactions">-</td></tr>
+                        <tr><th>Avg. Transaction</th><td class="currency" id="ssAvgTransaction">-</td></tr>
+                        <tr><th>Sales Growth %</th><td id="ssSalesGrowth">-</td></tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Products Details Modal -->
+    <div class="modal fade" id="topProductsDetailsModal" tabindex="-1" aria-labelledby="topProductsDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="topProductsDetailsModalLabel">Top Product Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered">
+                        <tr><th style="width: 40%;">Rank</th><td id="tpRank">-</td></tr>
+                        <tr><th>Product</th><td id="tpProduct">-</td></tr>
+                        <tr><th>Quantity</th><td id="tpQuantity">-</td></tr>
+                        <tr><th>Boxes Sold</th><td id="tpBoxesSold">-</td></tr>
+                        <tr><th>Avg. Price</th><td class="currency" id="tpAvgPrice">-</td></tr>
+                        <tr><th>Revenue</th><td class="currency" id="tpRevenue">-</td></tr>
+                        <tr><th>Profit Margin %</th><td id="tpProfitMargin">-</td></tr>
+                        <tr><th>Growth %</th><td id="tpGrowth">-</td></tr>
+                        <tr><th>Market Share %</th><td id="tpMarketShare">-</td></tr>
+                        <tr><th>Units Δ</th><td id="tpUnitsChange">-</td></tr>
+                        <tr><th>Inventory Turnover</th><td id="tpInventoryTurnover">-</td></tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Details Modal -->
+    <div class="modal fade" id="lowStockDetailsModal" tabindex="-1" aria-labelledby="lowStockDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="lowStockDetailsModalLabel">Low Stock Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-bordered">
+                        <tr><th style="width: 40%;">Product</th><td id="lsProduct">-</td></tr>
+                        <tr><th>Quantity</th><td id="lsQuantity">-</td></tr>
+                        <tr><th>Current Stock</th><td id="lsCurrentStock">-</td></tr>
+                        <tr><th>Stock Value</th><td class="currency" id="lsStockValue">-</td></tr>
+                        <tr><th>Avg. Daily Sales</th><td id="lsAvgDailySales">-</td></tr>
+                        <tr><th>Days of Supply</th><td id="lsDaysSupply">-</td></tr>
+                        <tr><th>Reorder Point</th><td id="lsReorderPoint">-</td></tr>
+                        <tr><th>Reorder Qty</th><td id="lsReorderQty">-</td></tr>
+                        <tr><th>Lead Time (Days)</th><td id="lsLeadTime">-</td></tr>
+                        <tr><th>Last Sale</th><td id="lsLastSale">-</td></tr>
+                        <tr><th>Status</th><td id="lsStatus">-</td></tr>
+                        <tr><th>Action Required</th><td id="lsActionRequired">-</td></tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fallback: define enhanceMobileTables locally if not provided by base template
+        if (!window.enhanceMobileTables) {
+            window.enhanceMobileTables = function() {
+                try {
+                    var isMobile = window.matchMedia('(max-width: 768px)').matches;
+                    if (!isMobile) return;
+                    document.querySelectorAll('table.table-mobile-card').forEach(function(table) {
+                        var headerCells = table.querySelectorAll('thead th');
+                        if (!headerCells || headerCells.length === 0) return;
+                        var labels = Array.from(headerCells).map(function(th){ return (th.textContent||'').trim(); });
+                        table.querySelectorAll('tbody tr').forEach(function(row){
+                            row.querySelectorAll('td').forEach(function(td, idx){
+                                if (!td.hasAttribute('data-label') && labels[idx]) td.setAttribute('data-label', labels[idx]);
+                            });
+                        });
+                    });
+                } catch(e) { /* no-op */ }
+            };
+            window.addEventListener('resize', window.enhanceMobileTables);
+            window.addEventListener('orientationchange', window.enhanceMobileTables);
+        }
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){ if (window.enhanceMobileTables) { window.enhanceMobileTables(); } });
     </script>
 </body>
 </html> 

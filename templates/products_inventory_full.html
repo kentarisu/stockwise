@@ -39,8 +39,17 @@
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
-            --sidebar-width: 280px;
-            --header-height: 80px;
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -54,9 +63,15 @@
             box-sizing: border-box;
         }
 
+        html {
+            font-size: 14px;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
@@ -74,67 +89,111 @@
             backdrop-filter: blur(20px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
-            height: 100vh;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: none;
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             text-decoration: none;
             color: white;
+            flex: 1;
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-sm) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .nav-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--gray-400);
-            padding: 0 1.5rem;
-            margin-bottom: 0.75rem;
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
         }
 
         .nav-item {
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--space-2xs);
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: var(--space-sm);
             color: var(--gray-600);
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
         }
@@ -151,9 +210,9 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
             text-align: center;
         }
 
@@ -161,47 +220,132 @@
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
-            min-height: 100vh;
+            margin-top: var(--header-height);
+            min-height: calc(100vh - var(--header-height));
             background: var(--gray-50);
         }
 
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
+        }
+
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+            background: white;
+            min-height: var(--header-height);
             border-bottom: 1px solid var(--gray-200);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1001;
             box-shadow: var(--shadow-sm);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex: 1;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
         .header-left h1 {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
+            line-height: 1.25;
         }
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: var(--space-sm);
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             border: 2px solid var(--primary-light);
             cursor: pointer;
@@ -213,19 +357,29 @@
             transform: scale(1.05);
         }
 
+        /* Burger Menu Button - Now in sidebar header, styled above */
+
         /* Content Area */
         .content-area {
-            padding: 2rem;
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
         }
 
-        /* Modern Cards */
+        /* Modern Cards - Matching other pages */
         .modern-card {
             background: white;
-            border-radius: 16px;
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
             transition: all 0.3s ease;
             overflow: hidden;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
         }
 
         .modern-card:hover {
@@ -235,74 +389,62 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
         }
 
         .stat-card {
             background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            transition: all 0.2s ease;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            text-align: center;
-            min-height: 140px;
+            gap: var(--space-sm);
         }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-        }
-
-        .stat-card.primary::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
-        .stat-card.success::before { background: linear-gradient(90deg, var(--success), #059669); }
-        .stat-card.warning::before { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .stat-card.danger::before { background: linear-gradient(90deg, var(--danger), #dc2626); }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
         .stat-icon {
-            width: 3rem;
-            height: 3rem;
-            border-radius: 12px;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-            margin-bottom: 1rem;
+            font-size: 1.1rem;
         }
 
         .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
         .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
         .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
         .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
+        .stat-icon.info { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .stat-icon.secondary { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .stat-icon.dark { background: linear-gradient(135deg, var(--gray-700), var(--gray-800)); }
+
+        .stat-content {
+            flex: 1;
+            min-width: 0;
+        }
 
         .stat-value {
-            font-size: 2rem;
+            font-size: 1.25rem;
             font-weight: 700;
             color: var(--gray-900);
-            line-height: 1;
-            margin-bottom: 0.5rem;
+            line-height: 1.2;
+            margin-bottom: 0.25rem;
         }
 
         .stat-label {
             color: var(--gray-500);
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -361,7 +503,7 @@
 
         .filters-row {
             display: grid;
-            grid-template-columns: 1fr 200px 120px;
+            grid-template-columns: 1fr 200px 200px 200px auto;
             gap: 1rem;
             align-items: end;
         }
@@ -412,6 +554,21 @@
             padding-left: 2.5rem;
         }
 
+        .quantity-unit-group .form-select {
+            flex: 0 0 130px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 576px) {
+            .quantity-unit-group {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .quantity-unit-group .form-select {
+                flex: 0 0 100%;
+            }
+        }
+
         /* Table */
         .table-card {
             background: white;
@@ -423,16 +580,27 @@
         }
 
         .table-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--gray-100);
             background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .table-title {
-            font-size: 1.25rem;
+            font-size: 1rem;
             font-weight: 600;
-            color: var(--gray-900);
+            color: var(--gray-700);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-title i {
+            color: var(--primary);
+            font-size: 1.125rem;
         }
 
         .table {
@@ -531,6 +699,91 @@
         .stock-dot.medium { background: var(--warning); }
         .stock-dot.low { background: var(--danger); }
 
+        /* Stock Details Link - Make it more obvious */
+        .stock-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            border: 1px solid var(--primary);
+        }
+
+        .stock-link:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stock-link i {
+            font-size: 0.875rem;
+        }
+
+        /* Pagination - Matching Stock Details */
+        .pagination-container {
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .pagination .page-link {
+            color: var(--primary);
+            border-color: var(--gray-300);
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--gray-400);
+            pointer-events: none;
+            background-color: var(--gray-50);
+            border-color: var(--gray-200);
+        }
+
+        .pagination .page-link:hover:not(.disabled) {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pagination-container .d-flex {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 1rem;
+            }
+
+            .pagination-info {
+                text-align: center;
+            }
+
+            .pagination {
+                justify-content: center;
+            }
+        }
+
         /* Action Buttons in Table */
         .btn-group .btn {
             padding: 0.375rem 0.75rem;
@@ -626,11 +879,37 @@
             background: var(--primary);
         }
 
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 280px;
+                --header-height: 90px;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px;
+                width: var(--sidebar-width);
+                max-width: 85vw;
             }
 
             .sidebar.active {
@@ -639,17 +918,84 @@
 
             .main-content {
                 margin-left: 0;
+                margin-top: var(--header-height);
             }
 
             .header {
-                padding: 0 1rem;
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left {
+                gap: 0.75rem;
+            }
+
+            .header-brand span {
+                display: none;
+            }
+
+            .header-title-section {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                gap: 0.75rem;
+                flex-wrap: wrap;
+            }
+
+            /* Burger Menu Button - Show on Mobile */
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.875rem !important;
+                height: 0.875rem !important;
+            }
+
+            .header-left {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+                gap: 0.5rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                flex: 1;
+                min-width: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                flex-shrink: 0;
             }
 
             /* Mobile menu toggle button - SHOW ON MOBILE */
             #mobileMenuToggle {
                 display: flex !important;
-                background: #007bff !important;
-                border: 2px solid #000000 !important;
+                background: var(--primary) !important;
+                border: 2px solid var(--gray-900) !important;
                 color: #ffffff !important;
                 min-width: 44px !important;
                 min-height: 44px !important;
@@ -659,6 +1005,15 @@
 
             .content-area {
                 padding: 1rem;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Cards - Mobile */
+            .card-modern, .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 12px;
             }
 
             .stats-grid {
@@ -667,8 +1022,8 @@
             }
 
             .stat-card {
-                padding: 1rem;
-                min-height: 120px;
+                padding: 1rem 0.75rem;
+                min-height: auto;
             }
 
             .stat-icon {
@@ -687,22 +1042,133 @@
             }
 
             .filters-row {
-                grid-template-columns: 1fr;
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .filters-row .form-group {
+                width: 100%;
             }
 
             .action-buttons {
                 flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .action-buttons .btn-modern,
+            .action-buttons .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .table-responsive {
+                margin: 0 -1rem;
+                padding: 0 1rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .table {
+                font-size: 0.8125rem;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.625rem 0.5rem;
             }
 
             .nav-tabs {
                 flex-wrap: wrap;
+                border-bottom: 2px solid var(--gray-200);
             }
 
             .nav-tabs .nav-link {
                 font-size: 0.875rem;
-                padding: 0.5rem 0.75rem;
-                margin-right: 0.25rem;
-                margin-bottom: 0.25rem;
+                padding: 0.75rem 1rem;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Buttons - Mobile */
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 20px;
+                font-size: 15px;
+                border-radius: 10px;
+            }
+
+            /* Forms - Mobile */
+            .form-control, .form-select {
+                min-height: 44px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+
+            /* Modals - Mobile */
+            .modal-dialog {
+                margin: 0.75rem;
+                max-width: calc(100vw - 1.5rem);
+            }
+
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --content-padding: 0.75rem;
+                --header-height: 80px;
+            }
+
+            .header {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.625rem;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .table {
+                font-size: 0.75rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.5rem 0.375rem;
+            }
+
+            .btn-modern, .btn {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100vw - 1rem);
             }
         }
 
@@ -1001,37 +1467,262 @@
             }
         }
     </style>
+    <style>
+        /* Local mobile card overrides (standalone page) */
+        @media (max-width: 768px) {
+            .content-area table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
+            .content-area table.table-mobile-card thead { display: none !important; }
+            .content-area table.table-mobile-card tbody { display: block !important; }
+            .content-area table.table-mobile-card tr { display: block !important; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            .content-area table.table-mobile-card td { display: flex !important; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0 !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important; white-space: normal !important; color: #111827 !important; }
+            .content-area table.table-mobile-card td:last-child { border-bottom: none !important; }
+            .content-area table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
+        }
+    </style>
+    <style>
+        .modern-card .card-body {
+            padding: 2rem;
+        }
+
+        .modern-card .table > :not(caption) > * > * {
+            padding: 0.75rem;
+        }
+
+        /* Unified sizing overrides */
+        :root {
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
+        }
+
+        html {
+            font-size: 14px;
+        }
+
+        body {
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .header {
+            padding: var(--space-sm) var(--space-xl);
+            min-height: var(--header-height);
+        }
+
+        .header-left {
+            gap: var(--space-sm);
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+        }
+
+        .header-right {
+            gap: var(--space-sm);
+        }
+
+        .user-avatar {
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            transition: none;
+        }
+
+        .sidebar .nav-section-title {
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+        }
+
+        .sidebar .nav-link {
+            padding: var(--space-sm);
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1.1rem;
+        }
+
+        .main-content,
+        .main-content.sidebar-open {
+            margin-left: var(--sidebar-width);
+            padding: var(--space-lg);
+            min-height: calc(100vh - var(--header-height));
+            transition: none;
+        }
+
+        .main-content:not(.sidebar-open) {
+            margin-left: 64px;
+        }
+
+        .content-area {
+            max-width: var(--layout-max-width);
+            padding: var(--space-lg);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .stat-card {
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            gap: var(--space-sm);
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+        }
+
+        .stat-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+        }
+
+        .modern-card,
+        .card,
+        .summary-card,
+        .profile-card,
+        .table-card,
+        .settings-card,
+        .analytics-card,
+        .dashboard-section,
+        section {
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+
+        .modern-card .card-header,
+        .card .card-header {
+            padding: 0 0 var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .modern-card .card-body,
+        .card .card-body {
+            padding: 0;
+        }
+
+        table {
+            font-size: 0.82rem;
+        }
+
+        table thead th,
+        table tbody td {
+            padding: 0.65rem 0.75rem;
+        }
+
+        .form-control,
+        .form-select,
+        .input-group-text {
+            border-radius: 10px;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            border-radius: 10px;
+            padding: 0.55rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .action-buttons {
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .header-title-section {
+            gap: var(--space-2xs);
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand">
+        <!-- Unified Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand">
                     <i class="bi bi-basket-fill"></i>
-                    StockWise
+                    <span>StockWise</span>
                 </a>
+                <div class="header-title-section">
+                    <h1>Inventory Management</h1>
+                    <p class="header-subtitle">Manage your product inventory and track stock levels</p>
             </div>
-            
+            </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active">
             <div class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Main</div>
                     <div class="nav-item">
                         <a href="{% url 'dashboard' %}" class="nav-link">
                             <i class="bi bi-speedometer2"></i>
-                            Dashboard
+                            <span>Dashboard</span>
                         </a>
                     </div>
                     <div class="nav-item">
                         <a href="{% url 'products_inventory' %}" class="nav-link active">
                             <i class="bi bi-basket"></i>
-                            Inventory
+                            <span>Inventory</span>
                         </a>
                     </div>
                     <div class="nav-item">
                         <a href="{% url 'sales' %}" class="nav-link">
                             <i class="bi bi-cart"></i>
-                            Sales
+                            <span>Sales</span>
                         </a>
                     </div>
                 </div>
@@ -1042,7 +1733,7 @@
                     <div class="nav-item">
                         <a href="{% url 'reports' %}" class="nav-link">
                             <i class="bi bi-graph-up"></i>
-                            Reports
+                            <span>Reports</span>
                         </a>
                     </div>
                 </div>
@@ -1050,24 +1741,24 @@
 
                 <div class="nav-section">
                     <div class="nav-section-title">Account</div>
-                    <div class="nav-item">
-                        <a href="{% url 'profile' %}" class="nav-link">
-                            <i class="bi bi-person"></i>
-                            Profile
-                        </a>
-                    </div>
                     {% if app_role == 'admin' %}
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            SMS Settings
+                            <span>SMS Settings</span>
                         </a>
                     </div>
                     {% endif %}
                     <div class="nav-item">
-                        <a href="{% url 'logout' %}" class="nav-link">
+                        <a href="{% url 'profile' %}" class="nav-link">
+                            <i class="bi bi-person"></i>
+                            <span>Profile</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'logout' %}" class="nav-link logout-link">
                             <i class="bi bi-box-arrow-right"></i>
-                            Logout
+                            <span>Logout</span>
                         </a>
                     </div>
                 </div>
@@ -1075,60 +1766,50 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header class="header">
-                <div class="header-left">
-                    <h1>Inventory Management</h1>
-                    <p class="header-subtitle">Manage your product inventory and track stock levels</p>
-                </div>
-                <div class="header-right">
-                    <!-- Mobile Menu Toggle Button -->
-                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
-                    <div class="dropdown">
-                        <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+        <main class="main-content sidebar-open">
 
             <div class="content-area">
                 <!-- Stats Grid -->
                 <div class="stats-grid">
-                    <div class="stat-card primary">
+                    <div class="stat-card">
                         <div class="stat-icon primary">
                             <i class="bi bi-box-seam"></i>
                         </div>
-                        <div class="stat-value">{{ total_products }}</div>
-                        <div class="stat-label">Total Boxes</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ total_products }}</div>
+                            <div class="stat-label">Total Boxes</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total number of product boxes</div>
+                        </div>
                     </div>
-                    <div class="stat-card success">
+                    <div class="stat-card">
                         <div class="stat-icon success">
                             <i class="bi bi-check-circle"></i>
                         </div>
-                        <div class="stat-value">{{ active_products }}</div>
-                        <div class="stat-label">Active Products</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ active_products }}</div>
+                            <div class="stat-label">Active Products</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products currently active</div>
+                        </div>
                     </div>
-                    <div class="stat-card warning">
+                    <div class="stat-card">
                         <div class="stat-icon warning">
                             <i class="bi bi-boxes"></i>
                         </div>
-                        <div class="stat-value">{{ total_stock }}</div>
-                        <div class="stat-label">Total Stock</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ total_stock }}</div>
+                            <div class="stat-label">Total Stock</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity in stock</div>
+                        </div>
                     </div>
-                    <div class="stat-card danger">
+                    <div class="stat-card">
                         <div class="stat-icon danger">
                             <i class="bi bi-exclamation-triangle"></i>
                         </div>
-                        <div class="stat-value">{{ restock_alerts }}</div>
-                        <div class="stat-label">Restock Alerts</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ restock_alerts }}</div>
+                            <div class="stat-label">Restock Alerts</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products needing restock</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1167,7 +1848,25 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <button type="button" class="btn-modern primary" id="refreshTable" aria-label="Refresh table">
+                            <label class="form-label">Products</label>
+                            <select class="form-select" id="fruitFilter">
+                                <option value="all">All Products</option>
+                                {% for fruit in fruits %}
+                                <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Supplier</label>
+                            <select class="form-select" id="supplierFilter">
+                                <option value="all">All Suppliers</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier }}" {% if supplier_filter == supplier %}selected{% endif %}>{{ supplier }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group" style="align-self: end;">
+                            <button type="button" class="btn-modern primary" id="refreshTable" aria-label="Refresh table" style="width: fit-content;">
                                 <i class="bi bi-arrow-clockwise"></i>
                                 <span class="d-none d-md-inline">Refresh</span>
                             </button>
@@ -1199,7 +1898,7 @@
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
-                                            <th>Size</th>
+                                            <th>Quantity</th>
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
@@ -1210,6 +1909,7 @@
                                         <!-- Filled by JavaScript -->
                                     </tbody>
                                 </table>
+                                <div id="pagination-allProductsTable" class="mt-3"></div>
                             </div>
                         </div>
 
@@ -1222,7 +1922,7 @@
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
-                                            <th>Size</th>
+                                            <th>Quantity</th>
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
@@ -1236,18 +1936,19 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                                <div id="pagination-lowStockTable" class="mt-3"></div>
                             </div>
                         </div>
 
                         <div class="tab-pane fade" id="out-of-stock" role="tabpanel" aria-labelledby="out-of-stock-tab">
-                            <div class="table-responsive">
-                                <table class="table" id="outOfStockTable">
+                            <div class="table-responsive table-responsive-wrapper">
+                                <table class="table table-mobile-card" id="outOfStockTable">
                                     <thead>
                                         <tr>
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
-                                            <th>Size</th>
+                                            <th>Quantity</th>
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
@@ -1261,6 +1962,7 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                                <div id="pagination-outOfStockTable" class="mt-3"></div>
                             </div>
                         </div>
                     </div>
@@ -1352,7 +2054,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="productModalLabel">Add New Fruit</h5>
+                    <h5 class="modal-title" id="productModalLabel">Add New Product</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -1362,7 +2064,7 @@
                         <input type="hidden" id="productId" name="productId">
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="productName" class="form-label">Fruit Name</label>
+                                <label for="productName" class="form-label">Product Name</label>
                                 <input type="text" class="form-control" id="productName" name="productName" required>
                             </div>
                             <div class="col-md-6">
@@ -1372,11 +2074,17 @@
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="size" class="form-label">Size/Weight</label>
-                                <input type="text" class="form-control" id="size" name="size" required placeholder="e.g., Large, 1kg, 500g">
+                                <label for="size" class="form-label">Quantity</label>
+                                <div class="input-group quantity-unit-group">
+                                    <input type="text" class="form-control" id="size" name="size" required placeholder="Enter quantity">
+                                    <select class="form-select" id="quantityUnit" name="quantity_unit" aria-label="Quantity unit">
+                                        <option value="box" selected>Box</option>
+                                        <option value="kilo">Kilo</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="initialStock" class="form-label">Initial Stock</label>
+                                <label for="initialStock" class="form-label">Initial Stock (Per box/kilo)</label>
                                 <input type="number" class="form-control" id="initialStock" name="initialStock" min="0" required>
                             </div>
                         </div>
@@ -1399,7 +2107,7 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label for="dateAdded" class="form-label">Date Added</label>
-                                <input type="date" class="form-control" id="dateAdded" name="dateAdded" required>
+                                <input type="date" class="form-control" id="dateAdded" name="dateAdded" required readonly title="Set to today and cannot be changed">
                             </div>
                             <div class="col-md-6">
                                 <label for="status" class="form-label">Status</label>
@@ -1410,7 +2118,7 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label for="productImage" class="form-label">Fruit Image (Optional)</label>
+                            <label for="productImage" class="form-label">Product Image (Optional)</label>
                             <input type="file" class="form-control w-auto" style="max-width: 400px;" id="productImage" name="productImage" accept="image/jpeg,image/png" aria-describedby="productImageFeedback" title="Upload an image (JPG/PNG, max 2MB)">
                             <div id="productImageFeedback" class="invalid-feedback">Please upload a valid image (JPG/PNG, max 2MB).</div>
                         </div>
@@ -1491,6 +2199,12 @@
         let saleItems = [];
         let products = [];
 
+        // Currency formatter
+        const formatCurrency = (value) => {
+            const num = Number(value || 0);
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
         // Alert function
         function showAlert(message, type) {
             const alertHtml = `
@@ -1564,15 +2278,109 @@
             });
         }
 
+        // Filter Persistence Functions
+        function isManualRefresh() {
+            // Check if page was manually refreshed (F5 or refresh button)
+            try {
+                // Modern Navigation Timing API
+                const navEntries = performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    return navEntries[0].type === 'reload';
+                }
+                // Legacy API
+                if (performance.navigation && performance.navigation.type !== undefined) {
+                    return performance.navigation.type === 1; // TYPE_RELOAD
+                }
+            } catch (e) {
+                // API not available
+            }
+            // Fallback: check if page was navigated to (not refreshed)
+            // On navigation, the page will be loaded fresh, so we check if we came from another page
+            return !document.referrer || document.referrer.includes(window.location.hostname);
+        }
+
+        function saveFilters() {
+            if (typeof Storage === 'undefined') return;
+            const filters = {
+                searchInput: $('#searchInput').val() || '',
+                filterSelect: $('#filterSelect').val() || 'all',
+                fruitFilter: $('#fruitFilter').val() || 'all',
+                supplierFilter: $('#supplierFilter').val() || 'all',
+                activeTab: document.querySelector('.nav-link.active')?.id || 'all-products-tab'
+            };
+            localStorage.setItem('inventory_filters', JSON.stringify(filters));
+        }
+
+        function loadFilters() {
+            if (typeof Storage === 'undefined') return null;
+            const saved = localStorage.getItem('inventory_filters');
+            if (!saved) return null;
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function clearFilters() {
+            if (typeof Storage === 'undefined') return;
+            localStorage.removeItem('inventory_filters');
+        }
+
+        function applySavedFilters() {
+            // If manually refreshed, clear filters and use defaults
+            if (isManualRefresh()) {
+                clearFilters();
+                return;
+            }
+            
+            // Otherwise, restore saved filters
+            const saved = loadFilters();
+            if (!saved) return;
+            
+            if (saved.searchInput) $('#searchInput').val(saved.searchInput);
+            if (saved.filterSelect) $('#filterSelect').val(saved.filterSelect);
+            if (saved.fruitFilter) $('#fruitFilter').val(saved.fruitFilter);
+            if (saved.supplierFilter) $('#supplierFilter').val(saved.supplierFilter);
+            if (saved.activeTab) {
+                const tabElement = document.getElementById(saved.activeTab);
+                if (tabElement) {
+                    const tab = new bootstrap.Tab(tabElement);
+                    tab.show();
+                }
+            }
+        }
+
         // Load products on page load
         $(document).ready(function() {
             console.log('Document ready - starting product loading...');
-            loadProducts('allProductsTable', 'all');
-            loadActiveProducts();
+            
             setupEventHandlers();
             initMobileOptimizations();
             $('#addStockForm [name="date_added"]').val(new Date().toISOString().split('T')[0]);
-
+            
+            // Restore saved filters after handlers are set up
+            applySavedFilters();
+            
+            // Load products after filters are restored
+            setTimeout(function() {
+                const activeTab = document.querySelector('.nav-link.active');
+                const tabId = activeTab?.id || 'all-products-tab';
+                switch(tabId) {
+                    case 'all-products-tab': 
+                        loadProducts('allProductsTable', 'all'); 
+                        break;
+                    case 'low-stock-tab': 
+                        loadProducts('lowStockTable', 'Low Stock'); 
+                        break;
+                    case 'out-of-stock-tab': 
+                        loadProducts('outOfStockTable', 'Out of Stock'); 
+                        break;
+                    default: 
+                        loadProducts('allProductsTable', 'all');
+                }
+                loadActiveProducts();
+            }, 100);
 
             console.log('Document ready - all initialization complete');
         });
@@ -1581,15 +2389,38 @@
 
 
         function setupEventHandlers() {
-            // Search and filter
-            $('#searchInput').on('input', loadCurrentTab);
-            $('#filterSelect').on('change', loadCurrentTab);
+            // Search and filter - save on change
+            $('#searchInput').on('input', function() {
+                saveFilters();
+                loadCurrentTab();
+            });
+            $('#filterSelect').on('change', function() {
+                saveFilters();
+                loadCurrentTab();
+            });
+            $('#fruitFilter').on('change', function() {
+                saveFilters();
+                loadCurrentTab();
+            });
+            $('#supplierFilter').on('change', function() {
+                saveFilters();
+                loadCurrentTab();
+            });
             $('#refreshTable').on('click', loadCurrentTab);
 
-            // Tab event listeners
-            $('#all-products-tab').on('shown.bs.tab', () => loadProducts('allProductsTable', 'all'));
-            $('#low-stock-tab').on('shown.bs.tab', () => loadProducts('lowStockTable', 'Low Stock'));
-            $('#out-of-stock-tab').on('shown.bs.tab', () => loadProducts('outOfStockTable', 'Out of Stock'));
+            // Tab event listeners - save tab on change
+            $('#all-products-tab').on('shown.bs.tab', function() {
+                saveFilters();
+                loadProducts('allProductsTable', 'all');
+            });
+            $('#low-stock-tab').on('shown.bs.tab', function() {
+                saveFilters();
+                loadProducts('lowStockTable', 'Low Stock');
+            });
+            $('#out-of-stock-tab').on('shown.bs.tab', function() {
+                saveFilters();
+                loadProducts('outOfStockTable', 'Out of Stock');
+            });
 
             function loadCurrentTab() {
                 const activeTab = document.querySelector('.nav-link.active');
@@ -1618,49 +2449,57 @@
                 $('#formAction').val('add');
                 $('#productId').val('');
                 $('#productModalLabel').text('Add New Fruit');
-                $('#saveProductBtn').text('Add Fruit').attr('title', 'Save the fruit details');
+                $('#productModalLabel').text('Add New Product');
+                $('#saveProductBtn').text('Add Product').attr('title', 'Save the product details');
                 $('#productFormAlert').empty();
                 
-                // Set today's date as default
-                $('#dateAdded').val(new Date().toISOString().split('T')[0]);
+                // Set today's date as default and lock it
+                $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
             });
 
-            // Handle Edit button from dropdown
-            $(document).on('click', '.edit-btn', function() {
+            // Handle Edit button from dropdown (use table row data to populate main modal)
+            $(document).on('click', '.edit-btn', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const productId = $(this).data('id');
-                // Find the product in the products array and populate the form
-                const product = products.find(p => p.product_id == productId);
-                if (product) {
-                    // Parse name and variant
-                    let productName = product.name;
-                    let variant = '';
-                    if (productName.includes('(') && productName.includes(')')) {
-                        const match = productName.match(/^(.*?)\s*\((.*?)\)$/);
-                        if (match) {
-                            productName = match[1].trim();
-                            variant = match[2].trim();
-                        }
+                const row = $(this).closest('tr');
+                const nameText = row.find('td').eq(1).text().trim();
+                const variantText = row.find('td').eq(2).text().trim();
+                const sizeText = row.find('td').eq(3).text().trim();
+                const priceText = row.find('td').eq(4).text().trim().replace('₱','').replace(',','');
+                const statusText = row.find('td').eq(6).text().trim();
+
+                // Parse name and variant if embedded
+                let productName = nameText;
+                let variant = variantText;
+                if (!variant && /\(.*\)/.test(nameText)) {
+                    const m = nameText.match(/^(.*?)\s*\((.*?)\)$/);
+                    if (m) { productName = m[1].trim(); variant = m[2].trim(); }
                     }
                     
-                    // Set edit mode
+                // Set edit state and texts
                     $('#formAction').val('edit');
                     $('#productId').val(productId);
-                    $('#productModalLabel').text('Edit Fruit');
-                    $('#saveProductBtn').text('Save Changes').attr('title', 'Save the fruit details');
+                $('#productModalLabel').text('Edit Product');
+                $('#saveProductBtn').text('Save Changes').attr('title', 'Save the product details');
                     
-                    // Populate form fields
+                // Fill fields
                     $('#productName').val(productName);
-                    $('#variant').val(variant);
-                    $('#size').val(product.size);
-                    $('#cost').val(product.cost || 0);
-                    $('#price').val(product.price);
-                    $('#initialStock').val(product.stock || 0);
-                    $('#status').val(product.status);
-                    $('#dateAdded').val(product.date_added || new Date().toISOString().split('T')[0]);
-                    $('#productImage').val(''); // Clear file input
-                    
+                $('#variant').val(variant || '');
+                $('#size').val(sizeText || '');
+                $('#price').val(priceText || 0);
+                $('#status').val(statusText);
+                // Unit detect
+                const detectedUnit = (sizeText || '').toLowerCase().includes('kilo') ? 'kilo' : 'box';
+                $('#quantityUnit').val(detectedUnit);
+                $('#productSizeUnit').val(detectedUnit);
+                // Lock date to today
+                $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
                     $('#productFormAlert').empty();
-                }
+                $('#productImage').val('');
+
+                // Show main modal
+                $('#productModal').modal('show');
             });
 
             // Handle save button click
@@ -1760,7 +2599,7 @@
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
                             const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
-                            const price = $opt.data('price') ? ` - ₱${parseFloat($opt.data('price')).toFixed(2)}` : '';
+                            const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                             const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : '';
                             return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
                         },
@@ -1770,7 +2609,7 @@
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
                             const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
-                            const price = $opt.data('price') ? ` - ₱${parseFloat($opt.data('price')).toFixed(2)}` : '';
+                            const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                             return `${name}${variant}${size}${price}`;
                         }
                     });
@@ -1902,7 +2741,7 @@
                                 const name = $opt.data('name') || '';
                                 const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
                                 const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
-                                const price = $opt.data('price') ? ` - ₱${parseFloat($opt.data('price')).toFixed(2)}` : '';
+                                const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                                 const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : '';
                                 return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
                             },
@@ -1912,7 +2751,7 @@
                                 const name = $opt.data('name') || '';
                                 const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
                                 const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
-                                const price = $opt.data('price') ? ` - ₱${parseFloat($opt.data('price')).toFixed(2)}` : '';
+                                const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                                 return `${name}${variant}${size}${price}`;
                             }
                         });
@@ -2266,14 +3105,146 @@
             });
         }
 
+        // Inventory pagination state and helpers
+        const invPagination = { currentPage: {}, perPage: 10, totalPages: {} };
+        function invSlice(arr, page){ const s=(page-1)*invPagination.perPage; return arr.slice(s, s+invPagination.perPage); }
+        function invUpdateControls(totalItems, tableId){
+            const container = document.querySelector(`#pagination-${tableId}`);
+            if(!container) return;
+            const current = invPagination.currentPage[tableId] || 1;
+            const pages = Math.max(1, Math.ceil((totalItems||0)/invPagination.perPage));
+            invPagination.totalPages[tableId] = pages;
+            const hasPrevious = current > 1;
+            const hasNext = current < pages;
+            const startNumber = ((current - 1) * invPagination.perPage) + 1;
+            const endNumber = Math.min(startNumber + invPagination.perPage - 1, totalItems);
+            const itemType = tableId.includes('low') ? 'products' : tableId.includes('out') ? 'products' : 'products';
+            
+            let html = '';
+            if(pages > 1 || totalItems > 0) {
+                html = `<div class="pagination-container mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="pagination-info">
+                            <span class="text-muted">Showing ${startNumber} to ${endNumber} of ${totalItems} ${itemType}</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-table="${tableId}" data-page="1" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-table="${tableId}" data-page="${current - 1}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-left"></i> Previous
+                                    </a>
+                                </li>`;
+                
+                // Show up to 5 page numbers
+                const pageNumbers = [];
+                if(pages <= 5) {
+                    for(let i = 1; i <= pages; i++) pageNumbers.push(i);
+                } else if(current <= 3) {
+                    for(let i = 1; i <= 5; i++) pageNumbers.push(i);
+                } else if(current >= pages - 2) {
+                    for(let i = pages - 4; i <= pages; i++) pageNumbers.push(i);
+                } else {
+                    for(let i = current - 2; i <= current + 2; i++) pageNumbers.push(i);
+                }
+                
+                pageNumbers.forEach(pageNum => {
+                    html += `<li class="page-item ${pageNum === current ? 'active' : ''}">
+                        <a class="page-link" href="#" data-table="${tableId}" data-page="${pageNum}">${pageNum}</a>
+                    </li>`;
+                });
+                
+                html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-table="${tableId}" data-page="${current + 1}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-table="${tableId}" data-page="${pages}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>`;
+            }
+            container.innerHTML = html;
+            container.querySelectorAll('a.page-link').forEach(a=>{
+                a.addEventListener('click',(e)=>{
+                    e.preventDefault();
+                    // Skip if parent is disabled
+                    if(a.closest('.page-item.disabled')) return;
+                    const p = parseInt(a.dataset.page,10);
+                    if(!p || p<1 || p>invPagination.totalPages[tableId]) return;
+                    invPagination.currentPage[tableId]=p;
+                    const all = window[`${tableId}_data`]||[];
+                    renderProductsTableForPage(all, tableId);
+                });
+            });
+        }
+
+        function renderProductsTableForPage(data, tableId){
+            const $tbody = $(`#${tableId} tbody`).empty();
+            if(!data || !data.length){
+                $tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                invUpdateControls(0, tableId);
+                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+                return;
+            }
+            const page = invPagination.currentPage[tableId] || 1;
+            const rows = invSlice(data, page);
+            rows.forEach((product)=>{
+                const row = $('<tr>');
+                row.append(`<td>${product.product_id}</td>`);
+                let productName = product.name; let variant = product.variant || '-';
+                const m = productName && productName.match(/^(.+?)\s*\(([^)]+)\)$/);
+                if(m){ productName = m[1].trim(); variant = m[2].trim(); }
+                row.append(`<td>${productName}</td>`);
+                row.append(`<td>${variant}</td>`);
+                row.append(`<td>${product.size||''}</td>`);
+                row.append(`<td>₱${formatCurrency(product.price)}</td>`);
+                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
+                const stockValue = parseInt(product.stock)||0;
+                row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                const statusLower = (product.status || '').toLowerCase();
+                const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
+                const statusDisplay = product.status || 'N/A';
+                row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
+                let optionsHtml = `
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                            <i class="bi bi-three-dots-vertical"></i>
+                            <span class="visually-hidden">More options for ${product.name}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
+                            <li><button class="dropdown-item discontinue-btn ${product.status==='Discontinued'?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${product.status==='Discontinued'?'Continue this product':'Discontinue this product'}"><i class="bi bi-${product.status==='Discontinued'?'arrow-counterclockwise':'x-circle'} me-2"></i> ${product.status==='Discontinued'?'Continue':'Discontinue'}</button></li>
+                        </ul>
+                    </div>`;
+                row.append(`<td>${optionsHtml}</td>`);
+                $tbody.append(row);
+            });
+            invUpdateControls(data.length, tableId);
+            if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+        }
+
         function loadProducts(tableId = 'allProductsTable', filter = 'all') {
             const search = $('#searchInput').val();
             const currentFilter = $('#filterSelect').val();
-            console.log('Loading products for table:', tableId, 'with filter:', filter, 'search:', search);
+            const supplierFilter = $('#supplierFilter').val() || 'all';
+            const fruitFilter = $('#fruitFilter').val() || 'all';
+            console.log('Loading products for table:', tableId, 'with filter:', filter, 'search:', search, 'supplier:', supplierFilter, 'fruit:', fruitFilter);
             
             fetch("{% url 'fetch_products' %}?" + new URLSearchParams({
                 search: search || '',
-                filter: filter === 'all' ? (currentFilter || 'All Products') : filter
+                filter: filter === 'all' ? (currentFilter || 'All Products') : filter,
+                supplier: supplierFilter,
+                fruit: fruitFilter
             }))
             .then(response => response.json())
             .then(response => {
@@ -2290,95 +3261,16 @@
                     return;
                 }
                 
-                const tbody = $(`#${tableId} tbody`).empty();
-                console.log('Rendering products:', response.data.length, 'for table:', tableId);
-                if (response.data.length === 0) {
-                    console.log('No products found, showing empty message');
-                    tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
-                    return;
-                }
-                    
-                    response.data.forEach((product, idx) => {
-                        const row = $('<tr>');
-                        row.append(`<td>${product.product_id}</td>`);
-                        
-                        // Extract variant from product name if it contains parentheses
-                        let productName = product.name;
-                        let variant = product.variant || '-';
-                        
-                        // Check if product name contains variant in parentheses
-                        const variantMatch = productName.match(/^(.+?)\s*\(([^)]+)\)$/);
-                        if (variantMatch) {
-                            productName = variantMatch[1].trim();
-                            variant = variantMatch[2].trim();
-                        }
-                        
-                        row.append(`<td>${productName}</td>`);
-                        row.append(`<td>${variant}</td>`);
-                        row.append(`<td>${product.size}</td>`);
-                        row.append(`<td>₱${product.price.toFixed(2)}</td>`);
-                        
-                        // Stock column with color indicator
-                        const stockClass = product.stock <= 10 ? 'text-danger' : 
-                                        product.stock <= 30 ? 'text-warning' : 'text-success';
-                        row.append(`
-                            <td>
-                                <i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: 0.5rem"></i>
-                                <a href="/stock_details/?product_id=${product.product_id}">${parseInt(product.stock) || 0}</a>
-                            </td>
-                        `);
-                        
-                        // Status badge
-                        row.append(`
-                            <td>
-                                <span class="badge ${product.status === 'Active' ? 'bg-success' : 'bg-danger'}">
-                                    ${product.status}
-                                </span>
-                            </td>
-                        `);
-                        
-                        // Options - 3 dots dropdown
-                        console.log('Creating dropdown for product:', product.product_id);
-                        let optionsHtml = `
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                    <span class="visually-hidden">More options for ${product.name}</span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">`;
-                        
-                        // Always show action buttons (removed window.showCost condition)
-                        const isDiscontinued = product.status === 'Discontinued';
-                        const actionText = isDiscontinued ? 'Continue' : 'Discontinue';
-                        const actionIcon = isDiscontinued ? 'arrow-counterclockwise' : 'x-circle';
-                        const actionTitle = isDiscontinued ? 'Continue this product' : 'Discontinue this product';
-                        
-                        console.log('Creating action buttons for product:', product.product_id, 'status:', product.status);
-                        
-                        optionsHtml += `
-                                <li>
-                                    <button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product">
-                                        <i class="bi bi-pencil me-2"></i> Edit
-                                    </button>
-                                </li>
-                                <li>
-                                    <button class="dropdown-item discontinue-btn ${isDiscontinued ? 'continue-btn' : ''}" data-id="${product.product_id}" data-status="${product.status}" title="${actionTitle}">
-                                        <i class="bi bi-${actionIcon} me-2"></i> ${actionText}
-                                    </button>
-                                </li>`;
-                        
-                        optionsHtml += `
-                                </ul>
-                            </div>`;
-                        const actions = $('<td>').html(optionsHtml);
-                        row.append(actions);
-                        tbody.append(row);
-                    });
+                // Store dataset and render page 1
+                window[`${tableId}_data`] = response.data;
+                invPagination.currentPage[tableId] = 1;
+                renderProductsTableForPage(response.data, tableId);
                 })
                 .catch(function(error){
                     console.error('Failed to fetch products:', error);
                     const tbody = $('#inventoryTable tbody').empty();
                     tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                    if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 });
         }
 
@@ -2400,7 +3292,7 @@
                 // Update all existing dropdowns
                 document.querySelectorAll('.product-select').forEach(select => {
                     select.innerHTML = '<option value="">Select a fruit</option>' + 
-                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-size="${p.size || ''}" data-stock="${p.stock || 0}">${p.name} (${p.size}) - ₱${p.price.toFixed(2)}</option>`; }).join('');
+                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-size="${p.size || ''}" data-stock="${p.stock || 0}">${p.name} (${p.size}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
                 });
                 return products; // Return products for Promise chain
             });
@@ -2444,7 +3336,7 @@
                 if ($this.find('option').length <= 1) { // Only has default option
                     let options = '<option value="">Select a fruit</option>';
                     products.forEach(product => {
-                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-size="${product.size || ''}" data-stock="${product.stock || 0}">${product.name} (${product.size || 'N/A'}) - ₱${product.price.toFixed(2)}</option>`;
+                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-size="${product.size || ''}" data-stock="${product.stock || 0}">${product.name} (${product.size || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
                     });
                     $this.html(options);
                     
@@ -2461,7 +3353,7 @@
                                 const name = $option.data('name') || '';
                                 const variant = $option.data('variant') ? ` (${$option.data('variant')})` : '';
                                 const size = $option.data('size') ? ` (${$option.data('size')})` : '';
-                                const price = $option.data('price') ? ` - ₱${parseFloat($option.data('price')).toFixed(2)}` : '';
+                                const price = $option.data('price') ? ` - ₱${formatCurrency($option.data('price'))}` : '';
                                 const stock = $option.data('stock') ? ` - Stock: ${$option.data('stock')}` : '';
                                 return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
                             },
@@ -2471,7 +3363,7 @@
                                 const name = $option.data('name') || '';
                                 const variant = $option.data('variant') ? ` (${$option.data('variant')})` : '';
                                 const size = $option.data('size') ? ` (${$option.data('size')})` : '';
-                                const price = $option.data('price') ? ` - ₱${parseFloat($option.data('price')).toFixed(2)}` : '';
+                                const price = $option.data('price') ? ` - ₱${formatCurrency($option.data('price'))}` : '';
                                 return `${name}${variant}${size}${price}`;
                             }
                         });
@@ -2494,7 +3386,7 @@
                     total += price * quantity;
                 }
             });
-            $('#liveSaleTotalWithVATText').text(total.toFixed(2));
+            $('#liveSaleTotalWithVATText').text(formatCurrency(total));
         }
 
         function showStep(step) {
@@ -2537,19 +3429,19 @@
                     <tr>
                         <td>${description}</td>
                         <td class="align-right">${item.quantity}</td>
-                        <td class="align-right">₱${item.price.toFixed(2)}</td>
-                        <td class="align-right">₱${item.amount.toFixed(2)}</td>
+                        <td class="align-right">₱${formatCurrency(item.price)}</td>
+                        <td class="align-right">₱${formatCurrency(item.amount)}</td>
                     </tr>
                 `;
             });
             $('#receiptTableItems').html(receiptItemsHtml);
 
             // Update receipt summary
-            $('#receiptSubtotal').text(subtotal.toFixed(2));
-            $('#receiptVAT').text(vat.toFixed(2));
-            $('#receiptTotalAmount').text(totalAmount.toFixed(2));
-            $('#receiptAmountPaid').text(amountPaid.toFixed(2));
-            $('#receiptChange').text(change.toFixed(2));
+            $('#receiptSubtotal').text(formatCurrency(subtotal));
+            $('#receiptVAT').text(formatCurrency(vat));
+            $('#receiptTotalAmount').text(formatCurrency(totalAmount));
+            $('#receiptAmountPaid').text(formatCurrency(amountPaid));
+            $('#receiptChange').text(formatCurrency(change));
 
             // Generate transaction number and OR number
             const transactionNumber = 'TXN' + Date.now().toString().slice(-6);
@@ -2750,54 +3642,74 @@
 
         // Sticker modal logic removed; use dedicated page instead
 
-        // Mobile sidebar toggle functionality
+        // Sidebar toggle functionality (works on both desktop and mobile)
         const sidebar = document.querySelector('.sidebar');
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-        function toggleMobileMenu() {
-            if (sidebar) {
+        // Sidebar starts open via HTML. No animation adjustments needed.
+
+        // Desktop transitions disabled intentionally
+
+        // Enable transitions after initial render (disabled)
+
+        // Burger menu button toggle
+        if (burgerMenuBtn && sidebar) {
+            burgerMenuBtn.addEventListener('click', function() {
                 sidebar.classList.toggle('active');
-                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
-                // Prevent body scroll when sidebar is open on mobile
-                if (sidebar.classList.contains('active')) {
-                    document.body.style.overflow = 'hidden';
+                burgerMenuBtn.classList.toggle('active');
+                const mainContent = document.querySelector('.main-content');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: toggle sidebar and adjust main content
+                    if (sidebar.classList.contains('active')) {
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    } else {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
                 } else {
-                    document.body.style.overflow = '';
+                    // Mobile: show overlay and prevent body scroll
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('active');
+                    }
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
                 }
-            }
-        }
-
-        // Handle mobile menu toggle click
-        if (mobileMenuToggle) {
-            console.log('Mobile menu button found in products_inventory_full');
-            mobileMenuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Mobile menu button clicked in products_inventory_full');
-                toggleMobileMenu();
             });
         }
 
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        // Close sidebar when clicking overlay (mobile only)
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
                     sidebar.classList.remove('active');
+                    sidebarOverlay.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
                     document.body.style.overflow = '';
-                    console.log('Mobile sidebar closed from outside click');
                 }
-            }
-        });
+            });
+        }
 
         // Close sidebar when clicking on navigation links
         if (sidebar) {
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
+                    const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
                         sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                         document.body.style.overflow = '';
                         console.log('Mobile sidebar closed from nav link click');
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
                     }
                 });
             });
@@ -2805,10 +3717,19 @@
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            if (window.innerWidth > 768 && sidebar) {
-                sidebar.classList.remove('active');
+            const mainContent = document.querySelector('.main-content');
+            if (window.innerWidth > 768) {
+                // Desktop: keep sidebar state but remove mobile-specific styles
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 document.body.style.overflow = '';
-                console.log('Mobile sidebar closed on resize');
+                if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                    mainContent.classList.add('sidebar-open');
+                } else if (mainContent) {
+                    mainContent.classList.remove('sidebar-open');
+                }
+            } else {
+                // Mobile: remove desktop-specific styles
+                if (mainContent) mainContent.classList.remove('sidebar-open');
             }
         });
 
@@ -2816,9 +3737,28 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
+                if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                const mainContent = document.querySelector('.main-content');
+                if (window.innerWidth > 768) {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                } else {
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 document.body.style.overflow = '';
-                console.log('Mobile sidebar closed from escape key');
+                }
+                console.log('Sidebar closed from escape key');
             }
+        });
+
+        // Handle logout confirmation
+        document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                // Check if Bootstrap modal is available
+                if (typeof bootstrap !== 'undefined') {
+                    e.preventDefault();
+                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                    logoutModal.show();
+                }
+            });
         });
 
         // Event handlers for action buttons
@@ -2834,7 +3774,7 @@
                 product_id: productId,
                 name: row.find('td').eq(1).text().trim(), // Fruit column
                 variant: row.find('td').eq(2).text().trim(), // Variant column
-                size: row.find('td').eq(3).text().trim(), // Size column
+                size: row.find('td').eq(3).text().trim(), // Quantity column
                 price: row.find('td').eq(4).text().trim().replace('₱', '').replace(',', ''), // Price column
                 status: row.find('td').eq(6).text().trim() === 'ACTIVE' ? 'Active' : 'Discontinued' // Status column
             };
@@ -2897,18 +3837,7 @@
             });
         });
 
-        // Handle Add Product button click
-        $(document).on('click', 'a[href*="add_product_page"]', function(e) {
-            e.preventDefault();
-            
-            // Reset form for new product
-            document.getElementById('productForm').reset();
-            $('input[name="product_id"]').val(''); // Clear product ID
-            $('#productModalLabel').text('Add Product');
-            
-            // Show the modal
-            $('#productModal').modal('show');
-        });
+        // Remove legacy add-product modal wiring in favor of unified modal above
 
         // Function to show alerts
         function showAlert(message, type) {
@@ -2937,64 +3866,186 @@
       $('#priceInput').on('input', function() {
           const price = parseFloat($(this).val()) || 0;
           const vatPrice = price * 1.12;
-          $('#vatInclusive').text(vatPrice.toFixed(2));
+          $('#vatInclusive').text(formatCurrency(vatPrice));
       });
   });
     </script>
 
-    <!-- Product Modal -->
-    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <!-- Legacy duplicate Product Modal removed to prevent ID conflicts -->
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="productModalLabel">Add Product</h5>
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form id="productForm">
-                    <div class="modal-body">
-                        {% csrf_token %}
-                        <input type="hidden" name="product_id" value="">
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="productName" class="form-label">Product Name</label>
-                                    <input type="text" class="form-control" id="productName" name="name" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="productPrice" class="form-label">Price (₱)</label>
-                                    <input type="number" class="form-control" id="productPrice" name="price" step="0.01" min="0" required>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="productSize" class="form-label">Size</label>
-                                    <input type="text" class="form-control" id="productSize" name="size" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="productStatus" class="form-label">Status</label>
-                                    <select class="form-select" id="productStatus" name="status" required>
-                                        <option value="Active">Active</option>
-                                        <option value="Discontinued">Discontinued</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Product</button>
-                    </div>
-                </form>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
             </div>
         </div>
     </div>
+
+    <script>
+        // Fallback: define enhanceMobileTables locally if not provided by base template
+        if (!window.enhanceMobileTables) {
+            window.enhanceMobileTables = function() {
+                try {
+                    var isMobile = window.matchMedia('(max-width: 768px)').matches;
+                    if (!isMobile) return;
+                    document.querySelectorAll('table.table-mobile-card').forEach(function(table) {
+                        var headerCells = table.querySelectorAll('thead th');
+                        if (!headerCells || headerCells.length === 0) return;
+                        var labels = Array.from(headerCells).map(function(th){ return (th.textContent||'').trim(); });
+                        table.querySelectorAll('tbody tr').forEach(function(row){
+                            row.querySelectorAll('td').forEach(function(td, idx){
+                                if (!td.hasAttribute('data-label') && labels[idx]) td.setAttribute('data-label', labels[idx]);
+                            });
+                        });
+                    });
+                } catch(e) { /* no-op */ }
+            };
+            window.addEventListener('resize', window.enhanceMobileTables);
+            window.addEventListener('orientationchange', window.enhanceMobileTables);
+        }
+    </script>
+    <script>
+        function renderProductsTableForPage(data, tableId){
+            const $tbody = $(`#${tableId} tbody`).empty();
+            if(!data || !data.length){
+                $tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                invUpdateControls(0, tableId);
+                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+                return;
+            }
+            const page = invPagination.currentPage[tableId] || 1;
+            const rows = invSlice(data, page);
+            rows.forEach((product)=>{
+                const row = $('<tr>');
+                row.append(`<td>${product.product_id}</td>`);
+                let productName = product.name; let variant = product.variant || '-';
+                const m = productName && productName.match(/^(.+?)\s*\(([^)]+)\)$/);
+                if(m){ productName = m[1].trim(); variant = m[2].trim(); }
+                row.append(`<td>${productName}</td>`);
+                row.append(`<td>${variant}</td>`);
+                row.append(`<td>${product.size||''}</td>`);
+                row.append(`<td>₱${formatCurrency(product.price)}</td>`);
+                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
+                const stockValue = parseInt(product.stock)||0;
+                row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                const statusLower = (product.status || '').toLowerCase();
+                const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
+                const statusDisplay = product.status || 'N/A';
+                row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
+                let optionsHtml = `
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                            <i class="bi bi-three-dots-vertical"></i>
+                            <span class="visually-hidden">More options for ${product.name}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
+                            <li><button class="dropdown-item discontinue-btn ${product.status==='Discontinued'?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${product.status==='Discontinued'?'Continue this product':'Discontinue this product'}"><i class="bi bi-${product.status==='Discontinued'?'arrow-counterclockwise':'x-circle'} me-2"></i> ${product.status==='Discontinued'?'Continue':'Discontinue'}</button></li>
+                        </ul>
+                    </div>`;
+                row.append(`<td>${optionsHtml}</td>`);
+                $tbody.append(row);
+            });
+            invUpdateControls(data.length, tableId);
+            if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){ if (window.enhanceMobileTables) { window.enhanceMobileTables(); } });
+    </script>
+    <script>
+        // Sanitize Product Modal inputs
+        (function(){
+            const nameInput = document.getElementById('productName');
+            const sizeInput = document.getElementById('productSize');
+            const unitSelectInline = document.getElementById('quantityUnit');
+            const unitSelectModal = document.getElementById('productSizeUnit');
+            if(nameInput){
+                nameInput.addEventListener('input', function(){
+                    const cleaned = this.value.replace(/[^A-Za-z\s\-]/g, '');
+                    if (cleaned !== this.value) this.value = cleaned;
+                });
+                nameInput.addEventListener('blur', function(){
+                    const title = this.value.toLowerCase().replace(/\s+/g,' ').replace(/\b[a-z]/g, ch=>ch.toUpperCase()).trim();
+                    if (title) this.value = title;
+                });
+            }
+            if(sizeInput){
+                sizeInput.addEventListener('input', function(){
+                    const cleaned = this.value.replace(/[^0-9.]/g, '');
+                    if (cleaned !== this.value) this.value = cleaned;
+                });
+            }
+            // Adjust placeholders depending on unit selection
+            function applyModalUnitBehavior() {
+                if (!sizeInput || !unitSelectModal) return;
+                const unit = (unitSelectModal.value || 'box').toLowerCase();
+                if (unit === 'kilo') {
+                    sizeInput.value = '';
+                    sizeInput.setAttribute('placeholder', 'Kilo');
+                    sizeInput.disabled = true;
+                } else {
+                    sizeInput.disabled = false;
+                    sizeInput.setAttribute('placeholder', 'Enter quantity');
+                }
+            }
+            if (unitSelectModal) {
+                unitSelectModal.addEventListener('change', applyModalUnitBehavior);
+                applyModalUnitBehavior();
+            }
+            if (unitSelectInline) {
+                unitSelectInline.addEventListener('change', function(){
+                    const unit = (unitSelectInline.value || 'box').toLowerCase();
+                    const sizeField = document.getElementById('size');
+                    if (sizeField) {
+                        if (unit === 'kilo') {
+                            sizeField.value = '';
+                            sizeField.setAttribute('placeholder', 'Kilo');
+                            sizeField.disabled = true;
+                        } else {
+                            sizeField.disabled = false;
+                            sizeField.setAttribute('placeholder', 'Enter quantity');
+                        }
+                    }
+                });
+                // initial
+                const sizeField = document.getElementById('size');
+                if (sizeField) {
+                    if ((unitSelectInline.value || 'box').toLowerCase() === 'kilo') {
+                        sizeField.value = '';
+                        sizeField.setAttribute('placeholder', 'Kilo');
+                        sizeField.disabled = true;
+                    } else {
+                        sizeField.disabled = false;
+                        sizeField.setAttribute('placeholder', 'Enter quantity');
+                    }
+                }
+            }
+            // Supplier fields in add-stock blocks
+            document.addEventListener('input', function(e){
+                if (e.target && e.target.classList.contains('stock-supplier')){
+                    const cleaned = e.target.value.replace(/[^A-Za-z\s\-.,&]/g,'');
+                    if (cleaned !== e.target.value) e.target.value = cleaned;
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

@@ -31,8 +31,17 @@
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
-            --sidebar-width: 280px;
-            --header-height: 80px;
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -48,7 +57,9 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
@@ -63,72 +74,117 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(16px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
-            height: 100vh;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: none;
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             text-decoration: none;
             color: white;
+            flex: 1;
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-sm) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .nav-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--gray-400);
-            padding: 0 1.5rem;
-            margin-bottom: 0.75rem;
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
         }
 
         .nav-item {
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--space-2xs);
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: var(--space-sm);
             color: var(--gray-600);
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
+            gap: 0.5rem;
         }
 
         .nav-link:hover {
@@ -143,9 +199,9 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
             text-align: center;
         }
 
@@ -153,47 +209,177 @@
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
-            min-height: 100vh;
+            margin-top: var(--header-height);
+            min-height: calc(100vh - var(--header-height));
             background: var(--gray-50);
         }
 
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width); /* Start expanded by default */
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+            }
+
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
+        }
+
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+            background: white;
+            min-height: var(--header-height);
             border-bottom: 1px solid var(--gray-200);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1001;
             box-shadow: var(--shadow-sm);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex: 1;
+        }
+
+        .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: var(--gray-700);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
         .header-left h1 {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
+            line-height: 1.25;
         }
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: var(--space-sm);
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             border: 2px solid var(--primary-light);
             cursor: pointer;
@@ -205,9 +391,75 @@
             transform: scale(1.05);
         }
 
+        /* Burger Menu Button */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(2.5px, 2.5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(2.5px, -2.5px);
+        }
+
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
         /* Content Area */
         .content-area {
-            padding: 2rem;
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
         }
 
         /* Profile Cards */
@@ -392,6 +644,87 @@
             color: #991b1b;
         }
 
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #10b981;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .toggle-switch input:disabled + .toggle-slider {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .secretary-card-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .secretary-status-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-600);
+        }
+
+        .edit-secretary-btn {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+        }
+
+        .secretary-card-actions .d-flex {
+            gap: 0.5rem;
+        }
+
         /* Modal Styling */
         .modal-content {
             border: none;
@@ -445,9 +778,16 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 280px;
+                --header-height: 90px;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px;
+                width: var(--sidebar-width);
+                max-width: 85vw;
             }
 
             .sidebar.active {
@@ -456,17 +796,68 @@
 
             .main-content {
                 margin-left: 0;
+                margin-top: var(--header-height);
             }
 
             .header {
-                padding: 0 1rem;
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left h1 {
+                font-size: 1.5rem;
+                line-height: 1.2;
+            }
+
+            .header-subtitle {
+                font-size: 0.8125rem;
+                margin-top: 0.25rem;
+            }
+
+            .header-right {
+                gap: 0.75rem;
+                flex-wrap: wrap;
+            }
+
+            /* Burger Menu Button - Show on Mobile */
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.875rem !important;
+                height: 0.875rem !important;
+            }
+
+            .header-left {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+                gap: 0.5rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                flex: 1;
+                min-width: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                flex-shrink: 0;
             }
 
             /* Mobile menu toggle button - SHOW ON MOBILE */
             #mobileMenuToggle {
                 display: flex !important;
-                background: #007bff !important;
-                border: 2px solid #000000 !important;
+                background: var(--primary) !important;
+                border: 2px solid var(--gray-900) !important;
                 color: #ffffff !important;
                 min-width: 44px !important;
                 min-height: 44px !important;
@@ -476,11 +867,84 @@
 
             .content-area {
                 padding: 1rem;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Cards - Mobile */
+            .card-modern, .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 12px;
             }
 
             .profile-grid {
                 grid-template-columns: 1fr;
                 gap: 1rem;
+            }
+
+            /* Buttons - Mobile */
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 20px;
+                font-size: 15px;
+                border-radius: 10px;
+            }
+
+            /* Forms - Mobile */
+            .form-control, .form-select {
+                min-height: 44px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+
+            /* Modals - Mobile */
+            .modal-dialog {
+                margin: 0.75rem;
+                max-width: calc(100vw - 1.5rem);
+            }
+
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --content-padding: 0.75rem;
+                --header-height: 80px;
+            }
+
+            .header {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .card-modern, .card {
+                padding: 0.875rem;
+            }
+
+            .btn-modern, .btn {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100vw - 1rem);
             }
         }
 
@@ -491,17 +955,250 @@
             }
         }
     </style>
+
+    <style>
+        /* Unified sizing overrides */
+        :root {
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
+        }
+
+        html {
+            font-size: 14px;
+        }
+
+        body {
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .header {
+            padding: var(--space-sm) var(--space-xl);
+            min-height: var(--header-height);
+        }
+
+        .header-left {
+            gap: var(--space-sm);
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+        }
+
+        .header-right {
+            gap: var(--space-sm);
+        }
+
+        .user-avatar {
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            transition: none;
+        }
+
+        .sidebar .nav-section-title {
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+        }
+
+        .sidebar .nav-link {
+            padding: var(--space-sm);
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1.1rem;
+        }
+
+        .main-content,
+        .main-content.sidebar-open {
+            margin-left: var(--sidebar-width);
+            padding: var(--space-lg);
+            min-height: calc(100vh - var(--header-height));
+            transition: none;
+        }
+
+        .main-content:not(.sidebar-open) {
+            margin-left: 64px;
+        }
+
+        .content-area {
+            max-width: var(--layout-max-width);
+            padding: var(--space-lg);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        .stats-grid,
+        .profile-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2xs);
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--gray-500);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .stat-icon {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .modern-card,
+        .profile-card,
+        .team-card,
+        .security-card,
+        .activity-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            overflow: hidden;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
+        }
+
+        .modern-card .card-header,
+        .card .card-header {
+            padding: 0 0 var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .modern-card .card-body,
+        .card .card-body {
+            padding: 0;
+        }
+
+        table {
+            font-size: 0.82rem;
+        }
+
+        table thead th,
+        table tbody td {
+            padding: 0.65rem 0.75rem;
+        }
+
+        .form-control,
+        .form-select,
+        .input-group-text {
+            border-radius: 10px;
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            border-radius: 10px;
+            padding: 0.55rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .profile-actions,
+        .settings-actions,
+        .team-actions,
+        .security-actions,
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .header-title-section {
+            gap: var(--space-2xs);
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand">
+        <!-- Unified Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand">
                     <i class="bi bi-basket-fill"></i>
-                    StockWise
+                    <span>StockWise</span>
                 </a>
+                <div class="header-title-section">
+                    <h1>Profile Settings</h1>
+                    <p class="header-subtitle">Manage your account settings and preferences</p>
+                </div>
             </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active">
             
             <div class="sidebar-nav">
                 <div class="nav-section">
@@ -532,7 +1229,7 @@
                     <div class="nav-item">
                         <a href="{% url 'reports' %}" class="nav-link">
                             <i class="bi bi-graph-up"></i>
-                            Reports
+                            <span>Reports</span>
                         </a>
                     </div>
                 </div>
@@ -540,24 +1237,24 @@
 
                 <div class="nav-section">
                     <div class="nav-section-title">Account</div>
-                    <div class="nav-item">
-                        <a href="{% url 'profile' %}" class="nav-link active">
-                            <i class="bi bi-person"></i>
-                            Profile
-                        </a>
-                    </div>
                     {% if app_role == 'admin' %}
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            SMS Settings
+                            <span>SMS Settings</span>
                         </a>
                     </div>
                     {% endif %}
                     <div class="nav-item">
-                        <a href="{% url 'logout' %}" class="nav-link">
+                        <a href="{% url 'profile' %}" class="nav-link active">
+                            <i class="bi bi-person"></i>
+                            <span>Profile</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'logout' %}" class="nav-link logout-link">
                             <i class="bi bi-box-arrow-right"></i>
-                            Logout
+                            <span>Logout</span>
                         </a>
                     </div>
                 </div>
@@ -565,29 +1262,7 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header class="header">
-                <div class="header-left">
-                    <h1>Profile Settings</h1>
-                    <p class="header-subtitle">Manage your account settings and preferences</p>
-                </div>
-                <div class="header-right">
-                    <!-- Mobile Menu Toggle Button -->
-                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
-                    <div class="dropdown">
-                        <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+        <main class="main-content sidebar-open">
 
             <div class="content-area">
                 <!-- Messages -->
@@ -611,7 +1286,7 @@
                             <div class="profile-avatar-section">
                                 <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/120' }}" 
                                      alt="Profile Picture" class="profile-avatar-large">
-                                <h4 class="fw-bold text-gray-900">{{ user_obj.name }}</h4>
+                                <h4 class="fw-bold text-gray-900">{{ user_obj.username }}</h4>
                                 <p class="text-muted">{% if user_obj.role == 'user' %}Secretary{% else %}{{ user_obj.role|capfirst }}{% endif %}</p>
                             </div>
 
@@ -632,6 +1307,16 @@
                                 <div class="profile-info-content">
                                     <h6>Phone Number</h6>
                                     <p>{{ user_obj.phone_number|default:"Not provided" }}</p>
+                                </div>
+                            </div>
+
+                            <div class="profile-info-item">
+                                <div class="profile-info-icon">
+                                    <i class="bi bi-envelope"></i>
+                                </div>
+                                <div class="profile-info-content">
+                                    <h6>Email</h6>
+                                    <p>{{ user_obj.email|default:"Not provided" }}</p>
                                 </div>
                             </div>
 
@@ -663,7 +1348,7 @@
                     </div>
 
                     <!-- Secretary Management Card (Admin Only) -->
-                    {% if app_role == 'admin' and all_users %}
+                    {% if app_role == 'admin' %}
                     <div class="profile-card">
                         <div class="profile-card-header">
                             <h3 class="profile-card-title">
@@ -672,31 +1357,145 @@
                             </h3>
                         </div>
                         <div class="profile-card-body">
+                            {% if all_users %}
                             {% for u in all_users %}
-                            <div class="secretary-card">
+                                <div class="secretary-card" data-user-id="{{ u.user_id }}">
                                 <div class="secretary-header">
                                     <img src="{{ u.profile_picture|default:'https://via.placeholder.com/60' }}" 
                                          alt="Profile" class="secretary-avatar">
                                     <div class="secretary-info">
-                                        <h6>{{ u.name }}</h6>
-                                        <p>{{ u.username }} • Secretary</p>
+                                            <h6>{{ u.username }}</h6>
+                                            <p>Secretary Account</p>
                                         <p class="small">Phone: {{ u.phone_number|default:"Not provided" }}</p>
-                                        <p class="small">Last login: {{ u.last_login|default:"Never" }}</p>
+                                            {% if u.email %}
+                                            <p class="small">Email: {{ u.email }}</p>
+                                            {% endif %}
                                     </div>
                                 </div>
-                                {% if u.status == 'enabled' %}
+                                    <div class="secretary-card-actions">
+                                        <div class="secretary-status-control">
+                                            <span class="status-label">Status:</span>
+                                            {% if u.is_active %}
                                 <span class="status-badge enabled">Active</span>
                                 {% else %}
                                 <span class="status-badge disabled">Disabled</span>
                                 {% endif %}
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-primary edit-secretary-btn" 
+                                                    data-user-id="{{ u.user_id }}"
+                                                    data-username="{{ u.username }}"
+                                                    data-phone="{{ u.phone_number|default:'' }}"
+                                                    data-email="{{ u.email|default:'' }}"
+                                                    data-profile-picture="{{ u.profile_picture|default:'' }}"
+                                                    data-is-active="{{ u.is_active|yesno:'true,false' }}">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </button>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" 
+                                                       class="user-status-toggle" 
+                                                       data-user-id="{{ u.user_id }}"
+                                                       {% if u.is_active %}checked{% endif %}>
+                                                <span class="toggle-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
                             </div>
                             {% endfor %}
+                            {% else %}
+                            <div class="text-center text-muted py-4">
+                                <p>No secretary accounts found.</p>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Edit Secretary Account Modal -->
+    <div class="modal fade" id="editSecretaryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="editSecretaryForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-person-gear me-2"></i>
+                            Edit Secretary Account
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editSecretaryUserId" name="user_id">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editSecretaryUsername" name="username" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="editSecretaryPassword" name="password" required minlength="6" placeholder="Enter new password">
+                            <small class="text-muted">Minimum 6 characters</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="text" class="form-control" id="editSecretaryPhone" name="phone_number" placeholder="Enter phone number">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editSecretaryEmail" name="email" placeholder="Enter email address">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Profile Picture</label>
+                            <input type="file" class="form-control" id="editSecretaryPicture" name="profile_picture" accept="image/*">
+                            <div id="editSecretaryPicturePreview" class="mt-2"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i>
+                            Update Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disable Confirmation Modal -->
+    <div class="modal fade" id="disableConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Confirm Disable Account
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Warning:</strong> Disabling this account will prevent the secretary from logging in.</p>
+                    <p>The account information will be preserved. The secretary will not be able to access the system until the account is enabled again.</p>
+                    <p class="mb-0">You can re-enable the account at any time using the toggle switch.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" id="confirmDisableBtn">
+                        <i class="bi bi-check"></i>
+                        Yes, Disable Account
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Edit Profile Modal -->
@@ -727,12 +1526,17 @@
 
                         <div class="mb-3">
                             <label class="form-label">Full Name</label>
-                            <input type="text" class="form-control" name="name" value="{{ user_obj.name }}" required>
+                            <input type="text" class="form-control" name="name" value="{{ user_obj.username }}" required>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Phone Number</label>
                             <input type="text" class="form-control" name="phone_number" value="{{ user_obj.phone_number|default:'' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
                         </div>
 
                         <div class="mb-3">
@@ -763,7 +1567,232 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
+    <script>
+        // CSRF token setup
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+        $.ajaxSetup({ headers: { 'X-CSRFToken': csrftoken } });
+
+        // Variables for disable confirmation
+        let pendingDisableToggle = null;
+        let pendingDisableUserId = null;
+
+        // User status toggle functionality
+        $(document).ready(function() {
+            $('.user-status-toggle').on('change', function() {
+                const toggle = $(this);
+                const userId = toggle.data('user-id');
+                const isActive = toggle.is(':checked');
+                
+                // If disabling, show confirmation modal
+                if (!isActive) {
+                    pendingDisableToggle = toggle;
+                    pendingDisableUserId = userId;
+                    $('#disableConfirmModal').modal('show');
+                    // Revert toggle until confirmed
+                    toggle.prop('checked', true);
+                    return;
+                }
+                
+                // If enabling, proceed directly (but account must have valid info)
+                performToggle(toggle, userId, isActive);
+            });
+
+            // Confirm disable button
+            $('#confirmDisableBtn').on('click', function() {
+                if (pendingDisableToggle && pendingDisableUserId) {
+                    performToggle(pendingDisableToggle, pendingDisableUserId, false);
+                    $('#disableConfirmModal').modal('hide');
+                    pendingDisableToggle = null;
+                    pendingDisableUserId = null;
+                }
+            });
+
+            // Edit secretary button
+            $('.edit-secretary-btn').on('click', function() {
+                const btn = $(this);
+                const userId = btn.data('user-id');
+                const username = btn.data('username');
+                const phone = btn.data('phone') || '';
+                const email = btn.data('email') || '';
+                const profilePicture = btn.data('profile-picture') || '';
+                
+                // Populate modal
+                $('#editSecretaryUserId').val(userId);
+                $('#editSecretaryUsername').val(username);
+                $('#editSecretaryPassword').val('').attr('placeholder', 'Enter new password');
+                $('#editSecretaryPhone').val(phone);
+                $('#editSecretaryEmail').val(email);
+                $('#editSecretaryPicturePreview').html('');
+                
+                // Show profile picture if exists
+                if (profilePicture) {
+                    $('#editSecretaryPicturePreview').html(`
+                        <img src="${profilePicture}" alt="Current picture" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                    `);
+                }
+                
+                // Show modal
+                $('#editSecretaryModal').modal('show');
+            });
+
+            // Handle profile picture preview
+            $('#editSecretaryPicture').on('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        $('#editSecretaryPicturePreview').html(`
+                            <img src="${e.target.result}" alt="Preview" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+                        `);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Handle edit secretary form submission
+            $('#editSecretaryForm').on('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const submitBtn = $(this).find('button[type="submit"]');
+                
+                // Disable submit button
+                submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Updating...');
+                
+                $.ajax({
+                    url: "{% url 'update_secretary_account' %}",
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            showAlert(response.message, 'success');
+                            $('#editSecretaryModal').modal('hide');
+                            // Update the displayed information without page reload
+                            setTimeout(function() {
+                                // Just close the modal, data will update on next manual refresh
+                            }, 1000);
+                } else {
+                            showAlert(response.message || 'Failed to update account', 'danger');
+                            submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                }
+                    },
+                    error: function(xhr) {
+                        let errorMsg = 'An error occurred while updating account';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMsg = xhr.responseJSON.message;
+                        }
+                        showAlert(errorMsg, 'danger');
+                        submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                    }
+                });
+            });
+        });
+
+        // Function to perform toggle
+        function performToggle(toggle, userId, isActive) {
+            const card = toggle.closest('.secretary-card');
+            const statusBadge = card.find('.status-badge');
+            const toggleSwitch = toggle.closest('.toggle-switch');
+            
+            // Disable toggle during request
+            toggle.prop('disabled', true);
+            
+            // Show loading state
+            const originalBg = toggleSwitch.find('.toggle-slider').css('background-color');
+            toggleSwitch.find('.toggle-slider').css('background-color', '#9ca3af');
+            
+            $.ajax({
+                url: "{% url 'toggle_user_status' %}",
+                method: 'POST',
+                data: {
+                    user_id: userId,
+                    is_active: isActive
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Update status badge
+                        if (isActive) {
+                            statusBadge.removeClass('disabled').addClass('enabled').text('Active');
+                        } else {
+                            statusBadge.removeClass('enabled').addClass('disabled').text('Disabled');
+                        }
+                        
+                        // Update button data attributes
+                        const editBtn = card.find('.edit-secretary-btn');
+                        if (response.user) {
+                            editBtn.data('username', response.user.username);
+                            editBtn.data('phone', response.user.phone_number || '');
+                            editBtn.data('email', response.user.email || '');
+                            editBtn.data('profile-picture', response.user.profile_picture || '');
+                        }
+                        editBtn.data('is-active', isActive);
+                        
+                        // Show success message
+                        showAlert(response.message || (isActive ? 'User enabled successfully' : 'User disabled successfully'), 'success');
+                    } else {
+                        // Revert toggle on error
+                        toggle.prop('checked', !isActive);
+                        toggleSwitch.find('.toggle-slider').css('background-color', originalBg);
+                        showAlert(response.message || 'Failed to update user status', 'danger');
+                    }
+                },
+                error: function(xhr) {
+                    // Revert toggle on error
+                    toggle.prop('checked', !isActive);
+                    toggleSwitch.find('.toggle-slider').css('background-color', originalBg);
+                    
+                    let errorMsg = 'An error occurred while updating user status';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    showAlert(errorMsg, 'danger');
+                },
+                complete: function() {
+                    // Re-enable toggle
+                    toggle.prop('disabled', false);
+                }
+            });
+        }
+
+        // Alert function
+        function showAlert(message, type) {
+            // Remove existing alerts
+            $('.page-alert').remove();
+            
+            // Create alert
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show page-alert" role="alert" style="position: fixed; top: 100px; right: 20px; z-index: 9999; min-width: 300px;">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            $('body').append(alertHtml);
+            
+            // Auto-dismiss after 3 seconds
+            setTimeout(function() {
+                $('.page-alert').fadeOut(function() {
+                    $(this).remove();
+                });
+            }, 3000);
+        }
+    </script>
     <script>
         // Profile picture preview
         const fileInput = document.getElementById('profile_picture');
@@ -772,58 +1801,73 @@
                 const img = document.getElementById('profilePreview');
                 if (e.target.files && e.target.files[0]) {
                     img.src = URL.createObjectURL(e.target.files[0]);
-                }
-            });
-        }
-
-        // Mobile sidebar toggle functionality
-        const sidebar = document.querySelector('.sidebar');
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-
-        function toggleMobileMenu() {
-            if (sidebar) {
-                sidebar.classList.toggle('active');
-                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
-                // Prevent body scroll when sidebar is open on mobile
-                if (sidebar.classList.contains('active')) {
-                    document.body.style.overflow = 'hidden';
-                } else {
-                    document.body.style.overflow = '';
-                }
-            }
-        }
-
-        // Handle mobile menu toggle click
-        if (mobileMenuToggle) {
-            console.log('Mobile menu button found in profile_full');
-            mobileMenuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Mobile menu button clicked in profile_full');
-                toggleMobileMenu();
-            });
-        }
-
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-                    sidebar.classList.remove('active');
-                    document.body.style.overflow = '';
-                    console.log('Mobile sidebar closed from outside click');
-                }
             }
         });
+        }
+
+        // Sidebar toggle functionality (works on both desktop and mobile)
+        const sidebar = document.querySelector('.sidebar');
+        const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        // Sidebar starts open via HTML; no animation adjustments needed on desktop
+
+        // Burger menu button toggle
+        if (burgerMenuBtn && sidebar) {
+            burgerMenuBtn.addEventListener('click', function() {
+                sidebar.classList.toggle('active');
+                burgerMenuBtn.classList.toggle('active');
+                const mainContent = document.querySelector('.main-content');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: toggle sidebar and adjust main content
+                    if (sidebar.classList.contains('active')) {
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    } else {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
+                } else {
+                    // Mobile: show overlay and prevent body scroll
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('active');
+                    }
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                }
+            });
+        }
+
+        // Close sidebar when clicking overlay (mobile only)
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                    sidebarOverlay.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        }
 
         // Close sidebar when clicking on navigation links
         if (sidebar) {
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
+                    const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
                         sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                         document.body.style.overflow = '';
-                        console.log('Mobile sidebar closed from nav link click');
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
                     }
                 });
             });
@@ -831,10 +1875,19 @@
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            if (window.innerWidth > 768 && sidebar) {
-                sidebar.classList.remove('active');
+            const mainContent = document.querySelector('.main-content');
+            if (window.innerWidth > 768) {
+                // Desktop: keep sidebar state but remove mobile-specific styles
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 document.body.style.overflow = '';
-                console.log('Mobile sidebar closed on resize');
+                if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                    mainContent.classList.add('sidebar-open');
+                } else if (mainContent) {
+                    mainContent.classList.remove('sidebar-open');
+                }
+            } else {
+                // Mobile: remove desktop-specific styles
+                if (mainContent) mainContent.classList.remove('sidebar-open');
             }
         });
 
@@ -842,10 +1895,54 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
-                document.body.style.overflow = '';
-                console.log('Mobile sidebar closed from escape key');
+                if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                const mainContent = document.querySelector('.main-content');
+                if (window.innerWidth > 768) {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                } else {
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
             }
         });
+
+        // Handle logout confirmation
+        document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                // Check if Bootstrap modal is available
+                if (typeof bootstrap !== 'undefined') {
+                    e.preventDefault();
+                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                    logoutModal.show();
+                }
+            });
+        });
     </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

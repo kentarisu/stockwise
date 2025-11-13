@@ -26,22 +26,48 @@ SECRET_KEY = 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.206', '127.0.0.1', 'localhost', '172.20.10.4', '0.0.0.0', 'da443ad746d5.ngrok-free.app', 'e8a6825b9d6a.ngrok-free.app', '.ngrok-free.app']
+# Allowed hosts for ngrok and local development
+ALLOWED_HOSTS = [
+    '192.168.1.206',
+    '127.0.0.1',
+    'localhost',
+    '172.20.10.4',
+    '0.0.0.0',
+    # Specific ngrok URLs (add new ones here)
+    'da443ad746d5.ngrok-free.app',
+    'e8a6825b9d6a.ngrok-free.app',
+    'c59af87671d6.ngrok-free.app',
+    '45689adbba85.ngrok-free.app',
+    'b88dea3d7031.ngrok-free.app',  # Current ngrok URL
+    # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
+    # 'NEW_NGROK_URL.ngrok-free.app',
+    '.ngrok-free.app',  # Wildcard for all ngrok-free.app subdomains
+    '.ngrok.io',        # Legacy ngrok domains
+]
 
 # Additional CSRF settings for ngrok
 CSRF_COOKIE_SECURE = False  # Allow non-HTTPS cookies for development
 CSRF_COOKIE_SAMESITE = 'Lax'  # More permissive SameSite policy
 CSRF_USE_SESSIONS = False  # Use cookies instead of sessions for CSRF tokens
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access to CSRF token
+
+# CSRF trusted origins for ngrok
 CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://localhost:8000',
+    'https://127.0.0.1:8000',
+    # Specific ngrok URLs (add new ones here with https:// prefix)
     'https://da443ad746d5.ngrok-free.app',
     'https://e8a6825b9d6a.ngrok-free.app',
-    'https://e8a6825b9d6a.ngrok-free.app/',
-    'https://da443ad746d5.ngrok-free.app/',
-    'https://e8a6825b9d6a.ngrok-free.app',
-    'https://da443ad746d5.ngrok-free.app',
+    'https://c59af87671d6.ngrok-free.app',
+    'https://45689adbba85.ngrok-free.app',
+    'https://b88dea3d7031.ngrok-free.app',  # Current ngrok URL
+    # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
+    # 'https://NEW_NGROK_URL.ngrok-free.app',
     'https://*.ngrok-free.app',  # Wildcard for all ngrok URLs
-    'https://*.ngrok.app',  # Alternative ngrok domain
+    'https://*.ngrok.app',        # Alternative ngrok domain
+    'https://*.ngrok.io',         # Legacy ngrok domains
 ]
 
 # Temporary workaround for ngrok CSRF issues
@@ -172,30 +198,10 @@ ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9630675254')
 CRONJOBS = [
     # Daily sales SMS at 20:00 (8:00 PM) server local time
     ('0 20 * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
-    # Low stock alerts every 6 hours (6 AM, 12 PM, 6 PM, 12 AM)
-    ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
+    # Low stock alerts DISABLED - prevent excessive SMS usage
+    # ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
     # AI Pricing recommendations automatically every 3 days at 8 PM
     ('0 20 */3 * *', 'django.core.management.call_command', ['send_auto_pricing']),
-]
-
-# CSRF Configuration for ngrok
-CSRF_TRUSTED_ORIGINS = [
-    # Trust any rotating ngrok subdomain
-    'https://c59af87671d6.ngrok-free.app',
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'https://localhost:8000',
-    'https://127.0.0.1:8000',
-]
-
-# Additional settings for ngrok compatibility
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '45689adbba85.ngrok-free.app',
-    'da443ad746d5.ngrok-free.app',
-    '.ngrok-free.app',  # Allow all ngrok subdomains
-    '.ngrok.io',        # Allow legacy ngrok domains
 ]
 
 # Disable HTTPS redirect for ngrok
@@ -213,4 +219,22 @@ IPROG_SMS_ADMIN_PHONE = '09630675254'  # Admin phone for SMS notifications
 SMS_APP_NAME = 'STOCKWISE'  # App name displayed in message content
 
 # IMPORTANT: Set your IPROG API token as environment variable or here
+
+# ========== THERMAL PRINTER SETTINGS ==========
+# Thermal Printer Configuration (58mm portable thermal printer)
+# Connection Types: 'usb', 'serial', 'bluetooth', 'network'
+THERMAL_PRINTER_TYPE = os.getenv('THERMAL_PRINTER_TYPE', 'usb')  # Default: USB
+
+# USB Connection Settings (if using USB)
+# Note: vendor_id and product_id are usually auto-detected, but can be set manually
+# Find your printer's VID/PID by connecting it and checking Device Manager (Windows)
+# or using 'lsusb' command (Linux)
+
+# Serial/USB Serial Connection Settings (if using Serial or Bluetooth via Serial)
+THERMAL_PRINTER_PORT = os.getenv('THERMAL_PRINTER_PORT', 'COM3')  # Windows: COM3, COM4, etc. Linux: /dev/ttyUSB0, /dev/ttyACM0
+THERMAL_PRINTER_BAUDRATE = int(os.getenv('THERMAL_PRINTER_BAUDRATE', 9600))  # Common baudrates: 9600, 19200, 38400, 115200
+
+# Network Printer Settings (if using network connection)
+THERMAL_PRINTER_HOST = os.getenv('THERMAL_PRINTER_HOST', '192.168.1.100')
+THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 9100))
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com

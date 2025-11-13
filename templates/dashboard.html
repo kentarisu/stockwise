@@ -14,12 +14,6 @@
             <p class="header-subtitle">Welcome back! Here's your business overview.</p>
         </div>
         <div class="header-right">
-            <!-- Mobile Menu Toggle Button -->
-            <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                <span class="ms-1">Menu</span>
-            </button>
-
             <div class="dropdown">
                 <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -120,51 +114,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.querySelector('.sidebar');
-            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-
-            console.log('Dashboard loaded');
-            console.log('Sidebar element:', sidebar);
-            console.log('Mobile menu button:', mobileMenuToggle);
-
-            // Mobile sidebar toggle functionality
-            function toggleMobileMenu() {
-                if (sidebar) {
-                    sidebar.classList.toggle('active');
-                    console.log('Sidebar toggled:', sidebar.classList.contains('active'));
-                    // Prevent body scroll when sidebar is open on mobile
-                    if (sidebar.classList.contains('active')) {
-                        document.body.style.overflow = 'hidden';
-                    } else {
-                        document.body.style.overflow = '';
-                    }
-                } else {
-                    console.log('Sidebar not found');
-                }
-            }
-
-            // Handle mobile menu toggle click
-            if (mobileMenuToggle) {
-                console.log('Mobile menu button found, adding event listener');
-                mobileMenuToggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Mobile menu button clicked');
-                    toggleMobileMenu();
-                });
-            } else {
-                console.log('Mobile menu button NOT found');
-            }
-
-            // Close sidebar when clicking outside on mobile
-            document.addEventListener('click', function(e) {
-                if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                    if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-                        sidebar.classList.remove('active');
-                        document.body.style.overflow = '';
-                        console.log('Sidebar closed from outside click');
-                    }
-                }
-            });
 
             // Close sidebar when clicking on navigation links
             if (sidebar) {

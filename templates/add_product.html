@@ -18,51 +18,122 @@
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
-            --primary-light: #e0e7ff;
-            --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
-            --gray-400: #9ca3af;
-            --gray-700: #374151;
-            --gray-900: #111827;
-            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --gray-300: #d1d5db;
         }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            background: #f8fafc;
+            margin: 0;
+            padding: 0;
         }
         .page-container {
             min-height: 100vh;
+            background: #f8fafc;
+            padding: 1rem;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 2rem 1rem;
         }
         .card-modern {
             width: 100%;
-            max-width: 980px;
+            max-width: 1000px;
             background: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--gray-100);
-            box-shadow: var(--shadow);
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             overflow: hidden;
         }
         .card-header-modern {
-            background: var(--primary-light);
-            border-bottom: 1px solid var(--gray-100);
-            padding: 1rem 1.25rem;
+            background: var(--gray-100);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 1rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
         .card-title {
             margin: 0;
-            font-weight: 700;
-            color: var(--gray-900);
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #1f2937;
+        }
+        .form-section {
+            margin-bottom: 1rem;
+        }
+        .form-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         .dropdown-menu { max-height: 300px; overflow-y: auto; }
-        .input-group-text { background: none; border: none; color: var(--gray-400); }
+        .input-group-text { 
+            background: var(--gray-100); 
+            border: 1px solid var(--gray-300);
+            color: #6b7280;
+            border-right: none;
+        }
+        .form-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        .form-control,
+        .form-select {
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+            height: 32px;
+        }
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .input-group .form-control {
+            border-left: 1px solid var(--gray-300);
+        }
+        .date-recorded-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--gray-200);
+        }
+        .btn {
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 0.625rem 1rem;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        .quantity-unit-group .form-select {
+            flex: 0 0 120px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 576px) {
+            .quantity-unit-group {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .quantity-unit-group .form-select {
+                flex: 0 0 100%;
+            }
+        }
 
         /* Mobile Responsive Styles */
         @media (max-width: 768px) {
@@ -196,29 +267,40 @@
     </div>
     <div class="p-3">
       <div id="pageAlert"></div>
-      <form id="addFruitForm" method="post" enctype="multipart/form-data" class="mt-2">
+      <form id="addFruitForm" method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="row g-3 mb-3">
+        
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="bi bi-info-circle"></i> Product Information
+          </div>
+          <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label" for="productNameDisplay">Product Name</label>
                 <div class="position-relative">
-                    <input type="text" class="form-control" id="productNameDisplay" name="name" placeholder="Search or type a fruit name" autocomplete="off">
+                    <input type="text" class="form-control" id="productNameDisplay" name="name" placeholder="Search or type a fruit name" autocomplete="off" inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60">
                     <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="productVariantDisplay">Variant</label>
-                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" disabled>
+                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" disabled inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60" list="variantDefaultSuggestions">
             </div>
         </div>
-        <div class="row g-3 mb-3">
+          <div class="row g-3 mt-0">
             <div class="col-md-6">
-                <label class="form-label" for="productSizeDisplay">Size</label>
-                <input type="number" class="form-control" id="productSizeDisplay" name="size" placeholder="Enter numeric size" autocomplete="off" step="0.01" min="0" disabled>
+                <label class="form-label" for="productSizeDisplay">Quantity</label>
+                <div class="input-group quantity-unit-group">
+                    <input type="number" class="form-control" id="productSizeDisplay" name="size" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled list="quantitySuggestions">
+                    <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit" disabled>
+                        <option value="box" selected>Box</option>
+                        <option value="kilo">Kilo</option>
+                    </select>
+                </div>
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="supplierInput">Supplier</label>
-                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off">
+                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off" inputmode="text" maxlength="80">
                 <datalist id="supplierList">
                     {% for sup in suppliers %}
                         <option value="{{ sup }}"></option>
@@ -226,7 +308,13 @@
                 </datalist>
             </div>
         </div>
-        <div class="row g-3 mb-3">
+        </div>
+        
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="bi bi-currency-exchange"></i> Pricing & Stock
+          </div>
+          <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label" for="costInput">Cost (₱)</label>
                 <div class="input-group">
@@ -242,32 +330,44 @@
                 </div>
             </div>
         </div>
-        <div class="row g-3 mb-3">
+          <div class="row g-3 mt-0">
             <div class="col-md-6">
-                <label class="form-label" for="stockInput">Initial Stock</label>
+                <label class="form-label" for="stockInput">Initial Stock (Per box/kilo)</label>
                 <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
             </div>
             <div class="col-md-6 d-flex align-items-end">
                 <div class="mb-0">
-                    <label class="form-label">VAT Inclusive Price: ₱<span id="vatInclusive">0.00</span> (automatically includes 12% VAT)</label>
+                <label class="form-label mb-0">VAT Inclusive Price: ₱<span id="vatInclusive">0.00</span> <small class="text-muted">(automatically includes 12% VAT)</small></label>
                 </div>
             </div>
+          </div>
         </div>
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
-                <label class="form-label">Date Added</label>
-                <input type="text" class="form-control" id="productDateDisplay" readonly>
+        
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="bi bi-image"></i> Product Image (Optional)
+          </div>
+          <input type="file" class="form-control" name="image" accept="image/*">
+        </div>
+        
+        <div class="form-section date-recorded-section">
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0">Date Added:</label>
+            <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="productDateDisplay" readonly>
+            <input type="hidden" id="productDate" name="date_added" value="">
+            <small class="text-muted">Set to today and cannot be changed.</small>
             </div>
         </div>
-        <input type="hidden" name="status" value="Active">
-        <input type="hidden" id="productDate" name="date_added" value="">
-        <div class="mb-3">
-            <label class="form-label">Fruit image (Optional)</label>
-            <input type="file" class="form-control" name="image" accept="image/*">
-        </div>
-        <div class="d-flex justify-content-end gap-2">
-            <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary">Add Product</button>
+        
+        <input type="hidden" name="status" value="active">
+        
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="{% url 'products_inventory' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Add Product
+          </button>
         </div>
       </form>
     </div>
@@ -275,6 +375,27 @@
 </div>
 
 <div id="config" data-show-cost="{{ show_cost|yesno:'true,false' }}" style="display:none;"></div>
+
+<datalist id="quantitySuggestions">
+    <option value="1"></option>
+    <option value="2"></option>
+    <option value="5"></option>
+    <option value="10"></option>
+    <option value="20"></option>
+    <option value="25"></option>
+    <option value="50"></option>
+    <option value="100"></option>
+</datalist>
+
+<datalist id="variantDefaultSuggestions">
+    <option value="Premium"></option>
+    <option value="Standard"></option>
+    <option value="Large"></option>
+    <option value="Medium"></option>
+    <option value="Small"></option>
+    <option value="Imported"></option>
+    <option value="Local"></option>
+</datalist>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -317,14 +438,18 @@ function displayNameSuggestions(items) {
     const dropdown = $('#nameSuggestions');
     dropdown.empty();
     if (!items || items.length === 0) {
-        dropdown.html('<div class="dropdown-item text-muted">No products found</div>').show();
+        // No built-in match: allow custom entry of variant and size
+        window.__customProduct = true;
+        $('#productVariantDisplay, #productSizeDisplay, #quantityUnitSelect').prop('disabled', false);
+        dropdown.html('<div class="dropdown-item text-muted">No suggestions yet. You can add a new product, variant, and quantity.</div>').show();
         return;
     }
     items.forEach(p => {
         const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
         option.on('click', function(){
             $('#productNameDisplay').val(p.name);
-            $('#productVariantDisplay, #productSizeDisplay').prop('disabled', false);
+            window.__customProduct = false;
+            $('#productVariantDisplay, #productSizeDisplay, #quantityUnitSelect').prop('disabled', false);
             window.__selectedProductFromSuggestions = true;
             dropdown.hide();
         });
@@ -337,16 +462,39 @@ function setupProductAutocomplete() {
     const $name = $('#productNameDisplay');
     const $dropdown = $('#nameSuggestions');
     let t;
+    window.__customProduct = false;
     $name.on('input', function(){
-        const q = $(this).val().trim();
+        // Block numbers/special characters while typing (allow letters, space, hyphen)
+        let current = $(this).val();
+        const cleaned = current.replace(/[^A-Za-z\s\-]/g, '');
+        if (cleaned !== current) {
+            $(this).val(cleaned);
+        }
+        const q = cleaned.trim();
         window.__selectedProductFromSuggestions = false;
+        if (!q) {
+            window.__customProduct = false;
         $('#productVariantDisplay').val('').prop('disabled', true);
         $('#productSizeDisplay').val('').prop('disabled', true);
+            $('#quantityUnitSelect').prop('disabled', true).val('box');
+            $dropdown.hide();
+            return;
+        }
         clearTimeout(t);
         t = setTimeout(() => {
             if (q.length >= 2) { searchBuiltInProducts(q); }
             else { $dropdown.hide(); }
         }, 250);
+    });
+    // Auto-capitalize each word on blur
+    $name.on('blur', function(){
+        const val = $(this).val();
+        if (!val) return;
+        const titleCased = val
+            .toLowerCase()
+            .replace(/\s+/g, ' ') // collapse spaces
+            .replace(/\b[a-z]/g, ch => ch.toUpperCase());
+        $(this).val(titleCased.trim());
     });
     $(document).on('click', function(e){
         if (!$(e.target).closest('#productNameDisplay, #nameSuggestions').length) { $dropdown.hide(); }
@@ -358,9 +506,11 @@ function setupProductAutocomplete() {
 
     const $variant = $('#productVariantDisplay');
     const $size = $('#productSizeDisplay');
+    const $unit = $('#quantityUnitSelect');
     const ensureName = () => $('#productNameDisplay').val().trim();
     $variant.on('focus', function(){
         const base = ensureName(); if (!base) return;
+        if (window.__customProduct) return; // custom mode, let user type freely
         $.get('{% url "fruit_master_variants" %}', { name: base })
           .done(function(resp){
               if (resp && resp.success && resp.data && resp.data.length) {
@@ -373,17 +523,12 @@ function setupProductAutocomplete() {
           });
     });
     $size.on('focus', function(){
-        const base = ensureName(); if (!base) return;
-        $.get('{% url "fruit_master_sizes" %}', { name: base })
-          .done(function(resp){
-              if (resp && resp.success && resp.data && resp.data.length) {
-                  const list = resp.data.map(s => `<div class="dropdown-item size-item">${s}</div>`).join('');
-                  let $menu = $('#sizeSuggestions');
-                  if (!$menu.length) { $size.after('<div id="sizeSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#sizeSuggestions'); }
-                  $menu.html(list).show();
-                  $menu.off('click').on('click', '.size-item', function(){ $size.val($(this).text()); $menu.hide(); });
-              }
-          });
+        // For Quantity we no longer pull legacy size suggestions.
+        // If unit is kilo, nothing is typed; if box, user can type or use datalist.
+        const unitNow = ($unit.val() || 'box').toLowerCase();
+        if (unitNow === 'kilo') { return; }
+        const $menu = $('#sizeSuggestions');
+        if ($menu.length) { $menu.hide(); }
     });
 }
 
@@ -403,12 +548,23 @@ $(document).ready(function(){
         e.preventDefault();
         const formData = new FormData(this);
         const name = formData.get('name');
-        const size = formData.get('size');
+        let size = formData.get('size');
+        const unitSel = (formData.get('quantity_unit') || 'box').toLowerCase();
+        if (unitSel === 'kilo') {
+            // No quantity input when kilo is chosen; send sentinel to satisfy validation
+            size = 'Kilo';
+            formData.set('size', size);
+        }
         const price = parseFloat(formData.get('price'));
         const cost = parseFloat(formData.get('cost'));
         const stock = parseInt(formData.get('stock'));
         if (!name) { showPageAlert('Product name is required.', 'danger'); return; }
-        if (!size) { showPageAlert('Product size is required.', 'danger'); return; }
+        // Enforce clean product name (letters, spaces, hyphen only)
+        if (!/^[A-Za-z][A-Za-z\s\-]*$/.test(name)) {
+            showPageAlert('Product name can contain letters, spaces, and hyphens only.', 'danger');
+            return;
+        }
+        if (!size) { showPageAlert('Product quantity is required.', 'danger'); return; }
         if (!price || price <= 0) { showPageAlert('Price must be greater than 0.', 'danger'); return; }
         if (cost < 0) { showPageAlert('Cost cannot be negative.', 'danger'); return; }
         if (stock < 0) { showPageAlert('Stock cannot be negative.', 'danger'); return; }
@@ -441,6 +597,70 @@ $(document).ready(function(){
     // VAT live calc
     $('#priceInput').on('input', function(){
         const price = parseFloat($(this).val()) || 0; $('#vatInclusive').text((price * 1.12).toFixed(2));
+    });
+
+    // Quantity unit behavior: when Kilo is picked, remove suggestions (no choosing);
+    // when Box is picked, re-enable suggestions list.
+    (function(){
+        const $qty = $('#productSizeDisplay');
+        const $unit = $('#quantityUnitSelect');
+        const applyUnitBehavior = () => {
+            const unit = ($unit.val() || 'box').toLowerCase();
+            if (unit === 'kilo') {
+                // Remove datalist suggestions; keep free typing
+                // For kilo: do not enter any weight; disable and clear the field
+                $qty.attr('list', '');
+                $qty.val('');
+                $qty.prop('disabled', true);
+                $qty.attr('placeholder', 'Kilo');
+            } else {
+                // Restore suggestions
+                $qty.attr('list', 'quantitySuggestions');
+                $qty.prop('disabled', false);
+                $qty.attr('placeholder', 'Enter quantity');
+            }
+        };
+        $unit.on('change', applyUnitBehavior);
+        // Hide any legacy suggestions dropdown if present when unit changes
+        $unit.on('change', function(){ const $menu = $('#sizeSuggestions'); if ($menu.length) { $menu.hide(); } });
+        applyUnitBehavior();
+    })();
+
+    // Live formatting for product name: remove digits and auto-capitalize words
+    const capitalizeWords = (str) => str.replace(/\b([a-z])/g, (m, p1) => p1.toUpperCase());
+    $('#productNameDisplay').on('input', function(){
+        let v = $(this).val();
+        // Disallow digits and unsupported characters; keep letters, spaces, hyphen, parentheses
+        v = v.replace(/[^A-Za-z()\-\s]/g, '');
+        // Collapse multiple spaces
+        v = v.replace(/\s+/g, ' ');
+        // Auto-capitalize words
+        v = capitalizeWords(v);
+        // Preserve caret position at end after normalization
+        $(this).val(v);
+    });
+
+    // Live sanitizers: supplier and variant (letters, spaces, hyphen, dot, comma, ampersand)
+    $('#supplierInput').on('input', function(){
+        const cleaned = this.value.replace(/[^A-Za-z\s\-.,&]/g, '');
+        if (cleaned !== this.value) this.value = cleaned;
+    }).on('blur', function(){
+        const val = this.value; if(!val) return;
+        this.value = val.toLowerCase().replace(/\s+/g,' ').replace(/\b[a-z]/g, ch=>ch.toUpperCase()).trim();
+    });
+    $('#productVariantDisplay').on('input', function(){
+        const cleaned = this.value.replace(/[^A-Za-z\s\-]/g, '');
+        if (cleaned !== this.value) this.value = cleaned;
+        const $menu = $('#variantSuggestions');
+        if ($menu.length) { $menu.hide(); } // allow free typing that isn't in dropdown
+    }).on('blur', function(){
+        const val = this.value; if(!val) return;
+        this.value = val.toLowerCase().replace(/\s+/g,' ').replace(/\b[a-z]/g, ch=>ch.toUpperCase()).trim();
+    }).on('keydown', function(e){
+        if (e.key === 'Enter') {
+            const $menu = $('#variantSuggestions');
+            if ($menu.length) { $menu.hide(); }
+        }
     });
 });
 </script>

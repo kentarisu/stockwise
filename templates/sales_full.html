@@ -32,13 +32,22 @@
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
-            --sidebar-width: 280px;
-            --header-height: 80px;
+            --sidebar-width: 212px;
+            --header-height: 72px;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
             --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
         }
 
         * {
@@ -47,9 +56,15 @@
             box-sizing: border-box;
         }
 
+        html {
+            font-size: 14px;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
@@ -64,72 +79,117 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(16px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
-            height: 100vh;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: none;
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             text-decoration: none;
             color: white;
+            flex: 1;
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-sm) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .nav-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--gray-400);
-            padding: 0 1.5rem;
-            margin-bottom: 0.75rem;
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
         }
 
         .nav-item {
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--space-2xs);
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: var(--space-sm);
             color: var(--gray-600);
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
+            gap: 0.5rem;
         }
 
         .nav-link:hover {
@@ -144,9 +204,9 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
             text-align: center;
         }
 
@@ -154,47 +214,137 @@
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
-            min-height: 100vh;
-            background: var(--gray-50);
+            margin-top: var(--header-height);
+            padding: var(--space-lg);
+            transition: none;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+            }
+
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
         }
 
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+            background: white;
+            min-height: var(--header-height);
             border-bottom: 1px solid var(--gray-200);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1001;
             box-shadow: var(--shadow-sm);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex: 1;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
         .header-left h1 {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
+            line-height: 1.25;
         }
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: var(--space-sm);
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             border: 2px solid var(--primary-light);
             cursor: pointer;
@@ -206,110 +356,177 @@
             transform: scale(1.05);
         }
 
-        /* Content Area */
-        .content-area {
-            padding: 2rem;
+        /* Burger Menu Button */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
         }
 
-        /* Modern Cards */
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(2.5px, 2.5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(2.5px, -2.5px);
+        }
+
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        /* Modern Cards - Matching other pages */
         .modern-card {
             background: white;
-            border-radius: 16px;
+            border-radius: var(--radius-lg);
             box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             overflow: hidden;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
         }
 
         .modern-card:hover {
             box-shadow: var(--shadow-lg);
         }
 
+        .modern-card .card-body {
+            padding: 0;
+        }
+
+        .modern-card .table > :not(caption) > * > * {
+            padding: 0.75rem;
+        }
+
         /* Sales Stats Grid */
-        .stats-grid {
+        .sales-stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
         }
 
         .stat-card {
             background: white;
-            border-radius: 12px;
-            padding: 1rem;
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
             box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            border: 1px solid rgba(99, 102, 241, 0.12);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
         }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-        }
-
-        .stat-card.primary::before { background: linear-gradient(90deg, var(--primary), var(--accent)); }
-        .stat-card.success::before { background: linear-gradient(90deg, var(--success), #059669); }
-        .stat-card.warning::before { background: linear-gradient(90deg, var(--warning), #d97706); }
-        .stat-card.danger::before { background: linear-gradient(90deg, var(--danger), #dc2626); }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
         .stat-icon {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 2rem;
+            height: 2rem;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.25rem;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            margin-bottom: 0.75rem;
         }
 
-        .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-        .stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
-        .stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
-        .stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
+        .stat-content {
+            flex: 1;
+            min-width: 0;
+        }
 
         .stat-value {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: 700;
             color: var(--gray-900);
-            line-height: 1;
+            margin-bottom: var(--space-2xs);
         }
 
         .stat-label {
+            font-size: 0.72rem;
             color: var(--gray-500);
-            font-size: 0.75rem;
             font-weight: 500;
-            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         /* Action Buttons */
-        .action-buttons {
+        .action-buttons,
+        .sales-actions,
+        .quick-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 2rem;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
         }
 
         .btn-modern {
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
             font-weight: 600;
             border: none;
             transition: all 0.2s ease;
-            display: flex;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.5rem;
             box-shadow: var(--shadow-sm);
         }
@@ -334,6 +551,44 @@
             color: white;
         }
 
+        .btn-modern.secondary {
+            background: linear-gradient(135deg, var(--gray-300), var(--gray-400));
+            color: var(--gray-900);
+        }
+
+        .btn {
+            border-radius: 10px;
+            padding: 0.55rem 1rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 16px -12px rgba(79, 70, 229, 0.35);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -12px rgba(79, 70, 229, 0.5);
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn.success {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+        }
+
+        .btn.warning {
+            background: linear-gradient(135deg, var(--warning), #d97706);
+            color: white;
+        }
+
         /* Sales Table */
         .sales-table-card {
             background: white;
@@ -344,19 +599,27 @@
         }
 
         .table-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--gray-100);
             background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 1.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         .table-title {
-            font-size: 1.25rem;
+            font-size: 1rem;
             font-weight: 600;
-            color: var(--gray-900);
+            color: var(--gray-700);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-title i {
+            color: var(--primary);
+            font-size: 1.125rem;
         }
 
         .table-filters {
@@ -366,11 +629,12 @@
         }
 
         .form-select, .form-control {
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .form-select:focus, .form-control:focus {
@@ -389,12 +653,12 @@
             border-bottom: 2px solid var(--gray-100);
             font-weight: 600;
             color: var(--gray-700);
-            padding: 1rem;
-            font-size: 0.875rem;
+            padding: 0.85rem 0.75rem;
+            font-size: 0.82rem;
         }
 
         .table tbody td {
-            padding: 1rem;
+            padding: 0.65rem 0.75rem;
             border-bottom: 1px solid var(--gray-100);
             vertical-align: middle;
         }
@@ -413,6 +677,64 @@
 
         .badge.bg-success {
             background: var(--success) !important;
+        }
+
+        /* Pagination - Matching Stock Details */
+        .pagination-container {
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .pagination .page-link {
+            color: var(--primary);
+            border-color: var(--gray-300);
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--gray-400);
+            pointer-events: none;
+            background-color: var(--gray-50);
+            border-color: var(--gray-200);
+        }
+
+        .pagination .page-link:hover:not(.disabled) {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pagination-container .d-flex {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 1rem;
+            }
+
+            .pagination-info {
+                text-align: center;
+            }
+
+            .pagination {
+                justify-content: center;
+            }
         }
 
         .badge.bg-warning {
@@ -476,9 +798,16 @@
 
         /* Responsive */
         @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 280px;
+                --header-height: 90px;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
-                width: 280px;
+                width: var(--sidebar-width);
+                max-width: 85vw;
             }
 
             .sidebar.active {
@@ -487,17 +816,50 @@
 
             .main-content {
                 margin-left: 0;
+                margin-top: var(--header-height);
             }
 
             .header {
-                padding: 0 1rem;
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left {
+                gap: 0.75rem;
+            }
+
+            .header-brand span {
+                display: none;
+            }
+
+            .header-title-section {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                gap: 0.75rem;
+                flex-wrap: wrap;
             }
 
             /* Mobile menu toggle button - SHOW ON MOBILE */
             #mobileMenuToggle {
                 display: flex !important;
-                background: #007bff !important;
-                border: 2px solid #000000 !important;
+                background: var(--primary) !important;
+                border: 2px solid var(--gray-900) !important;
                 color: #ffffff !important;
                 min-width: 44px !important;
                 min-height: 44px !important;
@@ -507,30 +869,154 @@
 
             .content-area {
                 padding: 1rem;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Cards - Mobile */
+            .card-modern, .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 12px;
             }
 
             .stats-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem 0.75rem;
+                min-height: auto;
             }
 
             .action-buttons {
                 flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .action-buttons .btn-modern,
+            .action-buttons .btn {
+                width: 100%;
+                justify-content: center;
             }
 
             .table-filters {
                 flex-direction: column;
-                gap: 0.5rem;
+                gap: 0.75rem;
+            }
+
+            .table-filters .form-group {
+                width: 100%;
+            }
+
+            .table-responsive {
+                margin: 0 -1rem;
+                padding: 0 1rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .table {
+                font-size: 0.8125rem;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.625rem 0.5rem;
             }
 
             .nav-tabs {
                 flex-wrap: wrap;
+                border-bottom: 2px solid var(--gray-200);
             }
 
             .nav-tabs .nav-link {
                 font-size: 0.875rem;
-                padding: 0.5rem 0.75rem;
-                margin-right: 0.25rem;
-                margin-bottom: 0.25rem;
+                padding: 0.75rem 1rem;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Buttons - Mobile */
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px;
+                min-width: 44px;
+                padding: 12px 20px;
+                font-size: 15px;
+                border-radius: 10px;
+            }
+
+            /* Forms - Mobile */
+            .form-control, .form-select {
+                min-height: 44px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+
+            /* Modals - Mobile */
+            .modal-dialog {
+                margin: 0.75rem;
+                max-width: calc(100vw - 1.5rem);
+            }
+
+            .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --content-padding: 0.75rem;
+                --header-height: 80px;
+            }
+
+            .header {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.625rem;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .table {
+                font-size: 0.75rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.5rem 0.375rem;
+            }
+
+            .btn-modern, .btn {
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem;
+                max-width: calc(100vw - 1rem);
             }
         }
 
@@ -565,18 +1051,209 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
             border: 1px solid rgba(0, 0, 0, 0.15) !important;
         }
+
+        /* Report Design Styles (matching reports page) */
+        .transaction-report {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .report-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 12px;
+            color: #fff;
+        }
+
+        .report-banner .banner-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .report-banner .banner-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .report-banner h6 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .report-banner p {
+            margin: 0;
+            opacity: 0.85;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #d1fae5;
+        }
+
+        .status-pending {
+            background: rgba(251, 191, 36, 0.25);
+            color: #fef3c7;
+        }
+
+        .status-cancelled,
+        .status-voided {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fecaca;
+        }
+
+        .status-default {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+        }
+
+        .report-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1.25rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+        }
+
+        .meta-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .report-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .report-card {
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            background: #fff;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .report-card span {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gray-500);
+        }
+
+        .report-card strong {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            font-family: 'Courier New', monospace;
+        }
+
+        .report-table-section {
+            margin-top: 1.25rem;
+        }
+
+        .report-table-section h6 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.75rem;
+        }
+    </style>
+    <style>
+        /* Local mobile card overrides (standalone page) */
+        @media (max-width: 768px) {
+            .content-area table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
+            .content-area table.table-mobile-card thead { display: none !important; }
+            .content-area table.table-mobile-card tbody { display: block !important; }
+            .content-area table.table-mobile-card tr { display: block !important; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            .content-area table.table-mobile-card td { display: flex !important; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0 !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important; white-space: normal !important; color: #111827 !important; }
+            .content-area table.table-mobile-card td:last-child { border-bottom: none !important; }
+            .content-area table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand">
+        <!-- Unified Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand">
                     <i class="bi bi-basket-fill"></i>
-                    StockWise
+                    <span>StockWise</span>
                 </a>
+                <div class="header-title-section">
+                    <h1>Sales Management</h1>
+                    <p class="header-subtitle">Track and manage all your sales transactions</p>
             </div>
+            </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active">
             
             <div class="sidebar-nav">
                 <div class="nav-section">
@@ -584,19 +1261,19 @@
                     <div class="nav-item">
                         <a href="{% url 'dashboard' %}" class="nav-link">
                             <i class="bi bi-speedometer2"></i>
-                            Dashboard
+                            <span>Dashboard</span>
                         </a>
                     </div>
                     <div class="nav-item">
                         <a href="{% url 'products_inventory' %}" class="nav-link">
                             <i class="bi bi-basket"></i>
-                            Inventory
+                            <span>Inventory</span>
                         </a>
                     </div>
                     <div class="nav-item">
                         <a href="{% url 'sales' %}" class="nav-link active">
                             <i class="bi bi-cart"></i>
-                            Sales
+                            <span>Sales</span>
                         </a>
                     </div>
                 </div>
@@ -607,7 +1284,7 @@
                     <div class="nav-item">
                         <a href="{% url 'reports' %}" class="nav-link">
                             <i class="bi bi-graph-up"></i>
-                            Reports
+                            <span>Reports</span>
                         </a>
                     </div>
                 </div>
@@ -615,24 +1292,24 @@
 
                 <div class="nav-section">
                     <div class="nav-section-title">Account</div>
-                    <div class="nav-item">
-                        <a href="{% url 'profile' %}" class="nav-link">
-                            <i class="bi bi-person"></i>
-                            Profile
-                        </a>
-                    </div>
                     {% if app_role == 'admin' %}
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            SMS Settings
+                            <span>SMS Settings</span>
                         </a>
                     </div>
                     {% endif %}
                     <div class="nav-item">
-                        <a href="{% url 'logout' %}" class="nav-link">
+                        <a href="{% url 'profile' %}" class="nav-link">
+                            <i class="bi bi-person"></i>
+                            <span>Profile</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'logout' %}" class="nav-link logout-link">
                             <i class="bi bi-box-arrow-right"></i>
-                            Logout
+                            <span>Logout</span>
                         </a>
                     </div>
                 </div>
@@ -640,53 +1317,40 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <header class="header">
-                <div class="header-left">
-                    <h1>Sales Management</h1>
-                    <p class="header-subtitle">Track and manage all your sales transactions</p>
-                </div>
-                <div class="header-right">
-                    <!-- Mobile Menu Toggle Button -->
-                    <button id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm me-3 mobile-menu-btn" style="min-width: 44px; min-height: 44px; display: flex !important; align-items: center; justify-content: center; background: #007bff !important; border: 2px solid #000000 !important; color: #ffffff !important; position: relative; z-index: 9999;">
-                        <i class="bi bi-list" style="font-size: 1.2rem;"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
-                    <div class="dropdown">
-                        <img src="https://via.placeholder.com/40" alt="User" class="user-avatar" data-bs-toggle="dropdown">
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+        <main class="main-content sidebar-open">
 
             <div class="content-area">
                 <!-- Sales Stats -->
-                <div class="stats-grid">
-                    <div class="stat-card primary">
+                <div class="sales-stats-grid">
+                    <div class="stat-card">
                         <div class="stat-icon primary">
                             <i class="bi bi-currency-dollar"></i>
                         </div>
-                        <div class="stat-value">₱{{ total_revenue|default:"0.00" }}</div>
-                        <div class="stat-label">Total Sales</div>
+                        <div class="stat-content">
+                            <div class="stat-value">₱{{ total_revenue_formatted|default:"0.00" }}</div>
+                            <div class="stat-label">Total Sales</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total revenue amount</div>
+                        </div>
                     </div>
-                    <div class="stat-card success">
+                    <div class="stat-card">
                         <div class="stat-icon success">
                             <i class="bi bi-cart-check"></i>
                         </div>
-                        <div class="stat-value">{{ total_sales|default:0 }}</div>
-                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ total_sales|default:0 }}</div>
+                            <div class="stat-label">Total Transactions</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of sales transactions</div>
+                        </div>
                     </div>
-                    <div class="stat-card warning">
+                    <div class="stat-card">
                         <div class="stat-icon warning">
                             <i class="bi bi-boxes"></i>
                         </div>
-                        <div class="stat-value">{{ total_boxes|default:0 }}</div>
-                        <div class="stat-label">Total Boxes Sold</div>
+                        <div class="stat-content">
+                            <div class="stat-value">{{ total_boxes|default:0 }}</div>
+                            <div class="stat-label">Total Boxes Sold</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity of boxes sold</div>
+                        </div>
                     </div>
                 </div>
 
@@ -728,6 +1392,18 @@
                                 <option value="month">This Month</option>
                                 <option value="custom">Custom</option>
                             </select>
+                            <select class="form-control" id="userFilter">
+                                <option value="all">All Users</option>
+                                {% for user in all_users %}
+                                <option value="{{ user.user_id }}" {% if user_filter == user.user_id|stringformat:"s" %}selected{% endif %}>{{ user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <select class="form-control" id="fruitFilter">
+                                <option value="all">All Products</option>
+                                {% for fruit in fruits %}
+                                <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
+                                {% endfor %}
+                            </select>
                             <input type="date" class="form-control d-none" id="dateFilter" title="Single day when range is Today">
                             <div class="input-group">
                                 <input type="text" class="form-control" placeholder="Search (e.g., Apple, #7, September 19, 2025, 2025)" id="searchFilter">
@@ -745,10 +1421,10 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
-                                            <th>Size</th>
-                                            <th>Items</th>
+                                            <th>Quantity</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
+                                            <th>Recorded By</th>
                                             <th>Status</th>
                                             <th>Options</th>
                                         </tr>
@@ -763,7 +1439,14 @@
                                             <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
-                                            <td>₱{{ sale.total|floatformat:2 }}</td>
+                                            <td>
+                                                {% if sale.total_formatted %}
+                                                    ₱{{ sale.total_formatted }}
+                                                {% else %}
+                                                    ₱{{ sale.total|floatformat:2 }}
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ sale.recorded_by|default:"N/A" }}</td>
                                             <td>
                                                 {% if sale.status|lower == 'completed' %}
                                                     <span class="badge bg-success">Completed</span>
@@ -803,27 +1486,29 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="10" class="text-center text-muted py-4">No sales found.</td>
+                                            <td colspan="11" class="text-center text-muted py-4">No sales found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
+                                <div id="pagination-allSalesTable" class="mt-3"></div>
                             </div>
                         </div>
 
                         <div class="tab-pane fade" id="today" role="tabpanel" aria-labelledby="today-tab">
-                            <div class="table-responsive">
-                                <table class="table" id="todaySalesTable">
+                            <div class="table-responsive table-responsive-wrapper">
+                                <table class="table table-mobile-card" id="todaySalesTable">
                                     <thead>
                                         <tr>
                                             <th>Sale No.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
-                                            <th>Fruits</th>
-                                            <th>Size</th>
+                                            <th>Products</th>
+                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
+                                            <th>Recorded By</th>
                                             <th>Status</th>
                                             <th>Options</th>
                                         </tr>
@@ -831,26 +1516,28 @@
                                     <tbody>
                                         <!-- Today's sales will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="10" class="text-center text-muted py-4">Loading today's sales...</td>
+                                            <td colspan="11" class="text-center text-muted py-4">Loading today's sales...</td>
                                         </tr>
                                     </tbody>
                                 </table>
+                                <div id="pagination-todaySalesTable" class="mt-3"></div>
                             </div>
                         </div>
 
                         <div class="tab-pane fade" id="recent" role="tabpanel" aria-labelledby="recent-tab">
-                            <div class="table-responsive">
-                                <table class="table" id="salesTable">
+                            <div class="table-responsive table-responsive-wrapper">
+                                <table class="table table-mobile-card" id="salesTable">
                                     <thead>
                                         <tr>
                                             <th>Sale No.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
-                                            <th>Fruits</th>
-                                            <th>Size</th>
+                                            <th>Products</th>
+                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
+                                            <th>Recorded By</th>
                                             <th>Status</th>
                                             <th>Options</th>
                                         </tr>
@@ -865,7 +1552,14 @@
                                             <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
-                                            <td>₱{{ sale.total|floatformat:2 }}</td>
+                                            <td>
+                                                {% if sale.total_formatted %}
+                                                    ₱{{ sale.total_formatted }}
+                                                {% else %}
+                                                    ₱{{ sale.total|floatformat:2 }}
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ sale.recorded_by|default:"N/A" }}</td>
                                             <td>
                                                 {% if sale.status|lower == 'completed' %}
                                                     <span class="badge bg-success">Completed</span>
@@ -905,28 +1599,30 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">No transactions found.</td>
+                                            <td colspan="11" class="text-center text-muted py-4">No transactions found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
+                                <div id="pagination-salesTable" class="mt-3"></div>
                             </div>
                         </div>
 
                         {% if app_role == 'admin' %}
                         <div class="tab-pane fade" id="voided" role="tabpanel" aria-labelledby="voided-tab">
-                            <div class="table-responsive">
-                                <table class="table" id="voidedSalesTable">
+                            <div class="table-responsive table-responsive-wrapper">
+                                <table class="table table-mobile-card" id="voidedSalesTable">
                                     <thead>
                                         <tr>
                                             <th>Sale no.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
-                                            <th>Fruits</th>
-                                            <th>Size</th>
+                                            <th>Products</th>
+                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
+                                            <th>Recorded By</th>
                                             <th>Status</th>
                                             <th>Options</th>
                                         </tr>
@@ -941,7 +1637,14 @@
                                             <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
-                                            <td>₱{{ sale.total|floatformat:2 }}</td>
+                                            <td>
+                                                {% if sale.total_formatted %}
+                                                    ₱{{ sale.total_formatted }}
+                                                {% else %}
+                                                    ₱{{ sale.total|floatformat:2 }}
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ sale.recorded_by|default:"N/A" }}</td>
                                             <td><span class="badge bg-danger">Voided</span></td>
                                             <td>
                                                 <div class="dropdown">
@@ -971,11 +1674,12 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">No voided transactions found.</td>
+                                            <td colspan="11" class="text-center text-muted py-4">No voided transactions found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
                                 </table>
+                                <div id="pagination-voidedSalesTable" class="mt-3"></div>
                             </div>
                         </div>
                         {% endif %}
@@ -1062,37 +1766,99 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <div><strong>Sale ID:</strong> <span id="detailSaleId"></span></div>
-                        <div><strong>Transaction No. </strong> <span id="detailTransactionNumber"></span></div>
-                        <div><strong>OR No.:</strong> <span id="detailOrNumber"></span></div>
-                        <div><strong>Date:</strong> <span id="detailDate"></span></div>
-                        <div><strong>Customer:</strong> <span id="detailCustomer"></span></div>
-                        <div><strong>Contact No.:</strong> <span id="detailCustContact"></span></div>
-                        <div><strong>Address:</strong> <span id="detailCustAddress"></span></div>
-                        <div><strong>Processed By:</strong> <span id="detailProcessedBy"></span></div>
-                        <div><strong>Status:</strong> <span id="detailStatus"></span></div>
+                    <div class="transaction-report">
+                        <div class="report-banner">
+                            <div class="banner-title">
+                                <div class="banner-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                                <div>
+                                    <h6 id="saleDetailBannerTitle">Sale Report</h6>
+                                    <p id="saleDetailBannerDate">Generated -</p>
                     </div>
+                            </div>
+                            <div class="banner-status">
+                                <span id="saleDetailStatus" class="status-badge status-default">N/A</span>
+                            </div>
+                        </div>
+
+                        <div class="report-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Sale ID</span>
+                                <span class="meta-value" id="detailSaleId">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Transaction No.</span>
+                                <span class="meta-value" id="detailTransactionNumber">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">OR No.</span>
+                                <span class="meta-value" id="detailOrNumber">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Customer</span>
+                                <span class="meta-value" id="detailCustomer">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Contact</span>
+                                <span class="meta-value" id="detailCustContact">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Address</span>
+                                <span class="meta-value" id="detailCustAddress">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Processed By</span>
+                                <span class="meta-value" id="detailProcessedBy">N/A</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Date</span>
+                                <span class="meta-value" id="detailDate">N/A</span>
+                            </div>
+                        </div>
+
+                        <div class="report-cards">
+                            <div class="report-card">
+                                <span>Subtotal</span>
+                                <strong id="detailSubtotal">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Plus 12% VAT</span>
+                                <strong id="detailVAT">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Total Amount</span>
+                                <strong id="detailTotal">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Amount Paid</span>
+                                <strong id="detailAmountPaid">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Change</span>
+                                <strong id="detailChange">₱0.00</strong>
+                            </div>
+                        </div>
+
+                        <div class="report-table-section">
+                            <h6>Itemized Details</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                                <table class="table table-sm align-middle">
                             <thead>
                                 <tr>
                                     <th>Description</th>
                                     <th class="text-end">Qty</th>
-                                    <th class="text-end">Batch ID(s)</th>
+                                            <th>Batch ID(s)</th>
                                     <th class="text-end">Price</th>
                                     <th class="text-end">Amount</th>
                                 </tr>
                             </thead>
-                            <tbody id="detailItems"></tbody>
+                                    <tbody id="detailItems">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No itemized details available.</td>
+                                        </tr>
+                                    </tbody>
                         </table>
                     </div>
-                    <div class="d-flex flex-column align-items-end gap-1">
-                        <div><strong>Subtotal:</strong> <span id="detailSubtotal"></span></div>
-                        <div><strong>Plus 12% VAT:</strong> <span id="detailVAT"></span></div>
-                        <div class="fw-bold"><strong>TOTAL:</strong> <span id="detailTotal"></span></div>
-                        <div><strong>Amount Paid:</strong> <span id="detailAmountPaid"></span></div>
-                        <div><strong>Change:</strong> <span id="detailChange"></span></div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1104,30 +1870,46 @@
 
     <!-- Printable Receipt Area -->
     <div id="printArea" style="display:none">
-        <div id="receiptRoot">
-            <div style="text-align:center; font-weight:700;">SALES RECEIPT</div>
-            <div><strong>Transaction No.:</strong> <span id="rTxn"></span></div>
-            <div><strong>OR No.:</strong> <span id="rOr"></span></div>
-            <div><strong>Date:</strong> <span id="rDate"></span></div>
-            <hr/>
-            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <div class="receipt-container border p-3" style="max-width:300px;margin:0 auto;">
+            <div class="receipt-header text-center mb-2">
+                <div class="company-name fw-bold">FruitMaster Marketing</div>
+                <div class="company-details small">Mabini Street - Libertad, Bacolod City, Negros Occidental</div>
+                <div class="company-details small">TIN: </div>
+                <div class="company-details small">Tel: 434-7680, 213-5681, 213-5682</div>
+            </div>
+            <div class="receipt-title text-center fw-bold">SALES RECEIPT</div>
+            <hr class="receipt-divider"/>
+            <div id="rProcessedByRow" class="receipt-info" style="display:none;">Processed by: <span id="rProcessedBy"></span></div>
+            <div class="receipt-info">Transaction no.: <span id="rTxn"></span></div>
+            <div class="receipt-info">OR no.: <span id="rOr"></span></div>
+            <div class="receipt-info">Date: <span id="rDate"></span></div>
+            <div class="receipt-info">Customer: <span id="rCustomer"></span></div>
+            <div class="receipt-info">Contact no.: <span id="rContact"></span></div>
+            <div class="receipt-info">Address: <span id="rAddress"></span></div>
+            <table class="receipt-table w-100 my-2">
                 <thead>
                     <tr>
-                        <th style="text-align:left;border-bottom:1px solid #ccc;">Description</th>
-                        <th style="text-align:right;border-bottom:1px solid #ccc;">Qty</th>
-                        <th style="text-align:right;border-bottom:1px solid #ccc;">Batch ID</th>
-                        <th style="text-align:right;border-bottom:1px solid #ccc;">Price</th>
-                        <th style="text-align:right;border-bottom:1px solid #ccc;">Amount</th>
+                        <th>Description</th>
+                        <th class="text-end">Boxes</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Amount</th>
                     </tr>
                 </thead>
                 <tbody id="rItems"></tbody>
             </table>
-            <hr/>
-            <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><span id="rSub"></span></div>
-            <div style="display:flex; justify-content:space-between;"><span>VAT 12%:</span><span id="rVat"></span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:700;"><span>TOTAL:</span><span id="rTotal"></span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Paid:</span><span id="rPaid"></span></div>
-            <div style="display:flex; justify-content:space-between;"><span>Change:</span><span id="rChange"></span></div>
+            <hr class="receipt-divider"/>
+            <div class="d-flex justify-content-between"><span>Sub Total:</span><span id="rSub"></span></div>
+            <div class="d-flex justify-content-between"><span>Plus 12% VAT:</span><span id="rVat"></span></div>
+            <div class="d-flex justify-content-between fw-bold border-top pt-1"><span>TOTAL AMOUNT TO BE PAID:</span><span id="rTotal"></span></div>
+            <div class="d-flex justify-content-between"><span>Cash (PHP) Tendered:</span><span id="rPaid"></span></div>
+            <div class="d-flex justify-content-between"><span>Change Cash:</span><span id="rChange"></span></div>
+            <div class="receipt-footer text-center small mt-2">
+                <p class="mb-1">This is not the official receipt.</p>
+                <p class="mb-1">SERVER SN: </p>
+                <p class="mb-1">POS SN: </p>
+                <p class="mb-1">BIR PERMIT NO. </p>
+                <p class="mb-0">ACCREDITATION NO. </p>
+            </div>
         </div>
     </div>
 
@@ -1152,18 +1934,131 @@
         const refreshBtn = document.getElementById('refreshSales');
         if (dateInput) dateInput.valueAsDate = new Date();
 
+        // Pagination state
+        const pagination = {
+            currentPage: {},
+            itemsPerPage: 10,
+            totalPages: {}
+        };
+
+        function paginateArray(array, page) {
+            const startIndex = (page - 1) * pagination.itemsPerPage;
+            const endIndex = startIndex + pagination.itemsPerPage;
+            return array.slice(startIndex, endIndex);
+        }
+
+        function updatePagination(totalItems, tableId) {
+            pagination.totalPages[tableId] = Math.ceil(totalItems / pagination.itemsPerPage);
+            const paginationContainer = document.querySelector(`#pagination-${tableId}`);
+            
+            if (!paginationContainer) return;
+            
+            const currentPage = pagination.currentPage[tableId] || 1;
+            const totalPages = pagination.totalPages[tableId] || 1;
+            const hasPrevious = currentPage > 1;
+            const hasNext = currentPage < totalPages;
+            const startNumber = ((currentPage - 1) * pagination.itemsPerPage) + 1;
+            const endNumber = Math.min(startNumber + pagination.itemsPerPage - 1, totalItems);
+            const itemType = tableId.includes('Sales') ? 'sales' : 'transactions';
+            
+            let html = '';
+            if(totalPages > 1 || totalItems > 0) {
+                html = `<div class="pagination-container mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="pagination-info">
+                            <span class="text-muted">Showing ${startNumber} to ${endNumber} of ${totalItems} ${itemType}</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="1" data-table="${tableId}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="${currentPage - 1}" data-table="${tableId}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-left"></i> Previous
+                                    </a>
+                                </li>`;
+                
+                // Show up to 5 page numbers
+                const pageNumbers = [];
+                if(totalPages <= 5) {
+                    for(let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+                } else if(currentPage <= 3) {
+                    for(let i = 1; i <= 5; i++) pageNumbers.push(i);
+                } else if(currentPage >= totalPages - 2) {
+                    for(let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
+                } else {
+                    for(let i = currentPage - 2; i <= currentPage + 2; i++) pageNumbers.push(i);
+                }
+                
+                pageNumbers.forEach(pageNum => {
+                    html += `<li class="page-item ${pageNum === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" data-page="${pageNum}" data-table="${tableId}">${pageNum}</a>
+                    </li>`;
+                });
+                
+                html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-page="${currentPage + 1}" data-table="${tableId}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            Next <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item ${!hasNext ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-page="${totalPages}" data-table="${tableId}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>`;
+            }
+            
+            paginationContainer.innerHTML = html;
+            
+            // Add event listeners for pagination links
+            paginationContainer.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Skip if parent is disabled
+                    if(link.closest('.page-item.disabled')) return;
+                    const page = parseInt(link.dataset.page);
+                    const table = link.dataset.table;
+                    if (page && table) {
+                        pagination.currentPage[table] = page;
+                        const allRows = window[`${table}_data`] || [];
+                        renderSalesTableForPage(allRows, table);
+                    }
+                });
+            });
+        }
+
         function renderSalesTable(rows, tableId = 'salesTable') {
+            renderSalesTableForPage(rows, tableId);
+            if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+        }
+
+        function renderSalesTableForPage(rows, tableId = 'salesTable') {
             const tbody = document.querySelector(`#${tableId} tbody`);
             if (!tbody) return;
             
             tbody.innerHTML = '';
-            if (!rows || !rows.length) {
+            
+            if (!rows || rows.length === 0) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = '<td colspan="10" class="text-center text-muted py-4">No transactions found.</td>';
+                tr.innerHTML = `<td colspan="8" class="text-center text-muted py-4">No sales found</td>`;
                 tbody.appendChild(tr);
+                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 return;
             }
-            rows.forEach(row => {
+            
+            // Paginate data
+            const currentPage = pagination.currentPage[tableId] || 1;
+            const paginatedRows = paginateArray(rows, currentPage);
+            
+            // Render paginated rows
+            paginatedRows.forEach(row => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>#${safeText(row.sale_id,'N/A')}</td>
@@ -1173,7 +2068,8 @@
                     <td>${safeText(row.items && row.items[0]?.size ? row.items[0].size : '')}</td>
                     <td>${safeNum(row.items ? row.items.length : 1, 0)}</td>
                     <td class="boxes-column">${safeNum(row.total_boxes || row.items?.reduce((a,b)=>a+(b.quantity||0),0) || row.quantity, 0)}</td>
-                    <td>₱${safeNum(row.total,0).toFixed(2)}</td>
+                    <td>${currency(row.total)}</td>
+                    <td>${safeText(row.recorded_by,'N/A')}</td>
                     <td>${getStatusBadge(row.status)}</td>
                     <td>
                         <div class="dropdown">
@@ -1198,6 +2094,9 @@
                     </td>`;
                 tbody.appendChild(tr);
             });
+            
+            // Update pagination controls
+            updatePagination(rows.length, tableId);
         }
 
         function getStatusBadge(status) {
@@ -1231,9 +2130,96 @@
         function updateStats(rows){
             const total = (rows||[]).reduce((s,r)=>s+Number(r.total||0),0);
             const boxes = (rows||[]).reduce((s,r)=>s+Number(r.total_boxes||r.quantity||0),0);
-            document.querySelector('.stats-grid .primary .stat-value').textContent = `₱${total.toFixed(2)}`;
-            document.querySelector('.stats-grid .success .stat-value').textContent = String(rows?.length||0);
-            document.querySelector('.stats-grid .warning .stat-value').textContent = String(boxes);
+            const count = rows?.length||0;
+            
+            console.log('Updating stats:', { total, boxes, count, rowsCount: rows?.length });
+            
+            // Try multiple selector strategies to find the elements
+            const totalEl = document.querySelector('.stats-grid .stat-card:first-child .stat-content .stat-value') ||
+                           document.querySelector('.stats-grid .stat-card:first-child .stat-value') ||
+                           document.querySelector('.stats-grid .primary').closest('.stat-card')?.querySelector('.stat-value');
+            
+            const countEl = document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-content .stat-value') ||
+                           document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value') ||
+                           document.querySelector('.stats-grid .success').closest('.stat-card')?.querySelector('.stat-value');
+            
+            const boxesEl = document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-content .stat-value') ||
+                           document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-value') ||
+                           document.querySelector('.stats-grid .warning').closest('.stat-card')?.querySelector('.stat-value');
+            
+            console.log('Found elements:', { totalEl: !!totalEl, countEl: !!countEl, boxesEl: !!boxesEl });
+            
+            if (totalEl) {
+                totalEl.textContent = currency(total);
+                console.log('Updated total:', currency(total));
+            }
+            if (countEl) {
+                countEl.textContent = String(count);
+                console.log('Updated count:', count);
+            }
+            if (boxesEl) {
+                boxesEl.textContent = String(boxes);
+                console.log('Updated boxes:', boxes);
+            }
+            
+            if (!totalEl || !countEl || !boxesEl) {
+                console.warn('Could not find all stat elements. Trying fallback selectors...');
+                // Fallback: try finding by icon class
+                const cards = document.querySelectorAll('.stats-grid .stat-card');
+                if (cards.length >= 3) {
+                    const primaryCard = Array.from(cards).find(card => card.querySelector('.stat-icon.primary'));
+                    const successCard = Array.from(cards).find(card => card.querySelector('.stat-icon.success'));
+                    const warningCard = Array.from(cards).find(card => card.querySelector('.stat-icon.warning'));
+                    
+                    if (primaryCard) {
+                        const el = primaryCard.querySelector('.stat-value');
+                        if (el) { el.textContent = currency(total); console.log('Updated total (fallback):', currency(total)); }
+                    }
+                    if (successCard) {
+                        const el = successCard.querySelector('.stat-value');
+                        if (el) { el.textContent = String(count); console.log('Updated count (fallback):', count); }
+                    }
+                    if (warningCard) {
+                        const el = warningCard.querySelector('.stat-value');
+                        if (el) { el.textContent = String(boxes); console.log('Updated boxes (fallback):', boxes); }
+                    }
+                }
+            }
+        }
+
+        // Update summary cards based on current filters (always shows all statuses)
+        async function updateSummaryCards() {
+            const r = computeRange();
+            const searchTerm = (searchInput?.value||'').trim();
+            const userFilter = document.getElementById('userFilter')?.value || 'all';
+            const fruitFilter = document.getElementById('fruitFilter')?.value || 'all';
+            
+            const q = new URLSearchParams({
+                filter: r.filter,
+                start_date: r.start,
+                end_date: r.end,
+                status: 'all', // Always get all statuses for summary cards
+                search: searchTerm,
+                user: userFilter,
+                fruit: fruitFilter
+            });
+            
+            try {
+                const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
+                const json = await res.json();
+                
+                console.log('Summary cards API response:', json);
+                
+                if (json.success && json.data && Array.isArray(json.data)) {
+                    updateStats(json.data);
+                } else {
+                    console.warn('Summary cards: No data or invalid response', json);
+                    updateStats([]);
+                }
+            } catch (error) {
+                console.error('Error updating summary cards:', error);
+                updateStats([]);
+            }
         }
 
         function computeRange(){
@@ -1263,13 +2249,17 @@
         async function loadSales(status = 'all', tableId = 'allSalesTable'){
             const r = computeRange();
             const searchTerm = (searchInput?.value||'').trim();
+            const userFilter = document.getElementById('userFilter')?.value || 'all';
+            const fruitFilter = document.getElementById('fruitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: r.filter,
                 start_date: r.start,
                 end_date: r.end,
                 status: status,
-                search: searchTerm
+                search: searchTerm,
+                user: userFilter,
+                fruit: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -1277,23 +2267,29 @@
             
             if (!json.success) { 
                 renderSalesTable([], tableId); 
-                updateStats([]); 
+                updateSummaryCards(); // Update cards even on error
                 return; 
             }
             renderSalesTable(json.data||[], tableId);
-            updateStats(json.data||[]);
+            updateSummaryCards(); // Update cards with filtered data
         }
 
         async function loadTodaySales(){
-            const today = new Date().toISOString().slice(0,10);
+            const todayIso = new Date().toISOString().slice(0,10);
+            const selected = (dateInput?.value||'').trim();
+            const day = selected || todayIso;
             const searchTerm = (searchInput?.value||'').trim();
+            const userFilter = document.getElementById('userFilter')?.value || 'all';
+            const fruitFilter = document.getElementById('fruitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: 'today',
-                start_date: today,
-                end_date: today,
+                start_date: day,
+                end_date: day,
                 status: 'all',
-                search: searchTerm
+                search: searchTerm,
+                user: userFilter,
+                fruit: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -1301,21 +2297,27 @@
             
             if (!json.success) { 
                 renderSalesTable([], 'todaySalesTable'); 
+                updateSummaryCards(); // Update cards even on error
                 return; 
             }
             renderSalesTable(json.data||[], 'todaySalesTable');
+            updateSummaryCards(); // Update cards with filtered data
         }
 
         async function loadRecentSales(){
             const r = computeRange();
             const searchTerm = (searchInput?.value||'').trim();
+            const userFilter = document.getElementById('userFilter')?.value || 'all';
+            const fruitFilter = document.getElementById('fruitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: r.filter,
                 start_date: r.start,
                 end_date: r.end,
                 status: 'completed',
-                search: searchTerm
+                search: searchTerm,
+                user: userFilter,
+                fruit: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -1323,18 +2325,28 @@
             
             if (!json.success) { 
                 renderSalesTable([], 'salesTable'); 
+                updateSummaryCards(); // Update cards even on error
                 return; 
             }
             renderSalesTable(json.data||[], 'salesTable');
+            updateSummaryCards(); // Update cards with filtered data
         }
 
 
         async function loadVoidedSales(){
+            const r = computeRange();
             const searchTerm = (searchInput?.value||'').trim();
+            const userFilter = document.getElementById('userFilter')?.value || 'all';
+            const fruitFilter = document.getElementById('fruitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
+                filter: r.filter,
+                start_date: r.start,
+                end_date: r.end,
                 status: 'voided',
-                search: searchTerm
+                search: searchTerm,
+                user: userFilter,
+                fruit: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -1342,9 +2354,11 @@
             
             if (!json.success) { 
                 renderSalesTable([], 'voidedSalesTable'); 
+                updateSummaryCards(); // Update cards even on error
                 return; 
             }
             renderSalesTable(json.data||[], 'voidedSalesTable');
+            updateSummaryCards(); // Update cards with filtered data
         }
 
         refreshBtn?.addEventListener('click', loadCurrentTab);
@@ -1369,6 +2383,7 @@
         }
 
         rangeInput?.addEventListener('change', ()=>{
+            console.log('Date filter changed');
             const sel = (rangeInput.value||'today').toLowerCase();
             const isCustom = sel==='custom';
             if (isCustom) {
@@ -1382,7 +2397,13 @@
             // Always keep the single-day input hidden; label shows the date instead
             dateInput?.classList.add('d-none');
             if(sel==='today') updateTodayLabel();
-            if(!isCustom) loadCurrentTab();
+            if(!isCustom) {
+                saveSalesFilters();
+                // Update cards immediately when date filter changes
+                console.log('Calling updateSummaryCards from date filter change');
+                updateSummaryCards();
+                loadCurrentTab();
+            }
         });
         // Apply custom range from modal
         document.addEventListener('click', (e)=>{
@@ -1395,6 +2416,8 @@
                 const eNorm = eDate >= s ? eDate : s;
                 customStart = sNorm; customEnd = eNorm;
                 updateCustomLabel();
+                saveSalesFilters();
+                updateSummaryCards(); // Update cards when custom date range is applied
                 loadCurrentTab();
                 const modalEl = document.getElementById('customRangeModal');
                 const m = bootstrap.Modal.getInstance(modalEl); if(m) m.hide();
@@ -1411,14 +2434,47 @@
                 opt.textContent = 'Custom';
             }
         }
-        searchInput?.addEventListener('input', ()=>{ clearTimeout(window.__srch); window.__srch=setTimeout(loadCurrentTab,300); });
-        document.getElementById('searchBtn')?.addEventListener('click', loadCurrentTab);
+        searchInput?.addEventListener('input', ()=>{ 
+            saveSalesFilters();
+            clearTimeout(window.__srch); 
+            window.__srch=setTimeout(() => {
+                updateSummaryCards(); // Update cards when search changes
+                loadCurrentTab();
+            }, 300); 
+        });
+        document.getElementById('searchBtn')?.addEventListener('click', function() {
+            saveSalesFilters();
+            updateSummaryCards(); // Update cards when search button clicked
+            loadCurrentTab();
+        });
+        document.getElementById('userFilter')?.addEventListener('change', function() {
+            saveSalesFilters();
+            updateSummaryCards(); // Update cards when user filter changes
+            loadCurrentTab();
+        });
+        document.getElementById('fruitFilter')?.addEventListener('change', function() {
+            saveSalesFilters();
+            updateSummaryCards(); // Update cards when product filter changes
+            loadCurrentTab();
+        });
         
-        // Tab event listeners
-        document.getElementById('all-tab')?.addEventListener('shown.bs.tab', () => loadSales('all', 'allSalesTable'));
-        document.getElementById('today-tab')?.addEventListener('shown.bs.tab', loadTodaySales);
-        document.getElementById('recent-tab')?.addEventListener('shown.bs.tab', loadRecentSales);
-        document.getElementById('voided-tab')?.addEventListener('shown.bs.tab', loadVoidedSales);
+        // Tab event listeners - save on change
+        document.getElementById('all-tab')?.addEventListener('shown.bs.tab', function() {
+            saveSalesFilters();
+            loadSales('all', 'allSalesTable');
+        });
+        document.getElementById('today-tab')?.addEventListener('shown.bs.tab', function() {
+            saveSalesFilters();
+            loadTodaySales();
+        });
+        document.getElementById('recent-tab')?.addEventListener('shown.bs.tab', function() {
+            saveSalesFilters();
+            loadRecentSales();
+        });
+        document.getElementById('voided-tab')?.addEventListener('shown.bs.tab', function() {
+            saveSalesFilters();
+            loadVoidedSales();
+        });
 
         function loadCurrentTab() {
             const activeTab = document.querySelector('.nav-link.active');
@@ -1443,7 +2499,124 @@
             }
         }
         
-        document.addEventListener('DOMContentLoaded', ()=>{ updateTodayLabel(); updateSpanLabels(); updateCustomLabel(); loadSales('all', 'allSalesTable'); });
+        // Filter Persistence Functions for Sales
+        function isManualRefresh() {
+            // Check if page was manually refreshed (F5 or refresh button)
+            try {
+                // Modern Navigation Timing API
+                const navEntries = performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    return navEntries[0].type === 'reload';
+                }
+                // Legacy API
+                if (performance.navigation && performance.navigation.type !== undefined) {
+                    return performance.navigation.type === 1; // TYPE_RELOAD
+                }
+            } catch (e) {
+                // API not available
+            }
+            // Fallback: check if page was navigated to (not refreshed)
+            // On navigation, the page will be loaded fresh, so we check if we came from another page
+            return !document.referrer || document.referrer.includes(window.location.hostname);
+        }
+
+        function saveSalesFilters() {
+            if (typeof Storage === 'undefined') return;
+            const filters = {
+                searchFilter: document.getElementById('searchFilter')?.value || '',
+                rangeFilter: document.getElementById('rangeFilter')?.value || 'today',
+                userFilter: document.getElementById('userFilter')?.value || 'all',
+                fruitFilter: document.getElementById('fruitFilter')?.value || 'all',
+                dateFilter: document.getElementById('dateFilter')?.value || '',
+                activeTab: document.querySelector('.nav-link.active')?.id || 'all-tab',
+                customStart: customStart || '',
+                customEnd: customEnd || ''
+            };
+            localStorage.setItem('sales_filters', JSON.stringify(filters));
+        }
+
+        function loadSalesFilters() {
+            if (typeof Storage === 'undefined') return null;
+            const saved = localStorage.getItem('sales_filters');
+            if (!saved) return null;
+            try {
+                return JSON.parse(saved);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function clearSalesFilters() {
+            if (typeof Storage === 'undefined') return;
+            localStorage.removeItem('sales_filters');
+        }
+
+        function applySavedSalesFilters() {
+            // If manually refreshed, clear filters and use defaults
+            if (isManualRefresh()) {
+                clearSalesFilters();
+                return;
+            }
+            
+            // Otherwise, restore saved filters
+            const saved = loadSalesFilters();
+            if (!saved) return;
+            
+            if (saved.searchFilter && searchInput) searchInput.value = saved.searchFilter;
+            if (saved.rangeFilter && rangeInput) rangeInput.value = saved.rangeFilter;
+            if (saved.userFilter) {
+                const userFilterEl = document.getElementById('userFilter');
+                if (userFilterEl) userFilterEl.value = saved.userFilter;
+            }
+            if (saved.fruitFilter) {
+                const fruitFilterEl = document.getElementById('fruitFilter');
+                if (fruitFilterEl) fruitFilterEl.value = saved.fruitFilter;
+            }
+            if (saved.dateFilter && dateInput) dateInput.value = saved.dateFilter;
+            if (saved.customStart) customStart = saved.customStart;
+            if (saved.customEnd) customEnd = saved.customEnd;
+            if (saved.activeTab) {
+                const tabElement = document.getElementById(saved.activeTab);
+                if (tabElement) {
+                    const tab = new bootstrap.Tab(tabElement);
+                    tab.show();
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>{ 
+            updateTodayLabel(); 
+            updateSpanLabels(); 
+            updateCustomLabel();
+            
+            // Restore saved filters first
+            applySavedSalesFilters();
+            
+            // Update cards immediately with current filters
+            updateSummaryCards();
+            
+            // Load sales after filters are restored
+            setTimeout(() => {
+                const activeTab = document.querySelector('.nav-link.active');
+                const tabId = activeTab?.id || 'all-tab';
+                switch(tabId) {
+                    case 'all-tab': 
+                        loadSales('all', 'allSalesTable'); 
+                        break;
+                    case 'today-tab': 
+                        loadTodaySales(); 
+                        break;
+                    case 'recent-tab': 
+                        loadRecentSales(); 
+                        break;
+                    case 'voided-tab': 
+                        loadVoidedSales(); 
+                        break;
+                    default: 
+                        loadSales('all', 'allSalesTable');
+                }
+            }, 100);
+        });
 
         // Record Sale button functionality
         document.getElementById('recordSaleBtn')?.addEventListener('click', function() {
@@ -1476,7 +2649,10 @@
         });
 
         // Placeholder functions for sale actions
-        function currency(n) { return `₱${Number(n || 0).toFixed(2)}`; }
+        function currency(n) { 
+            const num = Number(n || 0);
+            return `₱${num.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
 
         function formatBatchIdRange(batchIds) {
             if (!Array.isArray(batchIds) || batchIds.length === 0) {
@@ -1533,19 +2709,37 @@
                     const flat = data.data || data.sale || data;
                     const itemsResp = data.items || flat.items || data.data?.items || [];
                     const s = flat;
-                    // Header fields
+                    
+                    // Banner fields
+                    const dt = s.recorded_at ? new Date(s.recorded_at) : null;
+                    const dtStr = dt && !isNaN(dt) ? dt.toLocaleString() : safeText(s.recorded_at,'N/A');
+                    document.getElementById('saleDetailBannerTitle').textContent = s.sale_id ? `Sale Report · #${s.sale_id}` : 'Sale Report';
+                    document.getElementById('saleDetailBannerDate').textContent = `Generated on ${dtStr}`;
+                    
+                    // Status badge
+                    const status = (safeText(s.status,'').toLowerCase());
+                    const statusBadge = document.getElementById('saleDetailStatus');
+                    statusBadge.className = 'status-badge ';
+                    if (status === 'completed') {
+                        statusBadge.classList.add('status-completed');
+                    } else if (status === 'pending') {
+                        statusBadge.classList.add('status-pending');
+                    } else if (status === 'voided' || status === 'cancelled') {
+                        statusBadge.classList.add('status-voided');
+                    } else {
+                        statusBadge.classList.add('status-default');
+                    }
+                    statusBadge.textContent = (safeText(s.status,'N/A')).toUpperCase();
+                    
+                    // Meta fields
                     document.getElementById('detailSaleId').textContent = safeText(s.sale_id,'N/A');
                     document.getElementById('detailTransactionNumber').textContent = safeText(s.transaction_number,'N/A');
                     document.getElementById('detailOrNumber').textContent = safeText(s.or_number || '', 'N/A');
-                    // Accept ISO from backend; pretty-print
-                    const dt = s.recorded_at ? new Date(s.recorded_at) : null;
-                    const dtStr = dt && !isNaN(dt) ? dt.toLocaleString() : safeText(s.recorded_at,'N/A');
                     document.getElementById('detailDate').textContent = dtStr;
                     document.getElementById('detailProcessedBy').textContent = safeText(s.username,'N/A');
-                    document.getElementById('detailStatus').textContent = safeText(s.status,'N/A');
-                    document.getElementById('detailCustomer').textContent = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || '');
-                    document.getElementById('detailCustContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || '');
-                    document.getElementById('detailCustAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || '');
+                    document.getElementById('detailCustomer').textContent = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || 'N/A');
+                    document.getElementById('detailCustContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || 'N/A');
+                    document.getElementById('detailCustAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || 'N/A');
 
                     // Items
                     const tbody = document.getElementById('detailItems');
@@ -1559,7 +2753,8 @@
                         subtotal += amount;
                         const tr = document.createElement('tr');
                         // Support both product_name and product__name, etc.
-                        const prodName = it.product_name || it['product__name'] || '';
+                        const fullName = it.product_name || it['product__name'] || '';
+                        const prodName = fullName.replace(/\s*\(.*?\)\s*$/, '');
                         const sizeVal = it.size || it['product__size'] || '';
                         const variant = it.variant ? ` (${safeText(it.variant)})` : '';
                         const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
@@ -1574,7 +2769,7 @@
                         tr.innerHTML = `
                             <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
                             <td class="text-end">${qty}</td>
-                            <td class="text-end">${batchHtml}</td>
+                            <td>${batchHtml}</td>
                             <td class="text-end">${currency(price)}</td>
                             <td class="text-end">${currency(amount)}</td>
                         `;
@@ -1583,93 +2778,277 @@
 
                     const vat = subtotal * 0.12;
                     const total = subtotal + vat;
+                    const amountPaid = safeNum(s.amount_paid, total);
+                    const change = amountPaid - total;
+                    
                     document.getElementById('detailSubtotal').textContent = currency(subtotal);
                     document.getElementById('detailVAT').textContent = currency(vat);
                     document.getElementById('detailTotal').textContent = currency(total);
-                    document.getElementById('detailAmountPaid').textContent = currency(s.amount_paid ?? total);
-                    document.getElementById('detailChange').textContent = currency((s.amount_paid ?? total) - total);
+                    document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
+                    document.getElementById('detailChange').textContent = currency(change);
 
                     new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
                 })
                 .catch(err => console.error('Details error', err));
         }
 
+        // Thermal printer settings (can be configured via localStorage or UI)
+        let thermalPrinterSettings = {
+            connectionType: localStorage.getItem('thermalPrinterConnectionType') || 'usb',
+            port: localStorage.getItem('thermalPrinterPort') || 'COM3',
+            baudrate: parseInt(localStorage.getItem('thermalPrinterBaudrate')) || 9600,
+            vendorId: localStorage.getItem('thermalPrinterVendorId') || '',
+            productId: localStorage.getItem('thermalPrinterProductId') || ''
+        };
+
+        // Print to thermal printer
+        function printThermalReceipt(saleId) {
+            const formData = new FormData();
+            formData.append('connection_type', thermalPrinterSettings.connectionType);
+            
+            if (thermalPrinterSettings.connectionType === 'usb') {
+                if (thermalPrinterSettings.vendorId) {
+                    formData.append('vendor_id', thermalPrinterSettings.vendorId);
+                }
+                if (thermalPrinterSettings.productId) {
+                    formData.append('product_id', thermalPrinterSettings.productId);
+                }
+            } else if (thermalPrinterSettings.connectionType === 'serial' || thermalPrinterSettings.connectionType === 'bluetooth') {
+                formData.append('port', thermalPrinterSettings.port);
+                formData.append('baudrate', thermalPrinterSettings.baudrate);
+            }
+            
+            // Add CSRF token
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`/api/printer/receipt/${saleId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Receipt printed successfully to thermal printer!');
+                } else {
+                    alert('Print failed: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Thermal print error', err);
+                alert('Error printing to thermal printer: ' + err.message);
+            });
+        }
+
         function printReceipt(saleId) {
+            // Show dialog to choose print type
+            const useThermal = confirm('Print to thermal printer? (Click OK for thermal, Cancel for regular print)');
+            
+            if (useThermal) {
+                printThermalReceipt(saleId);
+                return;
+            }
+            
+            // Regular print (styled like record_sale.html)
             fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
                 .then(r => r.json())
                 .then(data => {
                     const s = data.data || data;
-                    // Fill header
-                    document.getElementById('rTxn').textContent = safeText(s.transaction_number || s.sale_id,'N/A');
-                    document.getElementById('rOr').textContent = safeText(s.or_number,'N/A');
-                    document.getElementById('rDate').textContent = safeText(s.recorded_at,'N/A');
-                    // Ensure customer line exists
-                    if (!document.getElementById('rCustomer')) {
-                        const root = document.getElementById('receiptRoot');
-                        const n = document.createElement('div');
-                        n.innerHTML = '<strong>Customer:</strong> <span id="rCustomer"></span>';
-                        root.insertBefore(n, root.children[3]);
+                    
+                    // Fill receipt data
+                    document.getElementById('rTxn').textContent = safeText(s.transaction_number || s.sale_id, 'N/A');
+                    document.getElementById('rOr').textContent = safeText(s.or_number, 'N/A');
+                    
+                    // Format date properly
+                    const dateStr = safeText(s.recorded_at, '');
+                    let formattedDate = dateStr;
+                    if (dateStr && dateStr !== 'N/A') {
+                        try {
+                            const date = new Date(dateStr);
+                            formattedDate = date.toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        } catch(e) {
+                            formattedDate = dateStr;
+                        }
                     }
-                    if (!document.getElementById('rContact')) {
-                        const root = document.getElementById('receiptRoot');
-                        const n = document.createElement('div');
-                        n.innerHTML = '<strong>Contact no.:</strong> <span id="rContact"></span>';
-                        root.insertBefore(n, root.children[4]);
+                    document.getElementById('rDate').textContent = formattedDate;
+                    
+                    // Customer info
+                    const customerName = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || 'Walk-in Customer', 'Walk-in Customer');
+                    const customerContact = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || '', 'N/A');
+                    const customerAddress = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || '', 'N/A');
+                    
+                    document.getElementById('rCustomer').textContent = customerName;
+                    document.getElementById('rContact').textContent = customerContact;
+                    document.getElementById('rAddress').textContent = customerAddress;
+                    
+                    // Processed by
+                    const processedBy = safeText(s.username || '', '');
+                    if (processedBy && processedBy !== 'N/A') {
+                        document.getElementById('rProcessedBy').textContent = processedBy;
+                        document.getElementById('rProcessedByRow').style.display = 'block';
+                    } else {
+                        document.getElementById('rProcessedByRow').style.display = 'none';
                     }
-                    if (!document.getElementById('rAddress')) {
-                        const root = document.getElementById('receiptRoot');
-                        const n = document.createElement('div');
-                        n.innerHTML = '<strong>Address:</strong> <span id="rAddress"></span>';
-                        root.insertBefore(n, root.children[5]);
-                    }
-                    document.getElementById('rCustomer').textContent = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || '');
-                    document.getElementById('rContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || '');
-                    document.getElementById('rAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || '');
-                    // Items
+                    
+                    // Items - match record_sale format (Description, Boxes, Price, Amount - NO Batch ID)
                     const rItems = document.getElementById('rItems');
                     rItems.innerHTML = '';
                     let subtotal = 0;
-                    (s.items || []).forEach(it => {
+                    (data.items || s.items || []).forEach(it => {
                         const qty = safeNum(it.quantity, 0);
                         const price = safeNum(it.price, 0);
                         const amount = qty * price;
                         subtotal += amount;
-                        const tr = document.createElement('tr');
+                        
+                        // Build description like record_sale.html
+                        const fullName2 = safeText(it.product__name || it.product_name || '', '');
+                        let description = fullName2.replace(/\s*\(.*?\)\s*$/, '');
                         const variant = it.variant ? ` (${safeText(it.variant)})` : '';
-                        const size = it.size ? ` (${safeText(it.size)})` : '';
-                        const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
-                                        : Array.isArray(it.batches) ? it.batches
-                                        : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
-                                        : null;
-                        const batchText = batchArr && batchArr.length ? formatBatchIdRange(batchArr).map(b=>safeText(b)).join(', ') : safeText(it.batch_id || it.batch, 'N/A');
+                        const sizeVal = it.size || it.product__size;
+                        const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
+                        description += variant + size;
+                        
+                        const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${it.product_name || ''}${variant}${size}</td>
-                            <td style="text-align:right">${qty}</td>
-                            <td style="text-align:right">${batchText}</td>
-                            <td style="text-align:right">${currency(price)}</td>
-                            <td style="text-align:right">${currency(amount)}</td>
+                            <td>${description}</td>
+                            <td class="text-end">${qty}</td>
+                            <td class="text-end">${currency(price)}</td>
+                            <td class="text-end">${currency(amount)}</td>
                         `;
                         rItems.appendChild(tr);
                     });
+                    
+                    // Calculate totals
                     const vat = subtotal * 0.12;
                     const total = subtotal + vat;
                     const paid = Number(s.amount_paid ?? total);
                     const change = paid - total;
+                    
                     document.getElementById('rSub').textContent = currency(subtotal);
                     document.getElementById('rVat').textContent = currency(vat);
                     document.getElementById('rTotal').textContent = currency(total);
                     document.getElementById('rPaid').textContent = currency(paid);
                     document.getElementById('rChange').textContent = currency(change);
 
-                    const html = document.getElementById('printArea').innerHTML;
+                    // Print with proper styling (matching record_sale.html)
+                    const content = document.querySelector('.receipt-container').outerHTML;
+                    const html = `<!doctype html>
+<html>
+<head>
+    <title>Receipt</title>
+    <style>
+        body {
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+            background: #fff;
+        }
+        .receipt-container {
+            max-width: 300px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 1rem;
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .company-details {
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+        .receipt-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .receipt-divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .receipt-info {
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+        .receipt-table {
+            width: 100%;
+            margin: 10px 0;
+            font-size: 11px;
+        }
+        .receipt-table th, .receipt-table td {
+            padding: 2px 5px;
+            font-size: 11px;
+        }
+        .receipt-table th {
+            border-bottom: 1px solid #000;
+            font-weight: bold;
+        }
+        .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+        }
+        .receipt-footer p {
+            margin-bottom: 2px;
+        }
+        @media print {
+            body {
+                width: 302px;
+            }
+            .receipt-container {
+                border: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    ${content}
+</body>
+</html>`;
+                    
                     const w = window.open('', '_blank');
-                    w.document.write(`<html><head><title>Receipt</title></head><body>${html}</body></html>`);
+                    w.document.write(html);
                     w.document.close();
                     w.focus();
+                    setTimeout(() => {
                     w.print();
                     w.close();
+                    }, 250);
                 })
                 .catch(err => console.error('Print error', err));
+        }
+
+        // Helper to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
 
         // Confirm void sale
@@ -1702,11 +3081,14 @@
                     alertElement.classList.remove('d-none', 'alert-danger');
                     alertElement.classList.add('alert-success');
 
-                    // Close modal after a short delay and refresh
+                    // Close modal after a short delay and refresh data only
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(document.getElementById('voidConfirmationModal'));
                         modal.hide();
-                        window.location.reload();
+                        // Reload current tab data instead of full page refresh
+                        if (typeof loadCurrentTab === 'function') {
+                            loadCurrentTab();
+                        }
                     }, 1200);
                 } else {
                     // Show error message in modal
@@ -1766,7 +3148,10 @@
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(document.getElementById('completeConfirmationModal'));
                         modal.hide();
-                        window.location.reload();
+                        // Reload current tab data instead of full page refresh
+                        if (typeof loadCurrentTab === 'function') {
+                            loadCurrentTab();
+                        }
                     }, 1200);
                 } else {
                     alertElement.textContent = data.message || 'Failed to complete sale.';
@@ -1796,54 +3181,77 @@
             confirmButton.innerHTML = 'Complete Sale';
         });
 
-        // Mobile sidebar toggle functionality
+
+        // Sidebar toggle functionality (works on both desktop and mobile)
         const sidebar = document.querySelector('.sidebar');
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-        function toggleMobileMenu() {
-            if (sidebar) {
+        // Sidebar starts open via HTML; no animation adjustments needed on desktop
+
+        // Enable transitions after initial render
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+            });
+        });
+
+        // Burger menu button toggle
+        if (burgerMenuBtn && sidebar) {
+            burgerMenuBtn.addEventListener('click', function() {
                 sidebar.classList.toggle('active');
-                console.log('Mobile sidebar toggled:', sidebar.classList.contains('active'));
-                // Prevent body scroll when sidebar is open on mobile
-                if (sidebar.classList.contains('active')) {
-                    document.body.style.overflow = 'hidden';
+                burgerMenuBtn.classList.toggle('active');
+                const mainContent = document.querySelector('.main-content');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: toggle sidebar and adjust main content
+                    if (sidebar.classList.contains('active')) {
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    } else {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
                 } else {
-                    document.body.style.overflow = '';
+                    // Mobile: show overlay and prevent body scroll
+                    if (sidebarOverlay) {
+                        sidebarOverlay.classList.toggle('active');
+                    }
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
                 }
-            }
-        }
-
-        // Handle mobile menu toggle click
-        if (mobileMenuToggle) {
-            console.log('Mobile menu button found in sales_full');
-            mobileMenuToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Mobile menu button clicked in sales_full');
-                toggleMobileMenu();
             });
         }
 
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(e) {
-            if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
-                if (!sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+        // Close sidebar when clicking overlay (mobile only)
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                if (window.innerWidth <= 768) {
                     sidebar.classList.remove('active');
+                    sidebarOverlay.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
                     document.body.style.overflow = '';
-                    console.log('Mobile sidebar closed from outside click');
                 }
-            }
-        });
+            });
+        }
 
         // Close sidebar when clicking on navigation links
         if (sidebar) {
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
+                    const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
                         sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                         document.body.style.overflow = '';
                         console.log('Mobile sidebar closed from nav link click');
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
                     }
                 });
             });
@@ -1851,10 +3259,19 @@
 
         // Handle window resize
         window.addEventListener('resize', function() {
-            if (window.innerWidth > 768 && sidebar) {
-                sidebar.classList.remove('active');
+            const mainContent = document.querySelector('.main-content');
+            if (window.innerWidth > 768) {
+                // Desktop: keep sidebar state but remove mobile-specific styles
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 document.body.style.overflow = '';
-                console.log('Mobile sidebar closed on resize');
+                if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                    mainContent.classList.add('sidebar-open');
+                } else if (mainContent) {
+                    mainContent.classList.remove('sidebar-open');
+                }
+            } else {
+                // Mobile: remove desktop-specific styles
+                if (mainContent) mainContent.classList.remove('sidebar-open');
             }
         });
 
@@ -1862,10 +3279,77 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
+                if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                const mainContent = document.querySelector('.main-content');
+                if (window.innerWidth > 768) {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                } else {
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                 document.body.style.overflow = '';
-                console.log('Mobile sidebar closed from escape key');
+                }
+                console.log('Sidebar closed from escape key');
             }
         });
+
+        // Handle logout confirmation
+        document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                // Check if Bootstrap modal is available
+                if (typeof bootstrap !== 'undefined') {
+                    e.preventDefault();
+                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                    logoutModal.show();
+                }
+            });
+        });
+
+        // Fallback: define enhanceMobileTables locally if not provided by base template
+        if (!window.enhanceMobileTables) {
+            window.enhanceMobileTables = function() {
+                try {
+                    var isMobile = window.matchMedia('(max-width: 768px)').matches;
+                    if (!isMobile) return;
+                    document.querySelectorAll('table.table-mobile-card').forEach(function(table) {
+                        var headerCells = table.querySelectorAll('thead th');
+                        if (!headerCells || headerCells.length === 0) return;
+                        var labels = Array.from(headerCells).map(function(th){ return (th.textContent||'').trim(); });
+                        table.querySelectorAll('tbody tr').forEach(function(row){
+                            row.querySelectorAll('td').forEach(function(td, idx){
+                                if (!td.hasAttribute('data-label') && labels[idx]) td.setAttribute('data-label', labels[idx]);
+                            });
+                        });
+                    });
+                } catch(e) { /* no-op */ }
+            };
+            window.addEventListener('resize', window.enhanceMobileTables);
+            window.addEventListener('orientationchange', window.enhanceMobileTables);
+        }
     </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

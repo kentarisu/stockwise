@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 import os
 import csv
 from django.conf import settings
-from django.db.models import Sum, Count, F, Q, F, Case, When, CharField, Value
+from django.db.models import Sum, Count, F, Q, Case, When, CharField, Value, Max
 from django.db.models.functions import Coalesce, Substr
 from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary
 import json
@@ -38,274 +38,345 @@ from django.views.decorators.http import require_GET
 import django.db.models as models
 from django.core.exceptions import ValidationError
 
-# Unified numeric size options shared across all products
+# Unified numeric quantity options shared across all products
 STANDARD_SIZE_OPTIONS = ['120', '130', '140', '150', '160']
 
+# ---- Input sanitizers (server-side hardening) ----
+import re
+
+_ALLOWED_TEXT_PATTERN = re.compile(r"[^A-Za-z0-9\-\s(),./]+")
+
+def sanitize_text(value: str, max_len: int = 120) -> str:
+    """Return a cleaned, human-friendly string.
+    - Trims whitespace, collapses internal multiple spaces
+    - Removes disallowed characters (keeps letters, numbers, spaces, hyphen, comma, dot, slash, parentheses)
+    - Title-cases words where appropriate
+    - Caps length to prevent abuse
+    """
+    if not value:
+        return ''
+    value = str(value).strip()
+    # Remove characters outside allowed set
+    value = _ALLOWED_TEXT_PATTERN.sub('', value)
+    # Collapse consecutive whitespace
+    value = re.sub(r"\s+", " ", value)
+    # Normalize dashes spacing
+    value = re.sub(r"\s*-\s*", "-", value)
+    # Title case but keep common abbreviations (simple heuristic)
+    safe = value.title()
+    # Truncate
+    if len(safe) > max_len:
+        safe = safe[:max_len]
+    return safe
+
+def clamp_decimal(value_str: str, min_value: str = '0', precision: str = '0.01'):
+    from decimal import Decimal, InvalidOperation
+    try:
+        d = Decimal(value_str)
+    except (InvalidOperation, TypeError):
+        d = Decimal(min_value)
+    if d < Decimal(min_value):
+        d = Decimal(min_value)
+    return d.quantize(Decimal(precision))
 
 def redirect_to_login(request):
-	return redirect('login')
+    return redirect('login')
 
 
 @require_http_methods(["GET", "POST"])
 @csrf_exempt
 def login_view(request):
-	if request.method == 'POST':
-		username = request.POST.get('username', '').strip()
-		password = request.POST.get('password', '').strip()
-		
-		# TC-005, TC-006: Server-side validation for empty fields
-		if not username:
-			messages.error(request, 'Username is required.')
-			return render(request, 'login_modern.html')
-		if not password:
-			messages.error(request, 'Password is required.')
-			return render(request, 'login_modern.html')
-		
-		try:
-			user = AppUser.objects.filter(username=username).first()
-			if not user:
-				messages.error(request, 'Username not found.')
-			else:
-				# TC-003: Check if user account is active
-				if not getattr(user, 'is_active', True):
-					messages.error(request, 'Account is inactive or locked. Please contact administrator.')
-					return render(request, 'login_modern.html')
-				
-				from passlib.hash import bcrypt
-				import re
-				
-				# Handle both PHP ($2y$) and Python ($2b$) bcrypt formats
-				stored_password = user.password
-				password_valid = False
-				
-				# Check if it's a PHP bcrypt hash ($2y$)
-				if stored_password.startswith('$2y$'):
-					# Convert PHP format to Python format
-					python_hash = stored_password.replace('$2y$', '$2b$', 1)
-					try:
-						password_valid = bcrypt.verify(password, python_hash)
-					except Exception:
-						# If conversion fails, try direct verification
-						password_valid = bcrypt.verify(password, stored_password)
-				else:
-					# Try direct verification for other formats
-					try:
-						password_valid = bcrypt.verify(password, stored_password)
-					except Exception:
-						password_valid = False
-				
-				if password_valid:
-					# Map roles to legacy session values used across the app
-					mapped_role = 'admin' if (user.role or '').lower() == 'admin' else 'user'
-					request.session['app_user_id'] = user.user_id
-					request.session['app_username'] = user.username
-					request.session['app_role'] = mapped_role
-					
-					# Check if there's a QR redirect URL to go back to
-					qr_redirect_url = request.session.pop('qr_redirect_url', None)
-					if qr_redirect_url:
-						return redirect(qr_redirect_url)
-					
-					return redirect('dashboard')
-				else:
-					messages.error(request, 'Password is incorrect.')
-		except Exception as exc:
-			messages.error(request, f'Login error: {exc}')
-	
-	# Check if this is a redirect from QR scanning
-	qr_redirect_url = request.session.get('qr_redirect_url')
-	is_from_qr = qr_redirect_url and '/qr/confirm/' in qr_redirect_url
-	
-	return render(request, 'login.html', {
-		'is_from_qr': is_from_qr
-	})
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        
+        # TC-005, TC-006: Server-side validation for empty fields
+        if not username:
+            messages.error(request, 'Username is required.')
+            return render(request, 'login_modern.html')
+        if not password:
+            messages.error(request, 'Password is required.')
+            return render(request, 'login_modern.html')
+        
+        try:
+            user = AppUser.objects.filter(username=username).first()
+            if not user:
+                messages.error(request, 'Username not found.')
+                return render(request, 'login_modern.html')
+            
+            # TC-003: Check if user account is active (check BEFORE password verification)
+            # This ensures disabled accounts show the correct error message
+            if not getattr(user, 'is_active', True):
+                messages.error(request, 'Account disabled. Please contact the admin to enable your account.')
+                return render(request, 'login_modern.html')
+            
+            from passlib.hash import bcrypt
+            import re
+            
+            # Handle both PHP ($2y$) and Python ($2b$) bcrypt formats
+            stored_password = user.password
+            password_valid = False
+            
+            # Check if it's a PHP bcrypt hash ($2y$)
+            if stored_password.startswith('$2y$'):
+                # Convert PHP format to Python format
+                python_hash = stored_password.replace('$2y$', '$2b$', 1)
+                try:
+                    password_valid = bcrypt.verify(password, python_hash)
+                except Exception:
+                    # If conversion fails, try direct verification
+                    password_valid = bcrypt.verify(password, stored_password)
+            else:
+                # Try direct verification for other formats
+                try:
+                    password_valid = bcrypt.verify(password, stored_password)
+                except Exception:
+                    password_valid = False
+            
+            if password_valid:
+                # Map roles to legacy session values used across the app
+                mapped_role = 'admin' if (user.role or '').lower() == 'admin' else 'user'
+                request.session['app_user_id'] = user.user_id
+                request.session['app_username'] = user.username
+                request.session['app_role'] = mapped_role
+                
+                # Check if there's a QR redirect URL to go back to
+                qr_redirect_url = request.session.pop('qr_redirect_url', None)
+                if qr_redirect_url:
+                    return redirect(qr_redirect_url)
+                
+                return redirect('dashboard')
+            else:
+                messages.error(request, 'Password is incorrect.')
+            return render(request, 'login_modern.html')
+        except Exception as exc:
+            messages.error(request, f'Login error: {exc}')
+    
+    # Check if this is a redirect from QR scanning
+    qr_redirect_url = request.session.get('qr_redirect_url')
+    is_from_qr = qr_redirect_url and '/qr/confirm/' in qr_redirect_url
+    
+    return render(request, 'login_modern.html', {
+        'is_from_qr': is_from_qr
+    })
 
 
 def logout_view(request):
-	for key in ['app_user_id', 'app_username', 'app_role']:
-		request.session.pop(key, None)
-	return redirect('login')
+    for key in ['app_user_id', 'app_username', 'app_role']:
+        request.session.pop(key, None)
+    return redirect('login')
 
 
 def require_app_login(view_func):
-	def wrapper(request, *args, **kwargs):
-		# Normalize legacy session keys used by tests
-		if request.session.get('user_id') and not request.session.get('app_user_id'):
-			request.session['app_user_id'] = request.session.get('user_id')
-			if request.session.get('app_role') is None:
-				request.session['app_role'] = 'admin'
-		
-		# Accept either legacy 'user_id' or new 'app_user_id' from tests/fixtures
-		if not (request.session.get('app_user_id') or request.session.get('user_id')):
-			return redirect('login')
-		
-		# Normalize into 'app_user_id' so downstream code works
-		if not request.session.get('app_user_id') and request.session.get('user_id'):
-			request.session['app_user_id'] = request.session.get('user_id')
-			# Map role to expected values if available
-			if request.session.get('app_role') is None:
-				request.session['app_role'] = 'admin'
-		
-		return view_func(request, *args, **kwargs)
-	return wrapper
+    def wrapper(request, *args, **kwargs):
+        # Normalize legacy session keys used by tests
+        if request.session.get('user_id') and not request.session.get('app_user_id'):
+            request.session['app_user_id'] = request.session.get('user_id')
+            if request.session.get('app_role') is None:
+                request.session['app_role'] = 'admin'
+        
+        # Accept either legacy 'user_id' or new 'app_user_id' from tests/fixtures
+        if not (request.session.get('app_user_id') or request.session.get('user_id')):
+            return redirect('login')
+        
+        # Normalize into 'app_user_id' so downstream code works
+        if not request.session.get('app_user_id') and request.session.get('user_id'):
+            request.session['app_user_id'] = request.session.get('user_id')
+            # Map role to expected values if available
+            if request.session.get('app_role') is None:
+                request.session['app_role'] = 'admin'
+        
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 
 @require_app_login
 def dashboard_view(request):
-	today = timezone.localtime().date()
-	yesterday = today - timezone.timedelta(days=1)
-	last_month = today - timezone.timedelta(days=30)
-	role = request.session.get('app_role', 'admin')
+    today = timezone.localtime().date()
+    yesterday = today - timezone.timedelta(days=1)
+    last_month = today - timezone.timedelta(days=30)
+    role = request.session.get('app_role', 'admin')
 
-	# Basic stats
-	total_products = Product.objects.count()
-	last_month_products = Product.objects.filter(created_at__date__lte=last_month).count()
-	
-	low_stock = Product.objects.filter(status='active', stock__lte=10).count()
-	yesterday_low_stock = Product.objects.filter(status='active', stock__lte=10, last_updated__date__lte=yesterday).count()
-	
-	today_sales = Sale.objects.filter(recorded_at__date=today).count()
-	yesterday_sales = Sale.objects.filter(recorded_at__date=yesterday).count()
-	
-	# Revenue calculations
-	today_revenue = Sale.objects.filter(
-		recorded_at__date=today,
-		status='completed'
-	).aggregate(total=Sum('total'))['total'] or 0
-	
-	yesterday_revenue = Sale.objects.filter(
-		recorded_at__date=yesterday,
-		status='completed'
-	).aggregate(total=Sum('total'))['total'] or 0
+    # Basic stats
+    total_products = Product.objects.count()
+    last_month_products = Product.objects.filter(created_at__date__lte=last_month).count()
+    
+    low_stock = Product.objects.filter(status='active', stock__lte=10).count()
+    yesterday_low_stock = Product.objects.filter(status='active', stock__lte=10, last_updated__date__lte=yesterday).count()
+    
+    today_sales = Sale.objects.filter(recorded_at__date=today).count()
+    yesterday_sales = Sale.objects.filter(recorded_at__date=yesterday).count()
+    
+    # Revenue calculations
+    today_revenue = Sale.objects.filter(
+        recorded_at__date=today,
+        status='completed'
+    ).aggregate(total=Sum('total'))['total'] or 0
+    
+    yesterday_revenue = Sale.objects.filter(
+        recorded_at__date=yesterday,
+        status='completed'
+    ).aggregate(total=Sum('total'))['total'] or 0
 
-	# Calculate percentage changes
-	def calculate_percentage_change(current, previous):
-		if previous == 0:
-			return 100 if current > 0 else 0
-		return round(((current - previous) / previous) * 100, 1)
+    # Calculate percentage changes
+    def calculate_percentage_change(current, previous):
+        if previous == 0:
+            return 100 if current > 0 else 0
+        return round(((current - previous) / previous) * 100, 1)
 
-	products_change = calculate_percentage_change(total_products, last_month_products)
-	low_stock_change = calculate_percentage_change(low_stock, yesterday_low_stock)
-	sales_change = calculate_percentage_change(today_sales, yesterday_sales)
-	revenue_change = calculate_percentage_change(float(today_revenue), float(yesterday_revenue))
+    products_change = calculate_percentage_change(total_products, last_month_products)
+    low_stock_change = calculate_percentage_change(low_stock, yesterday_low_stock)
+    sales_change = calculate_percentage_change(today_sales, yesterday_sales)
+    revenue_change = calculate_percentage_change(float(today_revenue), float(yesterday_revenue))
 
-	# Sales data for past week
-	past_week = []
-	sales_totals = []
-	for i in range(6, -1, -1):
-		date = today - timezone.timedelta(days=i)
-		past_week.append(date.strftime('%a'))
-		total = Sale.objects.filter(
-			recorded_at__date=date,
-			status='completed'
-		).aggregate(t=Sum('total'))['t'] or 0
-		sales_totals.append(float(total))
+    # Sales data for past week
+    past_week = []
+    sales_totals = []
+    for i in range(6, -1, -1):
+        date = today - timezone.timedelta(days=i)
+        past_week.append(date.strftime('%a'))
+        total = Sale.objects.filter(
+            recorded_at__date=date,
+            status='completed'
+        ).aggregate(t=Sum('total'))['t'] or 0
+        sales_totals.append(float(total))
 
-	# Top selling products (single-table sales)
-	top_products = (
-		Sale.objects
-		.values('product__name')
-		.annotate(quantity=Sum('quantity'))
-		.order_by('-quantity')[:5]
-	)
+    # Top selling products (single-table sales) - include size to determine unit
+    top_products = (
+        Sale.objects
+        .values('product__name', 'product__size')
+        .annotate(quantity=Sum('quantity'))
+        .order_by('-quantity')[:5]
+    )
 
-	# Recent activity (last 5 activities)
-	recent_sales = Sale.objects.filter(
-		status='completed'
-	).select_related('product').order_by('-recorded_at')[:3]
-	
-	recent_stock_additions = StockAddition.objects.select_related('product').order_by('-created_at')[:2]
-	
-	low_stock_products = Product.objects.filter(
-		status='active',
-		stock__lte=10
-	).order_by('stock')[:2]
+    # Recent activity (last 5 activities)
+    recent_sales = list(
+        Sale.objects.filter(
+            status='completed'
+        ).select_related('product', 'user').order_by('-recorded_at')[:3]
+    )
+    
+    recent_stock_additions = StockAddition.objects.select_related('product').order_by('-created_at')[:2]
+    
+    low_stock_products = Product.objects.filter(
+        status='active',
+        stock__lte=10
+    ).order_by('stock')[:2]
 
-	# Additional comprehensive overview data
-	# Monthly revenue
-	this_month = today.replace(day=1)
-	monthly_revenue = Sale.objects.filter(
-		recorded_at__date__gte=this_month,
-		status='completed'
-	).aggregate(total=Sum('total'))['total'] or 0
-	
-	# Total inventory value
-	total_inventory_value = Product.objects.filter(status='active').aggregate(
-		value=Sum(F('stock') * F('price'))
-	)['value'] or 0
-	
-	# Out of stock products
-	out_of_stock = Product.objects.filter(status='active', stock=0).count()
-	
-	# Weekly sales summary
-	week_start = today - timezone.timedelta(days=6)
-	weekly_sales = Sale.objects.filter(
-		recorded_at__date__gte=week_start,
-		status='completed'
-	).aggregate(
-		total_sales=Sum('quantity'),
-		total_revenue=Sum('total')
-	)
-	
-	# Recent transactions (last 10)
-	recent_transactions = Sale.objects.filter(
-		status='completed'
-	).select_related('product').order_by('-recorded_at')[:10]
-	
-	# Top customers (by sales count)
-	top_customers = (
-		Sale.objects
-		.filter(status='completed')
-		.exclude(customer_name__isnull=True)
-		.exclude(customer_name='')
-		.values('customer_name')
-		.annotate(
-			sales_count=Count('sale_id'),
-			total_spent=Sum('total')
-		)
-		.order_by('-sales_count')[:5]
-	)
-	
-	# Product categories overview
-	product_categories = (
-		Product.objects
-		.filter(status='active')
-		.values('size')
-		.annotate(
-			count=Count('product_id'),
-			total_stock=Sum('stock')
-		)
-		.order_by('-count')[:5]
-	)
+    # Additional comprehensive overview data
+    # Monthly revenue
+    this_month = today.replace(day=1)
+    monthly_revenue = Sale.objects.filter(
+        recorded_at__date__gte=this_month,
+        status='completed'
+    ).aggregate(total=Sum('total'))['total'] or 0
+    
+    # Total inventory value
+    total_inventory_value = Product.objects.filter(status='active').aggregate(
+        value=Sum(F('stock') * F('price'))
+    )['value'] or 0
+    
+    # Format monetary values with commas
+    def format_currency(value):
+        """Format currency value with commas and 2 decimal places"""
+        if value is None:
+            value = 0
+        return f"{float(value):,.2f}"
+    
+    today_revenue_formatted = format_currency(today_revenue)
+    monthly_revenue_formatted = format_currency(monthly_revenue)
+    total_inventory_value_formatted = format_currency(total_inventory_value)
+    for sale in recent_sales:
+        sale.formatted_total = format_currency(sale.total)
+    
+    # Out of stock products
+    out_of_stock = Product.objects.filter(status='active', stock=0).count()
+    
+    # Weekly sales summary
+    week_start = today - timezone.timedelta(days=6)
+    weekly_sales = Sale.objects.filter(
+        recorded_at__date__gte=week_start,
+        status='completed'
+    ).aggregate(
+        total_sales=Sum('quantity'),
+        total_revenue=Sum('total')
+    )
+    
+    # Recent transactions (last 10)
+    recent_transactions = Sale.objects.filter(
+        status='completed'
+    ).select_related('product').order_by('-recorded_at')[:10]
+    
+    # Top customers (by sales count)
+    top_customers = (
+        Sale.objects
+        .filter(status='completed')
+        .exclude(customer_name__isnull=True)
+        .exclude(customer_name='')
+        .values('customer_name')
+        .annotate(
+            sales_count=Count('sale_id'),
+            total_spent=Sum('total')
+        )
+        .order_by('-sales_count')[:5]
+    )
+    
+    # Product categories overview
+    product_categories = (
+        Product.objects
+        .filter(status='active')
+        .values('size')
+        .annotate(
+            count=Count('product_id'),
+            total_stock=Sum('stock')
+        )
+        .order_by('-count')[:5]
+    )
 
-	context = {
-		'app_role': role,
-		'total_products': total_products,
-		'products_change': products_change,
-		'low_stock': low_stock,
-		'low_stock_change': low_stock_change,
-		'today_sales': today_sales,
-		'sales_change': sales_change,
-		'today_revenue': today_revenue,
-		'revenue_change': revenue_change,
-		'sales_past_week': json.dumps(past_week),
-		'sales_totals': json.dumps(sales_totals),
-		'top_products': top_products,
-		'recent_sales': recent_sales,
-		'recent_stock_additions': recent_stock_additions,
-		'low_stock_products': low_stock_products,
-		# Additional overview data
-		'monthly_revenue': monthly_revenue,
-		'total_inventory_value': total_inventory_value,
-		'out_of_stock': out_of_stock,
-		'weekly_sales_count': weekly_sales['total_sales'] or 0,
-		'weekly_revenue': weekly_sales['total_revenue'] or 0,
-		'recent_transactions': recent_transactions,
-		'top_customers': top_customers,
-		'product_categories': product_categories,
-	}
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
 
-	return render(request, 'dashboard_full.html', context)
+    context = {
+        'app_role': role,
+        'total_products': total_products,
+        'products_change': products_change,
+        'low_stock': low_stock,
+        'low_stock_change': low_stock_change,
+        'today_sales': today_sales,
+        'sales_change': sales_change,
+        'today_revenue': today_revenue,
+        'today_revenue_formatted': today_revenue_formatted,
+        'revenue_change': revenue_change,
+        'sales_past_week': json.dumps(past_week),
+        'sales_totals': json.dumps(sales_totals),
+        'top_products': top_products,
+        'recent_sales': recent_sales,
+        'recent_stock_additions': recent_stock_additions,
+        'low_stock_products': low_stock_products,
+        # Additional overview data
+        'monthly_revenue': monthly_revenue,
+        'monthly_revenue_formatted': monthly_revenue_formatted,
+        'total_inventory_value': total_inventory_value,
+        'total_inventory_value_formatted': total_inventory_value_formatted,
+        'out_of_stock': out_of_stock,
+        'weekly_sales_count': weekly_sales['total_sales'] or 0,
+        'weekly_revenue': weekly_sales['total_revenue'] or 0,
+        'recent_transactions': recent_transactions,
+        'top_customers': top_customers,
+        'product_categories': product_categories,
+        'user_obj': user_obj,
+        'today': today,
+        'yesterday': yesterday,
+        'last_month_date': last_month,
+        'this_month_start': this_month,
+        'week_start': week_start,
+    }
+
+    return render(request, 'dashboard_full.html', context)
 
 
 @require_app_login
@@ -316,6 +387,8 @@ def products_inventory(request):
         # Get query parameters
         search = request.GET.get('search', '')
         filter_status = request.GET.get('filter', 'All Products')
+        supplier_filter = request.GET.get('supplier', 'all')
+        fruit_filter = request.GET.get('fruit', 'all')
         sort_column = request.GET.get('sort_column', 'name')
         sort_order = request.GET.get('sort_order', 'asc')
 
@@ -330,6 +403,20 @@ def products_inventory(request):
             )
         if filter_status != 'All Products':
             products = products.filter(status=filter_status.lower())
+        
+        # Apply supplier filter if specified
+        if supplier_filter and supplier_filter != 'all':
+            products = products.filter(supplier=supplier_filter)
+        
+        # Apply fruit filter if specified
+        if fruit_filter and fruit_filter != 'all':
+            # Match products where the base name (before parentheses) matches the fruit
+            # This handles both "Apple" and "Apple (Fuji)" formats
+            products = products.filter(
+                Q(name__istartswith=fruit_filter + ' ') |
+                Q(name__istartswith=fruit_filter + '(') |
+                Q(name__iexact=fruit_filter)
+            )
 
         # Apply sorting
         sort_field = {
@@ -352,12 +439,40 @@ def products_inventory(request):
         # For the table display, filter to non-built-in products only
         table_products = products.filter(is_built_in=False)
 
-        # Get unique fruits and suppliers for client-side dropdown
-        unique_fruits = list(Product.objects.filter(is_built_in=True).values_list('name', flat=True).distinct())
+        # Add pagination - 10 items per page
+        from django.core.paginator import Paginator
+        page = request.GET.get('page', 1)
+        paginator = Paginator(table_products, 10)
+        products_page = paginator.get_page(page)
+
+        # Get unique fruits from inventory products and built-in products
+        # Extract base fruit names (remove variant info in parentheses)
+        inventory_fruits = Product.objects.filter(is_built_in=False).values_list('name', flat=True).distinct()
+        built_in_fruits = Product.objects.filter(is_built_in=True).values_list('name', flat=True).distinct()
+        all_product_names = set(list(inventory_fruits) + list(built_in_fruits))
+        
+        # Extract base fruit names (e.g., "Apple (Fuji)" -> "Apple")
+        unique_fruits = set()
+        for name in all_product_names:
+            if name:
+                # Remove variant in parentheses if present
+                base_name = name.split('(')[0].strip() if '(' in name else name.strip()
+                if base_name:
+                    unique_fruits.add(base_name)
+        
+        unique_fruits = sorted(list(unique_fruits))
         unique_suppliers = list(Product.objects.filter(is_built_in=False).exclude(supplier__isnull=True).exclude(supplier='').values_list('supplier', flat=True).distinct())
         
+        # Get user object for profile picture
+        user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        try:
+            user_obj = AppUser.objects.get(user_id=user_id)
+        except Exception:
+            user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+        
         context = {
-            'products': table_products,  # Use filtered products for table
+            'products': products_page,  # Use paginated products for table
+            'paginator': paginator,  # For pagination controls
             'total_products': total_products,
             'active_products': active_products,
             'total_stock': total_stock,
@@ -367,7 +482,10 @@ def products_inventory(request):
             'show_cost': request.session.get('app_role') == 'admin',
             'today': timezone.now().date(),
             'fruits': unique_fruits,
-            'suppliers': unique_suppliers
+            'suppliers': unique_suppliers,
+            'supplier_filter': supplier_filter,
+            'fruit_filter': fruit_filter,
+            'user_obj': user_obj,
         }
         # Ensure product names appear in test responses regardless of template rendering
         try:
@@ -486,482 +604,482 @@ def print_stickers_page(request):
 @require_app_login
 @require_http_methods(["POST"])
 def product_add(request):
-	"""Add a new product to inventory from built-in products.
+    """Add a new product to inventory from built-in products.
 
-	The modal submits a multipart/form-data payload (handled via FormData in JS) that can contain an
-	optional image file.  We must therefore read from request.POST / request.FILES instead of
-	json.loads(request.body)."""
-	try:
-		built_in_product_id = request.POST.get('built_in_product_id', '').strip()
-		name = request.POST.get('name', '').strip()
-		variant = request.POST.get('variant', '').strip()
-		size = request.POST.get('size', '').strip()
-		# Always set new products to Active and date to today
-		status = 'active'
-		date_added = timezone.now().date()
-		stock = int(request.POST.get('stock', 0) or 0)
-		price_str = request.POST.get('price', '0')
-		cost_str = request.POST.get('cost', '0')
-		try:
-			price = Decimal(price_str)
-		except Exception:
-			price = Decimal('0')
-		try:
-			cost = Decimal(cost_str)
-		except Exception:
-			cost = Decimal('0')
-		supplier = request.POST.get('supplier', '').strip()
+    The modal submits a multipart/form-data payload (handled via FormData in JS) that can contain an
+    optional image file.  We must therefore read from request.POST / request.FILES instead of
+    json.loads(request.body)."""
+    try:
+        built_in_product_id = request.POST.get('built_in_product_id', '').strip()
+        name = request.POST.get('name', '').strip()
+        variant = request.POST.get('variant', '').strip()
+        size = request.POST.get('size', '').strip()
+        # Always set new products to Active and date to today
+        status = 'active'
+        date_added = timezone.now().date()
+        stock = int(request.POST.get('stock', 0) or 0)
+        price_str = request.POST.get('price', '0')
+        cost_str = request.POST.get('cost', '0')
+        try:
+            price = Decimal(price_str)
+        except Exception:
+            price = Decimal('0')
+        try:
+            cost = Decimal(cost_str)
+        except Exception:
+            cost = Decimal('0')
+        supplier = request.POST.get('supplier', '').strip()
 
-		# Enhanced validation
-		if not name:
-			return JsonResponse({'success': False, 'message': 'Product name is required.'})
-		if not size:
-			return JsonResponse({'success': False, 'message': 'Product size is required.'})
-		
-		# TC-010: Min-margin validation (price >= cost × 1.10)
-		MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
-		if cost > 0 and price < cost * (1 + MIN_MARGIN):
-			min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
-			return JsonResponse({
-				'success': False, 
-				'message': f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).'
-			})
-		# Enforce numeric-only size (allow one decimal point)
-		try:
-			# Normalize size by parsing to Decimal then back to string without trailing zeros
-			_s = str(Decimal(size))
-			# Prevent negative or non-numeric
-			if Decimal(_s) < 0:
-				return JsonResponse({'success': False, 'message': 'Size must be a non-negative number.'})
-			size = _s
-			# Enforce size to be one of the unified options
-			if size not in STANDARD_SIZE_OPTIONS:
-				return JsonResponse({'success': False, 'message': f'Size must be one of: {", ".join(STANDARD_SIZE_OPTIONS)}'})
-		except Exception:
-			return JsonResponse({'success': False, 'message': 'Size must be numeric (e.g., 10 or 10.5).'})
-		if price <= 0:
-			return JsonResponse({'success': False, 'message': 'Price must be greater than 0.'})
-		if cost < 0:
-			return JsonResponse({'success': False, 'message': 'Cost cannot be negative.'})
-		if stock < 0:
-			return JsonResponse({'success': False, 'message': 'Stock cannot be negative.'})
+        # Enhanced validation
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Product name is required.'})
+        if not size:
+            return JsonResponse({'success': False, 'message': 'Product quantity is required.'})
+        
+        # TC-010: Min-margin validation (price >= cost × 1.10)
+        MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
+        if cost > 0 and price < cost * (1 + MIN_MARGIN):
+            min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
+            return JsonResponse({
+                'success': False, 
+                'message': f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).'
+            })
+        # Enforce numeric-only quantity (allow one decimal point)
+        try:
+            # Normalize quantity by parsing to Decimal then back to string without trailing zeros
+            _s = str(Decimal(size))
+            # Prevent negative or non-numeric
+            if Decimal(_s) < 0:
+                return JsonResponse({'success': False, 'message': 'Quantity must be a non-negative number.'})
+            size = _s
+            # Enforce quantity to be one of the unified options
+            if size not in STANDARD_SIZE_OPTIONS:
+                return JsonResponse({'success': False, 'message': f'Quantity must be one of: {", ".join(STANDARD_SIZE_OPTIONS)}'})
+        except Exception:
+            return JsonResponse({'success': False, 'message': 'Quantity must be numeric (e.g., 10 or 10.5).'})
+        if price <= 0:
+            return JsonResponse({'success': False, 'message': 'Price must be greater than 0.'})
+        if cost < 0:
+            return JsonResponse({'success': False, 'message': 'Cost cannot be negative.'})
+        if stock < 0:
+            return JsonResponse({'success': False, 'message': 'Stock cannot be negative.'})
 
-		# Check if inventory product already exists (ignore built-ins)
-		if Product.objects.filter(name=name, size=size, is_built_in=False).exists():
-			return JsonResponse({'success': False, 'message': 'This product is already in your inventory.'})
+        # Check if inventory product already exists (ignore built-ins)
+        if Product.objects.filter(name=name, size=size, is_built_in=False).exists():
+            return JsonResponse({'success': False, 'message': 'This product is already in your inventory.'})
 
-		# Handle optional image upload
-		image_field = request.FILES.get('image')
-		image_url = None
-		if image_field:
-			filename = f"product_{timezone.now().strftime('%Y%m%d%H%M%S')}_{image_field.name}"
-			path = default_storage.save(os.path.join('uploads', filename), ContentFile(image_field.read()))
-			image_url = default_storage.url(path)
+        # Handle optional image upload
+        image_field = request.FILES.get('image')
+        image_url = None
+        if image_field:
+            filename = f"product_{timezone.now().strftime('%Y%m%d%H%M%S')}_{image_field.name}"
+            path = default_storage.save(os.path.join('uploads', filename), ContentFile(image_field.read()))
+            image_url = default_storage.url(path)
 
-		with transaction.atomic():
-			# Create inventory product (not built-in)
-			product = Product.objects.create(
-				name=name,
-				variant=variant or None,
-				size=size,
-				status=status,
-				date_added=date_added,
-				price=price,
-				cost=cost,
-				supplier=supplier,
-				image=image_url or '',
-				is_built_in=False,
-			)
-			# Stock is now stored directly on the Product model
-			product.stock = stock
-			product.save()
+        with transaction.atomic():
+            # Create inventory product (not built-in)
+            product = Product.objects.create(
+                name=name,
+                variant=variant or None,
+                size=size,
+                status=status,
+                date_added=date_added,
+                price=price,
+                cost=cost,
+                supplier=supplier,
+                image=image_url or '',
+                is_built_in=False,
+            )
+            # Stock is now stored directly on the Product model
+            product.stock = stock
+            product.save()
 
-			# If stock is provided, create a stock addition record
-			if stock > 0:
-				batch_id = generate_batch_id(product, name, variant)
-				StockAddition.objects.create(
-					product=product,
-					quantity=stock,
-					date_added=date_added,
-					remaining_quantity=stock,
-					batch_id=batch_id,
-					cost=cost
-				)
+            # If stock is provided, create a stock addition record
+            if stock > 0:
+                batch_id = generate_batch_id(product, name, variant)
+                StockAddition.objects.create(
+                    product=product,
+                    quantity=stock,
+                    date_added=date_added,
+                    remaining_quantity=stock,
+                    batch_id=batch_id,
+                    cost=cost
+                )
 
-		return JsonResponse({'success': True, 'message': 'Product added to inventory successfully.'})
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': True, 'message': 'Product added to inventory successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @require_app_login
 @require_http_methods(["POST"])
 def product_edit(request, product_id):
-	"""Edit an existing product."""
-	try:
-		data = json.loads(request.body)
-		with transaction.atomic():
-			product = Product.objects.get(product_id=product_id)
-			product.name = data['name']
-			product.size = data.get('size', '')
-			product.status = data.get('status', 'active')
-			product.price = data['price']
-			product.cost = data.get('cost', 0)
-			product.save()
+    """Edit an existing product."""
+    try:
+        data = json.loads(request.body)
+        with transaction.atomic():
+            product = Product.objects.get(product_id=product_id)
+            product.name = data['name']
+            product.size = data.get('size', '')
+            product.status = data.get('status', 'active')
+            product.price = data['price']
+            product.cost = data.get('cost', 0)
+            product.save()
 
-			if 'stock' in data:
-				product.stock = data['stock']
-				product.save()
+            if 'stock' in data:
+                product.stock = data['stock']
+                product.save()
 
-		return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
-	except Product.DoesNotExist:
-		return JsonResponse({'success': False, 'message': 'Product not found.'})
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @require_app_login
 @require_http_methods(["POST"])
 def product_delete(request, product_id):
-	"""Delete a product."""
-	try:
-		Product.objects.get(product_id=product_id).delete()
-		return JsonResponse({'success': True, 'message': 'Product deleted successfully.'})
-	except Product.DoesNotExist:
-		return JsonResponse({'success': False, 'message': 'Product not found.'})
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+    """Delete a product."""
+    try:
+        Product.objects.get(product_id=product_id).delete()
+        return JsonResponse({'success': True, 'message': 'Product deleted successfully.'})
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @require_app_login
 @require_http_methods(["POST"])
 @csrf_exempt
 def add_stock(request):
-	"""Add stock for multiple products.
+    """Add stock for multiple products.
 
-	Tests may POST simple form fields for a single item. Accept both the
-	bulk JSON format (items=[...]) and a single-item form with fields
-	product, quantity, cost, batch_id, supplier.
-	"""
-	if request.method != 'POST':
-		return JsonResponse({'success': False, 'message': 'Only POST method allowed.'})
-	
-	try:
-		# Accept both JSON and form POST
-		if request.META.get('CONTENT_TYPE', '').startswith('application/json'):
-			data = json.loads(request.body or b"{}")
-		else:
-			items_raw = request.POST.get('items')
-			data = {
-				'items': json.loads(items_raw) if items_raw else [],
-				'date_added': request.POST.get('date_added')
-			}
-		items = data.get('items', [])
-		date_added = data.get('date_added')
-		
+    Tests may POST simple form fields for a single item. Accept both the
+    bulk JSON format (items=[...]) and a single-item form with fields
+    product, quantity, cost, batch_id, supplier.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Only POST method allowed.'})
+    
+    try:
+        # Accept both JSON and form POST
+        if request.META.get('CONTENT_TYPE', '').startswith('application/json'):
+            data = json.loads(request.body or b"{}")
+        else:
+            items_raw = request.POST.get('items')
+            data = {
+                'items': json.loads(items_raw) if items_raw else [],
+                'date_added': request.POST.get('date_added')
+            }
+        items = data.get('items', [])
+        date_added = data.get('date_added')
+        
         # Fallback to single-item form fields used in tests
-		if not items:
-			single_product = request.POST.get('product')
-			single_qty = request.POST.get('quantity')
-			if single_product and single_qty:
-				items = [{
-					'product_id': int(single_product),
-					'quantity': int(single_qty),
+        if not items:
+            single_product = request.POST.get('product')
+            single_qty = request.POST.get('quantity')
+            if single_product and single_qty:
+                items = [{
+                    'product_id': int(single_product),
+                    'quantity': int(single_qty),
                     'supplier': request.POST.get('supplier', ''),
                     'batch_id': request.POST.get('batch_id') or '',
                     'cost': request.POST.get('cost') or None,
                     'manufacturing_date': request.POST.get('manufacturing_date') or None,
                     'expiry_date': request.POST.get('expiry_date') or None,
-				}]
-			else:
-				return JsonResponse({'success': False, 'message': 'No items provided.'})
-		
-		with transaction.atomic():
-			added_items = []
-			for item in items:
-				product_id = item.get('product_id')
-				quantity = item.get('quantity')
-				supplier = item.get('supplier', '')
-				
-				# Debug: Print what supplier value we're receiving
-				print(f"DEBUG: Received supplier value: '{supplier}' (type: {type(supplier)}, length: {len(supplier) if supplier else 0})")
-				
-				if not product_id or not quantity:
-					continue
-				
-				try:
-					product = Product.objects.get(product_id=product_id)
-					# Build batch id similar to PHP/QR helpers (acronyms + date)
-					base_name = product.name or ''
-					variant = ''
-					if '(' in base_name and base_name.endswith(')'):
-						try:
-							variant = base_name.split('(')[1].rstrip(')').strip()
-						except Exception:
-							variant = ''
-					# Create one stock addition record with total quantity and base batch ID
-					provided_batch = item.get('batch_id')
-					batch_id = provided_batch or generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
-					
-					# TC-013: Parse and validate expiry date
-					expiry_date = None
-					manufacturing_date = None
-					if item.get('expiry_date'):
-						from datetime import datetime
-						try:
-							expiry_date = datetime.strptime(item['expiry_date'], '%Y-%m-%d').date()
-							# Validate expiry is not in the past
-							if expiry_date < timezone.now().date():
-								return JsonResponse({
-									'success': False, 
-									'message': 'Expiry date cannot be in the past.'
-								})
-						except ValueError:
-							return JsonResponse({
-								'success': False, 
-								'message': 'Invalid expiry date format. Use YYYY-MM-DD.'
-							})
-					
-					if item.get('manufacturing_date'):
-						from datetime import datetime
-						try:
-							manufacturing_date = datetime.strptime(item['manufacturing_date'], '%Y-%m-%d').date()
-						except ValueError:
-							pass
-					
-					# Debug: Print what we're about to save
-					supplier_to_save = supplier if supplier else None
-					print(f"DEBUG: About to save supplier: '{supplier_to_save}' (type: {type(supplier_to_save)})")
-					
-					StockAddition.objects.create(
-						product=product,
-						quantity=int(quantity),
-						date_added=timezone.now(),  # Use full datetime instead of just date
-						remaining_quantity=int(quantity),
-						batch_id=batch_id,
-						supplier=supplier_to_save,
-						cost=Decimal(str(item.get('cost') or 0)),
-						expiry_date=expiry_date,
-						manufacturing_date=manufacturing_date
-					)
-					
-					# Update product stock directly
-					product.stock = models.F('stock') + int(quantity)
-					product.save()
-					
-					# Update product supplier if provided
-					if supplier:
-						product.supplier = supplier
-						product.save()
-					
-					added_items.append({
-						'product_name': product.name,
-						'quantity': int(quantity),
-						'supplier': supplier
-					})
-					
-				except Product.DoesNotExist:
-					continue
-			
-			if not added_items:
-				return JsonResponse({'success': False, 'message': 'No valid items to add.'})
-			
-			return JsonResponse({
-				'success': True,
-				'message': f'Successfully added stock for {len(added_items)} item(s).',
-				'added_items': added_items
-			})
-			
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+                }]
+            else:
+                return JsonResponse({'success': False, 'message': 'No items provided.'})
+        
+        with transaction.atomic():
+            added_items = []
+            for item in items:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity')
+                supplier = item.get('supplier', '')
+                
+                # Debug: Print what supplier value we're receiving
+                print(f"DEBUG: Received supplier value: '{supplier}' (type: {type(supplier)}, length: {len(supplier) if supplier else 0})")
+                
+                if not product_id or not quantity:
+                    continue
+                
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    # Build batch id similar to PHP/QR helpers (acronyms + date)
+                    base_name = product.name or ''
+                    variant = ''
+                    if '(' in base_name and base_name.endswith(')'):
+                        try:
+                            variant = base_name.split('(')[1].rstrip(')').strip()
+                        except Exception:
+                            variant = ''
+                    # Create one stock addition record with total quantity and base batch ID
+                    provided_batch = item.get('batch_id')
+                    batch_id = provided_batch or generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+                    
+                    # TC-013: Parse and validate expiry date
+                    expiry_date = None
+                    manufacturing_date = None
+                    if item.get('expiry_date'):
+                        from datetime import datetime
+                        try:
+                            expiry_date = datetime.strptime(item['expiry_date'], '%Y-%m-%d').date()
+                            # Validate expiry is not in the past
+                            if expiry_date < timezone.now().date():
+                                return JsonResponse({
+                                    'success': False, 
+                                    'message': 'Expiry date cannot be in the past.'
+                                })
+                        except ValueError:
+                            return JsonResponse({
+                                'success': False, 
+                                'message': 'Invalid expiry date format. Use YYYY-MM-DD.'
+                            })
+                    
+                    if item.get('manufacturing_date'):
+                        from datetime import datetime
+                        try:
+                            manufacturing_date = datetime.strptime(item['manufacturing_date'], '%Y-%m-%d').date()
+                        except ValueError:
+                            pass
+                    
+                    # Debug: Print what we're about to save
+                    supplier_to_save = supplier if supplier else None
+                    print(f"DEBUG: About to save supplier: '{supplier_to_save}' (type: {type(supplier_to_save)})")
+                    
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=int(quantity),
+                        date_added=timezone.now(),  # Use full datetime instead of just date
+                        remaining_quantity=int(quantity),
+                        batch_id=batch_id,
+                        supplier=supplier_to_save,
+                        cost=Decimal(str(item.get('cost') or 0)),
+                        expiry_date=expiry_date,
+                        manufacturing_date=manufacturing_date
+                    )
+                    
+                    # Update product stock directly
+                    product.stock = models.F('stock') + int(quantity)
+                    product.save()
+                    
+                    # Update product supplier if provided
+                    if supplier:
+                        product.supplier = supplier
+                        product.save()
+                    
+                    added_items.append({
+                        'product_name': product.name,
+                        'quantity': int(quantity),
+                        'supplier': supplier
+                    })
+                    
+                except Product.DoesNotExist:
+                    continue
+            
+            if not added_items:
+                return JsonResponse({'success': False, 'message': 'No valid items to add.'})
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully added stock for {len(added_items)} item(s).',
+                'added_items': added_items
+            })
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 # --- QR-based add-stock endpoints ---
 @require_http_methods(["POST"])
 def stock_qr_create(request):
-	"""Create a signed URL to add-stock that can be embedded into a QR code."""
-	try:
-		if request.META.get('CONTENT_TYPE', '').startswith('application/json'):
-			data = json.loads(request.body or b"{}")
-		else:
-			items_raw = request.POST.get('items')
-			data = {
-				'items': json.loads(items_raw) if items_raw else [],
-				'date_added': request.POST.get('date_added')
-			}
-		items = data.get('items', [])
-		date_added = data.get('date_added')
-		payload = {'items': items, 'date_added': date_added}
-		token = signing.dumps(payload, salt='add_stock_qr')
-		apply_url = request.build_absolute_uri(reverse('stock_qr_apply')) + f"?t={token}"
-		expires_at = (timezone.now() + timedelta(minutes=5)).isoformat()
-		return JsonResponse({'success': True, 'url': apply_url, 'expires_at': expires_at})
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+    """Create a signed URL to add-stock that can be embedded into a QR code."""
+    try:
+        if request.META.get('CONTENT_TYPE', '').startswith('application/json'):
+            data = json.loads(request.body or b"{}")
+        else:
+            items_raw = request.POST.get('items')
+            data = {
+                'items': json.loads(items_raw) if items_raw else [],
+                'date_added': request.POST.get('date_added')
+            }
+        items = data.get('items', [])
+        date_added = data.get('date_added')
+        payload = {'items': items, 'date_added': date_added}
+        token = signing.dumps(payload, salt='add_stock_qr')
+        apply_url = request.build_absolute_uri(reverse('stock_qr_apply')) + f"?t={token}"
+        expires_at = (timezone.now() + timedelta(minutes=5)).isoformat()
+        return JsonResponse({'success': True, 'url': apply_url, 'expires_at': expires_at})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @require_http_methods(["GET"])  # Validate via signed token
 def stock_qr_apply(request):
-	"""Apply a signed token from a QR scan to add stock and show a simple confirmation."""
-	token = request.GET.get('t')
-	if not token:
-		return HttpResponse('Missing token.', status=400)
-	try:
-		payload = signing.loads(token, salt='add_stock_qr', max_age=300)
-		items = payload.get('items', [])
-		date_added = payload.get('date_added')
-		added_items = []
-		with transaction.atomic():
-			for item in items:
-				product_id = item.get('product_id')
-				quantity = item.get('quantity')
-				supplier = item.get('supplier', '')
-				if not product_id or not quantity:
-					continue
-				try:
-					product = Product.objects.get(product_id=product_id)
-					base_name = product.name or ''
-					variant = ''
-					if '(' in base_name and base_name.endswith(')'):
-						try:
-							variant = base_name.split('(')[1].rstrip(')').strip()
-						except Exception:
-							variant = ''
-					batch_id = generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
-					StockAddition.objects.create(
-						product=product,
-						quantity=quantity,
-						date_added=date_added or timezone.now().date(),
-						remaining_quantity=quantity,
-						batch_id=batch_id,
-						supplier=supplier
-					)
-					product.stock = models.F('stock') + quantity
-					product.save()
-					if supplier:
-						product.supplier = supplier
-						product.save()
-					added_items.append({'name': product.name, 'qty': quantity})
-				except Product.DoesNotExist:
-					continue
-		html = ["<h3>Stock Added</h3>", "<ul>"]
-		for it in added_items:
-			html.append(f"<li>{it['name']}: +{it['qty']}</li>")
-		html.append("</ul><p>You can close this page.</p>")
-		return HttpResponse('\n'.join(html))
-	except signing.BadSignature:
-		return HttpResponse('Invalid or expired QR token.', status=400)
-	except Exception as e:
-		return HttpResponse(f'Error: {str(e)}', status=500)
+    """Apply a signed token from a QR scan to add stock and show a simple confirmation."""
+    token = request.GET.get('t')
+    if not token:
+        return HttpResponse('Missing token.', status=400)
+    try:
+        payload = signing.loads(token, salt='add_stock_qr', max_age=300)
+        items = payload.get('items', [])
+        date_added = payload.get('date_added')
+        added_items = []
+        with transaction.atomic():
+            for item in items:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity')
+                supplier = item.get('supplier', '')
+                if not product_id or not quantity:
+                    continue
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    base_name = product.name or ''
+                    variant = ''
+                    if '(' in base_name and base_name.endswith(')'):
+                        try:
+                            variant = base_name.split('(')[1].rstrip(')').strip()
+                        except Exception:
+                            variant = ''
+                    batch_id = generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=quantity,
+                        date_added=date_added or timezone.now().date(),
+                        remaining_quantity=quantity,
+                        batch_id=batch_id,
+                        supplier=supplier
+                    )
+                    product.stock = models.F('stock') + quantity
+                    product.save()
+                    if supplier:
+                        product.supplier = supplier
+                        product.save()
+                    added_items.append({'name': product.name, 'qty': quantity})
+                except Product.DoesNotExist:
+                    continue
+        html = ["<h3>Stock Added</h3>", "<ul>"]
+        for it in added_items:
+            html.append(f"<li>{it['name']}: +{it['qty']}</li>")
+        html.append("</ul><p>You can close this page.</p>")
+        return HttpResponse('\n'.join(html))
+    except signing.BadSignature:
+        return HttpResponse('Invalid or expired QR token.', status=400)
+    except Exception as e:
+        return HttpResponse(f'Error: {str(e)}', status=500)
 
 @require_http_methods(["GET"])
 def qr_next_batch_sequence(request, product_id):
-	"""Get next batch sequence number for a product"""
-	try:
-		# Lazy import to avoid circulars and guarantee availability
-		from core.models import StockAddition  # noqa: WPS433
-		product = Product.objects.get(product_id=product_id)
-		
-		# Simple, robust rule: next sequence is count of existing additions + 1
-		# This avoids depending on historical batch_id string formats
-		existing_count = StockAddition.objects.filter(product=product).count()
-		next_sequence = (existing_count % 99) + 1  # keep it within 1..99 for two-digit suffixes
-		
-		# Generate base batch ID using product name and size
-		from datetime import date
-		today = date.today()
-		base_name = product.name or ''
-		variant = ''
-		if '(' in base_name and base_name.endswith(')'):
-			try:
-				variant = base_name.split('(')[1].rstrip(')').strip()
-			except Exception:
-				variant = ''
-		
-		# Create base batch ID: first 2 chars of product name + size + date
-		product_prefix = base_name.replace(f"({variant})", '').strip()[:2].upper() if variant else base_name[:2].upper()
-		size_clean = product.size.replace('-', '') if product.size else ''
-		date_str = today.strftime('%m%d%Y')
-		base_batch_id = f"{product_prefix}{size_clean}{date_str}"
-		
-		return JsonResponse({
-			'success': True, 
-			'next_sequence': next_sequence,
-			'base_batch_id': base_batch_id
-		})
-		
-	except Product.DoesNotExist:
-		return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    """Get next batch sequence number for a product"""
+    try:
+        # Lazy import to avoid circulars and guarantee availability
+        from core.models import StockAddition  # noqa: WPS433
+        product = Product.objects.get(product_id=product_id)
+        
+        # Simple, robust rule: next sequence is count of existing additions + 1
+        # This avoids depending on historical batch_id string formats
+        existing_count = StockAddition.objects.filter(product=product).count()
+        next_sequence = (existing_count % 99) + 1  # keep it within 1..99 for two-digit suffixes
+        
+        # Generate base batch ID using product name and quantity
+        from datetime import date
+        today = date.today()
+        base_name = product.name or ''
+        variant = ''
+        if '(' in base_name and base_name.endswith(')'):
+            try:
+                variant = base_name.split('(')[1].rstrip(')').strip()
+            except Exception:
+                variant = ''
+        
+        # Create base batch ID: first 2 chars of product name + quantity + date
+        product_prefix = base_name.replace(f"({variant})", '').strip()[:2].upper() if variant else base_name[:2].upper()
+        size_clean = product.size.replace('-', '') if product.size else ''
+        date_str = today.strftime('%m%d%Y')
+        base_batch_id = f"{product_prefix}{size_clean}{date_str}"
+        
+        return JsonResponse({
+            'success': True, 
+            'next_sequence': next_sequence,
+            'base_batch_id': base_batch_id
+        })
+        
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 def stock_qr_decode(request):
-	"""Decode QR token and return product information for form population."""
-	token = request.GET.get('t')
-	if not token:
-		return JsonResponse({'success': False, 'message': 'Missing token.'}, status=400)
-	
-	try:
-		payload = signing.loads(token, salt='add_stock_qr', max_age=300)
-		items = payload.get('items', [])
-		date_added = payload.get('date_added')
-		
-		decoded_items = []
-		for item in items:
-			product_id = item.get('product_id')
-			quantity = item.get('quantity')
-			supplier = item.get('supplier', '')
-			if not product_id:
-				continue
-			
-			try:
-				product = Product.objects.get(product_id=product_id)
-				decoded_items.append({
-					'product_id': product.product_id,
-					'name': product.name,
-					'quantity': quantity,
-					'supplier': supplier
-				})
-			except Product.DoesNotExist:
-				continue
-		
-		return JsonResponse({
-			'success': True,
-			'items': decoded_items,
-			'date_added': date_added
-		})
-		
-	except signing.BadSignature:
-		return JsonResponse({'success': False, 'message': 'Invalid or expired QR token.'}, status=400)
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    """Decode QR token and return product information for form population."""
+    token = request.GET.get('t')
+    if not token:
+        return JsonResponse({'success': False, 'message': 'Missing token.'}, status=400)
+    
+    try:
+        payload = signing.loads(token, salt='add_stock_qr', max_age=300)
+        items = payload.get('items', [])
+        date_added = payload.get('date_added')
+        
+        decoded_items = []
+        for item in items:
+            product_id = item.get('product_id')
+            quantity = item.get('quantity')
+            supplier = item.get('supplier', '')
+            if not product_id:
+                continue
+            
+            try:
+                product = Product.objects.get(product_id=product_id)
+                decoded_items.append({
+                    'product_id': product.product_id,
+                    'name': product.name,
+                    'quantity': quantity,
+                    'supplier': supplier
+                })
+            except Product.DoesNotExist:
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'items': decoded_items,
+            'date_added': date_added
+        })
+        
+    except signing.BadSignature:
+        return JsonResponse({'success': False, 'message': 'Invalid or expired QR token.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 def stock_add(request, product_id):
-	"""Add stock to a product."""
-	try:
-		data = json.loads(request.body)
-		with transaction.atomic():
-			product = Product.objects.get(product_id=product_id)
-			
-			# Create one stock addition record with total quantity
-			batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
-			StockAddition.objects.create(
-				product=product,
-				quantity=int(data['quantity']),
-				date_added=timezone.now().date(),
-				remaining_quantity=int(data['quantity']),
-				batch_id=batch_id,
-				supplier=data.get('supplier', '')
-			)
+    """Add stock to a product."""
+    try:
+        data = json.loads(request.body)
+        with transaction.atomic():
+            product = Product.objects.get(product_id=product_id)
+            
+            # Create one stock addition record with total quantity
+            batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
+            StockAddition.objects.create(
+                product=product,
+                quantity=int(data['quantity']),
+                date_added=timezone.now().date(),
+                remaining_quantity=int(data['quantity']),
+                batch_id=batch_id,
+                supplier=data.get('supplier', '')
+            )
 
-			# Update product stock directly
-			product.stock = models.F('stock') + int(data['quantity'])
-			product.save()
+            # Update product stock directly
+            product.stock = models.F('stock') + int(data['quantity'])
+            product.save()
 
-			return JsonResponse({
-				'success': True,
-				'message': 'Stock added successfully.',
-				'new_stock': product.stock
-			})
-	except Product.DoesNotExist:
-		return JsonResponse({'success': False, 'message': 'Product not found.'})
-	except Exception as e:
-		return JsonResponse({'success': False, 'message': str(e)})
+            return JsonResponse({
+                'success': True,
+                'message': 'Stock added successfully.',
+                'new_stock': product.stock
+            })
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
 
 @require_app_login
 def stock_details_view(request):
@@ -988,10 +1106,28 @@ def sales_view(request):
     search = request.GET.get('search', '')
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
+    user_filter = request.GET.get('user', 'all')
+    fruit_filter = request.GET.get('fruit', 'all')
     today = timezone.localtime().date()
 
     # Base query for completed sales (case-insensitive)
     sales_query = Sale.objects.filter(status__iexact='completed')
+    
+    # Apply user filter if specified
+    if user_filter and user_filter != 'all':
+        try:
+            sales_query = sales_query.filter(user_id=int(user_filter))
+        except (ValueError, TypeError):
+            pass
+    
+    # Apply fruit filter if specified
+    if fruit_filter and fruit_filter != 'all':
+        # Match products where the base name (before parentheses) matches the fruit
+        sales_query = sales_query.filter(
+            Q(product__name__istartswith=fruit_filter + ' ') |
+            Q(product__name__istartswith=fruit_filter + '(') |
+            Q(product__name__iexact=fruit_filter)
+        )
     
     # Apply date filters (accept "today", case-insensitive)
     ft = (filter_type or 'Daily').strip().lower()
@@ -1083,7 +1219,8 @@ def sales_view(request):
                 'product_count': 1,
                 'total_boxes': int(row.quantity or 0),
                 'products': item['product_name'],
-                'customer_name': getattr(row, 'customer_name', '') or ''
+                'customer_name': getattr(row, 'customer_name', '') or '',
+                'recorded_by': row.user.username if row.user else 'N/A'
             }
         else:
             g['items'].append(item)
@@ -1097,7 +1234,19 @@ def sales_view(request):
                 g['customer_name'] = getattr(row, 'customer_name', '')
 
     sales_data = list(grouped.values())
+    # Format totals with commas
+    for sale in sales_data:
+        if isinstance(sale.get('total'), (int, float, Decimal)):
+            sale['total_formatted'] = f"{float(sale['total']):,.2f}"
+        else:
+            sale['total_formatted'] = "0.00"
     total_sales = len(sales_data)
+
+    # Add pagination - 10 items per page
+    from django.core.paginator import Paginator
+    page = request.GET.get('page', 1)
+    paginator = Paginator(sales_data, 10)
+    sales_page = paginator.get_page(page)
 
     # Get voided sales if user is admin
     voided_sales = []
@@ -1148,12 +1297,46 @@ def sales_view(request):
                 'items': items_data,
                 'items_json': items_data,
                 'total': sale.total,
+                'total_formatted': f"{float(sale.total):,.2f}",
                 'status': sale.status,
                 'product_count': len(items_data),
                 'total_boxes': sale.quantity,
                 'products': sale.product.name if sale.product else '',
-                'days_until_deletion': days_until_deletion
+                'days_until_deletion': days_until_deletion,
+                'recorded_by': sale.user.username if sale.user else 'N/A'
             })
+
+    # Get all users for the filter dropdown
+    # If secretary, exclude admin users
+    app_role = request.session.get('app_role', 'user')
+    if app_role != 'admin':
+        # Secretary account: exclude admin users
+        all_users = list(AppUser.objects.filter(role__iexact='Secretary').values('user_id', 'username').order_by('username'))
+    else:
+        # Admin account: show all users
+        all_users = list(AppUser.objects.all().values('user_id', 'username').order_by('username'))
+    
+    # Get unique fruits from products (extract base names from product names)
+    inventory_fruits = Product.objects.filter(is_built_in=False).values_list('name', flat=True).distinct()
+    built_in_fruits = Product.objects.filter(is_built_in=True).values_list('name', flat=True).distinct()
+    all_product_names = set(list(inventory_fruits) + list(built_in_fruits))
+    
+    # Extract base fruit names (e.g., "Apple (Fuji)" -> "Apple")
+    unique_fruits = set()
+    for name in all_product_names:
+        if name:
+            base_name = name.split('(')[0].strip() if '(' in name else name.strip()
+            if base_name:
+                unique_fruits.add(base_name)
+    
+    unique_fruits = sorted(list(unique_fruits))
+
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
 
     context = {
         'app_role': request.session.get('app_role', 'user'),
@@ -1162,11 +1345,18 @@ def sales_view(request):
         'search': search,
         'start_date': start_date,
         'end_date': end_date,
+        'user_filter': user_filter,
+        'fruit_filter': fruit_filter,
+        'all_users': all_users,
+        'fruits': unique_fruits,
         'total_sales': total_sales,
         'total_boxes': total_boxes,
         'total_revenue': total_revenue,
-        'sales': sales_data,
+        'total_revenue_formatted': f"{float(total_revenue):,.2f}",
+        'sales': sales_page,  # Use paginated sales
+        'paginator': paginator,  # For pagination controls
         'voided_sales': voided_sales,
+        'user_obj': user_obj,
     }
     return render(request, 'sales_full.html', context)
 
@@ -1179,12 +1369,46 @@ def fetch_sales(request):
         start_date = request.GET.get('start_date', '')
         end_date = request.GET.get('end_date', '')
         status = request.GET.get('status', 'completed')
+        user_filter = request.GET.get('user', 'all')
+        fruit_filter = request.GET.get('fruit', 'all')
 
         # Base query
         if status and status.lower() != 'all':
             sales_query = Sale.objects.filter(status__iexact=status)
         else:
             sales_query = Sale.objects.all()
+        
+        # Apply user filter if specified
+        if user_filter and user_filter != 'all':
+            try:
+                user_id_filter = int(user_filter)
+                # Security: If secretary account, prevent filtering by admin users
+                app_role = request.session.get('app_role', 'user')
+                if app_role != 'admin':
+                    # Verify the user being filtered is a secretary, not an admin
+                    try:
+                        filtered_user = AppUser.objects.get(user_id=user_id_filter)
+                        if filtered_user.role.lower() != 'admin':
+                            # Only apply filter if user is not an admin
+                            sales_query = sales_query.filter(user_id=user_id_filter)
+                        # If admin, silently ignore the filter (don't filter by admin users)
+                    except AppUser.DoesNotExist:
+                        # User doesn't exist - ignore the filter
+                        pass
+                else:
+                    # Admin account - allow filtering by any user
+                    sales_query = sales_query.filter(user_id=user_id_filter)
+            except (ValueError, TypeError):
+                pass
+        
+        # Apply fruit filter if specified
+        if fruit_filter and fruit_filter != 'all':
+            # Match products where the base name (before parentheses) matches the fruit
+            sales_query = sales_query.filter(
+                Q(product__name__istartswith=fruit_filter + ' ') |
+                Q(product__name__istartswith=fruit_filter + '(') |
+                Q(product__name__iexact=fruit_filter)
+            )
 
         # Apply filters (same logic as sales_view)
         ft = (filter_type or 'Daily').strip().lower()
@@ -1266,7 +1490,8 @@ def fetch_sales(request):
                     'product_count': 1,
                     'total_boxes': int(row.quantity or 0),
                     'products': item['product_name'],
-                    'customer_name': getattr(row, 'customer_name', '') or ''
+                    'customer_name': getattr(row, 'customer_name', '') or '',
+                    'recorded_by': row.user.username if row.user else 'N/A'
                 }
             else:
                 g['items'].append(item)
@@ -1504,6 +1729,37 @@ def reports_view(request):
     except Exception:
         pass
     # Pass initial empty objects; JS will fetch
+    # If secretary, exclude admin users
+    app_role = request.session.get('app_role', 'user')
+    if app_role != 'admin':
+        # Secretary account: exclude admin users
+        all_users = list(AppUser.objects.filter(role__iexact='Secretary').values('user_id', 'username').order_by('username'))
+    else:
+        # Admin account: show all users
+        all_users = list(AppUser.objects.all().values('user_id', 'username').order_by('username'))
+    
+    # Get unique fruits from products (extract base names from product names)
+    inventory_fruits = Product.objects.filter(is_built_in=False).values_list('name', flat=True).distinct()
+    built_in_fruits = Product.objects.filter(is_built_in=True).values_list('name', flat=True).distinct()
+    all_product_names = set(list(inventory_fruits) + list(built_in_fruits))
+    
+    # Extract base fruit names (e.g., "Apple (Fuji)" -> "Apple")
+    unique_fruits = set()
+    for name in all_product_names:
+        if name:
+            base_name = name.split('(')[0].strip() if '(' in name else name.strip()
+            if base_name:
+                unique_fruits.add(base_name)
+    
+    unique_fruits = sorted(list(unique_fruits))
+    
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+    
     context = {
         'app_role': request.session.get('app_role', 'user'),
         'app_username': request.session.get('app_username',''),
@@ -1511,6 +1767,10 @@ def reports_view(request):
         'search': request.GET.get('search',''),
         'start_date': request.GET.get('start_date',''),
         'end_date': request.GET.get('end_date',''),
+        'fruit_filter': request.GET.get('fruit', 'all'),
+        'all_users': all_users,
+        'fruits': unique_fruits,
+        'user_obj': user_obj,
     }
     return render(request, 'reports_full.html', context)
 
@@ -1573,6 +1833,53 @@ def _apply_report_filters(queryset, filter_type, start_date_str, end_date_str):
             
     return queryset
 
+def _resolve_report_range(filter_type, start_date_str, end_date_str):
+    """Return timezone-aware start/end datetimes for the requested report range."""
+    tz = timezone.get_current_timezone()
+
+    def _start_of_day(day):
+        naive = datetime.combine(day, datetime.min.time())
+        return timezone.make_aware(naive, tz)
+
+    def _end_of_day(day):
+        naive = datetime.combine(day, datetime.max.time())
+        return timezone.make_aware(naive, tz)
+
+    if start_date_str and end_date_str:
+        try:
+            start = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'), tz)
+            end = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d'), tz).replace(
+                hour=23, minute=59, second=59, microsecond=999999
+            )
+            return start, end
+        except ValueError:
+            return None
+
+    today = timezone.localdate()
+    ft = (filter_type or '').lower()
+
+    if ft in ('daily', 'today'):
+        return _start_of_day(today), _end_of_day(today)
+    if ft in ('yesterday',):
+        yesterday = today - timedelta(days=1)
+        return _start_of_day(yesterday), _end_of_day(yesterday)
+    if ft in ('weekly', 'week'):
+        start = today - timedelta(days=6)
+        return _start_of_day(start), _end_of_day(today)
+    if ft in ('monthly', 'month'):
+        start = today - timedelta(days=29)
+        return _start_of_day(start), _end_of_day(today)
+    if ft in ('quarter',):
+        end_dt = timezone.localtime()
+        start_dt = end_dt - timedelta(days=90)
+        return start_dt, end_dt
+    if ft in ('year',):
+        end_dt = timezone.localtime()
+        start_dt = end_dt - timedelta(days=365)
+        return start_dt, end_dt
+
+    return None
+
 @require_app_login
 def fetch_reports(request):
     """Return JSON data for reports tables."""
@@ -1582,6 +1889,8 @@ def fetch_reports(request):
     search=request.GET.get('search','')
     start_date=request.GET.get('start_date','')
     end_date=request.GET.get('end_date','')
+    user_filter=request.GET.get('user', 'all')
+    fruit_filter=request.GET.get('fruit', 'all')
 
     # Debug logging - KEEP THESE FOR DEBUGGING
     print(f"=== FETCH_REPORTS DEBUG ===")
@@ -1589,85 +1898,255 @@ def fetch_reports(request):
     print(f"Start date: {start_date}")
     print(f"End date: {end_date}")
     print(f"Search: {search}")
+    print(f"User filter: {user_filter}")
     print(f"===========================")
 
     try:
         # Start with all completed sales and apply global filters
-        # Ensure we select_related on 'product' for efficient access
-        sales_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product') 
-        sales_queryset = _apply_report_filters(sales_queryset, filter_type, start_date, end_date)
+        base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
+        date_range = _resolve_report_range(filter_type, start_date, end_date)
+        sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
 
-        if search:
-            if search.isdigit():
-                sales_queryset = sales_queryset.filter(sale_id=search)
-            else:
-                sales_queryset = sales_queryset.filter(
-                    Q(product__name__icontains=search) | 
-                    Q(product__size__icontains=search) |
-                    Q(customer_name__icontains=search) | 
-                    Q(transaction_number__icontains=search)
-                ).distinct()
+        previous_queryset = base_queryset.none()
+        if date_range:
+            current_start, current_end = date_range
+            period_delta = current_end - current_start
+            previous_end = current_start - timedelta(seconds=1)
+            previous_start = previous_end - period_delta
+            previous_queryset = base_queryset.filter(recorded_at__range=(previous_start, previous_end))
+
+        def apply_common_filters(queryset):
+            qs = queryset
+            if user_filter and user_filter != 'all':
+                try:
+                    qs = qs.filter(user_id=int(user_filter))
+                except (ValueError, TypeError):
+                    pass
+
+            if fruit_filter and fruit_filter != 'all':
+                qs = qs.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
+
+            if search:
+                if search.isdigit():
+                    qs = qs.filter(sale_id=search)
+                else:
+                    qs = qs.filter(
+                        Q(product__name__icontains=search) |
+                        Q(product__size__icontains=search) |
+                        Q(customer_name__icontains=search) |
+                        Q(transaction_number__icontains=search)
+                    ).distinct()
+            return qs
+
+        sales_queryset = apply_common_filters(sales_queryset)
+        previous_queryset = apply_common_filters(previous_queryset)
 
         # sales_summary (for summary cards)
         agg = sales_queryset.aggregate(
-            total_revenue=Sum(F('quantity') * F('product__price')), 
-            transaction_count=Count('transaction_number', distinct=True), 
-            total_items_sold=Sum('quantity')
+            total_revenue=Sum(F('quantity') * F('product__price')),
+            transaction_count=Count('transaction_number', distinct=True),
+            total_items_sold=Sum('quantity'),
+            total_cogs=Sum(F('quantity') * F('product__cost'))
         )
-        total_rev = agg['total_revenue'] or Decimal('0.00')
+        total_rev = Decimal(agg['total_revenue'] or 0)
         trans_cnt = agg['transaction_count'] or 0
-        total_items = agg['total_items_sold'] or 0 
+        total_items = agg['total_items_sold'] or 0
+        total_cogs = Decimal(agg['total_cogs'] or 0)
+        gross_profit = total_rev - total_cogs
+        gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
+        vat_total = total_rev * Decimal('0.12')
+        net_profit = gross_profit  # No additional expense tracking yet
         sales_summary = {
             'total_revenue': float(total_rev),
-            'total_transactions': trans_cnt, 
-            'total_items_sold': total_items, 
-            'average_sale': float(total_rev / trans_cnt) if trans_cnt else 0
+            'total_transactions': trans_cnt,
+            'total_items_sold': total_items,
+            'average_sale': float(total_rev / trans_cnt) if trans_cnt else 0,
+            'total_cogs': float(total_cogs),
+            'gross_profit': float(gross_profit),
+            'gross_margin_pct': gross_margin_pct,
+            'vat_total': float(vat_total),
+            'net_profit': float(net_profit)
         }
 
-        # sales summary (detailed breakdown by product)
-        summary = sales_queryset.values('product__product_id', 'product__name', 'product__size', 'product__cost').annotate(
-            boxes_sold=Sum('quantity'), 
+        previous_summary_map = {}
+        previous_summary_queryset = previous_queryset.values(
+            'product__product_id'
+        ).annotate(
+            boxes_sold=Sum('quantity'),
             revenue=Sum(F('quantity') * F('product__price')),
             cogs=Sum(F('quantity') * F('product__cost'))
-        ).order_by('-revenue')
-        sales_summary_data = [{
-            'product_id': s['product__product_id'],
-            'product_name': s['product__name'], 
-            'size': s['product__size'],
-            'reference': f"PROD{s['product__product_id']:04d}",
-            'quantity': s['boxes_sold'],
-            'revenue': float(s['revenue']) if s['revenue'] else 0,
-            'profit': float(s['revenue'] - s['cogs']) if s['revenue'] and s['cogs'] else 0,
-            'balance': float(s['revenue'] - s['cogs']) if s['revenue'] and s['cogs'] else 0,
-            'date': end_date if end_date else timezone.localtime().strftime('%Y-%m-%d') 
-        } for s in summary]
+        )
+        for prev in previous_summary_queryset:
+            product_id = prev['product__product_id']
+            previous_summary_map[product_id] = {
+                'boxes_sold': prev['boxes_sold'] or 0,
+                'revenue': Decimal(prev['revenue'] or 0),
+                'cogs': Decimal(prev['cogs'] or 0)
+            }
 
-        # top fruits - using single-table sales (already filtered by sales_queryset)
-        top = sales_queryset.values('product__product_id', 'product__name', 'product__size').annotate(
-            boxes_sold=Sum('quantity'), 
-            revenue=Sum(F('quantity') * F('product__price'))
-        ).order_by('-boxes_sold')[:5]
-        top_fruits = [{
-            'product_id': t['product__product_id'],
-            'product_name': t['product__name'], 
-            'size': t['product__size'],
-            'boxes_sold': t['boxes_sold'],
-            'revenue': float(t['revenue']) if t['revenue'] else 0,
-            'performance': 'N/A', 
-            'date': end_date if end_date else timezone.localtime().strftime('%Y-%m-%d') 
-        } for t in top]
+        summary = list(
+            sales_queryset.values(
+                'product__product_id',
+                'product__name',
+                'product__size',
+                'product__cost'
+            ).annotate(
+                boxes_sold=Sum('quantity'),
+                revenue=Sum(F('quantity') * F('product__price')),
+                cogs=Sum(F('quantity') * F('product__cost')),
+                transaction_count=Count('sale_id', distinct=True)
+            ).order_by('-revenue')
+        )
 
-        # low stock fruits - using Product model directly.
-        low_q = Product.objects.filter(stock__lte=10, status='active').order_by('stock')
-        low_stock = [{
-            'product_id': inv.product_id,
-            'product_name': inv.name, 
-            'size': inv.size,
-            'current_stock': inv.stock, 
-            'price': float(inv.price),
-            'status': 'Low Stock', 
-            'action_required': 'Reorder' 
-        } for inv in low_q]
+        summary_date = end_date if end_date else timezone.localtime().strftime('%Y-%m-%d')
+        sales_summary_data = []
+        for s in summary:
+            product_id = s['product__product_id']
+            boxes = s['boxes_sold'] or 0
+            revenue = Decimal(s['revenue'] or 0)
+            cogs = Decimal(s['cogs'] or 0)
+            profit = revenue - cogs
+            gross_margin = float((profit / revenue * 100) if revenue else 0)
+            vat_amount = revenue * Decimal('0.12')
+            transaction_count = s['transaction_count'] or 0
+            avg_transaction = float(revenue / transaction_count) if transaction_count else 0
+            unit_price = float(revenue / boxes) if boxes else 0
+            unit_cost = float(cogs / boxes) if boxes else 0
+            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+            prev_revenue = prev['revenue']
+            sales_growth_pct = 0.0
+            if prev_revenue and prev_revenue != 0:
+                sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue) * 100)
+            elif revenue:
+                sales_growth_pct = 100.0
+
+            sales_summary_data.append({
+                'product_id': product_id,
+                'product_name': s['product__name'],
+                'size': s['product__size'],
+                'boxes_sold': boxes,
+                'unit_price': unit_price,
+                'unit_cost': unit_cost,
+                'revenue': float(revenue),
+                'cogs': float(cogs),
+                'profit': float(profit),
+                'gross_margin_pct': gross_margin,
+                'vat_amount': float(vat_amount),
+                'transaction_count': transaction_count,
+                'avg_transaction_value': avg_transaction,
+                'sales_growth_pct': sales_growth_pct,
+                'date': summary_date
+            })
+
+        total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
+
+        product_map = Product.objects.filter(
+            product_id__in=[s['product__product_id'] for s in summary]
+        ).in_bulk(field_name='product_id')
+
+        top_summary_sorted = sorted(summary, key=lambda x: x['boxes_sold'] or 0, reverse=True)[:5]
+        top_fruits = []
+        for idx, t in enumerate(top_summary_sorted, start=1):
+            product_id = t['product__product_id']
+            revenue = Decimal(t['revenue'] or 0)
+            cogs = Decimal(t['cogs'] or 0)
+            boxes = t['boxes_sold'] or 0
+            avg_price = float(revenue / boxes) if boxes else 0
+            profit_margin_pct = float(((revenue - cogs) / revenue * 100) if revenue else 0)
+            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+            prev_revenue = prev['revenue']
+            prev_boxes = prev['boxes_sold'] or 0
+            growth_rate = 0.0
+            if prev_revenue and prev_revenue != 0:
+                growth_rate = float(((revenue - prev_revenue) / prev_revenue) * 100)
+            elif revenue:
+                growth_rate = 100.0
+            market_share_pct = float((revenue / total_current_revenue * 100) if total_current_revenue else 0)
+            units_change = boxes - prev_boxes
+            product_obj = product_map.get(product_id)
+            ending_stock = product_obj.stock if product_obj else 0
+            average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
+            inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
+
+            top_fruits.append({
+                'rank': idx,
+                'product_id': product_id,
+                'product_name': t['product__name'],
+                'size': t['product__size'],
+                'boxes_sold': boxes,
+                'avg_price': avg_price,
+                'revenue': float(revenue),
+                'profit_margin_pct': profit_margin_pct,
+                'growth_rate_pct': growth_rate,
+                'market_share_pct': market_share_pct,
+                'units_change': units_change,
+                'inventory_turnover': inventory_turnover,
+                'date': summary_date
+            })
+
+        # low stock fruits - enhanced analytics
+        low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock'))
+        low_ids = [inv.product_id for inv in low_q]
+        low_stock = []
+        if low_ids:
+            thirty_days_ago = timezone.localtime() - timedelta(days=30)
+            sales_stats = Sale.objects.filter(
+                status__iexact='completed',
+                product_id__in=low_ids
+            ).values('product_id').annotate(
+                last_sale=Max('recorded_at'),
+                sold_30=Sum('quantity', filter=Q(recorded_at__gte=thirty_days_ago)),
+                total_sold=Sum('quantity')
+            )
+            stats_map = {row['product_id']: row for row in sales_stats}
+
+            addition_map = {}
+            additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
+            for add in additions:
+                bucket = addition_map.setdefault(add.product_id, [])
+                if len(bucket) < 2:
+                    bucket.append(add.date_added)
+
+            for inv in low_q:
+                stats = stats_map.get(inv.product_id, {})
+                sold_30 = stats.get('sold_30') or 0
+                avg_daily_sales = float(Decimal(sold_30) / Decimal(30)) if sold_30 else 0.0
+                days_of_supply = None
+                if avg_daily_sales > 0:
+                    days_of_supply = float(inv.stock / avg_daily_sales) if avg_daily_sales else None
+                history_dates = addition_map.get(inv.product_id, [])
+                if len(history_dates) >= 2:
+                    delta = history_dates[0] - history_dates[1]
+                    lead_time_days = max(int(delta.total_seconds() // 86400), 1)
+                else:
+                    lead_time_days = 7
+                reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold)
+                reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - inv.stock, 0)
+                stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
+                last_sale = stats.get('last_sale')
+                last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
+
+                low_stock.append({
+                    'product_id': inv.product_id,
+                    'product_name': inv.name,
+                    'size': inv.size,
+                    'current_stock': inv.stock,
+                    'stock_value': stock_value,
+                    'average_daily_sales': avg_daily_sales,
+                    'days_of_supply': days_of_supply,
+                    'reorder_point': reorder_point,
+                    'reorder_quantity': reorder_quantity,
+                    'lead_time_days': lead_time_days,
+                    'last_sale_date': last_sale_date,
+                    'status': 'Low Stock' if inv.stock <= reorder_point else 'Healthy',
+                    'action_required': 'Reorder' if inv.stock <= reorder_point else 'Monitor'
+                })
+        else:
+            low_stock = []
 
         # transactions - group by transaction_number to avoid showing each line item separately
         rows = sales_queryset.order_by('-recorded_at', 'transaction_number', 'sale_id')[:200]
@@ -1681,6 +2160,7 @@ def fetch_reports(request):
                     'sale_id': row.sale_id,
                     'transaction_no': row.transaction_number if row.transaction_number else key,
                     'or_no': row.or_number or 'N/A',
+                    'receipt_number': row.or_number or 'N/A',
                     'date_time': row.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
                     'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
                     'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
@@ -1696,6 +2176,7 @@ def fetch_reports(request):
                     'amount_paid': float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12')),
                     'change_amount': (float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))) - float((row.total or 0) * Decimal('1.12')),
                     'status': row.status,
+                    'sale_ids': [row.sale_id],
                 }
             else:
                 # Accumulate to existing transaction
@@ -1713,6 +2194,8 @@ def fetch_reports(request):
                         g['fruits'].append(row.product.name)
                     if row.product.size and row.product.size not in g['size']:
                         g['size'].append(row.product.size) 
+                if row.sale_id not in g.get('sale_ids', []):
+                    g.setdefault('sale_ids', []).append(row.sale_id)
 
         tx_data = list(grouped.values())[:100]  # Limit to 100 transactions for display
 
@@ -1780,157 +2263,524 @@ def export_report(request):
     start_date = request.POST.get('start_date','')
     end_date = request.POST.get('end_date','')
     search = request.POST.get('search','')
+    user_filter = request.POST.get('user','all')
+    fruit_filter = request.POST.get('fruit','all')
 
     sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
     sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
+    
+    # Apply user filter if specified
+    if user_filter and user_filter != 'all':
+        try:
+            sales_q = sales_q.filter(user_id=int(user_filter))
+        except (ValueError, TypeError):
+            pass
+    
+    # Apply fruit filter if specified
+    if fruit_filter and fruit_filter != 'all':
+        # Match products where the base name (before parentheses) matches the fruit
+        sales_q = sales_q.filter(
+            Q(product__name__istartswith=fruit_filter + ' ') |
+            Q(product__name__istartswith=fruit_filter + '(') |
+            Q(product__name__iexact=fruit_filter)
+        )
+    
     if search:
         if search.isdigit():
             sales_q = sales_q.filter(sale_id=search)
         else:
-            # Match product name or size
+            # Match product name or quantity
             sales_q = sales_q.filter(
                 Q(product__name__icontains=search) | Q(product__size__icontains=search)
             ).distinct()
 
-    # Aggregate summary
-    agg = sales_q.aggregate(
-        total_revenue=Sum(F('quantity')*F('product__price')),
-        transaction_count=Count('sale_id', distinct=True),
-        total_boxes=Sum('quantity')
+    # Use the same comprehensive calculation logic as fetch_reports
+    base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
+    date_range = _resolve_report_range(filter_type, start_date, end_date)
+    sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
+    
+    # Apply filters
+    if user_filter and user_filter != 'all':
+        try:
+            sales_queryset = sales_queryset.filter(user_id=int(user_filter))
+        except (ValueError, TypeError):
+            pass
+    
+    if fruit_filter and fruit_filter != 'all':
+        sales_queryset = sales_queryset.filter(
+            Q(product__name__istartswith=fruit_filter + ' ') |
+            Q(product__name__istartswith=fruit_filter + '(') |
+            Q(product__name__iexact=fruit_filter)
+        )
+    
+    if search:
+        if search.isdigit():
+            sales_queryset = sales_queryset.filter(sale_id=search)
+        else:
+            sales_queryset = sales_queryset.filter(
+                Q(product__name__icontains=search) |
+                Q(product__size__icontains=search) |
+                Q(customer_name__icontains=search) |
+                Q(transaction_number__icontains=search)
+            ).distinct()
+    
+    # Get previous period for comparison
+    previous_queryset = base_queryset.none()
+    if date_range:
+        current_start, current_end = date_range
+        period_delta = current_end - current_start
+        previous_end = current_start - timedelta(seconds=1)
+        previous_start = previous_end - period_delta
+        previous_queryset = base_queryset.filter(recorded_at__range=(previous_start, previous_end))
+        if user_filter and user_filter != 'all':
+            try:
+                previous_queryset = previous_queryset.filter(user_id=int(user_filter))
+            except (ValueError, TypeError):
+                pass
+        if fruit_filter and fruit_filter != 'all':
+            previous_queryset = previous_queryset.filter(
+                Q(product__name__istartswith=fruit_filter + ' ') |
+                Q(product__name__istartswith=fruit_filter + '(') |
+                Q(product__name__iexact=fruit_filter)
+            )
+    
+    # Comprehensive sales summary
+    agg = sales_queryset.aggregate(
+        total_revenue=Sum(F('quantity') * F('product__price')),
+        transaction_count=Count('transaction_number', distinct=True),
+        total_items_sold=Sum('quantity'),
+        total_cogs=Sum(F('quantity') * F('product__cost'))
     )
-    total_revenue = float(agg['total_revenue'] or 0)
-    transaction_count = int(agg['transaction_count'] or 0)
-    total_boxes = int(agg['total_boxes'] or 0)
+    total_rev = Decimal(agg['total_revenue'] or 0)
+    trans_cnt = agg['transaction_count'] or 0
+    total_items = agg['total_items_sold'] or 0
+    total_cogs = Decimal(agg['total_cogs'] or 0)
+    gross_profit = total_rev - total_cogs
+    gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
+    vat_total = total_rev * Decimal('0.12')
+    net_profit = gross_profit
+    
+    # Previous period summary for growth calculation
+    prev_agg = previous_queryset.aggregate(
+        total_revenue=Sum(F('quantity') * F('product__price')),
+        transaction_count=Count('transaction_number', distinct=True),
+        total_items_sold=Sum('quantity')
+    )
+    prev_revenue = Decimal(prev_agg['total_revenue'] or 0)
+    prev_trans_cnt = prev_agg['transaction_count'] or 0
+    revenue_growth_pct = float(((total_rev - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if total_rev else 0.0))
+    transaction_growth_pct = float(((trans_cnt - prev_trans_cnt) / prev_trans_cnt * 100) if prev_trans_cnt else (100.0 if trans_cnt else 0.0))
+    
+    total_revenue = float(total_rev)
+    transaction_count = int(trans_cnt)
+    total_boxes = int(total_items)
 
     # Build PDF with proper margins for landscape A4
     buffer = BytesIO()
     # A4 landscape is 297mm x 210mm = 841.89 x 595.27 points
-    # Use smaller margins to maximize usable space
+    from reportlab.platypus import PageTemplate, Frame, PageBreak
+    from reportlab.lib.units import inch
+    
+    # Compact margins for more content
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
-                          leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+                          leftMargin=0.4*inch, rightMargin=0.4*inch, 
+                          topMargin=0.5*inch, bottomMargin=0.5*inch,
+                          showBoundary=0)
+    
     styles = getSampleStyleSheet()
     from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    
     elems = []
 
-    # Calculate available width: 841.89 - 36 - 36 = 769.89 points
-    available_width = 770
+    # Calculate available width (landscape A4 width minus margins)
+    # Landscape A4: 841.89 points wide, minus 0.4 inch (28.8 points) on each side
+    available_width = landscape(A4)[0] - (0.4 * inch * 2)  # 841.89 - 57.6 = ~784 points
 
-    # Title - compact style
-    title_text = "StockWise - Complete Sales Report"
-    elems.append(Paragraph(title_text, styles['Title']))
+    # Custom styles for better appearance
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=20,
+        textColor=colors.HexColor('#1f2937'),
+        spaceAfter=8,
+        spaceBefore=0,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
     
-    # Report metadata - more compact
-    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type
-    meta = f"<b>Date Range:</b> {period_text} | <b>Generated:</b> {timezone.localtime().strftime('%m/%d/%Y')}"
-    elems.append(Paragraph(meta, styles['Normal']))
-    elems.append(Spacer(1, 10))
-
-    # ========== SECTION 1: SALES SUMMARY ==========
-    section_style = ParagraphStyle('SectionHeader', parent=styles['Heading2'], textColor=colors.HexColor('#4F46E5'), spaceAfter=8)
-    elems.append(Paragraph("📊 SALES SUMMARY", section_style))
-    elems.append(Spacer(1, 6))
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#6b7280'),
+        spaceAfter=10,
+        alignment=TA_CENTER,
+        fontName='Helvetica'
+    )
     
-    avg_order = (total_revenue / transaction_count) if transaction_count > 0 else 0
-    summary_data = [
-        ['Metric', 'Value'],
-        ['Total Revenue', f"₱{total_revenue:,.2f}"],
-        ['Total Transactions', f"{transaction_count}"],
-        ['Total Boxes Sold', f"{total_boxes}"],
-        ['Average Order Value', f"₱{avg_order:,.2f}"]
+    # Title - professional style
+    title_text = "StockWise Sales Report"
+    elems.append(Paragraph(title_text, title_style))
+    
+    # Report metadata - compact formatting
+    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
+    generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
+    
+    # Add filter info if applied
+    filter_info = []
+    if user_filter and user_filter != 'all':
+        try:
+            user_obj = AppUser.objects.get(user_id=int(user_filter))
+            filter_info.append(f"User: {user_obj.username}")
+        except:
+            pass
+    if fruit_filter and fruit_filter != 'all':
+        filter_info.append(f"Fruit: {fruit_filter}")
+    
+    meta_parts = [
+        f"<b>Period:</b> {period_text}",
+        f"<b>Generated:</b> {generated_time}"
     ]
-    summary_tbl = Table(summary_data, colWidths=[250, 150])
-    summary_tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F46E5')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 10),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN', (1,1), (1,-1), 'RIGHT'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    elems.append(summary_tbl)
+    if filter_info:
+        meta_parts.append(f"<b>Filters:</b> {', '.join(filter_info)}")
+    
+    meta = " | ".join(meta_parts)
+    elems.append(Paragraph(meta, subtitle_style))
     elems.append(Spacer(1, 12))
 
-    # ========== SECTION 2: TOP PRODUCTS ==========
-    elems.append(Paragraph("🏆 TOP PRODUCTS BY SALES", section_style))
-    elems.append(Spacer(1, 6))
+    # ========== SECTION 1: SALES SUMMARY ==========
+    section_style = ParagraphStyle(
+        'SectionHeader', 
+        parent=styles['Heading2'], 
+        textColor=colors.HexColor('#1f2937'), 
+        spaceAfter=8,
+        spaceBefore=10,
+        fontSize=14,
+        fontName='Helvetica-Bold'
+    )
     
-    # Get top products
-    top_products = sales_q.values('product__product_id','product__name','product__size').annotate(
+    # Executive Summary Section with comprehensive metrics
+    elems.append(Paragraph("EXECUTIVE SUMMARY", section_style))
+    elems.append(Spacer(1, 8))
+    
+    avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
+    card_style = ParagraphStyle('Card', fontSize=8, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=11)
+    card_small_style = ParagraphStyle('CardSmall', fontSize=7, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=9)
+    
+    # Enhanced summary cards (3x3 grid for comprehensive metrics)
+    summary_cards = [
+        [
+            Paragraph("<b>TOTAL REVENUE</b><br/><font size=14 color='#10b981'>₱{:,}</font><br/><font size=6>Growth: {:.1f}%</font>".format(int(total_revenue), revenue_growth_pct), card_style),
+            Paragraph("<b>GROSS PROFIT</b><br/><font size=14 color='#10b981'>₱{:,}</font><br/><font size=6>Margin: {:.1f}%</font>".format(int(gross_profit), gross_margin_pct), card_style),
+            Paragraph("<b>COGS</b><br/><font size=14 color='#ef4444'>₱{:,}</font>".format(int(total_cogs)), card_style),
+        ],
+        [
+            Paragraph("<b>TOTAL TRANSACTIONS</b><br/><font size=14 color='#6366f1'>{}</font><br/><font size=6>Growth: {:.1f}%</font>".format(transaction_count, transaction_growth_pct), card_style),
+            Paragraph("<b>AVG ORDER VALUE</b><br/><font size=14 color='#f59e0b'>₱{:,}</font>".format(int(avg_order)), card_style),
+            Paragraph("<b>TOTAL BOXES</b><br/><font size=14 color='#f59e0b'>{}</font>".format(total_boxes), card_style),
+        ],
+        [
+            Paragraph("<b>VAT (12%)</b><br/><font size=14 color='#8b5cf6'>₱{:,}</font>".format(int(vat_total)), card_style),
+            Paragraph("<b>NET PROFIT</b><br/><font size=14 color='#10b981'>₱{:,}</font>".format(int(net_profit)), card_style),
+            Paragraph("<b>ITEMS SOLD</b><br/><font size=14 color='#6366f1'>{}</font>".format(total_items), card_style),
+        ]
+    ]
+    
+    card_width = (available_width - 20) / 3
+    summary_grid = Table(summary_cards, colWidths=[card_width, card_width, card_width], rowHeights=[70, 70, 70])
+    summary_grid.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('BACKGROUND', (0,0), (0,0), colors.HexColor('#f0fdf4')),
+        ('BACKGROUND', (1,0), (1,0), colors.HexColor('#f0fdf4')),
+        ('BACKGROUND', (2,0), (2,0), colors.HexColor('#fef2f2')),
+        ('BACKGROUND', (0,1), (0,1), colors.HexColor('#eef2ff')),
+        ('BACKGROUND', (1,1), (1,1), colors.HexColor('#fffbeb')),
+        ('BACKGROUND', (2,1), (2,1), colors.HexColor('#fffbeb')),
+        ('BACKGROUND', (0,2), (0,2), colors.HexColor('#f3e8ff')),
+        ('BACKGROUND', (1,2), (1,2), colors.HexColor('#f0fdf4')),
+        ('BACKGROUND', (2,2), (2,2), colors.HexColor('#eef2ff')),
+    ]))
+    elems.append(summary_grid)
+    elems.append(Spacer(1, 15))
+
+    # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
+    elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Calculate comprehensive sales summary data
+    summary = list(
+        sales_queryset.values(
+            'product__product_id',
+            'product__name',
+            'product__size',
+            'product__cost'
+        ).annotate(
+            boxes_sold=Sum('quantity'),
+            revenue=Sum(F('quantity') * F('product__price')),
+            cogs=Sum(F('quantity') * F('product__cost')),
+            transaction_count=Count('sale_id', distinct=True)
+        ).order_by('-revenue')[:20]
+    )
+    
+    # Get previous period data for comparison
+    previous_summary_map = {}
+    previous_summary_queryset = previous_queryset.values(
+        'product__product_id'
+    ).annotate(
         boxes_sold=Sum('quantity'),
-        revenue=Sum(F('quantity')*F('product__price'))
-    ).order_by('-boxes_sold')[:10]
+        revenue=Sum(F('quantity') * F('product__price')),
+        cogs=Sum(F('quantity') * F('product__cost'))
+    )
+    for prev in previous_summary_queryset:
+        product_id = prev['product__product_id']
+        previous_summary_map[product_id] = {
+            'boxes_sold': prev['boxes_sold'] or 0,
+            'revenue': Decimal(prev['revenue'] or 0),
+            'cogs': Decimal(prev['cogs'] or 0)
+        }
     
-    if top_products:
-        top_rows = [['Rank', 'Product', 'Size', 'Boxes Sold', 'Revenue']]
-        for idx, prod in enumerate(top_products, 1):
-            top_rows.append([
-                str(idx),
-                str(prod['product__name'] or 'N/A')[:30],
-                str(prod['product__size'] or '')[:15],
-                str(prod['boxes_sold'] or 0),
-                f"₱{float(prod['revenue'] or 0):,.2f}"
+    total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
+    
+    if summary:
+        sales_summary_rows = [['Product', 'Quantity', 'Boxes', 'Unit Price', 'Unit Cost', 'Revenue', 'COGS', 'Profit', 'Gross Margin %', 'Sales Growth %', 'Transactions']]
+        for s in summary:
+            product_id = s['product__product_id']
+            boxes = s['boxes_sold'] or 0
+            revenue = Decimal(s['revenue'] or 0)
+            cogs = Decimal(s['cogs'] or 0)
+            profit = revenue - cogs
+            gross_margin = float((profit / revenue * 100) if revenue else 0)
+            unit_price = float(revenue / boxes) if boxes else 0
+            unit_cost = float(cogs / boxes) if boxes else 0
+            transaction_count = s['transaction_count'] or 0
+            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+            prev_revenue = prev['revenue']
+            sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
+            
+            sales_summary_rows.append([
+                str(s['product__name'] or 'N/A')[:25],
+                str(s['product__size'] or ''),
+                str(boxes),
+                f"₱{unit_price:,.2f}",
+                f"₱{unit_cost:,.2f}",
+                f"₱{float(revenue):,.2f}",
+                f"₱{float(cogs):,.2f}",
+                f"₱{float(profit):,.2f}",
+                f"{gross_margin:.1f}%",
+                f"{sales_growth_pct:+.1f}%",
+                str(transaction_count)
             ])
         
-        # Adjusted widths to fit in 770 points: 35+250+100+80+120 = 585
-        top_table = Table(top_rows, colWidths=[35, 300, 120, 80, 120])
-        top_table.setStyle(TableStyle([
+        # Column widths optimized for comprehensive data
+        col_widths = [120, 50, 45, 60, 60, 70, 70, 70, 60, 60, 50]
+        sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
+        sales_summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 9),
-            ('ALIGN', (3,1), (4,-1), 'RIGHT'),
-            ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('FONTSIZE', (0,1), (-1,-1), 7),
+            ('ALIGN', (2,1), (10,-1), 'RIGHT'),  # Right align numbers
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F0FDF4')]),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elems.append(sales_summary_table)
+    else:
+        elems.append(Paragraph("No product data available.", styles['Normal']))
+    
+    elems.append(PageBreak())
+    
+    # ========== SECTION 3: TOP PRODUCTS (Enhanced) ==========
+    elems.append(Paragraph("TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Get top products with comprehensive metrics
+    top_summary_sorted = sorted(summary, key=lambda x: x['boxes_sold'] or 0, reverse=True)[:10]
+    product_map = Product.objects.filter(
+        product_id__in=[s['product__product_id'] for s in top_summary_sorted]
+    ).in_bulk(field_name='product_id')
+    
+    if top_summary_sorted:
+        top_rows = [['Rank', 'Product', 'Quantity', 'Boxes', 'Avg Price', 'Revenue', 'Profit Margin %', 'Growth %', 'Market Share %', 'Inv Turnover']]
+        for idx, t in enumerate(top_summary_sorted, start=1):
+            product_id = t['product__product_id']
+            revenue = Decimal(t['revenue'] or 0)
+            cogs = Decimal(t['cogs'] or 0)
+            boxes = t['boxes_sold'] or 0
+            avg_price = float(revenue / boxes) if boxes else 0
+            profit_margin_pct = float(((revenue - cogs) / revenue * 100) if revenue else 0)
+            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+            prev_revenue = prev['revenue']
+            prev_boxes = prev['boxes_sold'] or 0
+            growth_rate = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
+            market_share_pct = float((revenue / total_current_revenue * 100) if total_current_revenue else 0)
+            units_change = boxes - prev_boxes
+            product_obj = product_map.get(product_id)
+            ending_stock = product_obj.stock if product_obj else 0
+            average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
+            inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
+            
+            top_rows.append([
+                str(idx),
+                str(t['product__name'] or 'N/A')[:20],
+                str(t['product__size'] or ''),
+                str(boxes),
+                f"₱{avg_price:,.2f}",
+                f"₱{float(revenue):,.2f}",
+                f"{profit_margin_pct:.1f}%",
+                f"{growth_rate:+.1f}%",
+                f"{market_share_pct:.1f}%",
+                f"{inventory_turnover:.2f}"
+            ])
+        
+        # Column widths for top products
+        top_col_widths = [35, 140, 50, 45, 60, 70, 60, 50, 60, 50]
+        top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
+        top_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('FONTSIZE', (0,1), (-1,-1), 7),
+            ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center rank
+            ('ALIGN', (3,1), (9,-1), 'RIGHT'),  # Right align numbers
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         elems.append(top_table)
     else:
         elems.append(Paragraph("No product data available.", styles['Normal']))
     
-    elems.append(Spacer(1, 16))
+    elems.append(PageBreak())
 
-    # ========== SECTION 3: LOW STOCK INVENTORY ==========
-    elems.append(Paragraph("⚠️ LOW STOCK ITEMS", section_style))
-    elems.append(Spacer(1, 6))
+    # ========== SECTION 4: LOW STOCK INVENTORY (Enhanced) ==========
+    elems.append(Paragraph("LOW STOCK ANALYSIS", section_style))
+    elems.append(Spacer(1, 8))
     
-    # Get low stock items
-    low_stock_items = Product.objects.filter(stock__lte=10, status='active').order_by('stock')[:15]
+    # Get low stock items with comprehensive analytics
+    low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock')[:20])
+    low_ids = [inv.product_id for inv in low_q]
+    low_stock_data = []
     
-    if low_stock_items:
-        low_rows = [['Product', 'Size', 'Current Stock', 'Price', 'Status']]
-        for item in low_stock_items:
-            status = '🔴 Critical' if item.stock <= 5 else '🟡 Low'
+    if low_ids:
+        thirty_days_ago = timezone.localtime() - timedelta(days=30)
+        sales_stats = Sale.objects.filter(
+            status__iexact='completed',
+            product_id__in=low_ids
+        ).values('product_id').annotate(
+            last_sale=Max('recorded_at'),
+            sold_30=Sum('quantity', filter=Q(recorded_at__gte=thirty_days_ago)),
+            total_sold=Sum('quantity')
+        )
+        stats_map = {row['product_id']: row for row in sales_stats}
+        
+        addition_map = {}
+        additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
+        for add in additions:
+            bucket = addition_map.setdefault(add.product_id, [])
+            if len(bucket) < 2:
+                bucket.append(add.date_added)
+        
+        for inv in low_q:
+            stats = stats_map.get(inv.product_id, {})
+            sold_30 = stats.get('sold_30') or 0
+            avg_daily_sales = float(Decimal(sold_30) / Decimal(30)) if sold_30 else 0.0
+            days_of_supply = None
+            if avg_daily_sales > 0:
+                days_of_supply = float(inv.stock / avg_daily_sales) if avg_daily_sales else None
+            history_dates = addition_map.get(inv.product_id, [])
+            if len(history_dates) >= 2:
+                delta = history_dates[0] - history_dates[1]
+                lead_time_days = max(int(delta.total_seconds() // 86400), 1)
+            else:
+                lead_time_days = 7
+            reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold if hasattr(inv, 'low_stock_threshold') else 5)
+            reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - inv.stock, 0)
+            stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
+            last_sale = stats.get('last_sale')
+            last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
+            status_text = 'Critical' if inv.stock <= reorder_point else 'Low'
+            action_required = 'Reorder' if inv.stock <= reorder_point else 'Monitor'
+            
+            low_stock_data.append({
+                'product_name': inv.name,
+                'size': inv.size,
+                'current_stock': inv.stock,
+                'stock_value': stock_value,
+                'average_daily_sales': avg_daily_sales,
+                'days_of_supply': days_of_supply,
+                'reorder_point': reorder_point,
+                'reorder_quantity': reorder_quantity,
+                'lead_time_days': lead_time_days,
+                'last_sale_date': last_sale_date,
+                'status': status_text,
+                'action_required': action_required
+            })
+    
+    if low_stock_data:
+        low_rows = [['Product', 'Quantity', 'Current Stock', 'Stock Value', 'Avg Daily Sales', 'Days of Supply', 'Reorder Point', 'Reorder Qty', 'Lead Time', 'Last Sale', 'Status', 'Action']]
+        for item in low_stock_data:
+            days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
             low_rows.append([
-                str(item.name)[:30],
-                str(item.size)[:15],
-                str(int(item.stock)),
-                f"₱{float(item.price):,.2f}",
-                status
+                str(item['product_name'])[:20],
+                str(item['size'] or ''),
+                str(int(item['current_stock'])),
+                f"₱{item['stock_value']:,.2f}",
+                f"{item['average_daily_sales']:.1f}",
+                days_supply_str,
+                str(item['reorder_point']),
+                str(item['reorder_quantity']),
+                f"{item['lead_time_days']}d",
+                item['last_sale_date'],
+                item['status'],
+                item['action_required']
             ])
         
-        # Adjusted widths: 300+100+100+100+80 = 680
-        low_table = Table(low_rows, colWidths=[300, 120, 100, 100, 80])
+        # Column widths for comprehensive low stock data
+        low_col_widths = [100, 45, 50, 60, 60, 55, 55, 55, 50, 60, 50, 50]
+        low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
         low_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,-1), 9),
-            ('ALIGN', (2,1), (3,-1), 'RIGHT'),
-            ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
+            ('ALIGN', (2,1), (8,-1), 'RIGHT'),  # Right align numbers
+            ('ALIGN', (10,1), (11,-1), 'CENTER'),  # Center status/action
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
         elems.append(low_table)
     else:
-        elems.append(Paragraph("✅ All products have sufficient stock.", styles['Normal']))
+        elems.append(Paragraph("All products have sufficient stock.", styles['Normal']))
     
-    elems.append(Spacer(1, 16))
+    elems.append(PageBreak())
 
     # ========== SECTION 4: DETAILED TRANSACTIONS ==========
-    elems.append(Paragraph("💳 DETAILED TRANSACTIONS", section_style))
-    elems.append(Spacer(1, 6))
+    elems.append(Paragraph("DETAILED TRANSACTIONS", section_style))
+    elems.append(Spacer(1, 8))
 
     # Group transactions by transaction_number (same as display logic)
     sale_rows = sales_q.order_by('-recorded_at','transaction_number','sale_id')[:500]
@@ -1972,41 +2822,88 @@ def export_report(request):
 
     tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
 
-    # Transactions table with complete details - optimized widths for 770pt width
-    # Total: 30+60+55+75+90+60+110+40+65+55+65+45 = 750 points
-    rows = [['ID','Trans#','OR#','Date','Customer','Contact','Fruits','Boxes','Subtotal','VAT','Total','Status']]
+    # Better transactions table with improved readability
+    # Optimized column widths for landscape: 45+70+70+90+110+70+130+50+75+65+80+60 = 915 (but we have ~750 available)
+    # Adjusted: 40+65+65+85+100+65+125+45+70+60+75+55
+    rows = [['ID', 'Transaction #', 'OR #', 'Date', 'Customer', 'Contact', 'Products', 'Boxes', 'Subtotal', 'VAT', 'Total', 'Status']]
     for tx in tx_data:
+        # Format fruits list better
+        fruits_str = ', '.join(tx['fruits']) if tx['fruits'] else 'N/A'
+        if len(fruits_str) > 25:
+            fruits_str = fruits_str[:22] + '...'
+        
         rows.append([
             str(tx['sale_id']),
-            str(tx['transaction_number'])[:10],  # Truncate long transaction numbers
-            str(tx['or_number'])[:12],
-            tx['recorded_at'][:16] if len(tx['recorded_at']) > 16 else tx['recorded_at'],  # Shorten date
-            str(tx['customer_name'])[:15],  # Truncate long names
-            str(tx['contact_number'])[:11],
-            str(tx['fruits'])[:20],  # Truncate long product lists
+            str(tx['transaction_number'])[:12],
+            str(tx['or_number'])[:10] if tx['or_number'] != 'N/A' else 'N/A',
+            tx['recorded_at'][:16],  # Date with time
+            str(tx['customer_name'])[:18],
+            str(tx['contact_number'])[:12] if tx['contact_number'] != 'N/A' else 'N/A',
+            fruits_str,
             str(tx['total_boxes']),
             f"₱{tx['subtotal']:,.2f}",
             f"₱{tx['vat']:,.2f}",
             f"₱{tx['total']:,.2f}",
-            tx['status'].title()[:8]
+            tx['status'].title()
         ])
     
-    # Adjusted column widths to fit in 770 points
-    table = Table(rows, repeatRows=1, colWidths=[30, 60, 55, 75, 90, 60, 110, 40, 65, 55, 65, 45])
+    # Better column widths optimized for landscape
+    table = Table(rows, repeatRows=1, colWidths=[40, 70, 65, 85, 100, 65, 125, 45, 70, 60, 75, 55])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#4F46E5')),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 7),
-        ('FONTSIZE', (0,1), (-1,-1), 6),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
+        ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center ID
         ('ALIGN', (7,1), (10,-1), 'RIGHT'),  # Right align numbers
-        ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center ID column
-        ('GRID', (0,0), (-1,-1), 0.25, colors.lightgrey),
+        ('ALIGN', (11,1), (11,-1), 'CENTER'),  # Center status
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('WORDWRAP', (0,0), (-1,-1), True),  # Enable word wrap
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('WORDWRAP', (0,0), (-1,-1), True),
     ]))
     elems.append(table)
+    
+    # Add summary footer - using Paragraphs instead of raw HTML
+    elems.append(Spacer(1, 10))
+    total_subtotal = sum(float(tx['subtotal']) for tx in tx_data)
+    total_vat = sum(float(tx['vat']) for tx in tx_data)
+    total_all = sum(float(tx['total']) for tx in tx_data)
+    total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
+    
+    # Create footer with proper Paragraph formatting
+    footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold')
+    footer_normal = ParagraphStyle('FooterNormal', fontSize=9, textColor=colors.HexColor('#374151'), fontName='Helvetica')
+    
+    footer_data = [
+        [
+            '', '', '', '', '', '',
+            Paragraph('Total:', footer_style),
+            Paragraph(str(total_boxes_all), footer_style),
+            Paragraph(f'₱{total_subtotal:,.2f}', footer_style),
+            Paragraph(f'₱{total_vat:,.2f}', footer_style),
+            Paragraph(f'₱{total_all:,.2f}', footer_style),
+            ''
+        ]
+    ]
+    footer_table = Table(footer_data, colWidths=[40, 70, 65, 85, 100, 65, 125, 45, 70, 60, 75, 55])
+    footer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
+        ('FONTNAME', (6,0), (10,0), 'Helvetica-Bold'),
+        ('ALIGN', (7,0), (10,0), 'RIGHT'),
+        ('GRID', (6,0), (10,0), 0.5, colors.HexColor('#6366f1')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    elems.append(footer_table)
 
     doc.build(elems)
     pdf = buffer.getvalue()
@@ -2081,6 +2978,9 @@ def profile_view(request):
         if not errors:
             user_obj.username = name or user_obj.username
             user_obj.phone_number = phone or user_obj.phone_number
+            # Handle email update
+            email = request.POST.get('email', '').strip()
+            user_obj.email = email if email else None
             if new_pw:
                 user_obj.password = bcrypt.hash(new_pw)
             # Save picture if provided
@@ -2101,9 +3001,17 @@ def profile_view(request):
     last_login_fmt = '-'
 
     # If admin, list secretary accounts
-    all_users = None
+    all_users = []
     if request.session.get('app_role') == 'admin':
-        all_users = list(AppUser.objects.filter(role='Secretary').exclude(user_id=user_id))
+        secretary_users = AppUser.objects.filter(role='Secretary').exclude(user_id=user_id)
+        all_users = [{
+            'user_id': user.user_id,
+            'username': user.username,
+            'phone_number': user.phone_number,
+            'profile_picture': user.profile_picture,
+            'is_active': user.is_active,
+            'email': user.email if hasattr(user, 'email') else None,
+        } for user in secretary_users]
 
     context = {
         'app_role': request.session.get('app_role'),
@@ -2116,15 +3024,175 @@ def profile_view(request):
 
 
 @require_app_login
+@require_http_methods(["POST"])
+@csrf_exempt
+def toggle_user_status(request):
+    """Toggle user active status (admin only)"""
+    try:
+        # Check if user is admin
+        if request.session.get('app_role') != 'admin':
+            return JsonResponse({'success': False, 'message': 'Unauthorized. Admin access required.'}, status=403)
+        
+        user_id = request.POST.get('user_id')
+        is_active_str = request.POST.get('is_active')
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'message': 'User ID is required.'})
+        
+        try:
+            user_id = int(user_id)
+            is_active = is_active_str.lower() in ('true', '1', 'yes') if is_active_str else False
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid user ID or status value.'})
+        
+        # Get the user to update
+        try:
+            user = AppUser.objects.get(user_id=user_id)
+        except AppUser.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'User not found.'})
+        
+        # Prevent admin from disabling themselves
+        current_user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        if user_id == current_user_id:
+            return JsonResponse({'success': False, 'message': 'You cannot change your own account status.'})
+        
+        # Only allow toggling secretary accounts
+        if user.role != 'Secretary':
+            return JsonResponse({'success': False, 'message': 'Can only manage secretary accounts.'})
+        
+        # If disabling, only set is_active to False (don't reset username/password)
+        # This allows the login check to work properly and show the correct error message
+        if not is_active:
+            user.is_active = False
+        else:
+            # If enabling, just set to active
+            user.is_active = True
+        
+        user.save()
+        
+        status_text = 'enabled' if is_active else 'disabled'
+        message = f'Secretary account {status_text} successfully.'
+        if not is_active:
+            message += ' The secretary will not be able to login until the account is enabled again.'
+        
+        response_data = {
+            'success': True, 
+            'message': message,
+            'is_active': user.is_active
+        }
+        
+        # Include user data in response
+        response_data['user'] = {
+            'user_id': user.user_id,
+            'username': user.username,
+            'phone_number': user.phone_number or '',
+            'email': user.email or '',
+            'profile_picture': user.profile_picture or '',
+            'is_active': user.is_active
+        }
+        
+        return JsonResponse(response_data)
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
+
+
+@require_app_login
+@require_http_methods(["POST"])
+@csrf_exempt
+def update_secretary_account(request):
+    """Update secretary account information (admin only)"""
+    try:
+        # Check if user is admin
+        if request.session.get('app_role') != 'admin':
+            return JsonResponse({'success': False, 'message': 'Unauthorized. Admin access required.'}, status=403)
+        
+        user_id = request.POST.get('user_id')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        email = request.POST.get('email', '').strip()
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'message': 'User ID is required.'})
+        
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'success': False, 'message': 'Invalid user ID.'})
+        
+        # Get the user to update
+        try:
+            user = AppUser.objects.get(user_id=user_id)
+        except AppUser.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'User not found.'})
+        
+        # Only allow updating secretary accounts
+        if user.role != 'Secretary':
+            return JsonResponse({'success': False, 'message': 'Can only manage secretary accounts.'})
+        
+        # Validate required fields
+        if not username:
+            return JsonResponse({'success': False, 'message': 'Username is required.'})
+        if not password:
+            return JsonResponse({'success': False, 'message': 'Password is required.'})
+        if len(password) < 6:
+            return JsonResponse({'success': False, 'message': 'Password must be at least 6 characters.'})
+        
+        # Check if username is already taken by another user
+        existing_user = AppUser.objects.filter(username=username).exclude(user_id=user_id).first()
+        if existing_user:
+            return JsonResponse({'success': False, 'message': 'Username is already taken.'})
+        
+        # Update user information
+        from passlib.hash import bcrypt
+        user.username = username
+        user.password = bcrypt.hash(password)
+        user.phone_number = phone_number if phone_number else ''
+        user.email = email if email else None
+        
+        # Handle profile picture if provided
+        picture_file = request.FILES.get('profile_picture')
+        if picture_file:
+            from django.core.files.storage import default_storage
+            from django.core.files.base import ContentFile
+            filename = f"profile_{user_id}{os.path.splitext(picture_file.name)[1]}"
+            path = default_storage.save(os.path.join('uploads', filename), ContentFile(picture_file.read()))
+            user.profile_picture = default_storage.url(path)
+        
+        # Enable account if it was disabled
+        user.is_active = True
+        user.save()
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Secretary account updated successfully.',
+            'user': {
+                'user_id': user.user_id,
+                'username': user.username,
+                'phone_number': user.phone_number,
+                'email': user.email,
+                'profile_picture': user.profile_picture,
+                'is_active': user.is_active
+            }
+        })
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
+
+
+@require_app_login
 @require_GET
 def fetch_products(request):
     """Return products list for inventory table with optional search/filter"""
     search = request.GET.get('search', '').strip()
     filter_status = request.GET.get('filter', 'All Products')
+    supplier_filter = request.GET.get('supplier', 'all')
+    fruit_filter = request.GET.get('fruit', 'all')
 
     # Only show items that are actually in inventory; if field missing, fallback
     try:
-        products_qs = Product.objects.filter(is_built_in=False)
+        products_qs = Product.objects.all()
     except Exception:
         products_qs = Product.objects.none()
     if search:
@@ -2138,6 +3206,19 @@ def fetch_products(request):
         products_qs = products_qs.filter(stock=0)
     elif filter_status != 'All Products':
         products_qs = products_qs.filter(status=filter_status.lower())
+    
+    # Apply supplier filter if specified
+    if supplier_filter and supplier_filter != 'all':
+        products_qs = products_qs.filter(supplier=supplier_filter)
+    
+    # Apply fruit filter if specified
+    if fruit_filter and fruit_filter != 'all':
+        # Match products where the base name (before parentheses) matches the fruit
+        products_qs = products_qs.filter(
+            Q(name__istartswith=fruit_filter + ' ') |
+            Q(name__istartswith=fruit_filter + '(') |
+            Q(name__iexact=fruit_filter)
+        )
 
     data = []
     for p in products_qs:
@@ -2149,6 +3230,8 @@ def fetch_products(request):
             'cost': float(p.cost),
             'stock': p.stock,
             'status': p.status,
+            'supplier': p.supplier or '',
+            'variant': p.variant or ''
         })
     return JsonResponse({'success': True, 'data': data})
 
@@ -2156,7 +3239,7 @@ def fetch_products(request):
 @require_app_login
 @require_GET
 def fetch_active_products(request):
-    """Return active products for record-sale modal (id, name, price, size, stock)."""
+    """Return active products for record-sale modal (id, name, price, quantity, stock)."""
     try:
         qs = Product.objects.filter(status__iexact='active', is_built_in=False)
     except Exception:
@@ -2178,18 +3261,45 @@ def fetch_active_products(request):
 @require_app_login
 @require_GET
 def fetch_stock_details(request, product_id):
-    """Return FIFO batch stock details for a product."""
-    product = Product.objects.get(product_id=product_id)
-    batches = (StockAddition.objects
+    """Return stock details for a product with newest-first ordering and pagination."""
+    try:
+        product = Product.objects.get(product_id=product_id)
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'})
+    
+    # Get pagination parameters
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+    except (ValueError, TypeError):
+        page = 1
+        page_size = 10
+    
+    # Order by newest first (descending date_added, then descending addition_id)
+    all_batches = (StockAddition.objects
                .filter(product_id=product_id)
-               .order_by('date_added', 'addition_id'))
-    # Meta totals from raw batches
-    added_total = sum(int(b.quantity or 0) for b in batches)
-    available_total = sum(int(b.remaining_quantity or 0) for b in batches)
-    earliest_date = next((b.date_added for b in batches if b.date_added), None)
+                   .order_by('-date_added', '-addition_id'))
+    
+    # Meta totals from all batches (not just current page)
+    added_total = all_batches.aggregate(total=Sum('quantity'))['total'] or 0
+    available_total = all_batches.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+    # Get latest date (first in descending order)
+    latest_batch = all_batches.first()
+    latest_date = latest_batch.date_added if latest_batch else None
+    # Get earliest date (first in ascending order)
+    earliest_batch = StockAddition.objects.filter(product_id=product_id).order_by('date_added', 'addition_id').first()
+    earliest_date = earliest_batch.date_added if earliest_batch else None
+    
+    # Calculate pagination
+    total_groups = all_batches.count()
+    total_pages = (total_groups + page_size - 1) // page_size if total_groups > 0 else 1
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    paginated_batches = all_batches[start_index:end_index]
+    
     data = []
     groups = []
-    for b in batches:
+    for b in paginated_batches:
         # Expand historical aggregated rows into per-box entries
         try:
             total_boxes = int(b.quantity or 0)
@@ -2209,25 +3319,39 @@ def fetch_stock_details(request, product_id):
                 continue
             data.append({
                 'batch_id': box_id,
-            'date_added': b.date_added,
+                'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
                 'quantity': 1,
                 'remaining': box_remaining,
                 'supplier': product.supplier or '-',
             })
             group_visible_ids.append(box_id)
         groups.append({
-            'date_added': b.date_added,
+            'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
             'supplier': b.supplier or product.supplier or '-',
             'batch_ids': group_visible_ids,
         })
-    return JsonResponse({'success': True, 'data': data, 'groups': groups, 'meta': {
+    return JsonResponse({
+        'success': True, 
+        'data': data, 
+        'groups': groups, 
+        'meta': {
         'added_total': added_total,
         'available_total': available_total,
-        'date_added': earliest_date,
+            'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
+            'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
         'supplier': product.supplier or '-',
-    }})
+        },
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
+            'total_items': total_groups,
+            'has_next': page < total_pages,
+            'has_previous': page > 1,
+        }
+    })
 
 
 @require_app_login
@@ -2273,7 +3397,7 @@ def fruit_master_search(request):
 
 @require_GET
 def fruit_master_sizes(request):
-    """Return unified numeric size options regardless of product name."""
+    """Return unified numeric quantity options regardless of product name."""
     try:
         # Always return the unified list
         return JsonResponse({'success': True, 'data': STANDARD_SIZE_OPTIONS})
@@ -2504,25 +3628,47 @@ def get_sale_details(request, sale_id):
 
 
 def stock_details(request, product_id):
-    """Get stock details for a product with FIFO ordering"""
+    """Get stock details for a product with newest-first ordering and pagination"""
     try:
         product = Product.objects.get(pk=product_id)
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found'})
     
-    additions = (
+    # Get pagination parameters
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+    except (ValueError, TypeError):
+        page = 1
+        page_size = 10
+    
+    # Order by newest first (descending date_added, then descending addition_id)
+    all_additions = (
         StockAddition.objects
         .filter(product=product)
-        .order_by('date_added', 'addition_id')
+        .order_by('-date_added', '-addition_id')
     )
-    # Meta totals from raw additions
-    added_total = sum(int(b.quantity or 0) for b in additions)
-    available_total = sum(int(b.remaining_quantity or 0) for b in additions)
-    earliest_date = next((b.date_added for b in additions if b.date_added), None)
+    
+    # Meta totals from all additions (not just current page)
+    added_total = all_additions.aggregate(total=Sum('quantity'))['total'] or 0
+    available_total = all_additions.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+    # Get latest date (first in descending order)
+    latest_addition = all_additions.first()
+    latest_date = latest_addition.date_added if latest_addition else None
+    # Get earliest date (first in ascending order)
+    earliest_addition = StockAddition.objects.filter(product=product).order_by('date_added', 'addition_id').first()
+    earliest_date = earliest_addition.date_added if earliest_addition else None
+    
+    # Calculate pagination
+    total_groups = all_additions.count()
+    total_pages = (total_groups + page_size - 1) // page_size if total_groups > 0 else 1
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    paginated_additions = all_additions[start_index:end_index]
     
     data = []
     groups = []
-    for b in additions:
+    for b in paginated_additions:
         # Expand potentially aggregated rows into per-box entries
         try:
             total_boxes = int(b.quantity or 0)
@@ -2555,12 +3701,26 @@ def stock_details(request, product_id):
             'batch_ids': group_visible_ids,
         })
     
-    return JsonResponse({'success': True, 'data': data, 'groups': groups, 'meta': {
+    return JsonResponse({
+        'success': True, 
+        'data': data, 
+        'groups': groups, 
+        'meta': {
         'added_total': added_total,
         'available_total': available_total,
-        'date_added': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
+            'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
+            'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
         'supplier': product.supplier or '-',
-    }})
+        },
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
+            'total_items': total_groups,
+            'has_next': page < total_pages,
+            'has_previous': page > 1,
+        }
+    })
 
 
 # POST request handlers for product operations
@@ -2597,6 +3757,7 @@ def add_product(request):
             name = request.POST.get('name', '').strip().title()
             variant = request.POST.get('variant', '').strip().title()
             size = request.POST.get('size', '').strip()
+            quantity_unit = (request.POST.get('quantity_unit') or 'box').strip().lower()
             cost = Decimal(request.POST.get('cost', 0))
             price = Decimal(request.POST.get('price', 0))
             status = request.POST.get('status', 'active')
@@ -2608,19 +3769,21 @@ def add_product(request):
             supplier = request.POST.get('supplier', '').strip()
             
             # Validate required fields
-            if not name or not size or cost < 0 or price < 0 or stock < 0:
-                raise ValueError("Invalid input data. Required fields: name, size, cost, price, stock.")
+            if not name or (quantity_unit != 'kilo' and not size) or cost < 0 or price < 0 or stock < 0:
+                raise ValueError("Invalid input data. Required fields: name, quantity, cost, price, stock.")
 
-            # Normalize and validate numeric-only size
-            try:
-                size_norm = str(Decimal(size))
-                if Decimal(size_norm) < 0:
-                    raise ValueError("Size must be a non-negative number.")
-                size = size_norm
-                if size not in STANDARD_SIZE_OPTIONS:
-                    raise ValueError(f"Size must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
-            except Exception:
-                raise ValueError("Size must be numeric (e.g., 10 or 10.5).")
+            # Normalize and validate quantity
+            if quantity_unit == 'kilo':
+                # No numeric quantity required when selling per kilo
+                size = 'kilo'
+            else:
+                try:
+                    size_norm = str(Decimal(size))
+                    if Decimal(size_norm) < 0:
+                        raise ValueError("Quantity must be a non-negative number.")
+                    size = size_norm
+                except Exception:
+                    raise ValueError("Quantity must be numeric (e.g., 10 or 10.5).")
             
             if status not in ['active', 'discontinued']:
                 raise ValueError("Invalid status.")
@@ -2636,7 +3799,7 @@ def add_product(request):
             
             # Check if product already exists in INVENTORY (ignore built-ins)
             if Product.objects.filter(name=full_name, size=size, is_built_in=False).exists():
-                raise ValueError("A fruit with this name and size already exists in your inventory.")
+                raise ValueError("A product with this name and quantity already exists in your inventory.")
             
             # Handle image upload
             image_path = None
@@ -2713,18 +3876,18 @@ def edit_product(request):
             
             # Validate required fields
             if not name or not size or cost < 0 or price < 0 or stock < 0:
-                raise ValueError("Invalid input data. Required fields: name, size, cost, price, stock.")
+                raise ValueError("Invalid input data. Required fields: name, quantity, cost, price, stock.")
 
-            # Normalize and validate numeric-only size
+            # Normalize and validate numeric-only quantity
             try:
                 size_norm = str(Decimal(size))
                 if Decimal(size_norm) < 0:
-                    raise ValueError("Size must be a non-negative number.")
+                    raise ValueError("Quantity must be a non-negative number.")
                 size = size_norm
                 if size not in STANDARD_SIZE_OPTIONS:
-                    raise ValueError(f"Size must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
+                    raise ValueError(f"Quantity must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
             except Exception:
-                raise ValueError("Size must be numeric (e.g., 10 or 10.5).")
+                raise ValueError("Quantity must be numeric (e.g., 10 or 10.5).")
             
             if status not in ['active', 'discontinued']:
                 raise ValueError("Invalid status.")
@@ -2740,7 +3903,7 @@ def edit_product(request):
             
             # Check if product already exists (excluding current product)
             if Product.objects.filter(name=full_name, size=size).exclude(product_id=product_id).exists():
-                raise ValueError("A fruit with this name and size already exists.")
+                raise ValueError("A product with this name and quantity already exists.")
             
             # Handle image upload
             if 'image' in request.FILES:
@@ -2829,8 +3992,8 @@ def update_product_status(request):
 
 # Helper functions
 def generate_batch_id(product, name, variant):
-    """Generate per-box batch ID: <FRUIT><VARIANT?><SIZE><MMDDYYYY><SS>.
-    SS ranges 01-99 and resets per product/size per day.
+    """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>.
+    SS ranges 01-99 and resets per product/quantity per day.
     """
     from datetime import date
     
@@ -3016,9 +4179,11 @@ def sms_settings_view(request):
     
     # Today's sales data
     today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+    today_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
     today_stats = {
         'total_sales': today_sales.count(),
-        'total_revenue': today_sales.aggregate(total=Sum('total'))['total'] or 0,
+        'total_revenue': today_revenue,
+        'total_revenue_formatted': f"{float(today_revenue):,.2f}",
         'total_boxes': today_sales.aggregate(total=Sum('quantity'))['total'] or 0,
     }
     
@@ -3044,6 +4209,7 @@ def sms_settings_view(request):
         'top_products': top_products,
         'low_stock_products': low_stock_products,
         'today_date': today,
+        'user_obj': user_obj,
     }
     return render(request, 'sms_settings.html', context)
 
@@ -3408,20 +4574,57 @@ def get_notification_stats(request):
 
     try:
         from django.db.models import Count
-        from datetime import datetime, timedelta
+        from django.utils import timezone
+        from datetime import timedelta
         from core.models import SMS
         
-        today = datetime.now().date()
-        week_ago = today - timedelta(days=7)
+        # Use timezone-aware datetime to match SMS records
+        now = timezone.localtime()
+        today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        week_ago_start = today_start - timedelta(days=7)
         
-        # Get SMS statistics (you might need to adjust based on your SMS model)
+        # Get SMS statistics using timezone-aware datetime filtering
+        # Debug: Check what's in the database
+        all_sms = SMS.objects.filter(sent_at__gte=week_ago_start)
+        print(f"DEBUG: Total SMS records this week: {all_sms.count()}")
+        print(f"DEBUG: Today's date range (local): {today_start} to {today_end}")
+        print(f"DEBUG: Current time (local): {now}")
+        for sms in all_sms:
+            sms_local = timezone.localtime(sms.sent_at)
+            sms_date = sms_local.date()
+            is_today = today_start <= sms.sent_at < today_end
+            print(f"DEBUG: SMS ID {sms.sms_id}: type={sms.message_type}, sent_at={sms.sent_at} (local: {sms_local}, date: {sms_date}), is_today={is_today}, product={sms.product.product_id if sms.product else 'None'}")
+        
+        # Count messages sent today (using timezone-aware datetime range)
+        messages_today = SMS.objects.filter(sent_at__gte=today_start, sent_at__lt=today_end).count()
+        
+        # Get last sent date/time for each message type
+        last_sales = SMS.objects.filter(message_type='sales_summary_daily').order_by('-sent_at').first()
+        last_stock = SMS.objects.filter(message_type='stock_alert').order_by('-sent_at').first()
+        last_pricing = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+        
+        def format_datetime(sms_obj):
+            if sms_obj:
+                local_time = timezone.localtime(sms_obj.sent_at)
+                return {
+                    'date': local_time.strftime('%b %d, %Y'),
+                    'time': local_time.strftime('%I:%M %p')
+                }
+            return None
+        
         stats = {
-            'messages_today': SMS.objects.filter(sent_at__date=today).count(),
-            'messages_week': SMS.objects.filter(sent_at__date__gte=week_ago).count(),
-            'stock_alerts': SMS.objects.filter(message_type='stock_alert').count(),
-            'sales_summaries': SMS.objects.filter(message_type='sales_summary_daily').count()
+            'messages_today': messages_today,
+            'messages_week': SMS.objects.filter(sent_at__gte=week_ago_start).count(),
+            'stock_alerts': SMS.objects.filter(message_type='stock_alert', sent_at__gte=week_ago_start).count(),
+            'sales_summaries': SMS.objects.filter(message_type='sales_summary_daily', sent_at__gte=week_ago_start).count(),
+            'pricing_alerts': SMS.objects.filter(message_type='pricing_alert', sent_at__gte=week_ago_start).count(),
+            'last_sales': format_datetime(last_sales),
+            'last_stock': format_datetime(last_stock),
+            'last_pricing': format_datetime(last_pricing)
         }
         
+        print(f"DEBUG: Stats being returned: {stats}")
         return JsonResponse({'success': True, 'stats': stats})
         
     except Exception as e:
@@ -4018,7 +5221,7 @@ def generate_inventory_pdf_report(request):
                 ])
             
             # Stock table
-            stock_headers = ['Product', 'Size', 'Stock', 'Unit Price', 'Total Value', 'Status']
+            stock_headers = ['Product', 'Quantity', 'Stock', 'Unit Price', 'Total Value', 'Status']
             stock_table_data = [stock_headers] + stock_data
             
             stock_table = Table(stock_table_data, colWidths=[2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch, 0.7*inch])
@@ -4423,7 +5626,19 @@ def send_all_notifications_now(request):
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
         from core.sms_service import sms_service as _svc
+        from core.models import SMS
         results = {}
+        
+        # Get a product for SMS records (can use same product for different message types now)
+        product = Product.objects.filter(status='active').first()
+        if not product:
+            # If no active products, try to get any product
+            product = Product.objects.first()
+        if not product:
+            return JsonResponse({
+                'success': False, 
+                'message': 'No products found in database. Please add at least one product before sending notifications.'
+            })
 
         # Sales summary (full list)
         today = timezone.localtime().date()
@@ -4462,6 +5677,37 @@ def send_all_notifications_now(request):
         
         sales_msg += "- STOCKWISE"
         results['sales'] = _svc.send_sms(user_obj.phone_number, sales_msg, allow_multipart=True)
+        print(f"DEBUG: Sales SMS result: {results.get('sales')}")
+        
+        # Create SMS record for sales summary if sent successfully
+        sales_success = results.get('sales', {})
+        print(f"DEBUG: Sales success check - type: {type(sales_success)}, value: {sales_success}")
+        if isinstance(sales_success, dict) and sales_success.get('success'):
+            if product:
+                try:
+                    # Delete existing record first to ensure we create a new one with current timestamp
+                    SMS.objects.filter(
+                        product=product,
+                        user=user_obj,
+                        message_type='sales_summary_daily'
+                    ).delete()
+                    # Create new record with current timestamp
+                    sms_record = SMS.objects.create(
+                        product=product,
+                        user=user_obj,
+                        message_type='sales_summary_daily',
+                        demand_level='mid',
+                        message_content=sales_msg[:500]
+                    )
+                    print(f"DEBUG: Created SMS record for sales summary - ID: {sms_record.sms_id}")
+                except Exception as e:
+                    import traceback
+                    print(f"DEBUG: Failed to create SMS record for sales: {e}")
+                    print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            else:
+                print(f"DEBUG: No product available to create sales SMS record")
+        else:
+            print(f"DEBUG: Sales SMS not successful or unexpected result format")
 
         # Low stock (full list)
         low_stock = Product.objects.filter(stock__lte=10, stock__gt=0, status='active').order_by('stock')
@@ -4489,6 +5735,37 @@ def send_all_notifications_now(request):
         
         # Send SMS for low stock alerts
         results['stock'] = _svc.send_sms(user_obj.phone_number, stock_msg, allow_multipart=True)
+        print(f"DEBUG: Stock SMS result: {results.get('stock')}")
+        
+        # Create SMS record for stock alert if sent successfully
+        stock_success = results.get('stock', {})
+        print(f"DEBUG: Stock success check - type: {type(stock_success)}, value: {stock_success}")
+        if isinstance(stock_success, dict) and stock_success.get('success'):
+            if product:
+                try:
+                    # Delete existing record first to ensure we create a new one with current timestamp
+                    SMS.objects.filter(
+                        product=product,
+                        user=user_obj,
+                        message_type='stock_alert'
+                    ).delete()
+                    # Create new record with current timestamp
+                    sms_record = SMS.objects.create(
+                        product=product,
+                        user=user_obj,
+                        message_type='stock_alert',
+                        demand_level='high' if oos.exists() else 'mid',
+                        message_content=stock_msg[:500]
+                    )
+                    print(f"DEBUG: Created SMS record for stock alert - ID: {sms_record.sms_id}")
+                except Exception as e:
+                    import traceback
+                    print(f"DEBUG: Failed to create SMS record for stock: {e}")
+                    print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            else:
+                print(f"DEBUG: No product available to create stock SMS record")
+        else:
+            print(f"DEBUG: Stock SMS not successful or unexpected result format")
 
         # Pricing (full actionable list)
         try:
@@ -4546,51 +5823,155 @@ def send_all_notifications_now(request):
         except Exception as e:
             pricing_msg = f"STOCKWISE Pricing\n\nError generating recommendations: {str(e)}\n\nSTOCKWISE"
         results['pricing'] = _svc.send_sms(user_obj.phone_number, pricing_msg, allow_multipart=True)
+        print(f"DEBUG: Pricing SMS result: {results.get('pricing')}")
+        print(f"DEBUG: Product available: {product is not None}")
+        
+        # Create SMS record for pricing alert if sent successfully
+        pricing_success = results.get('pricing', {})
+        print(f"DEBUG: Pricing success check - type: {type(pricing_success)}, value: {pricing_success}")
+        if isinstance(pricing_success, dict) and pricing_success.get('success'):
+            if product:
+                try:
+                    # Delete existing record first to ensure we create a new one with current timestamp
+                    SMS.objects.filter(
+                        product=product,
+                        user=user_obj,
+                        message_type='pricing_alert'
+                    ).delete()
+                    # Create new record with current timestamp
+                    sms_record = SMS.objects.create(
+                        product=product,
+                        user=user_obj,
+                        message_type='pricing_alert',
+                        demand_level='high',
+                        message_content=pricing_msg[:500]
+                    )
+                    print(f"DEBUG: Created SMS record for pricing alert - ID: {sms_record.sms_id}")
+                except Exception as e:
+                    import traceback
+                    print(f"DEBUG: Failed to create SMS record for pricing: {e}")
+                    print(f"DEBUG: Traceback: {traceback.format_exc()}")
+            else:
+                print(f"DEBUG: No product available to create pricing SMS record")
+        else:
+            print(f"DEBUG: Pricing SMS not successful or unexpected result format")
 
         summary = {k: bool(v) for k, v in results.items()}
-        return JsonResponse({'success': any(summary.values()), 'results': summary})
+        success_count = sum(1 for v in results.values() if isinstance(v, dict) and v.get('success'))
+        print(f"DEBUG: Summary of results: {summary}")
+        print(f"DEBUG: Success count: {success_count} out of {len(results)}")
+        
+        return JsonResponse({
+            'success': any(summary.values()), 
+            'results': summary,
+            'message': f'Successfully sent {success_count} out of {len(results)} notifications'
+        })
 
     except Exception as e:
-        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"DEBUG: Exception in send_all_notifications_now: {error_trace}")
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 @require_app_login
 def transaction_details(request, sale_id):
     """Return JSON data for a single transaction's details."""
-    if request.session.get('app_role')!='admin':
-        return JsonResponse({'success':False,'message':'Unauthorized'},status=403)
-    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+
     try:
-        # Fetch the main sale record
-        main_sale = Sale.objects.get(sale_id=sale_id, status__iexact='completed')
-        
+        main_sale = (
+            Sale.objects
+            .select_related('product', 'user')
+            .get(sale_id=sale_id, status__iexact='completed')
+        )
+
+        txn_number = main_sale.transaction_number
+        related_sales = (
+            Sale.objects
+            .select_related('product', 'user')
+            .filter(status__iexact='completed')
+        )
+        if txn_number:
+            related_sales = related_sales.filter(transaction_number=txn_number)
+        else:
+            related_sales = related_sales.filter(sale_id=sale_id)
+
+        # Build transaction-level aggregates
+        subtotal = Decimal('0.00')
+        vat_total = Decimal('0.00')
+        total_amount = Decimal('0.00')
+        amount_paid_total = Decimal('0.00')
+        change_total = Decimal('0.00')
+        items = []
+        payments = []
+        audit_trail = []
+
+        for sale in related_sales:
+            line_subtotal = Decimal(sale.total or 0)
+            line_vat = line_subtotal * Decimal('0.12')
+            line_total = line_subtotal + line_vat
+            line_amount_paid = Decimal(sale.amount_paid or line_total)
+            line_change = Decimal(sale.change_given or (line_amount_paid - line_total))
+
+            subtotal += line_subtotal
+            vat_total += line_vat
+            total_amount += line_total
+            amount_paid_total += line_amount_paid
+            change_total += line_change
+
+            items.append({
+                'product_name': sale.product.name if sale.product else 'Unknown',
+                'size': sale.product.size if sale.product else 'N/A',
+                'quantity': sale.quantity,
+                'price': float(sale.product.price) if sale.product else 0.0,
+                'total_price': float(line_total),
+            })
+
+            audit_trail.append({
+                'user': sale.user.username if sale.user else 'System',
+                'action': f"Recorded sale #{sale.sale_id}",
+                'timestamp': sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+            })
+
+        if amount_paid_total:
+            payments.append({
+                'mode': 'Cash',
+                'reference': txn_number or f"ORD{main_sale.sale_id:06d}",
+                'amount': float(amount_paid_total),
+            })
+
         transaction_data = {
             'sale_id': main_sale.sale_id,
-            'transaction_no': main_sale.transaction_number,
-            'or_no': 'N/A', # Placeholder
+            'transaction_no': txn_number or f"ORD{main_sale.sale_id:06d}",
+            'or_no': main_sale.or_number or 'N/A',
             'date_time': main_sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'customer_name': main_sale.customer.name if main_sale.customer else 'Walk-in',
-            'contact_number': main_sale.customer.contact_number if main_sale.customer else 'N/A',
-            'address': main_sale.customer.address if main_sale.customer else 'N/A',
-            'processed_by': main_sale.processed_by.username,
-            'total_amount': float(main_sale.quantity * main_sale.product.price),
-            'amount_paid': float(main_sale.quantity * main_sale.product.price), # Placeholder
-            'change_amount': 0.00, # Placeholder
+            'customer_name': main_sale.customer_name or 'N/A',
+            'contact_number': str(main_sale.contact_number) if main_sale.contact_number else 'N/A',
+            'address': main_sale.address or 'N/A',
+            'processed_by': main_sale.user.username if main_sale.user else 'N/A',
+            'subtotal': float(subtotal),
+            'vat_amount': float(vat_total),
+            'total_amount': float(total_amount),
+            'amount_paid': float(amount_paid_total),
+            'change_amount': float(change_total),
             'status': main_sale.status,
+            'created_at': main_sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': (main_sale.voided_at.strftime('%Y-%m-%d %H:%M:%S') if main_sale.voided_at else main_sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S')),
+            'payment_reference': txn_number or 'N/A',
+            'deposit_reference': main_sale.or_number or 'N/A',
+            'notes': '',
+            'void_reason': '',
+            'restocked': 'Yes' if main_sale.stock_restored else 'No',
+            'created_by': main_sale.user.username if main_sale.user else 'System',
         }
 
-        # Fetch all items associated with this specific sale_id (assuming sale_id is unique per item in a transaction for itemized details)
-        # If a single sale_id can have multiple items, you would adjust this logic.
-        item_details = [{
-            'product_name': main_sale.product.name,
-            'size': main_sale.product.size,
-            'quantity': main_sale.quantity,
-            'price': float(main_sale.product.price),
-            'total_price': float(main_sale.quantity * main_sale.product.price)
-        }]
-        
         return JsonResponse({
+            'success': True,
             'transaction': transaction_data,
-            'items': item_details
+            'items': items,
+            'payments': payments,
+            'audit_trail': audit_trail,
         })
 
     except Sale.DoesNotExist:
@@ -4598,3 +5979,263 @@ def transaction_details(request, sale_id):
     except Exception as e:
         print(f"Error in transaction_details: {e}")
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+# ========== THERMAL PRINTER ENDPOINTS ==========
+
+@require_app_login
+@require_POST
+def print_thermal_receipt(request, sale_id):
+    """
+    Print receipt to thermal printer (58mm)
+    Supports USB, Serial, Bluetooth, and Network connections
+    """
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get sale details
+        sale = Sale.objects.select_related('user', 'product').get(sale_id=sale_id)
+        
+        # Collect all rows that belong to the same transaction
+        txn_key = getattr(sale, 'transaction_number', '') or ''
+        rows = Sale.objects.select_related('product').filter(
+            status__iexact='completed',
+            transaction_number=txn_key if txn_key else sale.transaction_number
+        ) if txn_key else [sale]
+        
+        # Build receipt data
+        items_data = []
+        total_amount = Decimal('0')
+        total_boxes = 0
+        
+        for row in rows:
+            batch_ids = _compute_sale_batch_ids(row)
+            quantity = int(row.quantity or 0)
+            price = float(row.price or 0)
+            amount = float(row.total or Decimal('0'))
+            
+            product_name = row.product.name if row.product else 'Unknown'
+            product_size = row.product.size if row.product else ''
+            
+            # Format product name with quantity if available
+            display_name = product_name
+            if product_size:
+                display_name += f" ({product_size})"
+            
+            items_data.append({
+                'name': display_name,
+                'quantity': quantity,
+                'price': price,
+                'amount': amount,
+                'batch_ids': batch_ids
+            })
+            
+            total_amount += Decimal(str(amount))
+            total_boxes += quantity
+        
+        # Calculate totals (VAT is already included in total_amount from sale.total)
+        # If sale.total includes VAT, we need to calculate backwards
+        # Total = Subtotal * 1.12, so Subtotal = Total / 1.12
+        subtotal = float(total_amount / Decimal('1.12'))  # Calculate subtotal without VAT
+        vat = float(total_amount - Decimal(str(subtotal)))  # VAT = Total - Subtotal
+        total = float(total_amount)  # Keep total as is
+        amount_paid = float(total)
+        change = Decimal('0')
+        
+        # Format date
+        from django.utils import dateformat
+        formatted_date = dateformat.format(sale.recorded_at, 'Y-m-d H:i:s')
+        
+        # Build receipt data dictionary
+        receipt_data = {
+            'company_name': 'FruitMaster Marketing',
+            'company_address': 'Mabini Street - Libertad, Bacolod City, Negros Occidental',
+            'company_phone': '434-7680, 213-5681, 213-5682',
+            'transaction_number': txn_key or f"TXN{sale.sale_id}",
+            'or_number': str(sale.or_number or 'N/A'),
+            'date': formatted_date,
+            'customer_name': getattr(sale, 'customer_name', '') or 'Walk-in Customer',
+            'customer_contact': getattr(sale, 'contact_number', '') or '',
+            'customer_address': getattr(sale, 'address', '') or '',
+            'items': items_data,
+            'subtotal': subtotal,
+            'vat': vat,
+            'total': total,
+            'amount_paid': amount_paid,
+            'change': float(change),
+            'processed_by': sale.user.username if sale.user else ''
+        }
+        
+        # Get printer connection settings from request or settings
+        connection_type = request.POST.get('connection_type', getattr(settings, 'THERMAL_PRINTER_TYPE', 'usb'))
+        
+        # Get connection parameters
+        connection_params = {}
+        
+        if connection_type == 'usb':
+            # For USB, may need vendor_id and product_id
+            # These should be configured or auto-detected
+            vendor_id = request.POST.get('vendor_id')
+            product_id = request.POST.get('product_id')
+            if vendor_id and product_id:
+                connection_params['vendor_id'] = int(vendor_id, 16) if vendor_id.startswith('0x') else int(vendor_id)
+                connection_params['product_id'] = int(product_id, 16) if product_id.startswith('0x') else int(product_id)
+        
+        elif connection_type in ['serial', 'bluetooth']:
+            port = request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_PORT', 'COM3'))
+            baudrate = int(request.POST.get('baudrate', getattr(settings, 'THERMAL_PRINTER_BAUDRATE', 9600)))
+            connection_params['port'] = port
+            connection_params['baudrate'] = baudrate
+        
+        elif connection_type == 'network':
+            host = request.POST.get('host', getattr(settings, 'THERMAL_PRINTER_HOST', '192.168.1.100'))
+            port = int(request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_NETWORK_PORT', 9100)))
+            connection_params['host'] = host
+            connection_params['port'] = port
+        
+        # Import thermal printer service
+        from .thermal_printer import get_printer_service
+        
+        # Get printer service
+        printer_service = get_printer_service(connection_type=connection_type, **connection_params)
+        
+        if not printer_service:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to connect to printer. Please check printer connection and settings.'
+            }, status=500)
+        
+        # Print receipt
+        success = printer_service.print_receipt(receipt_data)
+        
+        # Close connection
+        printer_service.close()
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': 'Receipt printed successfully!'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to print receipt. Please check printer status.'
+            }, status=500)
+    
+    except Sale.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Sale not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error printing thermal receipt: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Print error: {str(e)}'
+        }, status=500)
+
+
+@require_app_login
+@require_POST
+def test_thermal_printer(request):
+    """
+    Test thermal printer connection with a sample receipt
+    """
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Get printer connection settings
+        connection_type = request.POST.get('connection_type', getattr(settings, 'THERMAL_PRINTER_TYPE', 'usb'))
+        
+        # Get connection parameters
+        connection_params = {}
+        
+        if connection_type == 'usb':
+            vendor_id = request.POST.get('vendor_id')
+            product_id = request.POST.get('product_id')
+            if vendor_id and product_id:
+                connection_params['vendor_id'] = int(vendor_id, 16) if vendor_id.startswith('0x') else int(vendor_id)
+                connection_params['product_id'] = int(product_id, 16) if product_id.startswith('0x') else int(product_id)
+        
+        elif connection_type in ['serial', 'bluetooth']:
+            port = request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_PORT', 'COM3'))
+            baudrate = int(request.POST.get('baudrate', getattr(settings, 'THERMAL_PRINTER_BAUDRATE', 9600)))
+            connection_params['port'] = port
+            connection_params['baudrate'] = baudrate
+        
+        elif connection_type == 'network':
+            host = request.POST.get('host', getattr(settings, 'THERMAL_PRINTER_HOST', '192.168.1.100'))
+            port = int(request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_NETWORK_PORT', 9100)))
+            connection_params['host'] = host
+            connection_params['port'] = port
+        
+        # Import thermal printer service
+        from .thermal_printer import get_printer_service
+        
+        # Get printer service
+        printer_service = get_printer_service(connection_type=connection_type, **connection_params)
+        
+        if not printer_service:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to connect to printer. Please check connection settings.'
+            }, status=500)
+        
+        # Print test receipt
+        success = printer_service.test_print()
+        
+        # Close connection
+        printer_service.close()
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': 'Test print successful! Check your printer.'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Test print failed. Please check printer status.'
+            }, status=500)
+    
+    except Exception as e:
+        logger.error(f"Error testing thermal printer: {e}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Test error: {str(e)}'
+        }, status=500)
+
+
+@require_app_login
+@require_GET
+def get_printer_ports(request):
+    """
+    Get available serial/USB ports for printer connection (Windows/Linux)
+    """
+    try:
+        import serial.tools.list_ports
+        
+        ports = []
+        for port in serial.tools.list_ports.comports():
+            ports.append({
+                'port': port.device,
+                'description': port.description,
+                'manufacturer': port.manufacturer or '',
+                'vid': hex(port.vid) if port.vid else None,
+                'pid': hex(port.pid) if port.pid else None
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'ports': ports
+        })
+    
+    except ImportError:
+        return JsonResponse({
+            'success': False,
+            'message': 'pyserial not installed'
+        }, status=500)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)

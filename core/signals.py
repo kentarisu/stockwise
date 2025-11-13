@@ -24,7 +24,7 @@ def check_low_stock_after_sale(sender, instance, created, **kwargs):
             logger.info(f"Sale completed for product: {product.name}, Stock after: {product.stock}")
             if product.stock <= 10 and product.status.lower() == 'active':
                 logger.info(f"Triggering low stock alert for {product.name} after sale")
-                # Send low stock alert
+                # Send low stock alert (with 24-hour cooldown to prevent spam)
                 send_low_stock_alert(product)
             else:
                 logger.info(f"Not triggering alert: stock={product.stock} > 10")
@@ -43,7 +43,7 @@ def check_low_stock_after_stock_update(sender, instance, created, **kwargs):
             # Check for case-insensitive 'active' status
             if instance.stock <= 10 and instance.status.lower() == 'active':
                 logger.info(f"Triggering low stock alert for {instance.name}")
-                # Send low stock alert
+                # Send low stock alert (with 24-hour cooldown to prevent spam)
                 send_low_stock_alert(instance)
             else:
                 logger.info(f"Not triggering alert: stock={instance.stock} > 10 or status={instance.status}")
@@ -54,16 +54,17 @@ def check_low_stock_after_stock_update(sender, instance, created, **kwargs):
 def send_low_stock_alert(product):
     """
     Send REAL-TIME low stock alert for a specific product
-    Prevents duplicate alerts for the same product within 5 minutes
+    Prevents duplicate alerts for the same product within 24 hours to prevent spam
     """
     try:
-        # Check if we've already alerted for this product recently (within 5 minutes)
+        # Check if we've already alerted for this product recently (within 24 hours)
+        # IMPORTANT: Use only product_id, not stock, to prevent duplicate alerts when stock changes
         now = timezone.now()
-        product_key = f"{product.product_id}_{product.stock}"
+        product_key = str(product.product_id)  # Use only product_id, not stock level
         
         if product_key in _recently_alerted:
             last_alert_time = _recently_alerted[product_key]
-            if now - last_alert_time < timedelta(minutes=5):
+            if now - last_alert_time < timedelta(hours=24):  # Changed from 5 minutes to 24 hours
                 logger.info(f"Skipping duplicate alert for {product.name} (last alerted {(now - last_alert_time).seconds}s ago)")
                 return
         
@@ -95,8 +96,8 @@ def send_low_stock_alert(product):
         # Record that we've sent an alert for this product
         _recently_alerted[product_key] = now
         
-        # Clean up old entries (older than 1 hour) to prevent memory bloat
-        cleanup_time = now - timedelta(hours=1)
+        # Clean up old entries (older than 48 hours) to prevent memory bloat
+        cleanup_time = now - timedelta(hours=48)
         for k, v in list(_recently_alerted.items()):
             if v < cleanup_time:
                 del _recently_alerted[k]

@@ -16,19 +16,368 @@
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .page-container { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
-        .card-modern { width:100%; max-width: 1000px; background:#fff; border-radius:16px; border:1px solid #e5e7eb; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); overflow:hidden; }
-        .card-header-modern { background:#f3f4f6; padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; }
-        .sale-steps{display:flex;justify-content:center;align-items:center;gap:2rem;margin-bottom:1rem;padding:1rem;background:#f8f9fa;border-radius:12px}
-        .sale-step{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:80px}
-        .sale-step i{width:40px;height:40px;border-radius:50%;background:#e9ecef;color:#6c757d;display:flex;align-items:center;justify-content:center;margin-bottom:.5rem;font-size:1.2rem}
-        .sale-step.active i{background:#6366f1;color:#fff}
-        .sale-step-label{font-size:.875rem;font-weight:500;color:#6c757d}
-        .sale-step.active .sale-step-label{color:#6366f1;font-weight:600}
-        .item-row{background:#f8f9fa;border:1px solid #e9ecef!important}
-        .stock-info{font-size:.75rem}
-        .payment-summary-table{width:100%;max-width:600px;margin:0 auto 1rem;border-radius:12px;overflow:hidden;background:#fff}
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+        }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #f8fafc;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .page-container { 
+            min-height: 100vh; 
+            background: #f8fafc;
+            padding: 1rem;
+        }
+        
+        .card-modern { 
+            width: 100%; 
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff; 
+            border-radius: 12px; 
+            border: 1px solid var(--gray-200); 
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); 
+            overflow: hidden; 
+        }
+        
+        .card-header-modern { 
+            background: var(--gray-100); 
+            padding: 0.75rem 1rem; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .card-header-modern h5 {
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .sale-steps {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin: 1.5rem 0;
+            padding: 1.25rem;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid var(--gray-200);
+        }
+        
+        .sale-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 90px;
+        }
+        
+        .sale-step i {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #e9ecef;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            transition: all 0.2s;
+        }
+        
+        .sale-step.active i {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+        }
+        
+        .sale-step-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6c757d;
+        }
+        
+        .sale-step.active .sale-step-label {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .form-section {
+            margin-bottom: 1rem;
+        }
+        
+        .form-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .customer-info-section {
+            background: #f9fafb;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+        
+        .items-section {
+            margin-top: 1.5rem;
+        }
+        
+        .item-row {
+            background: #fff;
+            border: 1px solid var(--gray-200) !important;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s;
+        }
+        
+        .item-row:hover {
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .item-row .row.g-3 {
+            align-items: flex-start;
+            margin-bottom: 0;
+        }
+        
+        .item-row .row.g-3 > [class*="col-"] {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .item-row .form-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.4rem;
+            white-space: nowrap;
+            height: 18px;
+            line-height: 18px;
+        }
+        
+        .item-row .form-select,
+        .item-row .form-control {
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.6rem;
+            height: 32px;
+            width: 100%;
+            margin-bottom: 0.2rem;
+        }
+        
+        .item-row .col-md-6,
+        .item-row .col-md-5,
+        .item-row .col-lg-5,
+        .item-row .col-lg-4 {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Special handling for Boxes column - align input baseline */
+        .item-row .col-md-5.col-lg-4 {
+            justify-content: flex-start;
+        }
+        
+        /* Remove button column */
+        .item-row .col-md-1,
+        .item-row .col-lg-3 {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+            align-items: flex-end;
+            padding-bottom: 0.25rem;
+        }
+        
+        .item-row .stock-info {
+            margin-top: 0.25rem;
+            min-height: 18px;
+            line-height: 1.2;
+            font-size: 0.75rem;
+        }
+        
+        /* Align remove button with input fields */
+        .item-row .remove-item {
+            margin-top: 0;
+            height: 32px;
+            min-width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        
+        /* Ensure Select2 matches height */
+        .item-row .select2-container--default .select2-selection--single {
+            height: 32px;
+        }
+        
+        .item-row .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 32px;
+        }
+        
+        .item-row .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 30px;
+        }
+        
+        .item-row .form-select:focus,
+        .item-row .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .stock-info {
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+            font-weight: 500;
+        }
+        
+        .batches-to-sell {
+            background: #f9fafb;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .batches-display {
+            font-family: 'Courier New', monospace;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 6px;
+            border: 1px solid var(--gray-300);
+            padding: 0.625rem 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: #374151;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            padding: 0.625rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-outline-primary {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .btn-outline-danger {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        
+        .btn-outline-danger:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+        }
+        
+        .payment-summary-table {
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto 1.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+        }
+        
+        .card-modern > .p-3 {
+            padding: 1.5rem !important;
+        }
+        
+        #liveSaleTotalWithVATText {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .date-recorded-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--gray-200);
+        }
+        
+        .date-recorded-section label {
+            margin: 0;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .date-recorded-section input {
+            max-width: 200px;
+        }
+        
+        /* Select2 dropdown styling for better appearance */
+        .select2-container--default .select2-results__group {
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #6366f1;
+            background: #f8fafc;
+        }
+        .select2-container--default .select2-results__option {
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        .select2-container--default .select2-results__option--highlighted {
+            background: #6366f1;
+        }
+        .select2-container .select2-selection--single {
+            height: 38px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+        }
+        .select2-container .select2-selection--single .select2-selection__rendered {
+            line-height: 38px;
+            padding-left: 12px;
+        }
+        .select2-container .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+            right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -51,64 +400,78 @@
 
       <div id="saleStep1">
         <form id="buyForm" novalidate>
-          <div class="customer-info-section mb-4 p-3 border rounded bg-light">
-            <h6 class="mb-3 text-primary"><i class="bi bi-person-circle"></i> Customer Information</h6>
-            <div class="row">
+          <div class="form-section customer-info-section">
+            <div class="form-section-title">
+              <i class="bi bi-person-circle"></i> Customer Information
+            </div>
+            <div class="row g-3">
               <div class="col-md-6">
                 <label for="customerName" class="form-label">Customer Name / Company</label>
-                <input type="text" class="form-control" id="customerName" name="customer_name" placeholder="Enter customer name or company">
+                <input type="text" class="form-control" id="customerName" name="customer_name" placeholder="Enter customer name or company" inputmode="text" maxlength="80">
               </div>
               <div class="col-md-6">
                 <label for="customerContact" class="form-label">Contact Number</label>
-                <input type="tel" class="form-control" id="customerContact" name="customer_contact" placeholder="Enter contact number">
+                <input type="tel" class="form-control" id="customerContact" name="customer_contact" placeholder="Enter contact number" inputmode="numeric" maxlength="20">
               </div>
-            </div>
-            <div class="row mt-3">
               <div class="col-12">
                 <label for="customerAddress" class="form-label">Address</label>
-                <textarea class="form-control" id="customerAddress" name="customer_address" rows="2" placeholder="Enter customer address"></textarea>
+                <textarea class="form-control" id="customerAddress" name="customer_address" rows="2" placeholder="Enter customer address" maxlength="160"></textarea>
               </div>
             </div>
           </div>
 
-          <div class="items-section">
-            <h6 class="mb-3 text-primary"><i class="bi bi-basket"></i> Items Selection</h6>
+          <div class="form-section items-section">
+            <div class="form-section-title">
+              <i class="bi bi-basket"></i> Items Selection
+            </div>
             <div id="itemsContainer">
-              <div class="item-row mb-3 p-3 border rounded">
-                <div class="row">
-                  <div class="col-md-5">
+              <div class="item-row">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6 col-lg-5">
                     <label class="form-label">Fruit</label>
+                    <div style="position: relative;">
                     <select class="form-select product-select" required>
                       <option value="">Select a fruit</option>
                     </select>
-                    <div class="stock-info text-muted small mt-1"></div>
+                    </div>
+                    <div class="stock-info text-muted"></div>
                   </div>
-                  <div class="col-md-4">
+                  <div class="col-md-5 col-lg-4">
                     <label class="form-label">Boxes</label>
                     <input type="number" class="form-control quantity-input stock-quantity" min="1" required>
+                    <div style="height: 18px; visibility: hidden;">&nbsp;</div>
                   </div>
-                  <div class="col-md-3">
-                    <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
+                  <div class="col-md-1 col-lg-3 d-flex align-items-end justify-content-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm remove-item" style="display: none;">
+                      <i class="bi bi-trash"></i>
+                    </button>
                   </div>
                 </div>
                 <div class="row mt-2">
                   <div class="col-12">
-                    <label class="form-label small">Batches to Sell (FIFO)</label>
-                    <div class="batches-to-sell p-2 bg-light border rounded small" style="font-family: 'Courier New', monospace;">
+                    <label class="form-label small fw-semibold">Batches to Sell (FIFO)</label>
+                    <div class="batches-to-sell">
                       <span class="batches-display text-muted">Select product and enter quantity to see which batches will be sold</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addItemBtn"><i class="bi bi-plus-circle"></i> Add Another Variant</button>
-            <div class="mt-3"><strong>Total Price (VAT Inclusive): ₱<span id="liveSaleTotalWithVATText">0.00</span></strong></div>
-            <div class="mt-3 d-flex align-items-center gap-2">
-              <label class="form-label mb-0">Date Recorded:</label>
-              <input type="text" class="form-control form-control-sm w-auto" id="purchaseDate" readonly>
-              <input type="hidden" name="purchase_date" value="{{ today|date:'F j, Y' }}" readonly>
+            <div class="d-flex align-items-center justify-content-between mt-3">
+              <button type="button" class="btn btn-outline-primary" id="addItemBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Another Variant
+              </button>
+              <div class="text-end">
+                <div class="text-muted small mb-1">Total Price (VAT Inclusive)</div>
+                <div class="fs-5 fw-bold text-primary">₱<span id="liveSaleTotalWithVATText">0.00</span></div>
+              </div>
             </div>
-            <small class="form-text text-muted">Set to today and cannot be changed.</small>
+            <div class="date-recorded-section">
+              <label class="form-label mb-0">Date Recorded:</label>
+              <input type="text" class="form-control" id="purchaseDate" readonly style="max-width: 250px;">
+              <input type="hidden" name="purchase_date" value="{{ today|date:'F j, Y' }}" readonly>
+              <small class="text-muted">Set to today and cannot be changed.</small>
+            </div>
           </div>
         </form>
       </div>
@@ -156,13 +519,13 @@
             <tbody id="receiptTableItems"></tbody>
           </table>
           <hr class="receipt-divider"/>
-          <div class="d-flex justify-content-between"><span>Sub Total:</span><span id="receiptSubtotal">0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Plus 12% VAT:</span><span id="receiptVAT">0.00</span></div>
-          <div class="d-flex justify-content-between fw-bold border-top pt-1"><span>TOTAL AMOUNT TO BE PAID:</span><span id="receiptTotalAmount">0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Cash (PHP) Tendered:</span><span id="receiptAmountPaid">0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Change Cash:</span><span id="receiptChange">0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Sub Total:</span><span id="receiptSubtotal">₱0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Plus 12% VAT:</span><span id="receiptVAT">₱0.00</span></div>
+          <div class="d-flex justify-content-between fw-bold border-top pt-1"><span>TOTAL AMOUNT TO BE PAID:</span><span id="receiptTotalAmount">₱0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Cash (PHP) Tendered:</span><span id="receiptAmountPaid">₱0.00</span></div>
+          <div class="d-flex justify-content-between"><span>Change Cash:</span><span id="receiptChange">₱0.00</span></div>
           <div class="receipt-footer text-center small mt-2">
-            <p class="mb-1">This serves as your Official Receipt.</p>
+            <p class="mb-1">This is not the official receipt.</p>
             <p class="mb-1">SERVER SN: </p>
             <p class="mb-1">POS SN: </p>
             <p class="mb-1">BIR PERMIT NO. </p>
@@ -194,6 +557,11 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{% static 'js/modern-inventory.js' %}"></script>
 <script>
+const formatCurrency = (value) => {
+  const num = Number(value || 0);
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 // CSRF helper
 function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
 const csrftoken=getCookie('csrftoken');
@@ -207,11 +575,47 @@ function loadActiveProducts(){
     .then(resp=>{ if(!resp.success) return []; products=resp.data.map(p=>{p.price=parseFloat(p.price)||0; return p;}); updateProductSelects(); return products; });
 }
 function updateProductSelects(){
+  // Group products by fruit base name (e.g., "Apple (Fuji)" -> "Apple")
+  const groupedProducts = {};
+  products.forEach(p => {
+    // Extract base fruit name (remove variant in parentheses)
+    const baseName = p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : 'Other';
+    if (!groupedProducts[baseName]) {
+      groupedProducts[baseName] = [];
+    }
+    groupedProducts[baseName].push(p);
+  });
+  
+  // Sort fruit names alphabetically
+  const sortedFruits = Object.keys(groupedProducts).sort();
+  
   $('.product-select').each(function(){
     const $this=$(this);
     const currentValue = $this.val(); // Store current selection
     let options='<option value="">Select a fruit</option>';
-    products.forEach(p=>{ options+=`<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${p.stock||0}">${p.name} (${p.size||'N/A'}) - ₱${p.price.toFixed(2)}</option>`; });
+    
+    // Create optgroups for each fruit category
+    sortedFruits.forEach(fruitName => {
+      options += `<optgroup label="${fruitName}">`;
+      groupedProducts[fruitName].forEach(p => {
+        const stock = p.stock || 0;
+        const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
+        
+        // Extract variant if name already contains it in parentheses, otherwise use p.variant
+        // e.g., "Apple (Fuji)" -> name already has variant, don't add again
+        let displayName = p.name || '';
+        
+        // Only add quantity if it exists
+        const size = p.size ? ` (Qty: ${p.size})` : '';
+        
+        // Format: "Product Name (Qty) - Price [Stock: X]"
+        displayName = `${displayName}${size} - ₱${formatCurrency(p.price)} ${stockText}`;
+        
+        options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${stock}">${displayName}</option>`;
+      });
+      options += '</optgroup>';
+    });
+    
     $this.html(options);
     if(currentValue) {
       $this.val(currentValue); // Restore previous selection
@@ -221,7 +625,7 @@ function updateProductSelects(){
     } else { $this.trigger('change.select2'); }
   });
 }
-function updateTotal(){ let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price'))||0; const q=parseInt($qty.val())||0; total+=price*q; }}); $('#liveSaleTotalWithVATText').text(total.toFixed(2)); }
+function updateTotal(){ let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price'))||0; const q=parseInt($qty.val())||0; total+=price*q; }}); $('#liveSaleTotalWithVATText').text(formatCurrency(total)); }
 
 async function updateBatchesToSell(itemRow) {
   const $row = $(itemRow);
@@ -274,9 +678,103 @@ async function updateBatchesToSell(itemRow) {
   }
 }
 function showStep(step){ $('#saleStep1,#saleStep2,#saleStep3').hide(); $('#stepIndicator1,#stepIndicator2,#stepIndicator3').removeClass('active'); if(step===1){ $('#saleStep1').show(); $('#nextToStep2').show(); $('#confirmPaymentStep,#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').hide(); $('#stepIndicator1').addClass('active'); } else if(step===2){ $('#saleStep2').show(); $('#nextToStep2').hide(); $('#confirmPaymentStep').show(); $('#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').show(); $('#stepIndicator2').addClass('active'); } else { $('#saleStep3').show(); $('#nextToStep2,#confirmPaymentStep').hide(); $('#recordSaleBtn,#printReceiptBtn').show(); $('#backToStep1').show(); $('#stepIndicator3').addClass('active'); } currentStep=step; }
-function generateReceipt(){ const items=window.saleItems||[]; const subtotal=parseFloat($('#paymentSubtotal').text())||0; const vat=parseFloat($('#paymentVAT').text())||0; const totalAmount=parseFloat($('#paymentTotalWithVAT').text())||0; const amountPaid=parseFloat($('#paymentTendered').val())||0; const change=parseFloat($('#paymentChange').text())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; let html=''; items.forEach(it=>{ let d=`${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${it.price.toFixed(2)}</td><td class="text-end">₱${it.amount.toFixed(2)}</td></tr>`; }); $('#receiptTableItems').html(html); $('#receiptSubtotal').text(subtotal.toFixed(2)); $('#receiptVAT').text(vat.toFixed(2)); $('#receiptTotalAmount').text(totalAmount.toFixed(2)); $('#receiptAmountPaid').text(amountPaid.toFixed(2)); $('#receiptChange').text(change.toFixed(2)); $('#transactionNumber').text(transactionNumber||''); $('#orNumber').text(orNumber||''); $('#receiptDate').text(new Date().toLocaleString()); $('#receiptCustomerName').text(customerName); $('#receiptCustomerContact').text(customerContact); $('#receiptCustomerAddress').text(customerAddress); }
+function generateReceipt(){ const items=window.saleItems||[]; const subtotal=parseFloat($('#paymentSubtotal').text().replace(/,/g,''))||0; const vat=parseFloat($('#paymentVAT').text().replace(/,/g,''))||0; const totalAmount=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const amountPaid=parseFloat($('#paymentTendered').val())||0; const change=parseFloat($('#paymentChange').text().replace(/,/g,''))||0; const customerName=$('#customerName').val()||'Walk-in Customer'; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; let html=''; items.forEach(it=>{ const baseName=(it.name||'').split('(')[0].trim(); let d=baseName||it.name||''; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${formatCurrency(it.price)}</td><td class="text-end">₱${formatCurrency(it.amount)}</td></tr>`; }); $('#receiptTableItems').html(html); $('#receiptSubtotal').text('₱'+formatCurrency(subtotal)); $('#receiptVAT').text('₱'+formatCurrency(vat)); $('#receiptTotalAmount').text('₱'+formatCurrency(totalAmount)); $('#receiptAmountPaid').text('₱'+formatCurrency(amountPaid)); $('#receiptChange').text('₱'+formatCurrency(change)); $('#transactionNumber').text(transactionNumber||''); $('#orNumber').text(orNumber||''); $('#receiptDate').text(new Date().toLocaleString()); $('#receiptCustomerName').text(customerName); $('#receiptCustomerContact').text(customerContact||'N/A'); $('#receiptCustomerAddress').text(customerAddress||'N/A'); }
 function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ transactionNumber = String(resp.sale_ids[0]); $('#transactionNumber').text(transactionNumber); } $('#orNumber').text(orNumber||''); }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }}); }
-function printReceipt(){ const w=window.open('', '_blank'); const content=$('.receipt-container').html(); const html='<!doctype html><html><head><title>Receipt</title><style>body{font-family:"Courier New",monospace;font-size:12px;margin:0;padding:20px}.receipt-container{max-width:300px;margin:0 auto}</style></head><body><div class="receipt-container">'+content+'</div></body></html>'; w.document.write(html); w.document.close(); w.print(); }
+function printReceipt(){ 
+    const w=window.open('', '_blank'); 
+    const content=$('.receipt-container').html(); 
+    const html=`<!doctype html>
+<html>
+<head>
+    <title>Receipt</title>
+    <style>
+        body {
+            font-family: "Courier New", monospace;
+            font-size: 12px;
+            margin: 0;
+            padding: 20px;
+            background: #fff;
+        }
+        .receipt-container {
+            max-width: 300px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            padding: 1rem;
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .company-details {
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+        .receipt-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .receipt-divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .receipt-info {
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+        .receipt-table {
+            width: 100%;
+            margin: 10px 0;
+            font-size: 11px;
+        }
+        .receipt-table th, .receipt-table td {
+            padding: 2px 5px;
+            font-size: 11px;
+        }
+        .receipt-table th {
+            border-bottom: 1px solid #000;
+            font-weight: bold;
+        }
+        .text-end {
+            text-align: right;
+        }
+        .receipt-footer {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 10px;
+        }
+        .receipt-footer p {
+            margin-bottom: 2px;
+        }
+        @media print {
+            body {
+                width: 302px;
+            }
+            .receipt-container {
+                border: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">${content}</div>
+</body>
+</html>`; 
+    w.document.write(html); 
+    w.document.close(); 
+    w.focus();
+    setTimeout(() => {
+        w.print();
+        w.close();
+    }, 250);
+}
 
 $(document).ready(function(){
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
@@ -287,22 +785,26 @@ $(document).ready(function(){
     updateBatchesToSell($(this).closest('.item-row'));
   });
   $('#addItemBtn').on('click',function(){ 
-    const row=`<div class="item-row mb-3 p-3 border rounded"><div class="row"><div class="col-md-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted small mt-1"></div></div><div class="col-md-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-3"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small">Batches to Sell (FIFO)</label><div class="batches-to-sell p-2 bg-light border rounded small" style="font-family: 'Courier New', monospace;"><span class="batches-display text-muted">Select fruit and enter quantity to see which batches will be sold</span></div></div></div></div>`; 
+    const row=`<div class="item-row"><div class="row g-3 align-items-end"><div class="col-md-6 col-lg-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted"></div></div><div class="col-md-5 col-lg-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-1 col-lg-3 text-end"><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batches to Sell (FIFO)</label><div class="batches-to-sell"><span class="batches-display text-muted">Select fruit and enter quantity to see which batches will be sold</span></div></div></div></div>`; 
     $('#itemsContainer').append(row); 
-    // Only populate the new dropdown, not all dropdowns
-    const $newRow = $('#itemsContainer .item-row:last');
-    const $newSelect = $newRow.find('.product-select');
-    let options='<option value="">Select a fruit</option>';
-    products.forEach(p=>{ options+=`<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.size||''}" data-stock="${p.stock||0}">${p.name} (${p.size||'N/A'}) - ₱${p.price.toFixed(2)}</option>`; });
-    $newSelect.html(options);
-    $newSelect.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$newSelect.closest('.card-modern')});
+    // Show remove buttons for all rows
+    $('.remove-item').show();
+    // Update all dropdowns with categorized options (using the same function)
+    updateProductSelects();
   });
-  $(document).on('click','.remove-item',function(){ $(this).closest('.item-row').remove(); updateTotal(); });
+  $(document).on('click','.remove-item',function(){ 
+    $(this).closest('.item-row').remove(); 
+    updateTotal();
+    // Hide remove buttons if only one row remains
+    if($('.item-row').length <= 1) {
+      $('.remove-item').hide();
+    }
+  });
 
-  $('#nextToStep2').on('click',function(){ const form=$('#buyForm')[0]; if(!form.checkValidity()){ form.reportValidity(); return; } const items=[]; let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price')); const q=parseInt($qty.val()); const amt=q*price; total+=amt; items.push({ product_id:$sel.val(), name:$sel.data('name')||'', variant:$sel.data('variant')||'', size:$sel.data['size']||'', quantity:q, price:price, amount:amt }); }}); if(items.length===0){ $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Please add at least one item to proceed.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; } const subtotal=total/1.12; const vat=total-subtotal; $('#paymentSubtotal').text(subtotal.toFixed(2)); $('#paymentVAT').text(vat.toFixed(2)); $('#paymentTotalWithVAT').text(total.toFixed(2)); let html=''; items.forEach(it=>{ let d=`#${it.product_id} ${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class=\"text-end\">${it.quantity}</td><td class=\"text-end\">₱${Number(it.price).toFixed(2)}</td><td class=\"text-end\">₱${Number(it.amount).toFixed(2)}</td></tr>`; }); $('#paymentTableItems').html(html); window.saleItems=items; const base=Date.now(); const txnSuffix=(base%1000000).toString().padStart(6,'0'); let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); if(orSuffix===Number(txnSuffix)){ orSuffix=(orSuffix+1)%1000000; } transactionNumber=`TXN${txnSuffix}`; orNumber=`OR${orSuffix.toString().padStart(6,'0')}`; showStep(2); });
+  $('#nextToStep2').on('click',function(){ const form=$('#buyForm')[0]; if(!form.checkValidity()){ form.reportValidity(); return; } const items=[]; let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price')); const q=parseInt($qty.val()); const amt=q*price; total+=amt; items.push({ product_id:$sel.val(), name:$sel.data('name')||'', variant:$sel.data('variant')||'', size:$sel.data['size']||'', quantity:q, price:price, amount:amt }); }}); if(items.length===0){ $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Please add at least one item to proceed.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; } const subtotal=total/1.12; const vat=total-subtotal; $('#paymentSubtotal').text(formatCurrency(subtotal)); $('#paymentVAT').text(formatCurrency(vat)); $('#paymentTotalWithVAT').text(formatCurrency(total)); let html=''; items.forEach(it=>{ let d=`#${it.product_id} ${it.name}`; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class=\"text-end\">${it.quantity}</td><td class=\"text-end\">₱${formatCurrency(it.price)}</td><td class=\"text-end\">₱${formatCurrency(it.amount)}</td></tr>`; }); $('#paymentTableItems').html(html); window.saleItems=items; const base=Date.now(); const txnSuffix=(base%1000000).toString().padStart(6,'0'); let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); if(orSuffix===Number(txnSuffix)){ orSuffix=(orSuffix+1)%1000000; } transactionNumber=`TXN${txnSuffix}`; orNumber=`OR${orSuffix.toString().padStart(6,'0')}`; showStep(2); });
   $('#backToStep1').on('click',function(){ if(currentStep===2){ showStep(1); } else if(currentStep===3){ showStep(2); }});
-  $('#confirmPaymentStep').on('click',function(){ const tendered=parseFloat($('#paymentTendered').val())||0; const total=parseFloat($('#paymentTotalWithVAT').text())||0; if(tendered<total){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Amount tendered is less than total amount.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const change=tendered-total; $('#paymentChange').text(change.toFixed(2)); generateReceipt(); showStep(3); });
-  $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text())||0; const change=t-total; $('#paymentChange').text(change.toFixed(2)); $('#confirmPaymentStep').prop('disabled', t<total); });
+  $('#confirmPaymentStep').on('click',function(){ const tendered=parseFloat($('#paymentTendered').val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; if(tendered<total){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Amount tendered is less than total amount.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const change=tendered-total; $('#paymentChange').text(formatCurrency(change)); generateReceipt(); showStep(3); });
+  $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const change=t-total; $('#paymentChange').text(formatCurrency(change)); $('#confirmPaymentStep').prop('disabled', t<total); });
   $('#recordSaleBtn').on('click',recordSale);
   $('#printReceiptBtn,#printReceiptAfterBtn').on('click',printReceipt);
   
@@ -329,6 +831,30 @@ $(document).ready(function(){
   }, 1000); // Delay to ensure products are loaded
   {% endif %}
 });
+
+// Input sanitizers for Record Sale
+document.addEventListener('input', function(e){
+  if(e.target && e.target.id === 'customerName'){
+    const cleaned = e.target.value.replace(/[^A-Za-z\s\-.,&]/g,'');
+    if (cleaned !== e.target.value) e.target.value = cleaned;
+  }
+  if(e.target && e.target.id === 'customerContact'){
+    const cleaned = e.target.value.replace(/[^0-9+]/g,'');
+    if (cleaned !== e.target.value) e.target.value = cleaned;
+  }
+  if(e.target && e.target.id === 'customerAddress'){
+    const cleaned = e.target.value.replace(/[^A-Za-z0-9\s\-.,#]/g,'');
+    if (cleaned !== e.target.value) e.target.value = cleaned;
+  }
+});
+document.addEventListener('blur', function(e){
+  if(e.target && e.target.id === 'customerName'){
+    const val = e.target.value;
+    if(!val) return;
+    const title = val.toLowerCase().replace(/\s+/g,' ').replace(/\b[a-z]/g, ch=>ch.toUpperCase()).trim();
+    e.target.value = title;
+  }
+}, true);
 </script>
 </body>
 </html>

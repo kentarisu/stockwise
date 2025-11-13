@@ -36,7 +36,7 @@
             --gray-800: #1f2937;
             --gray-900: #111827;
             --sidebar-width: 280px;
-            --header-height: 80px;
+            --header-height: 90px;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -68,115 +68,102 @@
             background: var(--gray-50);
         }
 
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+        /* Card Container - Matching Add Product */
+        .card-modern {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .card-header-modern {
+            background: var(--gray-100);
             border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 1rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow-sm);
         }
 
-        .header-left h1 {
-            font-size: 1.875rem;
-            font-weight: 700;
-            color: var(--gray-900);
+        .card-header-modern .card-title {
             margin: 0;
-        }
-
-        .header-subtitle {
-            color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .back-btn {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 0.75rem 1.5rem;
             font-weight: 600;
-            text-decoration: none;
+            font-size: 0.95rem;
+            color: var(--gray-900);
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.3s ease;
-            box-shadow: var(--shadow-sm);
+        }
+
+        .back-btn {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            font-size: 0.8125rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.2s ease;
         }
 
         .back-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            color: white;
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+            color: var(--gray-900);
             text-decoration: none;
         }
 
         /* Content Area */
         .content-area {
-            padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
+            padding: 1rem;
             width: 100%;
+            display: flex;
+            justify-content: center;
         }
 
-        /* Product Header Card */
+        .p-3 {
+            padding: 1rem;
+        }
+
+        /* Product Header Card - Clean Design Matching Add Product */
         .product-header-card {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            border-radius: 16px;
-            padding: 1.5rem;
-            color: white;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-lg);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .product-header-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            pointer-events: none;
+            background: transparent;
+            border: none;
+            margin-bottom: 1rem;
         }
 
         .product-header-content {
-            position: relative;
-            z-index: 1;
+            padding: 0;
         }
 
         .product-title {
-            font-size: 1.5rem;
-            font-weight: 800;
-            margin-bottom: 0.25rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
         }
 
         .product-subtitle {
-            font-size: 1rem;
-            opacity: 0.9;
-            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-bottom: 1rem;
         }
 
         .product-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            margin-top: 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--gray-200);
         }
 
         .product-detail-item {
@@ -188,76 +175,91 @@
         .product-detail-icon {
             width: 2rem;
             height: 2rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
+            background: var(--gray-100);
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            font-size: 0.875rem;
+            color: var(--gray-600);
         }
 
         .product-detail-text {
-            font-size: 0.875rem;
-            font-weight: 600;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--gray-700);
         }
 
-        /* Summary Stats */
+        .product-detail-text small {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+        }
+
+        /* Summary Stats - Matching Dashboard Design */
         .summary-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .summary-stat-card {
             background: white;
             border-radius: 12px;
-            padding: 1rem;
+            padding: 1rem 1.25rem;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .summary-stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
         .summary-stat-card:hover {
+            box-shadow: var(--shadow-md);
             transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
         .summary-stat-icon {
             width: 2.5rem;
             height: 2.5rem;
-            border-radius: 8px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.25rem;
             color: white;
-            margin-bottom: 0.75rem;
+            flex-shrink: 0;
         }
 
-        .summary-stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-        .summary-stat-icon.success { background: linear-gradient(135deg, var(--success), #059669); }
-        .summary-stat-icon.warning { background: linear-gradient(135deg, var(--warning), #d97706); }
-        .summary-stat-icon.danger { background: linear-gradient(135deg, var(--danger), #dc2626); }
-        .summary-stat-icon.info { background: linear-gradient(135deg, var(--accent), #0891b2); }
+        .summary-stat-icon.primary { 
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        }
+        .summary-stat-icon.success { 
+            background: linear-gradient(135deg, var(--success), #059669);
+        }
+        .summary-stat-icon.warning { 
+            background: linear-gradient(135deg, var(--warning), #d97706);
+        }
+        .summary-stat-icon.danger { 
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+        }
+        .summary-stat-icon.info { 
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+        }
+
+        .summary-stat-content {
+            flex: 1;
+            min-width: 0;
+        }
 
         .summary-stat-value {
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             color: var(--gray-900);
-            line-height: 1;
+            line-height: 1.2;
             margin-bottom: 0.25rem;
         }
 
@@ -265,36 +267,45 @@
             color: var(--gray-500);
             font-size: 0.75rem;
             font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Stock Additions Table */
+        .summary-stat-subtitle {
+            font-size: 0.7rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+            margin-bottom: 0;
+        }
+
+        /* Stock Additions Table - Clean Design Matching Add Product */
         .stock-additions-card {
             background: white;
-            border-radius: 16px;
+            border-radius: 12px;
             box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
+            border: 1px solid var(--gray-200);
             overflow: hidden;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .card-header {
-            background: var(--gray-50);
+            background: var(--gray-100);
             border-bottom: 1px solid var(--gray-200);
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1rem;
         }
 
         .card-title {
-            font-size: 1.25rem;
+            font-size: 0.95rem;
             font-weight: 600;
-            color: var(--gray-900);
+            color: var(--gray-700);
             margin: 0;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         .card-title i {
-            font-size: 1.5rem;
+            font-size: 1rem;
             color: var(--primary);
         }
 
@@ -305,19 +316,20 @@
         .stock-additions-table thead th {
             background: var(--gray-50);
             border: none;
-            border-bottom: 2px solid var(--gray-200);
+            border-bottom: 1px solid var(--gray-200);
             font-weight: 600;
             color: var(--gray-700);
-            padding: 1.25rem 2rem;
-            font-size: 0.875rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.8125rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
         .stock-additions-table tbody td {
-            padding: 1.25rem 2rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             vertical-align: middle;
+            font-size: 0.8125rem;
         }
 
         .stock-additions-table tbody tr:hover {
@@ -423,11 +435,23 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .header {
-                padding: 0 1rem;
+            .content-area {
+                padding: 0.5rem;
             }
 
-            .content-area {
+            .card-modern {
+                max-width: 100%;
+                border-radius: 12px;
+            }
+
+            .card-header-modern {
+                padding: 0.75rem 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: flex-start;
+            }
+
+            .p-3 {
                 padding: 1rem;
             }
 
@@ -446,6 +470,7 @@
 
             .summary-stats {
                 grid-template-columns: 1fr;
+                gap: 0.75rem;
             }
 
             .stock-additions-table thead th,
@@ -479,28 +504,89 @@
         .empty-state p {
             color: var(--gray-500);
         }
+
+        /* Pagination */
+        .pagination-container {
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .pagination .page-link {
+            color: var(--primary);
+            border-color: var(--gray-300);
+            padding: 0.5rem 0.75rem;
+        }
+
+        .pagination .page-link:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--gray-400);
+            pointer-events: none;
+            cursor: not-allowed;
+            background-color: var(--gray-100);
+            border-color: var(--gray-200);
+        }
+
+        @media (max-width: 768px) {
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pagination-container .d-flex {
+                flex-direction: column;
+                align-items: stretch !important;
+                gap: 1rem;
+            }
+
+            .pagination-info {
+                text-align: center;
+            }
+
+            .pagination {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
         <!-- Main Content -->
         <main class="main-content">
-            <header class="header">
-                <div class="header-left">
-                    <h1>Stock Details</h1>
-                    <p class="header-subtitle">FIFO Inventory Management</p>
-                </div>
-                <div class="header-right">
-                <a href="/products_inventory/" class="back-btn">
-                        <i class="bi bi-arrow-left"></i>
-                        Back to Inventory
-                </a>
-            </div>
-            </header>
-
             <div class="content-area">
-                <!-- Product Header -->
-                <div class="product-header-card">
+                <div class="card-modern">
+                    <div class="card-header-modern">
+                        <h5 class="card-title">
+                            <i class="bi bi-box-seam"></i>
+                            Stock Details
+                        </h5>
+                        <div>
+                            <a href="/products_inventory/" class="back-btn">
+                                <i class="bi bi-arrow-left"></i>
+                                Back to Inventory
+                            </a>
+                        </div>
+                    </div>
+                    <div class="p-3">
+                        <!-- Product Header -->
+                        <div class="product-header-card">
                     <div class="product-header-content">
                         <h2 class="product-title" id="productName">Loading...</h2>
                         <p class="product-subtitle" id="productDetails">Loading product details...</p>
@@ -516,15 +602,6 @@
                             </div>
                             <div class="product-detail-item">
                                 <div class="product-detail-icon">
-                                    <i class="bi bi-truck"></i>
-                                </div>
-                                <div class="product-detail-text">
-                                    <div>Supplier</div>
-                                    <small id="supplierName">-</small>
-                                </div>
-                            </div>
-                            <div class="product-detail-item">
-                                <div class="product-detail-icon">
                                     <i class="bi bi-box"></i>
                                 </div>
                                 <div class="product-detail-text">
@@ -533,8 +610,8 @@
                                 </div>
                             </div>
                         </div>
-            </div>
-        </div>
+                    </div>
+                </div>
 
                 <!-- Summary Statistics -->
                 <div class="summary-stats" id="summaryStats">
@@ -542,24 +619,33 @@
                         <div class="summary-stat-icon success">
                             <i class="bi bi-plus-circle"></i>
                         </div>
-                        <div class="summary-stat-value" id="totalAdded">-</div>
-                        <div class="summary-stat-label">Total Added</div>
+                        <div class="summary-stat-content">
+                            <div class="summary-stat-value" id="totalAdded">-</div>
+                            <div class="summary-stat-label">Total Added</div>
+                            <div class="summary-stat-subtitle">Total boxes added to inventory</div>
+                        </div>
                     </div>
                     <div class="summary-stat-card">
                         <div class="summary-stat-icon warning">
                             <i class="bi bi-box-seam"></i>
                         </div>
-                        <div class="summary-stat-value" id="totalAvailable">-</div>
-                        <div class="summary-stat-label">Available</div>
+                        <div class="summary-stat-content">
+                            <div class="summary-stat-value" id="totalAvailable">-</div>
+                            <div class="summary-stat-label">Available</div>
+                            <div class="summary-stat-subtitle">Boxes currently in stock</div>
+                        </div>
                     </div>
                     <div class="summary-stat-card">
                         <div class="summary-stat-icon danger">
                             <i class="bi bi-arrow-right-circle"></i>
                         </div>
-                        <div class="summary-stat-value" id="totalSold">-</div>
-                        <div class="summary-stat-label">Sold</div>
+                        <div class="summary-stat-content">
+                            <div class="summary-stat-value" id="totalSold">-</div>
+                            <div class="summary-stat-label">Sold</div>
+                            <div class="summary-stat-subtitle">Total boxes sold from inventory</div>
+                        </div>
                     </div>
-            </div>
+                </div>
 
                 <!-- Stock Additions Table -->
                 <div class="stock-additions-card">
@@ -573,9 +659,11 @@
                         <div class="loading-container">
                             <div class="loading-spinner"></div>
                             <p>Loading stock additions...</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -587,14 +675,17 @@
         // Get product ID from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const productId = urlParams.get('product_id');
+        let currentPage = 1;
+        const pageSize = 10;
 
         if (!productId) {
             showError('No product ID provided.');
         } else {
-            loadStockDetails(productId);
+            loadStockDetails(productId, currentPage);
         }
 
-        function loadStockDetails(productId) {
+        function loadStockDetails(productId, page = 1) {
+            currentPage = page;
             const $content = $('#stockAdditionsContent');
             
             $content.html(`
@@ -605,38 +696,46 @@
             `);
             
             // Try main endpoint, fall back to simple endpoint if it errors
-            fetch(`/api/products/${productId}/stock/`)
+            fetch(`/api/products/${productId}/stock/?page=${page}&page_size=${pageSize}`)
                 .then(r => r.json())
                 .then(resp => {
                     if (!resp || resp.success === false) throw new Error('fallback');
-                    if (!resp.success || !resp.data || resp.data.length === 0) {
+                    if (!resp.success) {
+                        if (resp.data && resp.data.length === 0 && (!resp.groups || resp.groups.length === 0)) {
                         showEmptyState();
                         return;
+                        }
                     }
                     
-                    // Update product info and summary
+                    // Update product info and summary (only on first page load or if needed)
+                    if (page === 1 && resp.data && resp.data.length > 0) {
                     updateProductInfo(resp.data[0]);
+                    }
                     updateSummaryStats(resp);
                     
-                    // Render stock additions as table rows
-                    renderStockAdditionsTable(resp.groups || []);
+                    // Render stock additions as table rows with pagination
+                    renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
                 })
                 .catch(() => {
                     // Fallback to simple endpoint
-                    fetch(`/api/products/${productId}/stock_details/`)
+                    fetch(`/api/products/${productId}/stock_details/?page=${page}&page_size=${pageSize}`)
                         .then(r => r.json())
                         .then(resp => {
-                            if (!resp.success || !resp.data || resp.data.length === 0) {
+                            if (!resp.success) {
+                                if (resp.data && resp.data.length === 0 && (!resp.groups || resp.groups.length === 0)) {
                                 showEmptyState();
                                 return;
+                                }
                             }
                             
-                            // Update product info and summary
+                            // Update product info and summary (only on first page load or if needed)
+                            if (page === 1 && resp.data && resp.data.length > 0) {
                             updateProductInfo(resp.data[0]);
+                            }
                             updateSummaryStats(resp);
                             
-                            // Render stock additions as table rows
-                            renderStockAdditionsTable(resp.groups || []);
+                            // Render stock additions as table rows with pagination
+                            renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
                         })
                         .catch(() => {
                             showError('Failed to load stock details.');
@@ -653,7 +752,7 @@
                         const product = resp.data.find(p => p.product_id == productId);
                         if (product) {
                             document.getElementById('productName').textContent = product.name;
-                            document.getElementById('productDetails').textContent = `${product.variant ? product.variant + ' • ' : ''}Size: ${product.size} • Price: ₱${parseFloat(product.price).toFixed(2)}`;
+                            document.getElementById('productDetails').textContent = `${product.variant ? product.variant + ' • ' : ''}Quantity: ${product.size} • Price: ₱${parseFloat(product.price).toFixed(2)}`;
                             document.getElementById('totalStock').textContent = product.stock;
                         }
                     }
@@ -669,26 +768,31 @@
             const meta = resp.meta || {};
             const groups = resp.groups || [];
             
-            // Calculate totals
-            const totalAdded = groups.reduce((sum, group) => sum + (group.added_total || 0), 0);
-            const totalAvailable = groups.reduce((sum, group) => sum + (group.available_total || 0), 0);
+            // Use meta totals (from all pages) instead of calculating from current page only
+            const totalAdded = meta.added_total || 0;
+            const totalAvailable = meta.available_total || 0;
             const totalSold = totalAdded - totalAvailable;
             
-            // Update first added date
-            if (groups.length > 0) {
-                const firstGroup = groups[groups.length - 1]; // Most recent first, so last is oldest
-                const date = new Date(firstGroup.date_added);
-                const dateText = isNaN(date) ? firstGroup.date_added : date.toLocaleDateString('en-US', { 
+            // Update first added date from meta (earliest date)
+            if (meta.earliest_date) {
+                const date = new Date(meta.earliest_date);
+                const dateText = isNaN(date) ? meta.earliest_date : date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                document.getElementById('firstAddedDate').textContent = dateText;
+            } else if (groups.length > 0) {
+                // Fallback to last group if meta not available
+                const lastGroup = groups[groups.length - 1];
+                const date = new Date(lastGroup.date_added);
+                const dateText = isNaN(date) ? lastGroup.date_added : date.toLocaleDateString('en-US', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
                 });
                 document.getElementById('firstAddedDate').textContent = dateText;
             }
-            
-            // Update supplier
-            const supplier = meta.supplier || groups[0]?.supplier || '-';
-            document.getElementById('supplierName').textContent = supplier;
             
             // Update summary stats
             document.getElementById('totalAdded').textContent = totalAdded;
@@ -742,11 +846,21 @@
             });
         }
 
-        function renderStockAdditionsTable(groups) {
+        function renderStockAdditionsTable(groups, pagination) {
             if (groups.length === 0) {
                 showEmptyState();
                 return;
             }
+
+            const paginationInfo = pagination || {};
+            const currentPage = paginationInfo.page || 1;
+            const totalPages = paginationInfo.total_pages || 1;
+            const totalItems = paginationInfo.total_items || groups.length;
+            const hasNext = paginationInfo.has_next || false;
+            const hasPrevious = paginationInfo.has_previous || false;
+            
+            // Calculate the starting addition number for this page
+            const startNumber = ((currentPage - 1) * pageSize) + 1;
 
             const tableHtml = `
                 <table class="table stock-additions-table">
@@ -764,6 +878,7 @@
                     </thead>
                     <tbody>
                         ${groups.map((group, index) => {
+                            const additionNumber = startNumber + index;
                             const date = new Date(group.date_added);
                             const dateText = isNaN(date) ? group.date_added : date.toLocaleDateString('en-US', { 
                                 year: 'numeric', 
@@ -784,7 +899,7 @@
                             return `
                                 <tr>
                                     <td>
-                                        <strong>#${groups.length - index}</strong>
+                                        <strong>#${additionNumber}</strong>
                                     </td>
                                     <td class="date-cell">${dateText}</td>
                                     <td class="number-cell added">${group.added_total || 0}</td>
@@ -807,9 +922,76 @@
                         }).join('')}
                     </tbody>
                 </table>
+                ${totalPages > 1 ? `
+                <div class="pagination-container mt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="pagination-info">
+                            <span class="text-muted">Showing ${startNumber} to ${Math.min(startNumber + groups.length - 1, totalItems)} of ${totalItems} additions</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="1" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="${currentPage - 1}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-left"></i> Previous
+                                    </a>
+                                </li>
+                                ${Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    let pageNum;
+                                    if (totalPages <= 5) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage <= 3) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pageNum = totalPages - 4 + i;
+                                    } else {
+                                        pageNum = currentPage - 2 + i;
+                                    }
+                                    return `
+                                        <li class="page-item ${pageNum === currentPage ? 'active' : ''}">
+                                            <a class="page-link" href="#" data-page="${pageNum}">${pageNum}</a>
+                                        </li>
+                                    `;
+                                }).join('')}
+                                <li class="page-item ${!hasNext ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="${currentPage + 1}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        Next <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item ${!hasNext ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" data-page="${totalPages}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
+                                        <i class="bi bi-chevron-double-right"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                ` : ''}
             `;
             
             document.getElementById('stockAdditionsContent').innerHTML = tableHtml;
+            
+            // Add event listeners for pagination
+            if (totalPages > 1) {
+                document.querySelectorAll('.pagination .page-link').forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const page = parseInt(this.getAttribute('data-page'));
+                        if (page && page !== currentPage && page >= 1 && page <= totalPages) {
+                            loadStockDetails(productId, page);
+                            // Scroll to top of table
+                            setTimeout(() => {
+                                document.getElementById('stockAdditionsContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }, 100);
+                        }
+                    });
+                });
+            }
         }
 
         function showEmptyState() {

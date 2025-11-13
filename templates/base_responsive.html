@@ -51,27 +51,27 @@
             
             /* Typography */
             --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --font-size-xs: 0.75rem;
-            --font-size-sm: 0.875rem;
-            --font-size-base: 1rem;
-            --font-size-lg: 1.125rem;
-            --font-size-xl: 1.25rem;
-            --font-size-2xl: 1.5rem;
-            --font-size-3xl: 1.875rem;
-            --font-size-4xl: 2.25rem;
+            --font-size-xs: 0.65rem;
+            --font-size-sm: 0.75rem;
+            --font-size-base: 0.875rem;
+            --font-size-lg: 0.95rem;
+            --font-size-xl: 1.05rem;
+            --font-size-2xl: 1.25rem;
+            --font-size-3xl: 1.5rem;
+            --font-size-4xl: 1.875rem;
             
             /* Spacing System */
-            --space-1: 0.25rem;
-            --space-2: 0.5rem;
-            --space-3: 0.75rem;
-            --space-4: 1rem;
-            --space-5: 1.25rem;
-            --space-6: 1.5rem;
-            --space-8: 2rem;
-            --space-10: 2.5rem;
-            --space-12: 3rem;
-            --space-16: 4rem;
-            --space-20: 5rem;
+            --space-1: 0.2rem;
+            --space-2: 0.4rem;
+            --space-3: 0.6rem;
+            --space-4: 0.75rem;
+            --space-5: 1rem;
+            --space-6: 1.2rem;
+            --space-8: 1.5rem;
+            --space-10: 2rem;
+            --space-12: 2.5rem;
+            --space-16: 3rem;
+            --space-20: 4rem;
             
             /* Border Radius */
             --radius-sm: 0.375rem;
@@ -86,9 +86,9 @@
             --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             
             /* Layout */
-            --sidebar-width: 280px;
-            --header-height: 64px;
-            --content-padding: var(--space-6);
+            --sidebar-width: 240px;
+            --header-height: 90px;
+            --content-padding: var(--space-4);
             --border-width: 1px;
             
             /* Transitions */
@@ -107,7 +107,7 @@
         body {
             font-family: var(--font-family);
             font-size: var(--font-size-base);
-            line-height: 1.6;
+            line-height: 1.5;
             color: var(--gray-800);
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -194,7 +194,7 @@
         }
 
         .sidebar-header {
-            padding: var(--content-padding) 1.5rem;
+            padding: var(--space-3) var(--space-4);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             position: relative;
@@ -220,7 +220,7 @@
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 800;
             text-decoration: none;
             color: white;
@@ -229,11 +229,11 @@
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
             transition: all var(--transition-base);
         }
 
@@ -243,11 +243,11 @@
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-3) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: var(--space-4);
         }
 
         .nav-section-title {
@@ -273,14 +273,14 @@
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: 0.6rem var(--space-4);
             color: rgba(255, 255, 255, 0.8);
             text-decoration: none;
             transition: all var(--transition-base);
             border-radius: 0;
             font-weight: 500;
             position: relative;
-            font-size: 0.875rem;
+            font-size: var(--font-size-sm);
         }
 
         .nav-link::before {
@@ -313,9 +313,9 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1rem;
+            margin-right: 0.5rem;
+            width: 1.25rem;
             text-align: center;
             transition: all var(--transition-base);
         }
@@ -337,12 +337,12 @@
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            height: var(--header-height);
+            min-height: var(--header-height);
             border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 var(--content-padding);
+            padding: 1.25rem 2.5rem;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -351,26 +351,24 @@
 
         .header-left h1 {
             font-size: 1.875rem;
-            font-weight: 800;
+            font-weight: 700;
             color: var(--gray-900);
             margin: 0;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            line-height: 1.2;
         }
 
         .header-subtitle {
             color: var(--gray-500);
             font-size: 0.875rem;
-            margin-top: 0.25rem;
+            margin-top: 0.375rem;
+            line-height: 1.4;
             font-weight: 500;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: var(--space-4);
+            gap: 1.5rem;
         }
 
         .user-avatar-btn {
@@ -392,8 +390,8 @@
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 2rem;
+            height: 2rem;
             border-radius: 50%;
             border: 2px solid var(--gray-200);
             transition: all var(--transition-fast);
@@ -408,7 +406,7 @@
         /* Content Area Base Styles */
         .content-area {
             padding: var(--content-padding);
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             width: 100%;
         }
@@ -447,13 +445,13 @@
 
         /* Table Header Styles */
         .table-header {
-            padding: 1.5rem;
+            padding: var(--space-4);
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--gray-50), var(--gray-100));
         }
 
         .table-title {
-            font-size: 1.25rem;
+            font-size: var(--font-size-lg);
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
@@ -472,10 +470,10 @@
 
         /* Modern Button System */
         .btn-modern {
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
             font-weight: 600;
-            font-size: 0.875rem;
+            font-size: var(--font-size-sm);
             border: none;
             transition: all var(--transition-base);
             display: inline-flex;
@@ -553,21 +551,21 @@
         .form-label {
             font-weight: 600;
             color: var(--gray-700);
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
+            margin-bottom: var(--space-2);
+            font-size: var(--font-size-sm);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
         .form-control, .form-select {
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: var(--font-size-sm);
             transition: all var(--transition-base);
             background: white;
             font-weight: 500;
-            min-height: 40px;
+            min-height: 34px;
         }
 
         .form-control:focus, .form-select:focus {
@@ -596,10 +594,10 @@
 
         /* Badge System */
         .badge {
-            padding: 0.5rem 0.75rem;
-            border-radius: 12px;
+            padding: 0.35rem 0.6rem;
+            border-radius: 6px;
             font-weight: 600;
-            font-size: 0.75rem;
+            font-size: var(--font-size-xs);
             text-transform: uppercase;
             letter-spacing: 0.05em;
             display: inline-flex;
@@ -717,7 +715,7 @@
             :root {
                 --content-padding: 1rem;
                 --sidebar-width: 100vw;
-                --header-height: 70px;
+                --header-height: 90px;
             }
 
             .sidebar {
@@ -734,15 +732,23 @@
             }
 
             .header {
-                padding: 0 1rem;
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
             }
 
             .header-left h1 {
                 font-size: 1.5rem;
+                line-height: 1.2;
+            }
+
+            .header-subtitle {
+                font-size: 0.8125rem;
+                margin-top: 0.25rem;
             }
 
             .header-right {
-                gap: 0.5rem;
+                gap: 0.75rem;
+                flex-wrap: wrap;
             }
 
             /* Ensure mobile menu button is visible */
@@ -753,45 +759,222 @@
             .content-area {
                 padding: 1rem;
                 max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* Cards - Mobile Responsive */
+            .card-modern, .card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border-radius: 12px;
+            }
+
+            .card-header {
+                padding: 0.75rem 1rem;
+                margin: -1rem -1rem 1rem -1rem;
+            }
+
+            .card-body {
+                padding: 1rem;
+            }
+
+            .card-footer {
+                padding: 0.75rem 1rem;
+                margin: 1rem -1rem -1rem -1rem;
+            }
+
+            /* Stats Grid - Mobile */
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 1rem 0.75rem;
+                min-height: auto;
+            }
+
+            /* Action Buttons - Mobile */
+            .action-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                margin-bottom: 1rem;
+            }
+
+            .action-buttons .btn-modern,
+            .action-buttons .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Filters Row - Mobile */
+            .filters-row {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .filters-row .form-group {
+                width: 100%;
             }
 
             .table-responsive {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
+                margin: 0 -1rem;
+                padding: 0 1rem;
+            }
+
+            .table {
+                font-size: 0.8125rem;
+                min-width: 600px;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.625rem 0.5rem;
+                white-space: nowrap;
             }
 
             .modal-dialog {
-                margin: 1rem;
-                max-width: calc(100vw - 2rem);
+                margin: 0.75rem;
+                max-width: calc(100vw - 1.5rem);
+            }
+
+            .modal-content {
+                border-radius: 16px;
+            }
+
+            .modal-header {
+                padding: 1rem 1.25rem;
+            }
+
+            .modal-body {
+                padding: 1.25rem;
+            }
+
+            .modal-footer {
+                padding: 1rem 1.25rem;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                margin: 0;
             }
 
             /* Touch-friendly buttons */
-            .btn-modern, .btn {
+            .btn-modern, .btn, .dropdown-toggle {
                 min-height: 44px;
-                padding: 12px 16px;
+                min-width: 44px;
+                padding: 12px 20px;
+                font-size: 15px;
+                border-radius: 10px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+
+            .btn-sm {
+                min-height: 40px;
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            .btn-lg {
+                min-height: 48px;
+                padding: 14px 24px;
                 font-size: 16px;
             }
 
             .form-control, .form-select {
-                min-height: 40px;
+                min-height: 44px;
                 font-size: 16px; /* Prevents zoom on iOS */
                 padding: 12px 16px;
+                border-radius: 10px;
+            }
+
+            .form-label {
+                font-size: 0.8125rem;
+                margin-bottom: 0.5rem;
             }
 
             /* Mobile dropdown improvements */
             .dropdown-menu {
-                max-height: 200px;
-                font-size: 14px;
+                max-height: 300px;
+                font-size: 15px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+                margin-top: 0.5rem;
             }
 
             .dropdown-item {
-                padding: 12px 16px;
+                padding: 12px 20px;
                 min-height: 44px;
+                display: flex;
+                align-items: center;
+                font-size: 15px;
             }
 
-            /* Mobile menu button specific styles - mobile devices only */
-            .mobile-menu-btn {
-                /* These styles are now in the main CSS section above */
+            /* Nav Tabs - Mobile */
+            .nav-tabs {
+                flex-wrap: wrap;
+                border-bottom: 2px solid var(--gray-200);
+            }
+
+            .nav-tabs .nav-link {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Table Header - Mobile */
+            .table-header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 0.75rem;
+                align-items: stretch;
+            }
+
+            .table-title {
+                font-size: 1.125rem;
+            }
+
+            /* Input Groups - Mobile */
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-group .form-control,
+            .input-group .btn {
+                border-radius: 10px;
+                margin-bottom: 0.5rem;
+            }
+
+            .input-group .btn {
+                width: 100%;
+            }
+
+            /* Alert - Mobile */
+            .alert {
+                padding: 1rem;
+                border-radius: 12px;
+                font-size: 0.875rem;
+            }
+
+            /* Badge - Mobile */
+            .badge {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+                min-height: 28px;
+                display: inline-flex;
+                align-items: center;
             }
         }
 
@@ -799,6 +982,7 @@
         @media (max-width: 480px) {
             :root {
                 --content-padding: 0.75rem;
+                --header-height: 80px;
             }
 
             .content-area {
@@ -806,22 +990,92 @@
             }
 
             .header {
-                padding: 0 0.75rem;
+                padding: 0.625rem 0.75rem;
+                min-height: var(--header-height);
             }
 
             .header-left h1 {
                 font-size: 1.25rem;
+                line-height: 1.2;
+            }
+
+            .header-subtitle {
+                font-size: 0.75rem;
+                margin-top: 0.25rem;
+            }
+
+            .header-right {
+                gap: 0.5rem;
+            }
+
+            /* Cards - Extra Small Mobile */
+            .card-modern, .card {
+                padding: 0.875rem;
+                margin-bottom: 0.875rem;
+                border-radius: 10px;
+            }
+
+            .card-header {
+                padding: 0.625rem 0.875rem;
+                margin: -0.875rem -0.875rem 0.875rem -0.875rem;
+            }
+
+            .card-body {
+                padding: 0.875rem;
+            }
+
+            .card-footer {
+                padding: 0.625rem 0.875rem;
+                margin: 0.875rem -0.875rem -0.875rem -0.875rem;
+            }
+
+            /* Stats Grid - Extra Small */
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 0.625rem;
+            }
+
+            .stat-card {
+                padding: 0.875rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
             }
 
             .table-header {
-                padding: 1rem;
+                padding: 0.875rem;
             }
 
             .table-title {
-                font-size: 1.125rem;
+                font-size: 1rem;
             }
 
-            .btn-modern, .btn {
+            .table-responsive {
+                margin: 0 -0.75rem;
+                padding: 0 0.75rem;
+            }
+
+            .table {
+                font-size: 0.75rem;
+            }
+
+            .table th,
+            .table td {
+                padding: 0.5rem 0.375rem;
+            }
+
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px;
+                padding: 12px 16px;
+                font-size: 15px;
+            }
+
+            .btn-sm {
                 min-height: 40px;
                 padding: 10px 14px;
                 font-size: 14px;
@@ -829,12 +1083,60 @@
 
             .form-control, .form-select {
                 font-size: 16px; /* Prevents zoom on iOS */
-                padding: 10px 12px;
+                padding: 12px 14px;
+                min-height: 44px;
+            }
+
+            .form-label {
+                font-size: 0.75rem;
             }
 
             .modal-dialog {
                 margin: 0.5rem;
                 max-width: calc(100vw - 1rem);
+            }
+
+            .modal-header {
+                padding: 0.875rem 1rem;
+            }
+
+            .modal-body {
+                padding: 1rem;
+            }
+
+            .modal-footer {
+                padding: 0.875rem 1rem;
+            }
+
+            /* Nav Tabs - Extra Small */
+            .nav-tabs .nav-link {
+                padding: 0.625rem 0.75rem;
+                font-size: 0.8125rem;
+                min-width: auto;
+                flex: 1;
+            }
+
+            /* Dropdown - Extra Small */
+            .dropdown-menu {
+                font-size: 14px;
+                min-width: calc(100vw - 2rem);
+            }
+
+            .dropdown-item {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+
+            /* Alert - Extra Small */
+            .alert {
+                padding: 0.875rem;
+                font-size: 0.8125rem;
+            }
+
+            /* Badge - Extra Small */
+            .badge {
+                padding: 0.375rem 0.625rem;
+                font-size: 0.6875rem;
             }
         }
 
@@ -954,6 +1256,39 @@
             }
         }
     </style>
+    <style>
+        /* Compact mobile overrides for tighter UI on small screens */
+        @media (max-width: 768px) {
+            .card-modern, .card { padding: 0.875rem !important; border-radius: 10px !important; }
+            .card-header, .card-footer { padding: 0.75rem 0.875rem !important; }
+            .btn, .btn-modern, .dropdown-toggle { min-height: 40px !important; padding: 10px 14px !important; font-size: 14px !important; }
+            .btn-sm { min-height: 36px !important; padding: 8px 12px !important; font-size: 13px !important; }
+            .form-control, .form-select { min-height: 40px !important; padding: 10px 12px !important; font-size: 15px !important; }
+            .content-area { padding: 0.875rem !important; }
+            .stats-grid { gap: 0.625rem !important; }
+        }
+
+        @media (max-width: 480px) {
+            .card-modern, .card { padding: 0.75rem !important; border-radius: 10px !important; }
+            .card-header, .card-footer { padding: 0.625rem 0.75rem !important; }
+            .btn, .btn-modern, .dropdown-toggle { min-height: 38px !important; padding: 8px 12px !important; font-size: 13.5px !important; }
+            .btn-sm { min-height: 34px !important; padding: 7px 10px !important; font-size: 12.5px !important; }
+            .form-control, .form-select { min-height: 38px !important; padding: 10px 10px !important; font-size: 15px !important; }
+            .content-area { padding: 0.75rem !important; }
+            .table { font-size: 0.75rem !important; }
+        }
+
+        /* Strong overrides to ensure card tables render correctly on mobile */
+        @media (max-width: 768px) {
+            table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
+            table.table-mobile-card thead { display: none !important; }
+            table.table-mobile-card tbody { display: block !important; }
+            table.table-mobile-card tr { display: block !important; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            table.table-mobile-card td { display: flex !important; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0 !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important; white-space: normal !important; color: #111827; }
+            table.table-mobile-card td:last-child { border-bottom: none !important; }
+            table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
+        }
+    </style>
 
     <!-- Additional Head Content -->
     {% block extra_head %}{% endblock %}
@@ -1023,14 +1358,6 @@
                 <div class="nav-section">
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
-                        <li class="nav-item">
-                            <a href="{% url 'profile' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
-                                <i class="bi bi-person" aria-hidden="true"></i>
-                                <span>Profile</span>
-                            </a>
-                        </li>
                         {% if user.is_authenticated and user.is_staff %}
                         <li class="nav-item">
                             <a href="{% url 'sms_settings' %}" 
@@ -1042,7 +1369,15 @@
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a href="{% url 'logout' %}" class="nav-link">
+                            <a href="{% url 'profile' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-person" aria-hidden="true"></i>
+                                <span>Profile</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'logout' %}" class="nav-link logout-link" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 <span>Logout</span>
                             </a>
@@ -1061,16 +1396,6 @@
                     {% block page_subtitle %}{% endblock %}
                 </div>
                 <div class="header-right">
-                    <!-- Mobile Menu Toggle Button -->
-                    <button id="mobileMenuToggle" 
-                            class="mobile-menu-btn"
-                            aria-label="Toggle navigation menu"
-                            aria-expanded="false"
-                            aria-controls="sidebar">
-                        <i class="bi bi-list" aria-hidden="true"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
                     {% block header_actions %}{% endblock %}
                     <div class="dropdown">
                         <button class="user-avatar-btn" 
@@ -1121,42 +1446,14 @@
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.getElementById('sidebar');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
-            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
             const body = document.body;
-
-            // Mobile sidebar toggle functionality
-            function toggleMobileMenu() {
-                if (sidebar && sidebarOverlay) {
-                    const isActive = sidebar.classList.toggle('active');
-                    sidebarOverlay.classList.toggle('active');
-                    body.classList.toggle('sidebar-open');
-                    
-                    // Update ARIA attributes
-                    if (mobileMenuToggle) {
-                        mobileMenuToggle.setAttribute('aria-expanded', isActive);
-                    }
-                }
-            }
 
             function closeMobileMenu() {
                 if (sidebar && sidebarOverlay) {
                     sidebar.classList.remove('active');
                     sidebarOverlay.classList.remove('active');
                     body.classList.remove('sidebar-open');
-                    
-                    if (mobileMenuToggle) {
-                        mobileMenuToggle.setAttribute('aria-expanded', 'false');
-                    }
                 }
-            }
-
-            // Handle mobile menu toggle click
-            if (mobileMenuToggle) {
-                mobileMenuToggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleMobileMenu();
-                });
             }
 
             // Handle overlay click
@@ -1245,8 +1542,46 @@
             window.addEventListener('orientationchange', function() {
                 closeMobileMenu();
             });
+
+            // Handle logout confirmation
+            document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    // Check if Bootstrap modal is available
+                    if (typeof bootstrap !== 'undefined') {
+                        e.preventDefault();
+                        const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                        logoutModal.show();
+                    }
+                });
+            });
         });
     </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {% block extra_scripts %}{% endblock %}
 </body>

@@ -24,6 +24,8 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --dark: #0f172a;
+            --light: #f8fafc;
             --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
@@ -34,11 +36,22 @@
             --gray-700: #374151;
             --gray-800: #1f2937;
             --gray-900: #111827;
-            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
         }
 
         * {
@@ -55,7 +68,9 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
@@ -69,72 +84,117 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(16px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
-            height: 100vh;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
             z-index: 1000;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: none;
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
-            padding: 2rem 1.5rem;
+            padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--gray-100);
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
         }
 
         .sidebar-brand {
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 700;
             text-decoration: none;
             color: white;
+            flex: 1;
         }
 
         .sidebar-brand i {
-            font-size: 2rem;
-            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
             background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem;
-            border-radius: 12px;
+            padding: 0.4rem;
+            border-radius: 8px;
         }
 
         .sidebar-nav {
-            padding: 1.5rem 0;
+            padding: var(--space-sm) 0;
         }
 
         .nav-section {
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }
 
         .nav-section-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
             color: var(--gray-400);
-            padding: 0 1.5rem;
-            margin-bottom: 0.75rem;
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
         }
 
         .nav-item {
-            margin-bottom: 0.25rem;
+            margin-bottom: var(--space-2xs);
         }
 
         .nav-link {
             display: flex;
             align-items: center;
-            padding: 0.875rem 1.5rem;
+            padding: var(--space-sm);
             color: var(--gray-600);
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
+            gap: 0.5rem;
         }
 
         .nav-link:hover {
@@ -149,10 +209,11 @@
         }
 
         .nav-link i {
-            font-size: 1.25rem;
-            margin-right: 0.75rem;
-            width: 1.5rem;
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .nav-list {
@@ -164,47 +225,136 @@
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
+            padding: calc(var(--header-height) + var(--space-lg)) var(--space-lg) var(--space-lg);
+            transition: none;
             min-height: 100vh;
-            background: var(--gray-50);
+        }
+
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+            }
+
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
         }
 
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            height: var(--header-height);
+            background: white;
+            min-height: var(--header-height);
             border-bottom: 1px solid var(--gray-200);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 2rem;
-            position: sticky;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
             top: 0;
-            z-index: 100;
+            left: 0;
+            right: 0;
+            z-index: 1001;
             box-shadow: var(--shadow-sm);
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            flex: 1;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
         .header-left h1 {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
+            line-height: 1.25;
         }
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
         }
 
         .header-right {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: var(--space-sm);
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 50%;
             border: 2px solid var(--primary-light);
             cursor: pointer;
@@ -216,8 +366,74 @@
             transform: scale(1.05);
         }
 
+        /* Burger Menu Button */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(2.5px, 2.5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(2.5px, -2.5px);
+        }
+
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
         .content-area {
-            padding: 2rem;
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
         }
 
         .mobile-menu-btn {
@@ -239,9 +455,16 @@
         }
 
         @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 280px;
+                --header-height: 90px;
+            }
+
             .sidebar {
                 transform: translateX(-100%);
-                width: 100vw;
+                width: var(--sidebar-width);
+                max-width: 85vw;
             }
             
             .sidebar.active {
@@ -250,10 +473,166 @@
             
             .main-content {
                 margin-left: 0;
+                margin-top: var(--header-height);
             }
             
             .content-area {
                 padding: 1rem;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+            
+            .header {
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left {
+                gap: 0.75rem;
+            }
+
+            .header-brand span {
+                display: none;
+            }
+
+            .header-title-section {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+            
+            .header-right {
+                gap: 0.75rem;
+                flex-wrap: wrap;
+            }
+
+            /* Burger Menu Button - Show on Mobile */
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.875rem !important;
+                height: 0.875rem !important;
+            }
+
+            .header-left {
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+                gap: 0.5rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+                margin: 0;
+                flex: 1;
+                min-width: 0;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
+            }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                flex-shrink: 0;
+            }
+
+            /* Cards - Mobile */
+            .card-modern, .card, .settings-card, .page-header {
+                padding: 1rem !important;
+                margin-bottom: 1rem;
+                border-radius: 12px;
+            }
+
+            .page-title {
+                font-size: 1.5rem !important;
+            }
+
+            .page-subtitle {
+                font-size: 0.875rem !important;
+            }
+
+            /* Buttons - Mobile */
+            .btn-modern, .btn, .dropdown-toggle {
+                min-height: 44px !important;
+                min-width: 44px !important;
+                padding: 12px 20px !important;
+                font-size: 15px !important;
+                border-radius: 10px !important;
+            }
+
+            /* Forms - Mobile */
+            .form-control, .form-select {
+                min-height: 44px !important;
+                font-size: 16px !important;
+                padding: 12px 16px !important;
+            }
+
+            /* Modals - Mobile */
+            .modal-dialog {
+                margin: 0.75rem !important;
+                max-width: calc(100vw - 1.5rem) !important;
+            }
+
+            .modal-footer {
+                flex-direction: column !important;
+                gap: 0.5rem !important;
+            }
+
+            .modal-footer .btn {
+                width: 100% !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            :root {
+                --content-padding: 0.75rem;
+                --header-height: 80px;
+            }
+
+            .header {
+                padding: 0.625rem 0.75rem;
+            }
+
+            .header-left h1 {
+                font-size: 1.25rem;
+            }
+
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .card-modern, .card, .settings-card, .page-header {
+                padding: 0.875rem !important;
+            }
+
+            .page-title {
+                font-size: 1.25rem !important;
+            }
+
+            .btn-modern, .btn {
+                padding: 12px 16px !important;
+                font-size: 15px !important;
+            }
+
+            .modal-dialog {
+                margin: 0.5rem !important;
+                max-width: calc(100vw - 1rem) !important;
             }
         }
 
@@ -283,8 +662,13 @@
             border-radius: 16px;
             padding: 2rem;
             box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            margin-bottom: 2rem;
+            border: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .settings-card:hover {
+            box-shadow: var(--shadow-md);
         }
 
         .form-label {
@@ -391,12 +775,15 @@
 
         .notification-card {
             background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
+            border-radius: var(--radius-md) !important;
+            padding: var(--space-sm) !important;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
-            margin-bottom: 1.5rem;
+            margin-bottom: var(--space-sm) !important;
             transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
         }
 
         .notification-card:hover {
@@ -414,14 +801,14 @@
         }
 
         .notification-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+            width: 2rem !important;
+            height: 2rem !important;
+            border-radius: var(--radius-md) !important;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
+            font-size: 0.95rem !important;
+            margin-bottom: var(--space-xs) !important;
         }
 
         .notification-icon.sales {
@@ -440,30 +827,31 @@
         }
 
         .notification-title {
-            font-size: 1.125rem;
+            font-size: 0.85rem !important;
             font-weight: 600;
             color: var(--gray-900);
-            margin-bottom: 0.5rem;
+            margin-bottom: var(--space-2xs) !important;
         }
 
         .notification-description {
             color: var(--gray-600);
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
+            font-size: 0.75rem !important;
+            margin-bottom: var(--space-xs) !important;
+            line-height: 1.35;
         }
 
         .notification-settings {
             background: var(--gray-50);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 1rem;
+            border-radius: var(--radius-md) !important;
+            padding: var(--space-xs) !important;
+            margin-top: var(--space-xs) !important;
         }
 
         .setting-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 0.75rem;
+            margin-bottom: var(--space-xs) !important;
         }
 
         .setting-row:last-child {
@@ -473,12 +861,12 @@
         .setting-label {
             font-weight: 500;
             color: var(--gray-700);
-            font-size: 0.875rem;
+            font-size: 0.75rem !important;
         }
 
         .setting-value {
             color: var(--gray-600);
-            font-size: 0.875rem;
+            font-size: 0.75rem !important;
         }
 
         .form-select {
@@ -537,44 +925,383 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+            gap: var(--space-sm) !important;
+            margin-bottom: var(--space-sm) !important;
         }
 
         .stat-card {
             background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--gray-100);
-            text-align: center;
+            border-radius: var(--radius-md) !important;
+            padding: var(--space-xs) var(--space-sm) !important;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs) !important;
+            transition: box-shadow 0.2s ease;
         }
 
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-icon {
+            width: 1.75rem !important;
+            height: 1.75rem !important;
+            border-radius: var(--radius-md) !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem !important;
+            flex-shrink: 0;
+        }
+
+        .stat-icon.primary {
+            background: var(--primary-light);
             color: var(--primary);
-            margin-bottom: 0.5rem;
+        }
+
+        .stat-icon.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .stat-icon.warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        .stat-icon.info {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent);
+        }
+
+        .stat-icon.pricing {
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+        }
+
+        .stat-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .stat-value {
+            font-size: 0.95rem !important;
+            font-weight: 700;
+            color: var(--gray-900);
+            line-height: 1.2;
+            margin-bottom: 0.1rem !important;
         }
 
         .stat-label {
-            color: var(--gray-600);
-            font-size: 0.875rem;
+            color: var(--gray-500);
+            font-size: 0.65rem !important;
             font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
         }
+
+        .stat-subtitle {
+            font-size: 0.6rem !important;
+            color: var(--gray-500);
+            margin-top: 0.1rem !important;
+        }
+
+        /* Unified sizing overrides */
+        :root {
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
+        }
+
+        html {
+            font-size: 14px;
+        }
+
+        body {
+            font-size: 0.85rem;
+            line-height: 1.45;
+        }
+
+        .header {
+            padding: var(--space-sm) var(--space-xl);
+            min-height: var(--header-height);
+        }
+
+        .header-left {
+            gap: var(--space-sm);
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-subtitle {
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+        }
+
+        .header-right {
+            gap: var(--space-sm);
+        }
+
+        .user-avatar {
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            transition: none;
+        }
+
+        .sidebar .nav-section-title {
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+        }
+
+        .sidebar .nav-link {
+            padding: var(--space-sm);
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .sidebar .nav-link i {
+            font-size: 1.1rem;
+        }
+
+        .main-content,
+        .main-content.sidebar-open {
+            margin-left: var(--sidebar-width);
+            padding: var(--space-lg);
+            min-height: calc(100vh - var(--header-height));
+            transition: none;
+        }
+
+        .main-content:not(.sidebar-open) {
+            margin-left: 64px;
+        }
+
+        .content-area {
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+        }
+
+        .modern-card,
+        .card,
+        .summary-card,
+        .table-card,
+        .settings-card,
+        .analytics-card,
+        .sms-section,
+        section {
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+
+        .modern-card .card-header,
+        .card .card-header {
+            padding: 0 0 var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .modern-card .card-body,
+        .card .card-body {
+            padding: 0;
+        }
+
+        .stats-grid,
+        .integration-grid,
+        .notification-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .stat-card,
+        .notification-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) !important;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-xs);
+        }
+
+        .stat-value {
+            font-size: 1rem !important;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2xs);
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--gray-500);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .stat-subtitle {
+            font-size: 0.7rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+        }
+
+        table {
+            font-size: 0.82rem;
+        }
+
+        table thead th,
+        table tbody td {
+            padding: 0.65rem 0.75rem;
+        }
+
+        .form-control,
+        .form-select,
+        .input-group-text {
+            border-radius: var(--radius-md) !important;
+            padding: 0.4rem 0.65rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .form-control-lg {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.85rem !important;
+        }
+
+        .form-select-sm {
+            padding: 0.35rem 0.5rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .btn {
+            border-radius: var(--radius-md) !important;
+            padding: 0.45rem 0.85rem !important;
+            font-weight: 600;
+            font-size: 0.8rem !important;
+            letter-spacing: 0.01em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.65rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .action-buttons,
+        .settings-actions,
+        .notification-actions,
+        .voice-actions,
+        .integration-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .header-title-section {
+            gap: var(--space-2xs);
+        }
+
+        /* Force compact sizing for all elements */
+        .settings-card h5,
+        .settings-card .h5 {
+            font-size: 0.95rem !important;
+            margin-bottom: var(--space-sm) !important;
+        }
+
+        .settings-card .mb-4 {
+            margin-bottom: var(--space-sm) !important;
+        }
+
+        .settings-card .mb-3 {
+            margin-bottom: var(--space-xs) !important;
+        }
+
+        .preview-box {
+            padding: var(--space-xs) !important;
+            font-size: 0.75rem !important;
+            margin-top: var(--space-xs) !important;
+        }
+
+        .notification-card .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-xs);
+            margin-top: var(--space-xs);
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .notification-card .card-actions .btn {
+            flex: 0 0 auto;
+        }
+
     </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <nav class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
-            <div class="sidebar-header">
-                <a href="{% url 'dashboard' %}" class="sidebar-brand" aria-label="StockWise - Go to Dashboard">
+        <!-- Unified Header -->
+        <header class="header" role="banner">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand" aria-label="StockWise - Go to Dashboard">
                     <i class="bi bi-basket-fill" aria-hidden="true"></i>
                     <span>StockWise</span>
                 </a>
+                <div class="header-title-section">
+                    <h1>SMS Notification</h1>
+                    <p class="header-subtitle">Automated SMS alerts and business notifications</p>
+                </div>
             </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active" id="sidebar" role="navigation" aria-label="Main navigation">
             <div class="sidebar-nav">
                 <div class="nav-section">
                     <h2 class="nav-section-title">Main</h2>
@@ -627,6 +1354,14 @@
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
+                            <a href="{% url 'sms_settings' %}" 
+                               class="nav-link active"
+                               aria-current="page">
+                                <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                                <span>SMS Settings</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a href="{% url 'profile' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
                                aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
@@ -635,16 +1370,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'sms_settings' %}" 
-                               class="nav-link active"
-                               aria-current="page">
-                                <i class="bi bi-chat-dots" aria-hidden="true"></i>
-                                <span>SMS Notification</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{% url 'logout' %}" 
-                               class="nav-link"
+                            <a href="{% url 'logout' %}" class="nav-link logout-link"
                                aria-current="false">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 <span>Logout</span>
@@ -656,35 +1382,7 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <!-- Header -->
-            <header class="header" role="banner">
-                <div class="header-left">
-                    <h1>SMS Notification</h1>
-                    <p class="header-subtitle">Automated SMS alerts and business notifications</p>
-                </div>
-                <div class="header-right">
-                    <button id="mobileMenuToggle" 
-                            class="mobile-menu-btn"
-                            aria-label="Toggle navigation menu"
-                            aria-expanded="false"
-                            aria-controls="sidebar">
-                        <i class="bi bi-list" aria-hidden="true"></i>
-                        <span class="ms-1">Menu</span>
-                    </button>
-
-                    <div class="dropdown">
-                        <div class="user-avatar" data-bs-toggle="dropdown" style="background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
-                            <i class="bi bi-person"></i>
-                        </div>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+        <main class="main-content sidebar-open">
 
             <div class="content-area">
 
@@ -706,15 +1404,12 @@
                     <i class="bi bi-telephone me-2"></i>
                     Phone Number Configuration
                 </h5>
-                <span class="badge bg-success">
-                    <i class="bi bi-check-circle me-1"></i>iProg SMS Active
-                </span>
             </div>
 
             <form method="post" id="phoneForm">
                 {% csrf_token %}
                 <div class="row">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <div class="mb-3">
                             <label for="phone_number" class="form-label">
                                 <i class="bi bi-phone me-1"></i>
@@ -722,7 +1417,7 @@
                             </label>
                             <input 
                                 type="tel" 
-                                class="form-control form-control-lg" 
+                                class="form-control" 
                                 id="phone_number" 
                                 name="phone_number" 
                                 value="{{ sms_notification.phone_number }}"
@@ -736,42 +1431,21 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="mb-3">
-                            <label class="form-label d-block">
-                                <i class="bi bi-bell me-1"></i>
-                                Notifications Status
+                            <label for="timezone" class="form-label">
+                                <i class="bi bi-clock me-1"></i>
+                                Timezone
                             </label>
-                            <div class="form-check form-switch" style="padding-top: 0.5rem;">
-                                <input 
-                                    class="form-check-input" 
-                                    type="checkbox" 
-                                    id="is_active" 
-                                    name="is_active"
-                                    style="width: 48px; height: 24px;"
-                                    {% if sms_notification.is_active %}checked{% endif %}
-                                >
-                                <label class="form-check-label ms-2" for="is_active" style="font-weight: 500;">
-                                    {% if sms_notification.is_active %}
-                                        <span class="text-success">Enabled</span>
-                                    {% else %}
-                                        <span class="text-muted">Disabled</span>
-                                    {% endif %}
-                                </label>
+                            <select class="form-select" id="timezone" name="timezone">
+                                <option value="Asia/Manila" selected>Asia/Manila (PHT - UTC+8)</option>
+                                <option value="UTC">UTC (Coordinated Universal Time)</option>
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                All notification times will be based on this timezone
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- iProg API Info -->
-                <div class="alert alert-info d-flex align-items-start mb-3">
-                    <i class="bi bi-info-circle-fill me-2 mt-1"></i>
-                    <div>
-                        <strong>SMS Provider: iProg SMS API</strong><br>
-                        <small>
-                            Sender ID: <strong>STOCKWISE</strong> (pending approval - currently shows as IPROGSMS)<br>
-                            Supports all Philippine mobile networks: Globe, Smart, TNT, Sun
-                        </small>
                     </div>
                 </div>
 
@@ -836,27 +1510,28 @@
                     
                     <div class="preview-box" id="salesPreview" style="display: none;">
                         <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
-                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                            <small><strong>From:</strong> STOCKWISE</small>
                         </div>
-                        <strong>Today's Sales Summary:</strong><br>
-                        📊 StockWise Daily Sales Summary<br>
-                        📅 Date: {{ today_date|date:"F d, Y" }}<br><br>
-                        💰 Revenue: ₱{{ today_stats.total_revenue|floatformat:2|default:"0.00" }}<br>
-                        📦 Boxes Sold: {{ today_stats.total_boxes|default:"0" }}<br>
-                        🛒 Transactions: {{ today_stats.total_sales|default:"0" }}<br><br>
+                        <strong>Daily Sales Summary:</strong><br>
+                        STOCKWISE Daily Sales Report<br>
+                        Date: {{ today_date|date:"F d, Y" }}<br><br>
+                        ==== OVERALL SUMMARY ====<br>
+                        Total Revenue: PHP {{ today_stats.total_revenue_formatted|default:"0.00" }}<br>
+                        Total Boxes Sold: {{ today_stats.total_boxes|default:"0" }}<br>
+                        Total Transactions: {{ today_stats.total_sales|default:"0" }}<br><br>
                         {% if top_products %}
-                        🏆 Top Products:<br>
+                        ==== TOP PRODUCTS TODAY ====<br>
                         {% for product in top_products %}
-                        {{ forloop.counter }}. {{ product.product__name }} ({{ product.quantity }} boxes)<br>
+                        {{ forloop.counter }}. {{ product.product__name }} ({{ product.product__size }})<br>
+                           Sold: {{ product.quantity }} boxes<br>
+                           Revenue: PHP {{ product.revenue|default:"0.00" }}<br>
+                           Remaining: {{ product.product__stock|default:"0" }} boxes<br><br>
                         {% endfor %}
-                        {% else %}
-                        🏆 Top Products:<br>
-                        No sales data yet for today<br>
-                        {% endif %}<br>
-                        📱 Sent by StockWise System
+                        {% endif %}
+                        - STOCKWISE
                     </div>
                     
-                    <div class="d-flex gap-2 mt-3">
+                    <div class="card-actions">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('salesPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
@@ -906,31 +1581,23 @@
                     
                     <div class="preview-box" id="stockPreview" style="display: none;">
                         <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
-                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                            <small><strong>From:</strong> STOCKWISE</small>
                         </div>
-                        <strong>Low Stock Alert:</strong><br>
-                        ⚠️ StockWise Low Stock Alert<br><br>
+                        <strong>Stock Alert:</strong><br>
+                        STOCKWISE Stock Alert<br><br>
                         {% if low_stock_products %}
-                        {% with low_stock_products|first as product %}
-                        Product: {{ product.name }}<br>
-                        Current Stock: {{ product.stock }} boxes<br>
-                        Threshold: 10 boxes<br>
-                        Status: RESTOCK NEEDED<br><br>
-                        {% endwith %}
-                        {% if low_stock_products|length > 1 %}
-                        Other low stock items:<br>
-                        {% for product in low_stock_products|slice:"1:" %}
-                        - {{ product.name }} ({{ product.stock }} boxes)<br>
+                        WARNING - LOW STOCK:<br>
+                        {% for product in low_stock_products %}
+                        - {{ product.name }} ({{ product.size }}): {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
                         {% endfor %}
-                        {% endif %}
+                        <br>
                         {% else %}
-                        All products are well-stocked!<br>
-                        No items below threshold.<br><br>
+                        All products have sufficient stock.<br><br>
                         {% endif %}
-                        📱 Sent by StockWise System
+                        - STOCKWISE System
                     </div>
                     
-                    <div class="d-flex gap-2 mt-3">
+                    <div class="card-actions">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('stockPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
@@ -981,7 +1648,7 @@
                     
                     <div class="preview-box" id="pricingPreview" style="display: none;">
                         <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
-                            <small><strong>From:</strong> STOCKWISE (IPROGSMS until approved)</small>
+                            <small><strong>From:</strong> STOCKWISE</small>
                         </div>
                         <strong>Pricing Recommendation:</strong><br>
                         STOCKWISE Pricing<br><br>
@@ -994,7 +1661,7 @@
                         STOCKWISE
                     </div>
                     
-                    <div class="d-flex gap-2 mt-3">
+                    <div class="card-actions">
                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('pricingPreview')">
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
@@ -1035,21 +1702,64 @@
             
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">0</div>
-                    <div class="stat-label">Messages Sent Today</div>
+                    <div class="stat-icon primary">
+                        <i class="bi bi-envelope-paper"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Messages Sent Today</div>
+                        <div class="stat-subtitle">SMS notifications sent today</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">0</div>
-                    <div class="stat-label">Messages This Week</div>
+                    <div class="stat-icon success">
+                        <i class="bi bi-calendar-week"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Messages This Week</div>
+                        <div class="stat-subtitle">Total SMS sent this week</div>
+                    </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">0</div>
-                    <div class="stat-label">Low Stock Alerts</div>
-            </div>
+                    <div class="stat-icon warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Low Stock Alerts</div>
+                        <div class="stat-subtitle">Low stock notifications sent</div>
+                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
+                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
+                        </div>
+                    </div>
+                </div>
                 <div class="stat-card">
-                    <div class="stat-number">0</div>
-                    <div class="stat-label">Sales Summaries</div>
-            </div>
+                    <div class="stat-icon info">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Sales Summaries</div>
+                        <div class="stat-subtitle">Daily sales summaries sent</div>
+                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
+                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon pricing">
+                        <i class="bi bi-tags"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Pricing Alerts</div>
+                        <div class="stat-subtitle">Pricing recommendations sent</div>
+                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
+                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1091,19 +1801,35 @@
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
                         if (response.success) {
-                            bodyEl.textContent = 'All notifications sent successfully.';
+                            bodyEl.textContent = response.message || 'All notifications sent successfully.';
+                            // Reload stats after successful send
+                            loadNotificationStats();
                         } else {
                             bodyEl.textContent = 'Failed to send notifications: ' + (response.message || 'Unknown error');
                         }
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
                     },
-                    error: function() {
+                    error: function(xhr, status, error) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
-                        bodyEl.textContent = 'Error sending notifications. Please try again.';
+                        let errorMsg = 'Error sending notifications. Please try again.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMsg = xhr.responseJSON.message;
+                        } else if (xhr.responseText) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.message) {
+                                    errorMsg = response.message;
+                                }
+                            } catch (e) {
+                                // Keep default message
+                            }
+                        }
+                        bodyEl.textContent = errorMsg;
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
+                        console.error('Send All Now error:', xhr, status, error);
                     },
                     complete: function() {
                         $btn.prop('disabled', false).html(originalText);
@@ -1296,11 +2022,43 @@
                 url: "{% url 'get_notification_stats' %}",
                 method: 'GET',
                 success: function(response) {
-                    if (response.success) {
-                        $('.stat-card').eq(0).find('.stat-number').text(response.stats.messages_today);
-                        $('.stat-card').eq(1).find('.stat-number').text(response.stats.messages_week);
-                        $('.stat-card').eq(2).find('.stat-number').text(response.stats.stock_alerts);
-                        $('.stat-card').eq(3).find('.stat-number').text(response.stats.sales_summaries);
+                    if (response.stats) {
+                        $('.stat-card').eq(0).find('.stat-value').text(response.stats.messages_today || 0);
+                        $('.stat-card').eq(1).find('.stat-value').text(response.stats.messages_week || 0);
+                        $('.stat-card').eq(2).find('.stat-value').text(response.stats.stock_alerts || 0);
+                        $('.stat-card').eq(3).find('.stat-value').text(response.stats.sales_summaries || 0);
+                        $('.stat-card').eq(4).find('.stat-value').text(response.stats.pricing_alerts || 0);
+                        
+                        // Update date/time for each notification type
+                        // Stock alerts (index 2)
+                        if (response.stats.last_stock) {
+                            const stockCard = $('.stat-card').eq(2);
+                            stockCard.find('.stat-datetime').show();
+                            stockCard.find('.stat-date').text(response.stats.last_stock.date);
+                            stockCard.find('.stat-time').text(response.stats.last_stock.time);
+                        } else {
+                            $('.stat-card').eq(2).find('.stat-datetime').hide();
+                        }
+                        
+                        // Sales summaries (index 3)
+                        if (response.stats.last_sales) {
+                            const salesCard = $('.stat-card').eq(3);
+                            salesCard.find('.stat-datetime').show();
+                            salesCard.find('.stat-date').text(response.stats.last_sales.date);
+                            salesCard.find('.stat-time').text(response.stats.last_sales.time);
+                        } else {
+                            $('.stat-card').eq(3).find('.stat-datetime').hide();
+                        }
+                        
+                        // Pricing alerts (index 4)
+                        if (response.stats.last_pricing) {
+                            const pricingCard = $('.stat-card').eq(4);
+                            pricingCard.find('.stat-datetime').show();
+                            pricingCard.find('.stat-date').text(response.stats.last_pricing.date);
+                            pricingCard.find('.stat-time').text(response.stats.last_pricing.time);
+                        } else {
+                            $('.stat-card').eq(4).find('.stat-datetime').hide();
+                        }
                     }
                 },
                 error: function() {
@@ -1468,51 +2226,88 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.getElementById('sidebar');
-            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-            function toggleMobileMenu() {
-                if (sidebar) {
-                    sidebar.classList.toggle('active');
-                    if (sidebar.classList.contains('active')) {
-                        document.body.style.overflow = 'hidden';
-                    } else {
-                        document.body.style.overflow = '';
-                    }
-                }
+            // Sidebar is already set to active in HTML, just ensure no animation on load
+            if (window.innerWidth > 768 && sidebar) {
+                // Sidebar already open on desktop; no animation adjustments needed
             }
 
-            if (mobileMenuToggle) {
-                mobileMenuToggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleMobileMenu();
+            // Burger menu button toggle
+            if (burgerMenuBtn && sidebar) {
+                burgerMenuBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('active');
+                    burgerMenuBtn.classList.toggle('active');
+                    const mainContent = document.querySelector('.main-content');
+                    
+                    if (window.innerWidth > 768) {
+                        // Desktop: toggle sidebar and adjust main content
+                        if (sidebar.classList.contains('active')) {
+                            if (mainContent) mainContent.classList.add('sidebar-open');
+                        } else {
+                            if (mainContent) mainContent.classList.remove('sidebar-open');
+                        }
+                    } else {
+                        // Mobile: show overlay and prevent body scroll
+                        if (sidebarOverlay) {
+                            sidebarOverlay.classList.toggle('active');
+                        }
+                        if (sidebar.classList.contains('active')) {
+                            document.body.style.overflow = 'hidden';
+                        } else {
+                            document.body.style.overflow = '';
+                        }
+                    }
                 });
             }
 
-            // Close sidebar when clicking outside
-            document.addEventListener('click', function(e) {
-                if (sidebar && !sidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
-                    sidebar.classList.remove('active');
-                    document.body.style.overflow = '';
-                }
-            });
+            // Close sidebar when clicking overlay (mobile only)
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        sidebarOverlay.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
+                });
+            }
 
             // Close sidebar when clicking on nav links
             const navLinks = document.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
+                    const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
                         sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                         document.body.style.overflow = '';
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
                     }
                 });
             });
 
             // Close sidebar on window resize
             window.addEventListener('resize', function() {
+                const mainContent = document.querySelector('.main-content');
                 if (window.innerWidth > 768) {
-                    sidebar.classList.remove('active');
+                    // Desktop: keep sidebar state but remove mobile-specific styles
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                     document.body.style.overflow = '';
+                    if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                        mainContent.classList.add('sidebar-open');
+                    } else if (mainContent) {
+                        mainContent.classList.remove('sidebar-open');
+                    }
+                } else {
+                    // Mobile: remove desktop-specific styles
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
                 }
             });
 
@@ -1520,11 +2315,56 @@
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && sidebar.classList.contains('active')) {
                     sidebar.classList.remove('active');
-                    document.body.style.overflow = '';
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    const mainContent = document.querySelector('.main-content');
+                    if (window.innerWidth > 768) {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    } else {
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
                 }
+            });
+
+            // Handle logout confirmation
+            document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    // Check if Bootstrap modal is available
+                    if (typeof bootstrap !== 'undefined') {
+                        e.preventDefault();
+                        const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                        logoutModal.show();
+                    }
+                });
             });
         });
     </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
             </div>
         </main>
     </div>

@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path('sticker/<int:product_id>/', views.qr_sticker_view, name='qr_sticker'),
+    path('sticker/print/<int:product_id>/', views.qr_sticker_print, name='qr_sticker_print'),
     path('scan/', views.qr_scan_view, name='qr_scan'),
     path('test/<int:product_id>/', views.qr_test_view, name='qr_test'),
     path('scanner/', views.qr_scanner_view, name='qr_scanner'),

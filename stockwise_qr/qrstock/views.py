@@ -2,7 +2,10 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
+from django.views.decorators.http import require_POST
 from core.models import Product
+from core.views import require_app_login
+from core.thermal_printer import get_printer_service
 import qrcode
 import io
 import base64
@@ -37,6 +40,20 @@ def qr_sticker_view(request, product_id):
         img.save(buffer, format='PNG')
         buffer.seek(0)
         qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+        
+        # If AJAX/JSON requested, return data
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get('format') == 'json':
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'product_id': product.product_id,
+                    'product_name': product.name,
+                    'variant': product.variant or '',
+                    'quantity': product.size or '',
+                    'qr_code_base64': qr_code_base64,
+                    'qr_data': qr_data,
+                }
+            })
         
         # Render the sticker template
         context = {
@@ -204,3 +221,79 @@ def qr_confirm_view(request, token):
         
     except Exception as e:
         return HttpResponse(f'Error processing QR token: {str(e)}', status=500)
+
+
+@require_app_login
+@require_POST
+def qr_sticker_print(request, product_id):
+    """Print QR sticker to thermal printer"""
+    try:
+        product = get_object_or_404(Product, product_id=product_id)
+        
+        # Create QR code image bytes
+        from itsdangerous import URLSafeSerializer
+        s = URLSafeSerializer(settings.SECRET_KEY)
+        token = s.dumps({'p': product.product_id})
+        qr_confirm_url = request.build_absolute_uri(f'/qr/confirm/{token}/')
+        
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=6,
+            border=1,
+        )
+        qr.add_data(qr_confirm_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        qr_bytes = buffer.getvalue()
+        
+        sticker_data = {
+            'product_name': product.name,
+            'variant': product.variant or '',
+            'quantity': product.size or '',
+            'qr_image_bytes': qr_bytes,
+        }
+        
+        connection_type = request.POST.get('connection_type', getattr(settings, 'THERMAL_PRINTER_TYPE', 'usb'))
+        connection_params = {}
+        
+        if connection_type == 'usb':
+            vendor_id = request.POST.get('vendor_id')
+            product_id_hex = request.POST.get('product_id')
+            if vendor_id and product_id_hex:
+                connection_params['vendor_id'] = int(vendor_id, 16) if vendor_id.startswith('0x') else int(vendor_id)
+                connection_params['product_id'] = int(product_id_hex, 16) if product_id_hex.startswith('0x') else int(product_id_hex)
+        elif connection_type in ['serial', 'bluetooth']:
+            port = request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_PORT', 'COM3'))
+            baudrate = int(request.POST.get('baudrate', getattr(settings, 'THERMAL_PRINTER_BAUDRATE', 9600)))
+            connection_params['port'] = port
+            connection_params['baudrate'] = baudrate
+        elif connection_type == 'network':
+            host = request.POST.get('host', getattr(settings, 'THERMAL_PRINTER_HOST', '192.168.1.100'))
+            port = int(request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_NETWORK_PORT', 9100)))
+            connection_params['host'] = host
+            connection_params['port'] = port
+        elif connection_type == 'windows':
+            printer_name = request.POST.get('printer_name', getattr(settings, 'THERMAL_PRINTER_NAME', 'POS58 Printer'))
+            connection_params['printer_name'] = printer_name
+        
+        printer_service = get_printer_service(connection_type=connection_type, **connection_params)
+        if not printer_service:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to connect to printer. Please check printer connection and settings.'
+            }, status=500)
+        
+        success = printer_service.print_qr_sticker(sticker_data)
+        printer_service.close()
+        
+        if success:
+            return JsonResponse({'success': True, 'message': 'Sticker printed successfully!'})
+        else:
+            error_msg = getattr(printer_service, 'last_error', 'Unknown printer error.')
+            return JsonResponse({'success': False, 'message': error_msg}, status=500)
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Print error: {str(e)}'}, status=500)

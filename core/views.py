@@ -10,7 +10,7 @@ import os
 import csv
 from django.conf import settings
 from django.db.models import Sum, Count, F, Q, Case, When, CharField, Value, Max
-from django.db.models.functions import Coalesce, Substr
+from django.db.models.functions import Coalesce, Substr, TruncDate
 from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary
 import json
 from django.db import transaction
@@ -45,6 +45,18 @@ STANDARD_SIZE_OPTIONS = ['120', '130', '140', '150', '160']
 import re
 
 _ALLOWED_TEXT_PATTERN = re.compile(r"[^A-Za-z0-9\-\s(),./]+")
+
+
+def format_local_datetime(dt, fmt='%b %d, %Y %I:%M %p'):
+    if not dt:
+        return 'N/A'
+    try:
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, timezone.get_default_timezone())
+        dt = timezone.localtime(dt)
+    except Exception:
+        return dt.strftime(fmt)
+    return dt.strftime(fmt)
 
 def sanitize_text(value: str, max_len: int = 120) -> str:
     """Return a cleaned, human-friendly string.
@@ -135,7 +147,13 @@ def login_view(request):
             
             if password_valid:
                 # Map roles to legacy session values used across the app
-                mapped_role = 'admin' if (user.role or '').lower() == 'admin' else 'user'
+                role_lower = (user.role or '').strip().lower()
+                if role_lower == 'admin':
+                    mapped_role = 'admin'
+                elif role_lower == 'secretary':
+                    mapped_role = 'secretary'
+                else:
+                    mapped_role = 'user'
                 request.session['app_user_id'] = user.user_id
                 request.session['app_username'] = user.username
                 request.session['app_role'] = mapped_role
@@ -302,24 +320,13 @@ def dashboard_view(request):
         total_revenue=Sum('total')
     )
     
+    # Format weekly revenue after weekly_sales is defined
+    weekly_revenue_formatted = format_currency(weekly_sales['total_revenue'] or 0)
+    
     # Recent transactions (last 10)
     recent_transactions = Sale.objects.filter(
         status='completed'
     ).select_related('product').order_by('-recorded_at')[:10]
-    
-    # Top customers (by sales count)
-    top_customers = (
-        Sale.objects
-        .filter(status='completed')
-        .exclude(customer_name__isnull=True)
-        .exclude(customer_name='')
-        .values('customer_name')
-        .annotate(
-            sales_count=Count('sale_id'),
-            total_spent=Sum('total')
-        )
-        .order_by('-sales_count')[:5]
-    )
     
     # Product categories overview
     product_categories = (
@@ -365,8 +372,8 @@ def dashboard_view(request):
         'out_of_stock': out_of_stock,
         'weekly_sales_count': weekly_sales['total_sales'] or 0,
         'weekly_revenue': weekly_sales['total_revenue'] or 0,
+        'weekly_revenue_formatted': weekly_revenue_formatted,
         'recent_transactions': recent_transactions,
-        'top_customers': top_customers,
         'product_categories': product_categories,
         'user_obj': user_obj,
         'today': today,
@@ -1211,7 +1218,7 @@ def sales_view(request):
             grouped[key] = {
                 'sale_id': row.sale_id,  # representative id
                 'transaction_number': key,
-                'recorded_at': row.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                'recorded_at': format_local_datetime(row.recorded_at),
                 'items': [item],
                 'items_json': [item],
                 'total': row.total,
@@ -1293,7 +1300,7 @@ def sales_view(request):
 
             voided_sales.append({
                 'sale_id': sale.sale_id,
-                'recorded_at': sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                'recorded_at': format_local_datetime(sale.recorded_at),
                 'items': items_data,
                 'items_json': items_data,
                 'total': sale.total,
@@ -1482,7 +1489,7 @@ def fetch_sales(request):
                 grouped[key] = {
                     'sale_id': row.sale_id,
                     'transaction_number': key,
-                    'recorded_at': row.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                    'recorded_at': format_local_datetime(row.recorded_at),
                     'items': [item],
                     'items_json': [item],
                     'total': str(row.total),
@@ -1905,6 +1912,7 @@ def fetch_reports(request):
         # Start with all completed sales and apply global filters
         base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
         date_range = _resolve_report_range(filter_type, start_date, end_date)
+        current_start = current_end = None
         sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
 
         previous_queryset = base_queryset.none()
@@ -1914,6 +1922,19 @@ def fetch_reports(request):
             previous_end = current_start - timedelta(seconds=1)
             previous_start = previous_end - period_delta
             previous_queryset = base_queryset.filter(recorded_at__range=(previous_start, previous_end))
+            period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+        else:
+            ft_lookup = (filter_type or '').lower()
+            if ft_lookup in ('weekly', 'week'):
+                period_days = 7
+            elif ft_lookup in ('monthly', 'month'):
+                period_days = 30
+            elif ft_lookup in ('quarter',):
+                period_days = 90
+            elif ft_lookup in ('year',):
+                period_days = 365
+            else:
+                period_days = 1
 
         def apply_common_filters(queryset):
             qs = queryset
@@ -1950,7 +1971,8 @@ def fetch_reports(request):
             total_revenue=Sum(F('quantity') * F('product__price')),
             transaction_count=Count('transaction_number', distinct=True),
             total_items_sold=Sum('quantity'),
-            total_cogs=Sum(F('quantity') * F('product__cost'))
+            total_cogs=Sum(F('quantity') * F('product__cost')),
+            total_rows=Count('sale_id')
         )
         total_rev = Decimal(agg['total_revenue'] or 0)
         trans_cnt = agg['transaction_count'] or 0
@@ -1959,7 +1981,46 @@ def fetch_reports(request):
         gross_profit = total_rev - total_cogs
         gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
         vat_total = total_rev * Decimal('0.12')
-        net_profit = gross_profit  # No additional expense tracking yet
+        net_profit = gross_profit  # Placeholder until expenses are tracked
+        sale_rows_count = agg['total_rows'] or 0
+
+        prev_agg = previous_queryset.aggregate(
+            total_revenue=Sum(F('quantity') * F('product__price')),
+            transaction_count=Count('transaction_number', distinct=True),
+            total_items_sold=Sum('quantity')
+        )
+        prev_revenue = Decimal(prev_agg['total_revenue'] or 0)
+        prev_trans_cnt = prev_agg['transaction_count'] or 0
+        revenue_growth_pct = float(((total_rev - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if total_rev else 0.0))
+        transaction_growth_pct = float(((trans_cnt - prev_trans_cnt) / prev_trans_cnt * 100) if prev_trans_cnt else (100.0 if trans_cnt else 0.0))
+        sales_velocity = float(total_items or 0) / float(period_days or 1)
+
+        daily_sales = list(
+            sales_queryset.annotate(day=TruncDate('recorded_at'))
+            .values('day')
+            .annotate(total=Count('sale_id'))
+            .order_by('-total')
+        )
+        peak_sales_day = 'N/A'
+        if daily_sales:
+            first_entry = daily_sales[0]
+            day_value = first_entry.get('day')
+            if day_value:
+                if isinstance(day_value, datetime):
+                    peak_sales_day = format_local_datetime(day_value, '%b %d, %Y')
+                else:
+                    peak_sales_day = day_value.strftime('%b %d, %Y')
+
+        voided_queryset = Sale.objects.filter(status__iexact='voided').select_related('user', 'product')
+        voided_queryset = _apply_report_filters(voided_queryset, filter_type, start_date, end_date)
+        voided_queryset = apply_common_filters(voided_queryset)
+        void_stats = voided_queryset.aggregate(
+            transaction_count=Count('transaction_number', distinct=True),
+            total_rows=Count('sale_id')
+        )
+        void_transaction_count = void_stats['transaction_count'] or 0
+        void_rate_base = trans_cnt + void_transaction_count
+        void_rate_pct = float((void_transaction_count / void_rate_base) * 100) if void_rate_base else 0.0
         sales_summary = {
             'total_revenue': float(total_rev),
             'total_transactions': trans_cnt,
@@ -1969,7 +2030,14 @@ def fetch_reports(request):
             'gross_profit': float(gross_profit),
             'gross_margin_pct': gross_margin_pct,
             'vat_total': float(vat_total),
-            'net_profit': float(net_profit)
+            'net_profit': float(net_profit),
+            'revenue_growth_pct': revenue_growth_pct,
+            'transaction_growth_pct': transaction_growth_pct,
+            'sales_velocity': sales_velocity,
+            'void_rate_pct': void_rate_pct,
+            'peak_sales_day': peak_sales_day,
+            'period_days': period_days,
+            'total_rows': sale_rows_count
         }
 
         previous_summary_map = {}
@@ -2042,6 +2110,17 @@ def fetch_reports(request):
                 'date': summary_date
             })
 
+        slow_movers = []
+        if sales_summary_data:
+            sorted_by_boxes = sorted(sales_summary_data, key=lambda x: x.get('boxes_sold') or 0)
+            for entry in sorted_by_boxes[:5]:
+                slow_movers.append({
+                    'product_name': entry.get('product_name'),
+                    'boxes_sold': entry.get('boxes_sold', 0),
+                    'revenue': entry.get('revenue', 0),
+                    'avg_daily_sales': round(float(entry.get('boxes_sold', 0)) / float(period_days or 1), 2) if period_days else 0.0
+                })
+
         total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
 
         product_map = Product.objects.filter(
@@ -2087,6 +2166,27 @@ def fetch_reports(request):
                 'inventory_turnover': inventory_turnover,
                 'date': summary_date
             })
+
+        abc_analysis = []
+        if total_current_revenue:
+            sorted_by_revenue = sorted(sales_summary_data, key=lambda x: x.get('revenue') or 0, reverse=True)
+            cumulative_share = Decimal('0')
+            for entry in sorted_by_revenue:
+                revenue_value = Decimal(entry.get('revenue') or 0)
+                share_pct = (revenue_value / total_current_revenue * Decimal('100')) if total_current_revenue else Decimal('0')
+                cumulative_share += share_pct
+                if cumulative_share <= Decimal('70'):
+                    category = 'A'
+                elif cumulative_share <= Decimal('90'):
+                    category = 'B'
+                else:
+                    category = 'C'
+                abc_analysis.append({
+                    'product_name': entry.get('product_name'),
+                    'revenue_share_pct': float(share_pct),
+                    'cumulative_pct': float(cumulative_share),
+                    'category': category
+                })
 
         # low stock fruits - enhanced analytics
         low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock'))
@@ -2148,6 +2248,33 @@ def fetch_reports(request):
         else:
             low_stock = []
 
+        # Dead stock / aging inventory insights
+        dead_stock = []
+        dead_cutoff = timezone.localtime() - timedelta(days=45)
+        last_sales_lookup = {
+            row['product_id']: row['last_sale']
+            for row in Sale.objects.filter(status__iexact='completed').values('product_id').annotate(last_sale=Max('recorded_at'))
+        }
+        for prod in Product.objects.filter(status='active').order_by('-stock'):
+            last_sale = last_sales_lookup.get(prod.product_id)
+            if not last_sale or last_sale < dead_cutoff:
+                if last_sale:
+                    idle_days = max((timezone.localtime() - last_sale).days, 0)
+                    last_sale_label = format_local_datetime(last_sale, '%b %d, %Y')
+                else:
+                    idle_days = None
+                    last_sale_label = 'No recorded sale'
+                dead_stock.append({
+                    'product_id': prod.product_id,
+                    'product_name': prod.name,
+                    'stock': prod.stock,
+                    'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
+                    'last_sale': last_sale_label,
+                    'days_idle': idle_days if idle_days is not None else '∞'
+                })
+            if len(dead_stock) >= 6:
+                break
+
         # transactions - group by transaction_number to avoid showing each line item separately
         rows = sales_queryset.order_by('-recorded_at', 'transaction_number', 'sale_id')[:200]
         grouped = {}
@@ -2199,6 +2326,39 @@ def fetch_reports(request):
 
         tx_data = list(grouped.values())[:100]  # Limit to 100 transactions for display
 
+        # Voided transactions data (for admin reports tab)
+        voided_rows = voided_queryset.order_by('-voided_at', '-recorded_at', 'sale_id')[:200]
+        voided_grouped = {}
+        for row in voided_rows:
+            key = row.transaction_number or f"VOID{row.sale_id:06d}"
+            vg = voided_grouped.get(key)
+            if not vg:
+                voided_grouped[key] = {
+                    'sale_id': row.sale_id,
+                    'transaction_no': row.transaction_number if row.transaction_number else key,
+                    'voided_at': row.voided_at.strftime('%Y-%m-%d %H:%M:%S') if row.voided_at else row.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'date_time': row.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'receipt_number': row.or_number or 'N/A',
+                    'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
+                    'processed_by': row.user.username if row.user else 'admin',
+                    'products': [row.product.name] if row.product and row.product.name else [],
+                    'quantity': int(row.quantity or 0),
+                    'boxes': int(row.quantity or 0),
+                    'total': float(row.total or 0),
+                    'status': row.status,
+                    'sale_ids': [row.sale_id],
+                }
+            else:
+                vg['quantity'] += int(row.quantity or 0)
+                vg['boxes'] += int(row.quantity or 0)
+                vg['total'] += float(row.total or 0)
+                if row.product and row.product.name and row.product.name not in vg['products']:
+                    vg['products'].append(row.product.name)
+                if row.sale_id not in vg.get('sale_ids', []):
+                    vg.setdefault('sale_ids', []).append(row.sale_id)
+
+        voided_data = list(voided_grouped.values())[:100]
+
         # Product summary reports from report_product_summary table
         summary_reports_q = ReportProductSummary.objects.select_related('product')
         # Apply date filtering to summary reports based on 'period_start' and 'period_end'
@@ -2244,6 +2404,10 @@ def fetch_reports(request):
                 'top_products': top_fruits, 
                 'low_stock': low_stock,
                 'transactions': tx_data,
+                'voided_transactions': voided_data,
+                'slow_movers': slow_movers,
+                'dead_stock': dead_stock,
+                'abc_analysis': abc_analysis,
                 'product_performance': summary_reports_data, 
                 'inventory_reports': summary_reports_data, 
             }
@@ -2793,7 +2957,7 @@ def export_report(request):
                 'sale_id': row.sale_id,
                 'transaction_number': row.transaction_number if row.transaction_number else key,
                 'or_number': row.or_number or 'N/A',
-                'recorded_at': row.recorded_at.strftime('%m/%d/%Y %I:%M %p'),
+                'recorded_at': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
                 'customer_name': row.customer_name or 'Walk-in',
                 'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
                 'address': row.address or 'N/A',
@@ -6055,7 +6219,7 @@ def print_thermal_receipt(request, sale_id):
             'transaction_number': txn_key or f"TXN{sale.sale_id}",
             'or_number': str(sale.or_number or 'N/A'),
             'date': formatted_date,
-            'customer_name': getattr(sale, 'customer_name', '') or 'Walk-in Customer',
+            'customer_name': '' if not getattr(sale, 'customer_name', '').strip() or getattr(sale, 'customer_name', '').strip() == 'Walk-in Customer' else getattr(sale, 'customer_name').strip(),
             'customer_contact': getattr(sale, 'contact_number', '') or '',
             'customer_address': getattr(sale, 'address', '') or '',
             'items': items_data,
@@ -6094,6 +6258,11 @@ def print_thermal_receipt(request, sale_id):
             connection_params['host'] = host
             connection_params['port'] = port
         
+        elif connection_type == 'windows':
+            # Windows printer (via Windows print spooler)
+            printer_name = request.POST.get('printer_name', getattr(settings, 'THERMAL_PRINTER_NAME', 'POS58 Printer'))
+            connection_params['printer_name'] = printer_name
+        
         # Import thermal printer service
         from .thermal_printer import get_printer_service
         
@@ -6118,9 +6287,13 @@ def print_thermal_receipt(request, sale_id):
                 'message': 'Receipt printed successfully!'
             })
         else:
+            error_msg = 'Failed to print receipt. Please check printer status.'
+            service_error = getattr(printer_service, 'last_error', None)
+            if service_error:
+                error_msg += f' Details: {service_error}'
             return JsonResponse({
                 'success': False,
-                'message': 'Failed to print receipt. Please check printer status.'
+                'message': error_msg
             }, status=500)
     
     except Sale.DoesNotExist:
@@ -6167,6 +6340,11 @@ def test_thermal_printer(request):
             port = int(request.POST.get('port', getattr(settings, 'THERMAL_PRINTER_NETWORK_PORT', 9100)))
             connection_params['host'] = host
             connection_params['port'] = port
+        
+        elif connection_type == 'windows':
+            # Windows printer (via Windows print spooler)
+            printer_name = request.POST.get('printer_name', getattr(settings, 'THERMAL_PRINTER_NAME', 'POS58 Printer'))
+            connection_params['printer_name'] = printer_name
         
         # Import thermal printer service
         from .thermal_printer import get_printer_service

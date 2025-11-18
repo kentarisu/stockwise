@@ -1,3 +1,51 @@
+  <div class="modal fade" id="printSuccessModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title text-success"><i class="bi bi-check-circle-fill me-2"></i>Receipt Printed</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          Receipt printed successfully. Please hand it to the customer.
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-success" data-bs-dismiss="modal">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Printer Not Connected</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          Please connect your thermal printer to this device and make sure it is powered on.
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Printer Not Connected</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          Please connect your thermal printer to this device and make sure it is powered on.
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
@@ -291,7 +339,7 @@
         .header-left {
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 0;
             flex: 1;
         }
 
@@ -319,6 +367,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            padding-left: 3rem;
         }
 
         .header-left h1 {
@@ -591,11 +640,23 @@
 
         /* Sales Table */
         .sales-table-card {
+            position: relative;
             background: white;
             border-radius: 16px;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
             overflow: hidden;
+        }
+
+        .sales-table-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 16px 16px 0 0;
+            background: linear-gradient(90deg, #34d399, #22d3ee, #6366f1);
         }
 
         .table-header {
@@ -628,7 +689,58 @@
             align-items: center;
         }
 
-        .form-select, .form-control {
+        .filter-panel {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.45);
+            position: relative;
+            margin-top: 1.5rem;
+        }
+
+        .filter-panel::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 24px;
+            right: 24px;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5b7cfa 0%, #34d399 100%);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-group > div {
+            flex: 1 1 200px;
+            min-width: 200px;
+        }
+
+        .filter-group label {
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--gray-500);
+            margin-bottom: 0.4rem;
+        }
+
+        .filter-group.search-group {
+            align-items: flex-end;
+        }
+
+        .filter-group .form-select,
+        .filter-group .form-control {
             border-radius: 10px;
             border: 1px solid rgba(148, 163, 184, 0.6);
             padding: 0.45rem 0.75rem;
@@ -637,10 +749,50 @@
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .form-select:focus, .form-control:focus {
+        .filter-group .form-select:focus,
+        .filter-group .form-control:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
             outline: none;
+        }
+
+        .filter-search-input {
+            padding-left: 2.25rem;
+            position: relative;
+        }
+
+        .filter-search-wrapper {
+            position: relative;
+            display: flex;
+            width: 100%;
+        }
+
+        .filter-search-wrapper i {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 1rem;
+        }
+
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
         }
 
         .table {
@@ -717,6 +869,10 @@
         }
 
         @media (max-width: 768px) {
+            .header-title-section {
+                padding-left: 1.5rem;
+            }
+            
             .pagination-container {
                 flex-direction: column;
                 gap: 1rem;
@@ -1207,6 +1363,10 @@
         }
     </style>
     <style>
+        body.app-role-secretary .role-hide-secretary {
+            display: none !important;
+        }
+
         /* Local mobile card overrides (standalone page) */
         @media (max-width: 768px) {
             .content-area table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
@@ -1219,7 +1379,7 @@
         }
     </style>
 </head>
-<body>
+<body class="app-role-{{ app_role|default:user_obj.role|default:'user'|lower }}" data-role="{{ app_role|default:user_obj.role|default:'user'|lower }}">
     <div class="app-container">
         <!-- Unified Header -->
         <header class="header">
@@ -1354,16 +1514,53 @@
                     </div>
                 </div>
 
-                <!-- Quick Actions -->
-                <div class="action-buttons">
-                    <button type="button" class="btn-modern success" id="recordSaleBtn">
-                        <i class="bi bi-plus-circle"></i>
-                        Record Sale
+                <div class="action-buttons justify-content-end align-items-center">
+                    <button type="button" class="btn-filter-action" id="salesRefreshBtn" aria-label="Refresh sales" style="width: 150px; justify-content: center;">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="salesRefreshSpinner"></span>
+                        <span class="d-flex align-items-center gap-1">
+                            <i class="bi bi-arrow-clockwise"></i>
+                            Refresh
+                        </span>
                     </button>
-                    <button type="button" class="btn-modern warning" id="refreshSales">
-                        <i class="bi bi-arrow-clockwise"></i>
-                        Refresh
-                    </button>
+                </div>
+
+                <div class="filter-panel mt-3">
+                    <div class="filter-group">
+                        <div class="flex-grow-1">
+                            <label class="form-label small fw-semibold">Search</label>
+                            <div class="filter-search-wrapper">
+                                <i class="bi bi-search"></i>
+                                <input type="text" class="form-control filter-search-input" id="searchFilter" placeholder="Search by sale number..." value="{{ search }}">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="form-label small fw-semibold">Date Range</label>
+                            <select class="form-select" id="rangeFilter">
+                                <option value="today" selected>Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small fw-semibold">User</label>
+                            <select class="form-select" id="userFilter">
+                                <option value="all" {% if user_filter == 'all' %}selected{% endif %}>All Users</option>
+                                {% for user in all_users %}
+                                <option value="{{ user.user_id }}" {% if user_filter == user.user_id|stringformat:"s" %}selected{% endif %}>{{ user.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small fw-semibold">Product</label>
+                            <select class="form-select" id="fruitFilter">
+                                <option value="all" {% if fruit_filter == 'all' %}selected{% endif %}>All Products</option>
+                                {% for fruit in fruits %}
+                                <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Transactions -->
@@ -1385,31 +1582,6 @@
                             </li>
                             {% endif %}
                         </ul>
-                        <div class="table-filters">
-                            <select class="form-control" id="rangeFilter">
-                                <option value="today">Today</option>
-                                <option value="week">This Week</option>
-                                <option value="month">This Month</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                            <select class="form-control" id="userFilter">
-                                <option value="all">All Users</option>
-                                {% for user in all_users %}
-                                <option value="{{ user.user_id }}" {% if user_filter == user.user_id|stringformat:"s" %}selected{% endif %}>{{ user.username }}</option>
-                                {% endfor %}
-                            </select>
-                            <select class="form-control" id="fruitFilter">
-                                <option value="all">All Products</option>
-                                {% for fruit in fruits %}
-                                <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
-                                {% endfor %}
-                            </select>
-                            <input type="date" class="form-control d-none" id="dateFilter" title="Single day when range is Today">
-                            <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Search (e.g., Apple, #7, September 19, 2025, 2025)" id="searchFilter">
-                                <button class="btn btn-primary" type="button" id="searchBtn"><i class="bi bi-search"></i></button>
-                            </div>
-                        </div>
                     </div>
                     <div class="tab-content p-3 pt-0">
                         <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
@@ -1422,6 +1594,7 @@
                                             <th>Customer</th>
                                             <th>Products</th>
                                             <th>Quantity</th>
+                                            <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
@@ -1458,7 +1631,7 @@
                                             </td>
                                             <td>
                                                 <div class="dropdown">
-                                                    <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                            <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
                                                         <i class="bi bi-three-dots-vertical"></i>
                                                         <span class="visually-hidden">More options for sale #{{ sale.sale_id }}</span>
                                                     </button>
@@ -1468,7 +1641,8 @@
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
                                                         </li>
-                                                        <li>
+                                                        {% if app_role|default:'user'|lower != 'secretary' %}
+                                                        <li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
@@ -1479,6 +1653,7 @@
                                                                 <i class="bi bi-x-circle me-2"></i> Void Sale
                                                             </button>
                                                         </li>
+                                                        {% endif %}
                                                         {% endif %}
                                                     </ul>
                                                 </div>
@@ -1494,7 +1669,6 @@
                                 <div id="pagination-allSalesTable" class="mt-3"></div>
                             </div>
                         </div>
-
                         <div class="tab-pane fade" id="today" role="tabpanel" aria-labelledby="today-tab">
                             <div class="table-responsive table-responsive-wrapper">
                                 <table class="table table-mobile-card" id="todaySalesTable">
@@ -1523,7 +1697,6 @@
                                 <div id="pagination-todaySalesTable" class="mt-3"></div>
                             </div>
                         </div>
-
                         <div class="tab-pane fade" id="recent" role="tabpanel" aria-labelledby="recent-tab">
                             <div class="table-responsive table-responsive-wrapper">
                                 <table class="table table-mobile-card" id="salesTable">
@@ -1581,7 +1754,8 @@
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
                                                         </li>
-                                                        <li>
+                                                        {% if app_role|default:'user'|lower != 'secretary' %}
+                                                        <li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
@@ -1592,6 +1766,7 @@
                                                                 <i class="bi bi-x-circle me-2"></i> Void Sale
                                                             </button>
                                                         </li>
+                                                        {% endif %}
                                                         {% endif %}
                                                     </ul>
                                                 </div>
@@ -1607,7 +1782,6 @@
                                 <div id="pagination-salesTable" class="mt-3"></div>
                             </div>
                         </div>
-
                         {% if app_role == 'admin' %}
                         <div class="tab-pane fade" id="voided" role="tabpanel" aria-labelledby="voided-tab">
                             <div class="table-responsive table-responsive-wrapper">
@@ -1658,11 +1832,13 @@
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
                                                         </li>
-                                                        <li>
+                                                        {% if app_role|default:'user'|lower != 'secretary' %}
+                                                        <li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
                                                         </li>
+                                                        {% endif %}
                                                         <li>
                                                             <button class="dropdown-item complete-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Complete Sale">
                                                                 <i class="bi bi-check-circle me-2"></i> Complete Sale
@@ -1915,6 +2091,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Helpers / Role
+        const userRole = (document.body?.dataset?.role || "{{ app_role|default:user_obj.role|default:'user'|lower }}").trim().toLowerCase();
+        const canPrint = userRole !== 'secretary';
+        const canVoid = userRole === 'admin';
+
+        function applyRoleVisibilityRestrictions() {
+            if (!canPrint) {
+                document.querySelectorAll('.print-receipt-btn').forEach(btn => {
+                    const listItem = btn.closest('li');
+                    if (listItem) listItem.remove();
+                });
+            }
+
+            if (!canVoid) {
+                document.querySelectorAll('.void-sale-btn, .complete-sale-btn').forEach(btn => {
+                    const listItem = btn.closest('li');
+                    if (listItem) listItem.remove();
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', applyRoleVisibilityRestrictions);
+
         // Helpers
         const safeText = (v, alt='N/A') => (v===null || v===undefined || v==='') ? alt : String(v);
         const safeNum = (v, def=0) => Number.isFinite(Number(v)) ? Number(v) : def;
@@ -1931,7 +2130,8 @@
         let customStart = '';
         let customEnd = '';
         const searchInput = document.getElementById('searchFilter');
-        const refreshBtn = document.getElementById('refreshSales');
+        const refreshBtn = document.getElementById('salesRefreshBtn');
+        const refreshSpinner = document.getElementById('salesRefreshSpinner');
         if (dateInput) dateInput.valueAsDate = new Date();
 
         // Pagination state
@@ -2035,7 +2235,10 @@
         }
 
         function renderSalesTable(rows, tableId = 'salesTable') {
-            renderSalesTableForPage(rows, tableId);
+            const safeRows = Array.isArray(rows) ? rows : [];
+            window[`${tableId}_data`] = safeRows;
+            pagination.currentPage[tableId] = 1;
+            renderSalesTableForPage(safeRows, tableId);
             if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
         }
 
@@ -2060,6 +2263,13 @@
             // Render paginated rows
             paginatedRows.forEach(row => {
                 const tr = document.createElement('tr');
+                const printOption = canPrint ? `
+                                <li class="role-hide-secretary">
+                                    <button class="dropdown-item print-receipt-btn" data-sale-id="${row.sale_id}" title="Print Receipt">
+                                        <i class="bi bi-printer me-2"></i> Print Receipt
+                                    </button>
+                                </li>` : '';
+
                 tr.innerHTML = `
                     <td>#${safeText(row.sale_id,'N/A')}</td>
                     <td>${safeText(row.recorded_at,'N/A')}</td>
@@ -2083,17 +2293,15 @@
                                         <i class="bi bi-eye me-2"></i> View Details
                                     </button>
                                 </li>
-                                <li>
-                                    <button class="dropdown-item print-receipt-btn" data-sale-id="${row.sale_id}" title="Print Receipt">
-                                        <i class="bi bi-printer me-2"></i> Print Receipt
-                                    </button>
-                                </li>
+                                ${printOption}
                                 ${getActionButtons(row)}
                             </ul>
                         </div>
                     </td>`;
                 tbody.appendChild(tr);
             });
+            
+            applyRoleVisibilityRestrictions();
             
             // Update pagination controls
             updatePagination(rows.length, tableId);
@@ -2109,14 +2317,14 @@
 
         function getActionButtons(row) {
             const statusLower = safeText(row.status,'').toLowerCase();
-            if (statusLower === 'completed') {
+            if (statusLower === 'completed' && canVoid) {
                 return `
                             <li>
                                 <button class="dropdown-item void-sale-btn" data-sale-id="${row.sale_id}" title="Void Sale">
                                     <i class="bi bi-x-circle me-2"></i> Void Sale
                                 </button>
                             </li>`;
-            } else if (statusLower === 'pending') {
+            } else if (statusLower === 'pending' && canVoid) {
                 return `
                             <li>
                                 <button class="dropdown-item complete-sale-btn" data-sale-id="${row.sale_id}" title="Complete Sale">
@@ -2361,7 +2569,17 @@
             updateSummaryCards(); // Update cards with filtered data
         }
 
-        refreshBtn?.addEventListener('click', loadCurrentTab);
+        refreshBtn?.addEventListener('click', function() {
+            if (refreshSpinner) refreshSpinner.classList.remove('d-none');
+            refreshBtn.disabled = true;
+            saveSalesFilters();
+            Promise.all([updateSummaryCards(), new Promise(resolve => setTimeout(resolve, 800))])
+                .finally(() => {
+                    refreshBtn.disabled = false;
+                    refreshSpinner?.classList.add('d-none');
+                });
+            loadCurrentTab();
+        });
         dateInput?.addEventListener('change', loadCurrentTab);
         function updateTodayLabel(){
             const opt = document.querySelector('#rangeFilter option[value="today"]');
@@ -2441,11 +2659,6 @@
                 updateSummaryCards(); // Update cards when search changes
                 loadCurrentTab();
             }, 300); 
-        });
-        document.getElementById('searchBtn')?.addEventListener('click', function() {
-            saveSalesFilters();
-            updateSummaryCards(); // Update cards when search button clicked
-            loadCurrentTab();
         });
         document.getElementById('userFilter')?.addEventListener('change', function() {
             saveSalesFilters();
@@ -2792,36 +3005,58 @@
                 .catch(err => console.error('Details error', err));
         }
 
-        // Thermal printer settings (can be configured via localStorage or UI)
-        let thermalPrinterSettings = {
-            connectionType: localStorage.getItem('thermalPrinterConnectionType') || 'usb',
-            port: localStorage.getItem('thermalPrinterPort') || 'COM3',
-            baudrate: parseInt(localStorage.getItem('thermalPrinterBaudrate')) || 9600,
-            vendorId: localStorage.getItem('thermalPrinterVendorId') || '',
-            productId: localStorage.getItem('thermalPrinterProductId') || ''
-        };
+        // Thermal printer settings are now loaded directly from localStorage in printThermalReceipt()
 
         // Print to thermal printer
+        function showPrintSuccessModal(){
+            const modalEl = document.getElementById('printSuccessModal');
+            if (!modalEl) {
+                alert('Receipt printed successfully.');
+                return;
+            }
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
+        function showPrinterErrorModal(message){
+            const modalEl = document.getElementById('printerErrorModal');
+            if (!modalEl) {
+                alert(message || 'Please connect your thermal printer to this device and make sure it is powered on.');
+                return;
+            }
+            const bodyEl = modalEl.querySelector('.modal-body');
+            if (bodyEl) {
+                bodyEl.textContent = message || 'Please connect your thermal printer to this device and make sure it is powered on.';
+            }
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
         function printThermalReceipt(saleId) {
             const formData = new FormData();
-            formData.append('connection_type', thermalPrinterSettings.connectionType);
             
-            if (thermalPrinterSettings.connectionType === 'usb') {
-                if (thermalPrinterSettings.vendorId) {
-                    formData.append('vendor_id', thermalPrinterSettings.vendorId);
-                }
-                if (thermalPrinterSettings.productId) {
-                    formData.append('product_id', thermalPrinterSettings.productId);
-                }
-            } else if (thermalPrinterSettings.connectionType === 'serial' || thermalPrinterSettings.connectionType === 'bluetooth') {
-                formData.append('port', thermalPrinterSettings.port);
-                formData.append('baudrate', thermalPrinterSettings.baudrate);
+            // Get printer settings from localStorage or use defaults
+            const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
+            const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
+            
+            formData.append('connection_type', connectionType);
+            
+            if (connectionType === 'windows') {
+                formData.append('printer_name', printerName);
+            } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
+                formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
+                formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
+            } else if (connectionType === 'usb') {
+                const vendorId = localStorage.getItem('thermalPrinterVendorId');
+                const productId = localStorage.getItem('thermalPrinterProductId');
+                if (vendorId) formData.append('vendor_id', vendorId);
+                if (productId) formData.append('product_id', productId);
             }
             
             // Add CSRF token
             const csrftoken = getCookie('csrftoken');
             
-            fetch(`/api/printer/receipt/${saleId}/`, {
+        fetch(`/api/printer/receipt/${saleId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': csrftoken
@@ -2829,27 +3064,23 @@
                 body: formData
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Receipt printed successfully to thermal printer!');
-                } else {
-                    alert('Print failed: ' + (data.message || 'Unknown error'));
-                }
-            })
+    .then(data => {
+        if (data.success) {
+            showPrintSuccessModal();
+        } else {
+            showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+        }
+    })
             .catch(err => {
                 console.error('Thermal print error', err);
-                alert('Error printing to thermal printer: ' + err.message);
+            showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
             });
         }
 
         function printReceipt(saleId) {
-            // Show dialog to choose print type
-            const useThermal = confirm('Print to thermal printer? (Click OK for thermal, Cancel for regular print)');
-            
-            if (useThermal) {
-                printThermalReceipt(saleId);
-                return;
-            }
+            // Always use thermal printer
+            printThermalReceipt(saleId);
+            return;
             
             // Regular print (styled like record_sale.html)
             fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })

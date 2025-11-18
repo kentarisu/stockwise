@@ -98,6 +98,13 @@
             flex: 1;
         }
         
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
         .batch-info {
             font-size: 14px;
             color: #6b7280;
@@ -120,6 +127,15 @@
             font-weight: 500;
             cursor: pointer;
             transition: background-color 0.2s;
+            width: 100%;
+        }
+        
+        .scan-button.secondary {
+            background: #111827;
+        }
+        
+        .scan-button.secondary:hover {
+            background: #030712;
         }
         
         .scan-button:hover {
@@ -156,9 +172,73 @@
             <div class="qr-info">
                 <p class="batch-info">Batch: Set when scanned</p>
                 <p class="date-info">Date: Set when scanned</p>
-                <button class="scan-button" onclick="window.print()">Print Sticker</button>
+                <div class="button-group">
+                    <button class="scan-button" onclick="window.print()">Print on Regular Printer</button>
+                    <button class="scan-button secondary" id="thermalPrintBtn">Print on Thermal Printer</button>
+                </div>
             </div>
         </div>
     </div>
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        function printStickerThermal(productId) {
+            const formData = new FormData();
+            const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
+            formData.append('connection_type', connectionType);
+            
+            if (connectionType === 'windows') {
+                formData.append('printer_name', localStorage.getItem('thermalPrinterName') || 'POS58 Printer');
+            } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
+                formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
+                formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
+            } else if (connectionType === 'usb') {
+                const vendorId = localStorage.getItem('thermalPrinterVendorId');
+                const productId = localStorage.getItem('thermalPrinterProductId');
+                if (vendorId) formData.append('vendor_id', vendorId);
+                if (productId) formData.append('product_id', productId);
+            } else if (connectionType === 'network') {
+                formData.append('host', localStorage.getItem('thermalPrinterHost') || '192.168.1.100');
+                formData.append('port', localStorage.getItem('thermalPrinterNetworkPort') || '9100');
+            }
+            
+            fetch(`/qr/sticker/print/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken') || ''
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Sticker printed successfully!');
+                } else {
+                    alert('Print failed: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Thermal print error:', error);
+                alert('Error printing sticker: ' + error.message);
+            });
+        }
+        
+        document.getElementById('thermalPrintBtn').addEventListener('click', function(){
+            printStickerThermal({{ product.product_id }});
+        });
+    </script>
 </body>
 </html>

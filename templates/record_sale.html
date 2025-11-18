@@ -223,6 +223,15 @@
             justify-content: center;
             padding: 0;
         }
+
+        .thermal-receipt-preview {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            min-height: 400px;
+            color: #111827;
+        }
         
         /* Ensure Select2 matches height */
         .item-row .select2-container--default .select2-selection--single {
@@ -380,7 +389,7 @@
         }
     </style>
 </head>
-<body>
+<body {% if preselected_product_id %}data-preselected-product-id="{{ preselected_product_id }}"{% endif %} {% if product_locked %}data-product-locked="true"{% else %}data-product-locked="false"{% endif %}>
 <div class="page-container">
   <div class="card-modern">
     <div class="card-header-modern">
@@ -391,6 +400,42 @@
     </div>
     <div class="p-3">
       <div id="buyFormAlert"></div>
+      <div class="modal fade" id="printSuccessModal" tabindex="-1" aria-labelledby="printSuccessLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header border-0">
+              <h5 class="modal-title" id="printSuccessLabel">
+                <i class="bi bi-check-circle-fill text-success me-2"></i>Receipt Printed
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              Receipt printed successfully. Please hand it to the customer.
+            </div>
+            <div class="modal-footer border-0">
+              <button type="button" class="btn btn-success" data-bs-dismiss="modal">Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header border-0">
+              <h5 class="modal-title text-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>Printer Not Connected
+              </h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              Please connect your thermal printer to this device and make sure it is powered on.
+            </div>
+            <div class="modal-footer border-0">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="sale-steps" id="saleStepsIndicator">
         <div class="sale-step" id="stepIndicator1"><i class="bi bi-basket"></i><div class="sale-step-label">Select Items</div></div>
@@ -498,39 +543,8 @@
 
       <div id="saleStep3" style="display:none;">
         <div id="saleSuccessMessage" class="alert alert-success w-100 mb-3" style="display:none;"><i class="bi bi-check-circle-fill text-success me-2"></i>Sale recorded successfully!</div>
-        <div class="receipt-container border p-3" style="max-width:300px;margin:0 auto;">
-          <div class="receipt-header text-center mb-2">
-            <div class="company-name fw-bold">FruitMaster Marketing</div>
-            <div class="company-details small">Mabini Street - Libertad, Bacolod City, Negros Occidental</div>
-            <div class="company-details small">TIN: </div>
-            <div class="company-details small">Tel: 434-7680, 213-5681, 213-5682</div>
-          </div>
-          <div class="receipt-title text-center fw-bold">SALES RECEIPT</div>
-          <hr class="receipt-divider"/>
-          <div id="receiptProcessedByRow" class="receipt-info" style="display:none;">Processed by: <span id="receiptProcessedBy"></span></div>
-          <div class="receipt-info">Transaction no.: <span id="transactionNumber"></span></div>
-          <div class="receipt-info">OR no.: <span id="orNumber"></span></div>
-          <div class="receipt-info">Date: <span id="receiptDate"></span></div>
-          <div class="receipt-info">Customer: <span id="receiptCustomerName"></span></div>
-          <div class="receipt-info">Contact no.: <span id="receiptCustomerContact"></span></div>
-          <div class="receipt-info">Address: <span id="receiptCustomerAddress"></span></div>
-          <table class="receipt-table w-100 my-2">
-            <thead><tr><th>Description</th><th class="text-end">Boxes</th><th class="text-end">Price</th><th class="text-end">Amount</th></tr></thead>
-            <tbody id="receiptTableItems"></tbody>
-          </table>
-          <hr class="receipt-divider"/>
-          <div class="d-flex justify-content-between"><span>Sub Total:</span><span id="receiptSubtotal">₱0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Plus 12% VAT:</span><span id="receiptVAT">₱0.00</span></div>
-          <div class="d-flex justify-content-between fw-bold border-top pt-1"><span>TOTAL AMOUNT TO BE PAID:</span><span id="receiptTotalAmount">₱0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Cash (PHP) Tendered:</span><span id="receiptAmountPaid">₱0.00</span></div>
-          <div class="d-flex justify-content-between"><span>Change Cash:</span><span id="receiptChange">₱0.00</span></div>
-          <div class="receipt-footer text-center small mt-2">
-            <p class="mb-1">This is not the official receipt.</p>
-            <p class="mb-1">SERVER SN: </p>
-            <p class="mb-1">POS SN: </p>
-            <p class="mb-1">BIR PERMIT NO. </p>
-            <p class="mb-0">ACCREDITATION NO. </p>
-          </div>
+        <div class="receipt-container border p-3" style="max-width:320px;margin:0 auto;background:#fff;">
+          <pre id="thermalReceiptPreview" class="thermal-receipt-preview">Generate a receipt preview after filling the sale details.</pre>
         </div>
       </div>
 
@@ -539,13 +553,13 @@
           <button type="button" class="btn btn-outline-secondary" id="backToStep1" style="display:none;">Back</button>
         </div>
         <div>
-          <button type="button" class="btn btn-outline-secondary" id="cancelBtn" onclick="window.location.href='{% url 'products_inventory' %}'">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" id="cancelBtn">Cancel</button>
           <button type="button" class="btn btn-primary" id="nextToStep2">Proceed to Payment</button>
           <button type="button" class="btn btn-success" id="confirmPaymentStep" style="display:none;" disabled>Confirm Payment</button>
           <button type="button" class="btn btn-success" id="recordSaleBtn" style="display:none;">Record Sale</button>
           <button type="button" class="btn btn-outline-success" id="printReceiptBtn" style="display:none;">Print Receipt</button>
           <button type="button" class="btn btn-outline-success" id="printReceiptAfterBtn" style="display:none;">Print Receipt</button>
-          <button type="button" class="btn btn-success" id="doneBtn" style="display:none;" onclick="window.location.href='{% url 'sales' %}'">Done</button>
+          <button type="button" class="btn btn-success" id="doneBtn" style="display:none;">Done</button>
         </div>
       </div>
     </div>
@@ -562,12 +576,108 @@ const formatCurrency = (value) => {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+const RECEIPT_WIDTH = 32;
+const DESC_WIDTH = 18;
+const QTY_COL_WIDTH = 4;
+const AMOUNT_WIDTH = RECEIPT_WIDTH - DESC_WIDTH - QTY_COL_WIDTH;
+
+function padLine(left, right) {
+  left = (left || '').toString();
+  right = (right || '').toString();
+  if (left.length + right.length > RECEIPT_WIDTH) {
+    left = left.slice(0, RECEIPT_WIDTH - right.length);
+  }
+  return left.padEnd(RECEIPT_WIDTH - right.length) + right;
+}
+
+function centerLine(text) {
+  const trimmed = (text || '').toString().trim();
+  if (!trimmed) return ''.padStart(RECEIPT_WIDTH, ' ');
+  if (trimmed.length >= RECEIPT_WIDTH) return trimmed.slice(0, RECEIPT_WIDTH);
+  const padding = Math.floor((RECEIPT_WIDTH - trimmed.length) / 2);
+  return ' '.repeat(padding) + trimmed + ' '.repeat(RECEIPT_WIDTH - trimmed.length - padding);
+}
+
+function wrapLine(text, width) {
+  const maxWidth = width || RECEIPT_WIDTH;
+  const words = (text || '').toString().trim().split(/\s+/);
+  const lines = [];
+  let current = '';
+  words.forEach(function(word){
+    if (!word) return;
+    if ((current + ' ' + word).trim().length > maxWidth) {
+      if (current) lines.push(current.trim());
+      current = word;
+    } else {
+      current = current ? (current + ' ' + word) : word;
+    }
+  });
+  if (current) lines.push(current.trim());
+  if (!lines.length) lines.push('');
+  return lines;
+}
+
+function formatAmount(value) {
+  return Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatReceiptDate(dateObj) {
+  const d = dateObj || new Date();
+  const pad = function(n){ return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function buildThermalPreview(data) {
+  const lines = [];
+  lines.push(centerLine(data.company_name || ''));
+  wrapLine(data.company_address || '', RECEIPT_WIDTH).forEach(line => lines.push(centerLine(line)));
+  if (data.company_phone) lines.push(centerLine(`Tel: ${data.company_phone}`));
+  lines.push('='.repeat(RECEIPT_WIDTH));
+  lines.push(centerLine('SALES RECEIPT'));
+  lines.push('='.repeat(RECEIPT_WIDTH));
+  lines.push(`Transaction No.: ${data.transaction_number || ''}`);
+  lines.push(`OR No.: ${data.or_number || ''}`);
+  lines.push(`Date: ${data.date || ''}`);
+  lines.push(`Customer: ${data.customer_name || ''}`);
+  lines.push(`Contact: ${data.customer_contact || ''}`);
+  if (data.customer_address) {
+    const wrappedAddress = wrapLine(data.customer_address, RECEIPT_WIDTH - 10);
+    wrappedAddress.forEach((line, idx) => {
+      lines.push(`${idx === 0 ? 'Address:' : '        '} ${line}`);
+    });
+  } else {
+    lines.push('Address:');
+  }
+  lines.push('-'.repeat(RECEIPT_WIDTH));
+  lines.push(`${'Description'.padEnd(DESC_WIDTH)}${'Qty'.padStart(QTY_COL_WIDTH)}${'Amount'.padStart(AMOUNT_WIDTH)}`);
+  lines.push('-'.repeat(RECEIPT_WIDTH));
+  (data.items || []).forEach(item => {
+    const nameLines = wrapLine(item.name || '', DESC_WIDTH);
+    const quantity = String(item.quantity || 0);
+    const amount = formatAmount(item.amount || 0);
+    lines.push(nameLines[0].padEnd(DESC_WIDTH) + quantity.padStart(QTY_COL_WIDTH) + amount.padStart(AMOUNT_WIDTH));
+    nameLines.slice(1).forEach(line => lines.push(line.padEnd(RECEIPT_WIDTH)));
+    lines.push(padLine('', `@ ${formatAmount(item.price || 0)}`));
+  });
+  lines.push('='.repeat(RECEIPT_WIDTH));
+  lines.push(padLine('Subtotal:', formatAmount(data.subtotal || 0)));
+  if (data.vat) lines.push(padLine('VAT 12%:', formatAmount(data.vat || 0)));
+  lines.push(padLine('TOTAL:', formatAmount(data.total || 0)));
+  lines.push('-'.repeat(RECEIPT_WIDTH));
+  lines.push(padLine('Amount Paid:', formatAmount(data.amount_paid || 0)));
+  if (data.change) lines.push(padLine('Change:', formatAmount(data.change || 0)));
+  lines.push('='.repeat(RECEIPT_WIDTH));
+  lines.push(centerLine('Thank you for your purchase!'));
+  lines.push(centerLine('This is not an official receipt.'));
+  return lines.join('\n');
+}
+
 // CSRF helper
 function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
 const csrftoken=getCookie('csrftoken');
 $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 
-let products=[]; let currentStep=1; window.saleItems=[]; let transactionNumber=''; let orNumber='';
+let products=[]; let currentStep=1; window.saleItems=[]; window.lastRecordedSaleId=null; let transactionNumber=''; let orNumber='';
 
 function loadActiveProducts(){
   return fetch("{% url 'get_active_products' %}")
@@ -677,103 +787,157 @@ async function updateBatchesToSell(itemRow) {
     $batchDisplay.removeClass('text-success fw-bold').addClass('text-danger');
   }
 }
-function showStep(step){ $('#saleStep1,#saleStep2,#saleStep3').hide(); $('#stepIndicator1,#stepIndicator2,#stepIndicator3').removeClass('active'); if(step===1){ $('#saleStep1').show(); $('#nextToStep2').show(); $('#confirmPaymentStep,#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').hide(); $('#stepIndicator1').addClass('active'); } else if(step===2){ $('#saleStep2').show(); $('#nextToStep2').hide(); $('#confirmPaymentStep').show(); $('#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').show(); $('#stepIndicator2').addClass('active'); } else { $('#saleStep3').show(); $('#nextToStep2,#confirmPaymentStep').hide(); $('#recordSaleBtn,#printReceiptBtn').show(); $('#backToStep1').show(); $('#stepIndicator3').addClass('active'); } currentStep=step; }
-function generateReceipt(){ const items=window.saleItems||[]; const subtotal=parseFloat($('#paymentSubtotal').text().replace(/,/g,''))||0; const vat=parseFloat($('#paymentVAT').text().replace(/,/g,''))||0; const totalAmount=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const amountPaid=parseFloat($('#paymentTendered').val())||0; const change=parseFloat($('#paymentChange').text().replace(/,/g,''))||0; const customerName=$('#customerName').val()||'Walk-in Customer'; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; let html=''; items.forEach(it=>{ const baseName=(it.name||'').split('(')[0].trim(); let d=baseName||it.name||''; if(it.variant) d+=` (${it.variant})`; if(it.size) d+=` (${it.size})`; html+=`<tr><td>${d}</td><td class="text-end">${it.quantity}</td><td class="text-end">₱${formatCurrency(it.price)}</td><td class="text-end">₱${formatCurrency(it.amount)}</td></tr>`; }); $('#receiptTableItems').html(html); $('#receiptSubtotal').text('₱'+formatCurrency(subtotal)); $('#receiptVAT').text('₱'+formatCurrency(vat)); $('#receiptTotalAmount').text('₱'+formatCurrency(totalAmount)); $('#receiptAmountPaid').text('₱'+formatCurrency(amountPaid)); $('#receiptChange').text('₱'+formatCurrency(change)); $('#transactionNumber').text(transactionNumber||''); $('#orNumber').text(orNumber||''); $('#receiptDate').text(new Date().toLocaleString()); $('#receiptCustomerName').text(customerName); $('#receiptCustomerContact').text(customerContact||'N/A'); $('#receiptCustomerAddress').text(customerAddress||'N/A'); }
-function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ transactionNumber = String(resp.sale_ids[0]); $('#transactionNumber').text(transactionNumber); } $('#orNumber').text(orNumber||''); }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }}); }
+function showStep(step){ $('#saleStep1,#saleStep2,#saleStep3').hide(); $('#stepIndicator1,#stepIndicator2,#stepIndicator3').removeClass('active'); if(step===1){ window.lastRecordedSaleId=null; $('#saleStep1').show(); $('#nextToStep2').show(); $('#confirmPaymentStep,#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').hide(); $('#stepIndicator1').addClass('active'); } else if(step===2){ $('#saleStep2').show(); $('#nextToStep2').hide(); $('#confirmPaymentStep').show(); $('#recordSaleBtn,#printReceiptBtn,#printReceiptAfterBtn,#doneBtn').hide(); $('#backToStep1').show(); $('#stepIndicator2').addClass('active'); } else { $('#saleStep3').show(); $('#nextToStep2,#confirmPaymentStep').hide(); $('#recordSaleBtn,#printReceiptBtn').show(); $('#backToStep1').show(); $('#stepIndicator3').addClass('active'); } currentStep=step; }
+function generateReceipt(){ 
+  const items=window.saleItems||[]; 
+  const subtotal=parseFloat($('#paymentSubtotal').text().replace(/,/g,''))||0; 
+  const vat=parseFloat($('#paymentVAT').text().replace(/,/g,''))||0; 
+  const totalAmount=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; 
+  const amountPaid=parseFloat($('#paymentTendered').val())||0; 
+  const change=parseFloat($('#paymentChange').text().replace(/,/g,''))||0; 
+  const customerName=(($('#customerName').val())||'').trim(); 
+  const customerContact=(($('#customerContact').val())||'').trim(); 
+  const customerAddress=(($('#customerAddress').val())||'').trim(); 
+  
+  const previewData = {
+    company_name: 'FruitMaster Marketing',
+    company_address: 'Mabini Street - Libertad, Bacolod City, Negros Occidental',
+    company_phone: '434-7680, 213-5681, 213-5682',
+    transaction_number: transactionNumber || '',
+    or_number: orNumber || '',
+    date: formatReceiptDate(new Date()),
+    customer_name: customerName,
+    customer_contact: customerContact,
+    customer_address: customerAddress,
+    items: items.map(it => {
+      const baseName=(it.name||'').split('(')[0].trim();
+      let d=baseName||it.name||'';
+      if(it.variant) d+=` (${it.variant})`;
+      if(it.size) d+=` (${it.size})`;
+      return {
+        name: d,
+        quantity: it.quantity,
+        price: it.price,
+        amount: it.amount
+      };
+    }),
+    subtotal,
+    vat,
+    total: totalAmount,
+    amount_paid: amountPaid,
+    change
+  };
+  
+  const previewEl = document.getElementById('thermalReceiptPreview');
+  if(previewEl){
+    previewEl.textContent = buildThermalPreview(previewData);
+  }
+}
+function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const customerName=$('#customerName').val()||''; const customerContact=$('#customerContact').val()||''; const customerAddress=$('#customerAddress').val()||''; const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; transactionNumber=String(resp.sale_ids[0]); $('#transactionNumber').text(transactionNumber); } $('#orNumber').text(orNumber||''); }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }}); }
 function printReceipt(){ 
-    const w=window.open('', '_blank'); 
-    const content=$('.receipt-container').html(); 
-    const html=`<!doctype html>
-<html>
-<head>
-    <title>Receipt</title>
-    <style>
-        body {
-            font-family: "Courier New", monospace;
-            font-size: 12px;
-            margin: 0;
-            padding: 20px;
-            background: #fff;
+    const existingId = window.lastRecordedSaleId ? parseInt(window.lastRecordedSaleId,10) : NaN;
+    
+    if (existingId && !Number.isNaN(existingId)) {
+        printThermalReceipt(existingId);
+        return;
+    }
+    
+    // If sale not recorded yet, record first then print
+    const request = recordSale();
+    if (!request || !request.then) {
+        alert('Unable to record sale. Please complete the sale before printing.');
+        return;
+    }
+    
+    request.done(function(resp){
+        const newId = window.lastRecordedSaleId ? parseInt(window.lastRecordedSaleId,10) : (resp && resp.sale_ids && resp.sale_ids.length ? parseInt(resp.sale_ids[0],10) : NaN);
+        if (newId && !Number.isNaN(newId)) {
+            printThermalReceipt(newId);
+        } else {
+            alert('Sale recorded but receipt ID missing. Please try again.');
         }
-        .receipt-container {
-            max-width: 300px;
-            margin: 0 auto;
-            border: 1px solid #ddd;
-            padding: 1rem;
-        }
-        .receipt-header {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        .company-name {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-        .company-details {
-            font-size: 10px;
-            margin-bottom: 2px;
-        }
-        .receipt-title {
-            text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        .receipt-divider {
-            border-top: 1px dashed #000;
-            margin: 10px 0;
-        }
-        .receipt-info {
-            margin-bottom: 3px;
-            font-size: 11px;
-        }
-        .receipt-table {
-            width: 100%;
-            margin: 10px 0;
-            font-size: 11px;
-        }
-        .receipt-table th, .receipt-table td {
-            padding: 2px 5px;
-            font-size: 11px;
-        }
-        .receipt-table th {
-            border-bottom: 1px solid #000;
-            font-weight: bold;
-        }
-        .text-end {
-            text-align: right;
-        }
-        .receipt-footer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 10px;
-        }
-        .receipt-footer p {
-            margin-bottom: 2px;
-        }
-        @media print {
-            body {
-                width: 302px;
-            }
-            .receipt-container {
-                border: none;
+    }).fail(function(){
+        alert('Failed to record sale. Please try again before printing.');
+    });
+}
+
+function printThermalReceipt(saleId) {
+    const formData = new FormData();
+    
+    // Get printer settings from localStorage or use defaults
+    const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
+    const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
+    
+    formData.append('connection_type', connectionType);
+    
+    if (connectionType === 'windows') {
+        formData.append('printer_name', printerName);
+    } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
+        formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
+        formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
+    }
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
             }
         }
-    </style>
-</head>
-<body>
-    <div class="receipt-container">${content}</div>
-</body>
-</html>`; 
-    w.document.write(html); 
-    w.document.close(); 
-    w.focus();
-    setTimeout(() => {
-        w.print();
-        w.close();
-    }, 250);
+        return cookieValue;
+    }
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/api/printer/receipt/${saleId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showPrintSuccessModal();
+        } else {
+            showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+        }
+    })
+    .catch(err => {
+        console.error('Thermal print error', err);
+        showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+    });
+}
+
+function showPrintSuccessModal(){
+  const modalEl = document.getElementById('printSuccessModal');
+  if (!modalEl) {
+    alert('Receipt printed successfully.');
+    return;
+  }
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
+}
+
+function showPrinterErrorModal(message){
+  const modalEl = document.getElementById('printerErrorModal');
+  if (!modalEl) {
+    alert(message || 'Please connect your thermal printer to this device and make sure it is powered on.');
+    return;
+  }
+  const bodyEl = modalEl.querySelector('.modal-body');
+  if (bodyEl) {
+    bodyEl.textContent = message || 'Please connect your thermal printer to this device and make sure it is powered on.';
+  }
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
 }
 
 $(document).ready(function(){
@@ -807,29 +971,37 @@ $(document).ready(function(){
   $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const change=t-total; $('#paymentChange').text(formatCurrency(change)); $('#confirmPaymentStep').prop('disabled', t<total); });
   $('#recordSaleBtn').on('click',recordSale);
   $('#printReceiptBtn,#printReceiptAfterBtn').on('click',printReceipt);
+  $('#cancelBtn').on('click', function() {
+    window.location.href = '{% url "products_inventory" %}';
+  });
+  $('#doneBtn').on('click', function() {
+    window.location.href = '{% url "sales" %}';
+  });
   
   // Auto-select product if preselected_product_id is provided (from QR code scan)
-  {% if preselected_product_id %}
-  setTimeout(function() {
-    const preselectedId = {{ preselected_product_id }};
-    if (preselectedId && products.length > 0) {
-      // Find the first product select dropdown and set the value
-      const $firstSelect = $('.product-select').first();
-      if ($firstSelect.length > 0) {
-        $firstSelect.val(preselectedId).trigger('change');
-        
-        // Lock the product selection if accessed via QR scan
-        {% if product_locked %}
-        $firstSelect.prop('disabled', true);
-        $firstSelect.addClass('bg-light');
-        {% endif %}
-        
-        // Show a success message
-        $('#buyFormAlert').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-qr-code me-2"></i>Product automatically selected from QR code scan!{% if product_locked %} Product is locked and cannot be changed.{% endif %}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+  var preselectedProductId = document.body.getAttribute('data-preselected-product-id') ? parseInt(document.body.getAttribute('data-preselected-product-id')) : null;
+  var productLocked = document.body.getAttribute('data-product-locked') === 'true';
+  if (preselectedProductId) {
+    setTimeout(function() {
+      if (preselectedProductId && products.length > 0) {
+        // Find the first product select dropdown and set the value
+        const $firstSelect = $('.product-select').first();
+        if ($firstSelect.length > 0) {
+          $firstSelect.val(preselectedProductId).trigger('change');
+          
+          // Lock the product selection if accessed via QR scan
+          if (productLocked) {
+            $firstSelect.prop('disabled', true);
+            $firstSelect.addClass('bg-light');
+          }
+          
+          // Show a success message
+          var lockMessage = productLocked ? ' Product is locked and cannot be changed.' : '';
+          $('#buyFormAlert').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><i class="bi bi-qr-code me-2"></i>Product automatically selected from QR code scan!' + lockMessage + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+        }
       }
-    }
-  }, 1000); // Delay to ensure products are loaded
-  {% endif %}
+    }, 1000); // Delay to ensure products are loaded
+  }
 });
 
 // Input sanitizers for Record Sale

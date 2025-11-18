@@ -222,19 +222,35 @@ SMS_APP_NAME = 'STOCKWISE'  # App name displayed in message content
 
 # ========== THERMAL PRINTER SETTINGS ==========
 # Thermal Printer Configuration (58mm portable thermal printer)
-# Connection Types: 'usb', 'serial', 'bluetooth', 'network'
-THERMAL_PRINTER_TYPE = os.getenv('THERMAL_PRINTER_TYPE', 'usb')  # Default: USB
+# Connection Types: 'usb', 'serial', 'bluetooth', 'network', 'windows'
+# 
+# IMPORTANT: Most USB thermal printers appear as COM ports on Windows.
+# Use 'serial' connection type with the COM port (e.g., COM3, COM4).
+# Use 'windows' if your printer appears in "Print queues" but not as a COM port.
+# Use 'usb' only if your printer connects as a direct USB HID device (less common).
+#
+# Quick setup: Run 'python setup_thermal_printer.py' to auto-detect your printer
+# For POS58 Printer that appears in Print queues, use 'windows' mode:
+THERMAL_PRINTER_TYPE = os.getenv('THERMAL_PRINTER_TYPE', 'windows')  # Default: windows (for printers in Print queues)
 
-# USB Connection Settings (if using USB)
-# Note: vendor_id and product_id are usually auto-detected, but can be set manually
+# USB Connection Settings (if using 'usb' connection type - less common)
+# Note: vendor_id and product_id are required for direct USB connection
 # Find your printer's VID/PID by connecting it and checking Device Manager (Windows)
 # or using 'lsusb' command (Linux)
+# Example: VID_04F9&PID_2040 means vendor_id=0x04f9, product_id=0x2040
 
-# Serial/USB Serial Connection Settings (if using Serial or Bluetooth via Serial)
+# Serial/USB Serial Connection Settings (if using 'serial' connection type - most common for USB)
+# This is the recommended method for USB thermal printers on Windows
+# The printer will appear as a COM port (e.g., COM3, COM4, COM5)
 THERMAL_PRINTER_PORT = os.getenv('THERMAL_PRINTER_PORT', 'COM3')  # Windows: COM3, COM4, etc. Linux: /dev/ttyUSB0, /dev/ttyACM0
 THERMAL_PRINTER_BAUDRATE = int(os.getenv('THERMAL_PRINTER_BAUDRATE', 9600))  # Common baudrates: 9600, 19200, 38400, 115200
 
 # Network Printer Settings (if using network connection)
 THERMAL_PRINTER_HOST = os.getenv('THERMAL_PRINTER_HOST', '192.168.1.100')
 THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 9100))
+
+# Windows Printer Settings (if using Windows print spooler - for printers that appear in Print queues)
+# Use this if your printer shows up in Device Manager under "Print queues" but not under "Ports (COM & LPT)"
+# The printer name should match exactly as it appears in Windows Settings → Printers & scanners
+THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com

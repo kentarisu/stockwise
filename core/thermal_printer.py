@@ -3,13 +3,40 @@ Thermal Printer Service for 58mm Receipt Printing
 Supports USB and Bluetooth connections via ESC/POS commands
 """
 import logging
+import io
+import os
+import time
+import textwrap
 from typing import Optional, Dict, List, Any
 from decimal import Decimal
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+LINE_WIDTH = 32
+DESC_WIDTH = 18
+QTY_WIDTH = 4
+AMOUNT_WIDTH = LINE_WIDTH - DESC_WIDTH - QTY_WIDTH
+
+
+def format_line(left: str = "", right: str = "") -> str:
+    """Return a left/right aligned line within LINE_WIDTH characters."""
+    left = (left or "").strip()
+    right = (right or "").strip()
+    available = LINE_WIDTH - len(right)
+    if available <= 0:
+        return right.rjust(LINE_WIDTH)
+    return f"{left[:available].ljust(available)}{right.rjust(len(right))}"
+
+
+def wrap_text(text: str, width: int = LINE_WIDTH) -> List[str]:
+    """Wrap text to fit within the specified width."""
+    if not text:
+        return []
+    return textwrap.wrap(text.strip(), width=width) or [text[:width]]
+
 try:
-    from escpos.printer import Usb, Serial, Network
+    from escpos.printer import Usb, Serial, Network, File
     from escpos.exceptions import Error as EscposError
     ESCPOS_AVAILABLE = True
 except ImportError:
@@ -25,12 +52,14 @@ class ThermalPrinterService:
         Initialize printer connection
         
         Args:
-            connection_type: 'usb', 'serial', 'bluetooth', or 'network'
-            **kwargs: Connection parameters (port, baudrate, etc.)
+            connection_type: 'usb', 'serial', 'bluetooth', 'network', or 'windows'
+            **kwargs: Connection parameters (port, baudrate, printer_name, etc.)
         """
         self.connection_type = connection_type.lower()
         self.printer = None
         self.connected = False
+        self.last_error = None
+        self.last_error = None
         
         if not ESCPOS_AVAILABLE:
             raise ImportError("python-escpos library not installed. Install with: pip install python-escpos")
@@ -63,6 +92,32 @@ class ThermalPrinterService:
                 host = kwargs.get('host', '192.168.1.100')
                 port = kwargs.get('port', 9100)
                 self.printer = Network(host, port=port)
+                
+            elif self.connection_type == 'windows':
+                # Windows printer (via Windows print spooler)
+                # Use the printer name as it appears in Windows Printers & scanners
+                printer_name = kwargs.get('printer_name', 'POS58 Printer')
+                # For Windows, we need to use a temporary file approach or direct Windows API
+                # The File class with printer name might not work correctly
+                # Instead, we'll use a temporary file and send it to the printer
+                import tempfile
+                import os
+                import platform
+                
+                if platform.system() == 'Windows':
+                    # On Windows, create a temporary file for the print job
+                    # This ensures proper job termination
+                    self._temp_file = tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.prn')
+                    self._temp_file_path = self._temp_file.name
+                    self._temp_file.close()
+                    # Open file for writing ESC/POS commands
+                    self.printer = File(devfile=self._temp_file_path)
+                    self._printer_name = printer_name
+                else:
+                    # On other systems, try direct printer name
+                    self.printer = File(devfile=printer_name)
+                    self._temp_file_path = None
+                    self._printer_name = None
             else:
                 raise ValueError(f"Unsupported connection type: {self.connection_type}")
             
@@ -104,8 +159,11 @@ class ThermalPrinterService:
         Returns:
             bool: True if print successful, False otherwise
         """
+        self.last_error = None
+        
         if not self.connected or not self.printer:
             logger.error("Printer not connected")
+            self.last_error = "Printer not connected"
             return False
         
         try:
@@ -124,23 +182,23 @@ class ThermalPrinterService:
             self.printer.text("\n")
             self.printer.set(bold=True, align='center')
             company_name = receipt_data.get('company_name', 'FruitMaster Marketing')
-            self.printer.text(f"{company_name}\n")
+            self.printer.text(f"{company_name[:LINE_WIDTH].center(LINE_WIDTH)}\n")
             
             self.printer.set(bold=False, font='a')
             company_address = receipt_data.get('company_address', 'Mabini Street - Libertad, Bacolod City')
-            if company_address:
-                self.printer.text(f"{company_address}\n")
+            for line in wrap_text(company_address, width=LINE_WIDTH):
+                self.printer.text(f"{line.center(LINE_WIDTH)}\n")
             
             company_phone = receipt_data.get('company_phone', '')
             if company_phone:
-                self.printer.text(f"Tel: {company_phone}\n")
+                self.printer.text(f"{('Tel: ' + company_phone)[:LINE_WIDTH].center(LINE_WIDTH)}\n")
             
-            self.printer.text("=" * 32 + "\n")
+            self.printer.text("=" * LINE_WIDTH + "\n")
             
             # ===== TITLE =====
             self.printer.set(bold=True, align='center')
             self.printer.text("SALES RECEIPT\n")
-            self.printer.text("=" * 32 + "\n")
+            self.printer.text("=" * LINE_WIDTH + "\n")
             
             # ===== TRANSACTION INFO =====
             self.printer.set(bold=False, align='left')
@@ -157,61 +215,62 @@ class ThermalPrinterService:
             if processed_by:
                 self.printer.text(f"Processed by: {processed_by}\n")
             
-            self.printer.text("-" * 32 + "\n")
+            self.printer.text("-" * LINE_WIDTH + "\n")
             
             # ===== CUSTOMER INFO =====
-            customer_name = receipt_data.get('customer_name', 'Walk-in Customer')
-            self.printer.text(f"Customer: {customer_name}\n")
+            customer_name = receipt_data.get('customer_name')
+            self.printer.text(f"Customer: {' ' if not customer_name or customer_name == 'N/A' else customer_name}\n")
             
             customer_contact = receipt_data.get('customer_contact', '')
-            if customer_contact and customer_contact != 'N/A':
-                self.printer.text(f"Contact: {customer_contact}\n")
+            self.printer.text(f"Contact: {customer_contact if customer_contact and customer_contact != 'N/A' else ''}\n")
             
             customer_address = receipt_data.get('customer_address', '')
             if customer_address and customer_address != 'N/A':
-                # Truncate long addresses for 58mm width
-                addr = customer_address[:30] if len(customer_address) > 30 else customer_address
-                self.printer.text(f"Address: {addr}\n")
+                wrapped_address = wrap_text(customer_address, width=LINE_WIDTH - 10)
+                for idx, line in enumerate(wrapped_address):
+                    label = "Address: " if idx == 0 else "          "
+                    self.printer.text(f"{label}{line}\n")
+            else:
+                self.printer.text("Address:\n")
             
-            self.printer.text("-" * 32 + "\n")
+            self.printer.text("-" * LINE_WIDTH + "\n")
             
             # ===== ITEMS TABLE =====
             items = receipt_data.get('items', [])
             if items:
                 # Table header
                 self.printer.set(bold=True)
-                self.printer.text(f"{'Description':<18} {'Qty':>4} {'Amount':>10}\n")
+                self.printer.text(f"{'Description':<{DESC_WIDTH}}{'Qty':>{QTY_WIDTH}}{'Amount':>{AMOUNT_WIDTH}}\n")
                 self.printer.set(bold=False)
-                self.printer.text("-" * 32 + "\n")
+                self.printer.text("-" * LINE_WIDTH + "\n")
                 
                 # Items
                 for item in items:
-                    name = item.get('name', '')
-                    # Truncate product name if too long
-                    if len(name) > 18:
-                        name = name[:15] + "..."
+                    name = item.get('name', '').strip()
+                    if not name:
+                        name = 'Item'
+                    name_lines = wrap_text(name, width=DESC_WIDTH)
+                    first_line = name_lines[0]
+                    remaining_lines = name_lines[1:]
                     
                     quantity = int(item.get('quantity', 0))
                     price = float(item.get('price', 0))
                     amount = float(item.get('amount', 0))
                     
-                    # Product name (with line break if needed for batch IDs)
-                    self.printer.text(f"{name:<18} {quantity:>4}\n")
+                    amount_str = f"{amount:,.2f}"
                     
-                    # Batch IDs on next line (if available)
-                    batch_ids = item.get('batch_ids', [])
-                    if batch_ids:
-                        batch_str = ', '.join([str(b) for b in batch_ids[:3]])  # Max 3 batch IDs
-                        if len(batch_ids) > 3:
-                            batch_str += "..."
-                        self.printer.set(font='b')  # Smaller font for batch IDs
-                        self.printer.text(f"  Batch: {batch_str}\n")
-                        self.printer.set(font='a')
+                    # Product name (with wrapping)
+                    self.printer.text(
+                        f"{first_line:<{DESC_WIDTH}}{str(quantity):>{QTY_WIDTH}}{amount_str:>{AMOUNT_WIDTH}}\n"
+                    )
+                    for line in remaining_lines:
+                        self.printer.text(f"{line:<{LINE_WIDTH}}\n")
                     
                     # Price and amount
-                    self.printer.text(f"  @{price:>8.2f} {amount:>10.2f}\n")
+                    price_str = f"@ {price:,.2f}"
+                    self.printer.text(format_line("", price_str) + "\n")
             
-            self.printer.text("=" * 32 + "\n")
+            self.printer.text("=" * LINE_WIDTH + "\n")
             
             # ===== TOTALS =====
             subtotal = float(receipt_data.get('subtotal', 0))
@@ -220,43 +279,150 @@ class ThermalPrinterService:
             amount_paid = float(receipt_data.get('amount_paid', 0))
             change = float(receipt_data.get('change', 0))
             
-            self.printer.text(f"{'Subtotal:':<20} {subtotal:>10.2f}\n")
+            self.printer.text(format_line("Subtotal:", f"{subtotal:,.2f}") + "\n")
             if vat > 0:
-                self.printer.text(f"{'VAT 12%:':<20} {vat:>10.2f}\n")
+                self.printer.text(format_line("VAT 12%:", f"{vat:,.2f}") + "\n")
             
             self.printer.set(bold=True)
-            self.printer.text(f"{'TOTAL:':<20} {total:>10.2f}\n")
+            self.printer.text(format_line("TOTAL:", f"{total:,.2f}") + "\n")
             self.printer.set(bold=False)
             
-            self.printer.text("-" * 32 + "\n")
-            self.printer.text(f"{'Amount Paid:':<20} {amount_paid:>10.2f}\n")
+            self.printer.text("-" * LINE_WIDTH + "\n")
+            self.printer.text(format_line("Amount Paid:", f"{amount_paid:,.2f}") + "\n")
             if change > 0:
-                self.printer.text(f"{'Change:':<20} {change:>10.2f}\n")
+                self.printer.text(format_line("Change:", f"{change:,.2f}") + "\n")
             
             # ===== FOOTER =====
             self.printer.text("=" * 32 + "\n")
             self.printer.set(align='center')
             self.printer.text("Thank you for your purchase!\n")
-            self.printer.text("This serves as your Official Receipt.\n")
+            self.printer.text("This is not an official receipt.\n")
             
-            # Add some blank lines and cut paper
-            self.printer.text("\n\n\n")
-            self.printer.cut()
+            # Add a single blank line before cutting
+            self.printer.text("\n")
             
-            # Close connection
+            # For Windows printing, add proper termination commands
+            if self.connection_type == 'windows':
+                # Send a partial cut to finish the receipt cleanly
+                try:
+                    self.printer._raw(b'\x1d\x56\x00')
+                except:
+                    pass
+            else:
+                # For direct connections, use full cut
+                self.printer.cut()
+            
+            # Close connection and flush - CRITICAL for Windows printing
+            try:
+                if hasattr(self.printer, 'flush'):
+                    self.printer.flush()
+                # Force flush the underlying file if it exists
+                if hasattr(self.printer, 'devfile') and hasattr(self.printer.devfile, 'flush'):
+                    self.printer.devfile.flush()
+            except:
+                pass
+            
+            # Close the file/connection
             self.printer.close()
+            
+            if self.connection_type == 'windows':
+                if not self._send_windows_job():
+                    return False
             
             logger.info(f"Successfully printed receipt: {transaction_number}")
             return True
             
         except EscposError as e:
             logger.error(f"ESC/POS error while printing: {e}")
+            self.last_error = str(e)
             return False
         except Exception as e:
             logger.error(f"Unexpected error while printing: {e}")
+            self.last_error = str(e)
             return False
         finally:
             # Try to close connection
+            try:
+                if self.printer:
+                    self.printer.close()
+            except:
+                pass
+    
+    def print_qr_sticker(self, sticker_data: Dict[str, Any]) -> bool:
+        """
+        Print a QR code sticker with product details.
+        
+        sticker_data keys:
+            - product_name
+            - variant
+            - quantity
+            - qr_image_bytes (PNG bytes)
+        """
+        if not self.connected or not self.printer:
+            logger.error("Printer not connected")
+            self.last_error = "Printer not connected"
+            return False
+        
+        try:
+            self.printer.set(align='center', bold=True, width=2, height=2)
+            self.printer.text(f"{sticker_data.get('product_name', 'Product')}\n")
+            
+            self.printer.set(width=1, height=1, bold=False)
+            variant = sticker_data.get('variant')
+            if variant:
+                self.printer.text(f"Variant: {variant}\n")
+            
+            quantity = sticker_data.get('quantity')
+            if quantity:
+                self.printer.text(f"Quantity: {quantity}\n")
+            
+            self.printer.text("-" * 32 + "\n")
+            
+            # Print QR image if provided
+            qr_bytes = sticker_data.get('qr_image_bytes')
+            if qr_bytes:
+                try:
+                    image = Image.open(io.BytesIO(qr_bytes))
+                    self.printer.set(align='center')
+                    self.printer.image(image, impl="bitImageRaster")
+                except Exception as e:
+                    logger.warning(f"Failed to print QR image: {e}")
+                    self.last_error = f"Failed to print QR image: {e}"
+            
+            self.printer.text("\n")
+            self.printer.text("Scan to record sale or add stock\n")
+            self.printer.text("STOCKWISE\n")
+            self.printer.text("\n")
+            
+            # Cut/finish
+            if self.connection_type == 'windows':
+                try:
+                    self.printer._raw(b'\x1d\x56\x00')
+                except:
+                    pass
+            else:
+                self.printer.cut()
+            
+            # Flush/close similar to receipt
+            try:
+                if hasattr(self.printer, 'flush'):
+                    self.printer.flush()
+                if hasattr(self.printer, 'devfile') and hasattr(self.printer.devfile, 'flush'):
+                    self.printer.devfile.flush()
+            except:
+                pass
+            
+            self.printer.close()
+            
+            if self.connection_type == 'windows':
+                return False if not self._send_windows_job() else True
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error printing QR sticker: {e}")
+            self.last_error = str(e)
+            return False
+        finally:
             try:
                 if self.printer:
                     self.printer.close()
@@ -283,11 +449,104 @@ class ThermalPrinterService:
         }
         return self.print_receipt(test_data)
     
+    def _send_windows_job(self) -> bool:
+        """Helper to send buffered print job when using Windows spooler"""
+        windows_success = True
+        if self.connection_type == 'windows' and hasattr(self, '_temp_file_path') and self._temp_file_path:
+            windows_success = False
+            try:
+                import os
+                import time
+                time.sleep(0.2)
+                if os.path.exists(self._temp_file_path):
+                    with open(self._temp_file_path, 'rb') as f:
+                        raw_data = f.read()
+                    if raw_data:
+                        try:
+                            try:
+                                import win32print
+                            except ImportError:
+                                self.last_error = "pywin32 is not installed. Run 'pip install pywin32'."
+                                raise
+                            printer_name = self._printer_name or win32print.GetDefaultPrinter()
+                            handle = win32print.OpenPrinter(printer_name)
+                            try:
+                                info = win32print.GetPrinter(handle, 2)
+                                status_flags = info.get('Status', 0)
+                                offline_status = getattr(win32print, 'PRINTER_STATUS_OFFLINE', 0x80)
+                                error_status = getattr(win32print, 'PRINTER_STATUS_ERROR', 0x02)
+                                paused_status = getattr(win32print, 'PRINTER_STATUS_PAUSED', 0x01)
+                                paper_out_status = getattr(win32print, 'PRINTER_STATUS_OUT_OF_PAPER', 0x40)
+                                work_offline_attr = getattr(win32print, 'PRINTER_ATTRIBUTE_WORK_OFFLINE', 0x400)
+                                if status_flags & (offline_status | error_status | paused_status | paper_out_status):
+                                    self.last_error = f"Printer '{printer_name}' is offline or unavailable. Please check the device."
+                                    windows_success = False
+                                elif info.get('Attributes', 0) & work_offline_attr:
+                                    self.last_error = f"Printer '{printer_name}' is set to work offline. Please connect it to this device."
+                                    windows_success = False
+                                else:
+                                    job_id = win32print.StartDocPrinter(handle, 1, ("StockWise Print", None, "RAW"))
+                                    win32print.StartPagePrinter(handle)
+                                    win32print.WritePrinter(handle, raw_data)
+                                    win32print.EndPagePrinter(handle)
+                                    win32print.EndDocPrinter(handle)
+                                    time.sleep(0.2)
+                                    try:
+                                        job_info = win32print.GetJob(handle, job_id, 1)
+                                        job_status = job_info.get('Status', 0)
+                                        job_error_flags = (
+                                            getattr(win32print, 'JOB_STATUS_ERROR', 0x0002) |
+                                            getattr(win32print, 'JOB_STATUS_OFFLINE', 0x0010) |
+                                            getattr(win32print, 'JOB_STATUS_PAPEROUT', 0x0020) |
+                                            getattr(win32print, 'JOB_STATUS_BLOCKED_DEVQ', 0x2000) |
+                                            getattr(win32print, 'JOB_STATUS_RESTART', 0x0008)
+                                        )
+                                        if job_status & job_error_flags:
+                                            self.last_error = f"Printer '{printer_name}' reported an error. Please check the device status."
+                                            windows_success = False
+                                        else:
+                                            windows_success = True
+                                    except Exception:
+                                        windows_success = True
+                            finally:
+                                win32print.ClosePrinter(handle)
+                        except Exception as win_err:
+                            logger.warning(f"win32print failed: {win_err}")
+                            self.last_error = f"Windows printing error: {win_err}"
+                            windows_success = False
+                    else:
+                        logger.warning("Windows print file empty; skipping job")
+                        self.last_error = "Generated print file was empty."
+                try:
+                    if os.path.exists(self._temp_file_path):
+                        os.unlink(self._temp_file_path)
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.error(f"Error in Windows print job handling: {e}")
+                if not self.last_error:
+                    self.last_error = f"Windows print job failed: {e}"
+                windows_success = False
+        return windows_success
+    
     def close(self):
         """Close printer connection"""
         try:
             if self.printer:
+                # Flush before closing
+                if hasattr(self.printer, 'flush'):
+                    self.printer.flush()
                 self.printer.close()
+            
+            # Clean up temp file if it exists
+            if hasattr(self, '_temp_file_path') and self._temp_file_path:
+                try:
+                    import os
+                    if os.path.exists(self._temp_file_path):
+                        os.unlink(self._temp_file_path)
+                except:
+                    pass
+            
             self.connected = False
         except:
             pass

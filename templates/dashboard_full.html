@@ -304,7 +304,7 @@
         .header-left {
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 0;
             flex: 1;
         }
 
@@ -332,6 +332,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            padding-left: 3rem;
         }
 
         .header-left h1 {
@@ -462,13 +463,13 @@
 
         /* Content Area */
         .content-area {
-            padding: var(--space-lg);
+            padding: var(--space-md);
             max-width: var(--layout-max-width);
             margin: 0 auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: var(--space-lg);
+            gap: 0.75rem;
         }
 
         /* Modern Cards - Matching other pages */
@@ -779,10 +780,13 @@
 
         /* Quick Actions - Compact */
         .action-buttons {
-            display: flex;
-            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: var(--space-sm);
-            margin-bottom: var(--space-lg);
         }
 
         .action-btn {
@@ -1046,7 +1050,11 @@
                 align-items: center;
                 flex: 1;
                 min-width: 0;
-                gap: 0.5rem;
+                gap: 1.5rem;
+            }
+            
+            .header-title-section {
+                padding-left: 1.5rem;
             }
 
             .header-left h1 {
@@ -1200,12 +1208,12 @@
 
         .content-area {
             max-width: var(--layout-max-width);
-            padding: var(--space-lg);
+            padding: var(--space-md);
             margin: 0 auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: var(--space-lg);
+            gap: 0.75rem;
         }
 
         .stats-grid {
@@ -1568,36 +1576,45 @@
                         </h3>
                     </div>
                     <div class="action-buttons">
-                        <a href="{% url 'add_product_page' %}" class="action-btn">
-                            <i class="bi bi-plus-circle"></i>
-                            <div class="action-btn-content">
-                                <h6>Add Product</h6>
-                                <p>Add new items to inventory</p>
-                            </div>
-                        </a>
-                        <a href="{% url 'record_sale' %}" class="action-btn">
-                            <i class="bi bi-cart-plus"></i>
-                            <div class="action-btn-content">
-                                <h6>Record Sale</h6>
-                                <p>Process a new transaction</p>
-                            </div>
-                        </a>
-                        <a href="{% url 'add_stock_page' %}" class="action-btn">
-                            <i class="bi bi-box-arrow-in-down"></i>
-                            <div class="action-btn-content">
-                                <h6>Add Stock</h6>
-                                <p>Restock existing products</p>
-                            </div>
-                        </a>
-                        {% if app_role == 'admin' %}
-                        <a href="{% url 'reports' %}" class="action-btn">
-                            <i class="bi bi-file-earmark-text"></i>
-                            <div class="action-btn-content">
-                                <h6>View Reports</h6>
-                                <p>Reports and insights</p>
-                            </div>
-                        </a>
-                        {% endif %}
+                        <div class="action-grid">
+                            <a href="{% url 'add_product_page' %}" class="action-btn">
+                                <i class="bi bi-plus-circle"></i>
+                                <div class="action-btn-content">
+                                    <h6>Add Product</h6>
+                                    <p>Add new items to inventory</p>
+                                </div>
+                            </a>
+                            <a href="{% url 'record_sale' %}" class="action-btn">
+                                <i class="bi bi-cart-plus"></i>
+                                <div class="action-btn-content">
+                                    <h6>Record Sale</h6>
+                                    <p>Process a new transaction</p>
+                                </div>
+                            </a>
+                            <a href="{% url 'add_stock_page' %}" class="action-btn">
+                                <i class="bi bi-box-arrow-in-down"></i>
+                                <div class="action-btn-content">
+                                    <h6>Add Stock</h6>
+                                    <p>Restock existing products</p>
+                                </div>
+                            </a>
+                            <a href="{% url 'sms_settings' %}" class="action-btn">
+                                <i class="bi bi-chat-dots"></i>
+                                <div class="action-btn-content">
+                                    <h6>SMS Settings</h6>
+                                    <p>Update SMS sender info</p>
+                                </div>
+                            </a>
+                            {% if app_role == 'admin' %}
+                            <a href="{% url 'reports' %}" class="action-btn">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <div class="action-btn-content">
+                                    <h6>View Reports</h6>
+                                    <p>Reports and insights</p>
+                                </div>
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 

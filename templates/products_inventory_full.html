@@ -292,7 +292,7 @@
         .header-left {
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 0;
             flex: 1;
         }
 
@@ -320,6 +320,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
+            padding-left: 3rem;
         }
 
         .header-left h1 {
@@ -493,49 +494,106 @@
 
         /* Filters Card */
         .filters-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.45);
+            position: relative;
             margin-bottom: 1.5rem;
         }
 
-        .filters-row {
-            display: grid;
-            grid-template-columns: 1fr 200px 200px 200px auto;
-            gap: 1rem;
-            align-items: end;
+        .filters-card::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 24px;
+            right: 24px;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5b7cfa 0%, #34d399 100%);
         }
 
-        .form-group {
+        .filters-row {
+            display: flex;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .filters-row .form-group {
+            flex: 1 1 220px;
+            min-width: 220px;
             display: flex;
             flex-direction: column;
         }
 
-        .form-label {
-            font-weight: 600;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
+        .filters-row .form-label {
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--gray-500);
+            margin-bottom: 0.4rem;
         }
 
-        .form-control, .form-select {
-            border: 2px solid var(--gray-200);
-            border-radius: 8px;
-            padding: 0.75rem;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
+        .filters-row .form-control,
+        .filters-row .form-select {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .form-control:focus, .form-select:focus {
+        .filters-row .form-control:focus,
+        .filters-row .form-select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
             outline: none;
         }
 
-        .input-group {
+        .filter-search-wrapper {
             position: relative;
+            width: 100%;
+        }
+
+        .filter-search-wrapper i {
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 1rem;
+        }
+
+        .filter-search-input {
+            padding-left: 2.25rem;
+        }
+
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
         }
 
         .input-group-text {
@@ -764,6 +822,10 @@
         }
 
         @media (max-width: 768px) {
+            .header-title-section {
+                padding-left: 1.5rem;
+            }
+            
             .pagination-container {
                 flex-direction: column;
                 gap: 1rem;
@@ -1814,29 +1876,35 @@
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="action-buttons">
-                    <a href="{% url 'add_product_page' %}" class="btn-modern primary">
-                        <i class="bi bi-plus-lg"></i>
-                        Add Product
-                    </a>
-                    <a href="{% url 'record_sale_page' %}" class="btn-modern success">
-                        <i class="bi bi-cart-plus"></i>
-                        Record Sale
-                    </a>
-                    <a href="{% url 'add_stock_page' %}" class="btn-modern warning">
-                        <i class="bi bi-box-arrow-in-down"></i>
-                        Add Stock
-                    </a>
+                <div class="action-buttons flex-wrap justify-content-between align-items-center">
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="{% url 'add_product_page' %}" class="btn-modern primary">
+                            <i class="bi bi-plus-lg"></i>
+                            Add Product
+                        </a>
+                        <a href="{% url 'record_sale_page' %}" class="btn-modern success">
+                            <i class="bi bi-cart-plus"></i>
+                            Record Sale
+                        </a>
+                        <a href="{% url 'add_stock_page' %}" class="btn-modern warning">
+                            <i class="bi bi-box-arrow-in-down"></i>
+                            Add Stock
+                        </a>
+                    </div>
+                    <button type="button" class="btn-filter-action" id="refreshTable" aria-label="Refresh table" style="width: 150px; justify-content: center;">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="inventoryRefreshSpinner"></span>
+                        <span class="refresh-text">Refresh</span>
+                    </button>
                 </div>
 
                 <!-- Filters -->
                 <div class="filters-card">
                     <div class="filters-row">
-                        <div class="form-group">
+                        <div class="form-group flex-grow-1">
                             <label class="form-label">Search</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            <div class="filter-search-wrapper">
+                                <i class="bi bi-search"></i>
+                                <input type="text" class="form-control filter-search-input" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
                             </div>
                         </div>
                         <div class="form-group">
@@ -1865,12 +1933,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="form-group" style="align-self: end;">
-                            <button type="button" class="btn-modern primary" id="refreshTable" aria-label="Refresh table" style="width: fit-content;">
-                                <i class="bi bi-arrow-clockwise"></i>
-                                <span class="d-none d-md-inline">Refresh</span>
-                            </button>
-                        </div>
+                        
                     </div>
                 </div>
 
@@ -2406,7 +2469,18 @@
                 saveFilters();
                 loadCurrentTab();
             });
-            $('#refreshTable').on('click', loadCurrentTab);
+            const inventoryRefreshBtn = document.getElementById('refreshTable');
+            const inventoryRefreshSpinner = document.getElementById('inventoryRefreshSpinner');
+            inventoryRefreshBtn?.addEventListener('click', function() {
+                if (inventoryRefreshSpinner) inventoryRefreshSpinner.classList.remove('d-none');
+                inventoryRefreshBtn.disabled = true;
+                saveFilters();
+                Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
+                    inventoryRefreshBtn.disabled = false;
+                    inventoryRefreshSpinner?.classList.add('d-none');
+                });
+                loadCurrentTab();
+            });
 
             // Tab event listeners - save tab on change
             $('#all-products-tab').on('shown.bs.tab', function() {
@@ -3188,49 +3262,11 @@
             });
         }
 
-        function renderProductsTableForPage(data, tableId){
-            const $tbody = $(`#${tableId} tbody`).empty();
-            if(!data || !data.length){
-                $tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
-                invUpdateControls(0, tableId);
-                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
-                return;
-            }
-            const page = invPagination.currentPage[tableId] || 1;
-            const rows = invSlice(data, page);
-            rows.forEach((product)=>{
-                const row = $('<tr>');
-                row.append(`<td>${product.product_id}</td>`);
-                let productName = product.name; let variant = product.variant || '-';
-                const m = productName && productName.match(/^(.+?)\s*\(([^)]+)\)$/);
-                if(m){ productName = m[1].trim(); variant = m[2].trim(); }
-                row.append(`<td>${productName}</td>`);
-                row.append(`<td>${variant}</td>`);
-                row.append(`<td>${product.size||''}</td>`);
-                row.append(`<td>₱${formatCurrency(product.price)}</td>`);
-                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
-                const stockValue = parseInt(product.stock)||0;
-                row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
-                const statusLower = (product.status || '').toLowerCase();
-                const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
-                const statusDisplay = product.status || 'N/A';
-                row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
-                let optionsHtml = `
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
-                            <i class="bi bi-three-dots-vertical"></i>
-                            <span class="visually-hidden">More options for ${product.name}</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
-                            <li><button class="dropdown-item discontinue-btn ${product.status==='Discontinued'?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${product.status==='Discontinued'?'Continue this product':'Discontinue this product'}"><i class="bi bi-${product.status==='Discontinued'?'arrow-counterclockwise':'x-circle'} me-2"></i> ${product.status==='Discontinued'?'Continue':'Discontinue'}</button></li>
-                        </ul>
-                    </div>`;
-                row.append(`<td>${optionsHtml}</td>`);
-                $tbody.append(row);
-            });
-            invUpdateControls(data.length, tableId);
-            if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+        function renderProductsTable(data, tableId) {
+            const safeData = Array.isArray(data) ? data : [];
+            window[`${tableId}_data`] = safeData;
+            invPagination.currentPage[tableId] = 1;
+            renderProductsTableForPage(safeData, tableId);
         }
 
         function loadProducts(tableId = 'allProductsTable', filter = 'all') {
@@ -3262,9 +3298,7 @@
                 }
                 
                 // Store dataset and render page 1
-                window[`${tableId}_data`] = response.data;
-                invPagination.currentPage[tableId] = 1;
-                renderProductsTableForPage(response.data, tableId);
+                renderProductsTable(response.data, tableId);
                 })
                 .catch(function(error){
                     console.error('Failed to fetch products:', error);
@@ -3508,40 +3542,71 @@
         }
 
         function printReceipt() {
-            const printWindow = window.open('', '_blank');
-            const receiptContent = $('.receipt-container').html();
-            let html = '<html>';
-            html += '<head>';
-            html += '<style>';
-            html += 'body { font-family: "Courier New", monospace; font-size: 12px; margin: 0; padding: 20px; }';
-            html += '.receipt-container { max-width: 300px; margin: 0 auto; }';
-            html += '.receipt-header { text-align: center; margin-bottom: 15px; }';
-            html += '.company-name { font-weight: bold; font-size: 14px; margin-bottom: 5px; }';
-            html += '.company-details { font-size: 10px; margin-bottom: 2px; }';
-            html += '.receipt-title { text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; }';
-            html += '.receipt-divider { border-top: 1px dashed #000; margin: 10px 0; }';
-            html += '.receipt-info { margin-bottom: 3px; font-size: 11px; }';
-            html += '.receipt-table { width: 100%; margin: 10px 0; }';
-            html += '.receipt-table th, .receipt-table td { padding: 2px 5px; font-size: 11px; }';
-            html += '.receipt-table th { border-bottom: 1px solid #000; font-weight: bold; }';
-            html += '.align-right { text-align: right; }';
-            html += '.receipt-summary { margin-top: 10px; }';
-            html += '.receipt-summary-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 11px; }';
-            html += '.receipt-summary-row.total { font-weight: bold; font-size: 12px; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }';
-            html += '.receipt-footer { text-align: center; margin-top: 15px; font-size: 10px; }';
-            html += '.receipt-footer p { margin-bottom: 2px; }';
-            html += '@media print { body { width: 302px; } }';
-            html += '</style>';
-            html += '</head>';
-            html += '<body>';
-            html += '<div class="receipt-container">';
-            html += receiptContent;
-            html += '</div>';
-            html += '</body>';
-            html += '</html>';
-            printWindow.document.write(html);
-            printWindow.document.close();
-            printWindow.print();
+            // Get the sale ID from the transaction number or use the most recent sale
+            const saleId = window.lastRecordedSaleId || transactionNumber;
+            
+            if (!saleId) {
+                alert('No sale ID found. Please record the sale first.');
+                return;
+            }
+            
+            // Use thermal printer
+            printThermalReceipt(saleId);
+        }
+        
+        function printThermalReceipt(saleId) {
+            const formData = new FormData();
+            
+            // Get printer settings from localStorage or use defaults
+            const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
+            const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
+            
+            formData.append('connection_type', connectionType);
+            
+            if (connectionType === 'windows') {
+                formData.append('printer_name', printerName);
+            } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
+                formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
+                formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
+            }
+            
+            // Get CSRF token
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`/api/printer/receipt/${saleId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+        if (data.success) {
+            showPrintSuccessModal();
+        } else {
+            alert('Print failed: ' + (data.message || 'Unknown error'));
+        }
+            })
+            .catch(err => {
+                console.error('Thermal print error', err);
+                alert('Error printing to thermal printer: ' + err.message);
+            });
         }
 
         function resetSaleModal() {

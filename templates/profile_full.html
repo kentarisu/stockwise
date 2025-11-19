@@ -1249,6 +1249,18 @@
                             <span>SMS Settings</span>
                         </a>
                     </div>
+                    <div class="nav-item">
+                        <a href="{% url 'action_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Audit Logs</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'backup_management' %}" class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}">
+                            <i class="bi bi-database"></i>
+                            <span>Backups</span>
+                        </a>
+                    </div>
                     {% endif %}
                     <div class="nav-item">
                         <a href="{% url 'profile' %}" class="nav-link active">
@@ -1371,10 +1383,9 @@
                                     <div class="secretary-info">
                                             <h6>{{ u.username }}</h6>
                                             <p>Secretary Account</p>
-                                        <p class="small">Phone: {{ u.phone_number|default:"Not provided" }}</p>
-                                            {% if u.email %}
-                                            <p class="small">Email: {{ u.email }}</p>
-                                            {% endif %}
+                                        <p class="small">Phone: <span class="secretary-phone">{{ u.phone_number|default:"Not provided" }}</span></p>
+                                            <p class="small">Email: <span class="secretary-email">{% if u.email %}{{ u.email }}{% else %}Not provided{% endif %}</span></p>
+                                            <p class="small">Google Login: <span class="secretary-google-email">{% if u.allow_google_login and u.google_email %}{{ u.google_email }}{% else %}Disabled{% endif %}</span></p>
                                     </div>
                                 </div>
                                     <div class="secretary-card-actions">
@@ -1394,6 +1405,8 @@
                                                     data-phone="{{ u.phone_number|default:'' }}"
                                                     data-email="{{ u.email|default:'' }}"
                                                     data-profile-picture="{{ u.profile_picture|default:'' }}"
+                                                    data-google-email="{{ u.google_email|default:'' }}"
+                                                    data-google-enabled="{{ u.allow_google_login|yesno:'true,false' }}"
                                                     data-is-active="{{ u.is_active|yesno:'true,false' }}">
                                                 <i class="bi bi-pencil"></i> Edit
                                             </button>
@@ -1456,6 +1469,19 @@
                         <div class="mb-3">
                             <label class="form-label">Email</label>
                             <input type="email" class="form-control" id="editSecretaryEmail" name="email" placeholder="Enter email address">
+                        </div>
+
+                        <div class="mb-3 form-switch">
+                            <input class="form-check-input" type="checkbox" id="editSecretaryGoogleEnabled" name="google_oauth_enabled">
+                            <label class="form-check-label" for="editSecretaryGoogleEnabled">
+                                Allow Google sign-in for this secretary
+                            </label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Google Account Email</label>
+                            <input type="email" class="form-control" id="editSecretaryGoogleEmail" name="google_email" placeholder="example@gmail.com">
+                            <small class="text-muted">This must match the secretary's Google account.</small>
                         </div>
 
                         <div class="mb-3">
@@ -1544,6 +1570,17 @@
                             <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
                         </div>
 
+                        <div class="mb-3 form-switch">
+                            <input class="form-check-input" type="checkbox" id="profileGoogleEnabled" name="google_oauth_enabled" {% if user_obj.allow_google_login %}checked{% endif %}>
+                            <label class="form-check-label" for="profileGoogleEnabled">Allow Google sign-in for this account</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Google Account Email</label>
+                            <input type="email" class="form-control" id="profileGoogleEmail" name="google_email" value="{{ user_obj.google_email|default:'' }}" placeholder="example@gmail.com" {% if not user_obj.allow_google_login %}disabled{% endif %}>
+                            <small class="text-muted">Must match the Google account you use for login.</small>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">Current Password</label>
                             <input type="password" class="form-control" name="current_password" placeholder="Enter current password to change">
@@ -1629,6 +1666,32 @@
             });
 
             // Edit secretary button
+            function syncSecretaryGoogleField() {
+                const enabled = $('#editSecretaryGoogleEnabled').is(':checked');
+                $('#editSecretaryGoogleEmail').prop('disabled', !enabled);
+                if (!enabled) {
+                    $('#editSecretaryGoogleEmail').attr('placeholder', 'Disabled');
+                } else {
+                    $('#editSecretaryGoogleEmail').attr('placeholder', 'example@gmail.com');
+                }
+            }
+
+            function syncProfileGoogleField() {
+                const enabled = $('#profileGoogleEnabled').is(':checked');
+                $('#profileGoogleEmail').prop('disabled', !enabled);
+                if (!enabled) {
+                    $('#profileGoogleEmail').attr('placeholder', 'Disabled');
+                } else {
+                    $('#profileGoogleEmail').attr('placeholder', 'example@gmail.com');
+                }
+            }
+
+            $('#profileGoogleEnabled').on('change', syncProfileGoogleField);
+            syncProfileGoogleField();
+
+            $('#editSecretaryGoogleEnabled').on('change', syncSecretaryGoogleField);
+            syncSecretaryGoogleField();
+
             $('.edit-secretary-btn').on('click', function() {
                 const btn = $(this);
                 const userId = btn.data('user-id');
@@ -1636,6 +1699,8 @@
                 const phone = btn.data('phone') || '';
                 const email = btn.data('email') || '';
                 const profilePicture = btn.data('profile-picture') || '';
+                const googleEmail = btn.data('google-email') || '';
+                const googleEnabled = (btn.data('google-enabled') === true || btn.data('google-enabled') === 'true');
                 
                 // Populate modal
                 $('#editSecretaryUserId').val(userId);
@@ -1643,6 +1708,9 @@
                 $('#editSecretaryPassword').val('').attr('placeholder', 'Enter new password');
                 $('#editSecretaryPhone').val(phone);
                 $('#editSecretaryEmail').val(email);
+                $('#editSecretaryGoogleEmail').val(googleEmail);
+                $('#editSecretaryGoogleEnabled').prop('checked', googleEnabled);
+                syncSecretaryGoogleField();
                 $('#editSecretaryPicturePreview').html('');
                 
                 // Show profile picture if exists
@@ -1689,14 +1757,27 @@
                         if (response.success) {
                             showAlert(response.message, 'success');
                             $('#editSecretaryModal').modal('hide');
-                            // Update the displayed information without page reload
+                            if (response.user) {
+                                const card = $('.secretary-card[data-user-id="' + response.user.user_id + '"]');
+                                const editBtn = card.find('.edit-secretary-btn');
+                                editBtn.data('username', response.user.username || '');
+                                editBtn.data('phone', response.user.phone_number || '');
+                                editBtn.data('email', response.user.email || '');
+                                editBtn.data('profile-picture', response.user.profile_picture || '');
+                                editBtn.data('google-email', response.user.google_email || '');
+                                editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
+                                card.find('.secretary-info h6').text(response.user.username || 'Secretary');
+                                card.find('.secretary-phone').text(response.user.phone_number || 'Not provided');
+                                card.find('.secretary-email').text(response.user.email || 'Not provided');
+                                card.find('.secretary-google-email').text(response.user.allow_google_login && response.user.google_email ? response.user.google_email : 'Disabled');
+                            }
                             setTimeout(function() {
-                                // Just close the modal, data will update on next manual refresh
-                            }, 1000);
-                } else {
+                                submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                            }, 500);
+                        } else {
                             showAlert(response.message || 'Failed to update account', 'danger');
                             submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
-                }
+                        }
                     },
                     error: function(xhr) {
                         let errorMsg = 'An error occurred while updating account';
@@ -1746,6 +1827,8 @@
                             editBtn.data('phone', response.user.phone_number || '');
                             editBtn.data('email', response.user.email || '');
                             editBtn.data('profile-picture', response.user.profile_picture || '');
+                            editBtn.data('google-email', response.user.google_email || '');
+                            editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
                         }
                         editBtn.data('is-active', isActive);
                         

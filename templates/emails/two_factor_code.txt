@@ -1,0 +1,12 @@
+Hello {{ recipient_name }},
+
+We received a request to verify a sign-in to StockWise.
+
+Verification code: {{ code }}
+
+This one-time code expires in {{ expiry_minutes }} minutes. Do not share it with anyone.
+If you did not initiate this request, please contact your system administrator immediately.
+
+Thank you,
+StockWise Security Team
+

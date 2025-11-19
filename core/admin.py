@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, StockAddition, AppUser, Sale, SMS, ReportProductSummary
+from .models import Product, StockAddition, AppUser, Sale, SMS, ReportProductSummary, ActionLog, Backup, SMSNotificationSettings
 
 
 @admin.register(Product)
@@ -42,3 +42,40 @@ class ReportProductSummaryAdmin(admin.ModelAdmin):
     list_display = ("report_id", "product", "period_start", "period_end", "granularity", "revenue", "cogs", "gross_profit")
     list_filter = ("granularity", "period_start", "period_end")
     search_fields = ("product__name",)
+
+
+@admin.register(ActionLog)
+class ActionLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "role", "action", "ip_address")
+    list_filter = ("role", "created_at")
+    search_fields = ("action", "details", "user__username", "ip_address")
+
+
+@admin.register(Backup)
+class BackupAdmin(admin.ModelAdmin):
+    list_display = ("backup_id", "filename", "file_size", "backup_type", "created_at", "created_by", "is_verified")
+    list_filter = ("backup_type", "created_at", "is_verified")
+    search_fields = ("filename", "created_by")
+    readonly_fields = ("backup_id", "created_at")
+    ordering = ("-created_at",)
+
+
+@admin.register(SMSNotificationSettings)
+class SMSNotificationSettingsAdmin(admin.ModelAdmin):
+    list_display = ("setting_id", "sales_enabled", "sales_time", "stock_enabled", "stock_threshold", "pricing_enabled", "pricing_sensitivity", "updated_at")
+    readonly_fields = ("setting_id", "created_at", "updated_at")
+    fieldsets = (
+        ('Sales Notifications', {
+            'fields': ('sales_enabled', 'sales_time')
+        }),
+        ('Stock Alerts', {
+            'fields': ('stock_enabled', 'stock_threshold')
+        }),
+        ('Pricing Recommendations', {
+            'fields': ('pricing_enabled', 'pricing_sensitivity')
+        }),
+        ('Metadata', {
+            'fields': ('setting_id', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )

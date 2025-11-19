@@ -1,8 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.contrib.auth import login, logout
 from django.utils import timezone
-from django.core import signing
+from django.core import signing, mail
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
@@ -11,18 +10,24 @@ import csv
 from django.conf import settings
 from django.db.models import Sum, Count, F, Q, Case, When, CharField, Value, Max
 from django.db.models.functions import Coalesce, Substr, TruncDate
-from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary
+from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary, ActionLog, Backup
 import json
 from django.db import transaction
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+import secrets
+from urllib.parse import urlencode
+import requests
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+from django.utils.crypto import get_random_string
  
 from datetime import datetime, timedelta
 from decimal import Decimal
 from io import StringIO, BytesIO
 import csv
 from django.http import HttpResponse
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
@@ -37,6 +42,7 @@ from django.views.decorators.http import require_GET
 # FruitMaster removed per 6-table schema
 import django.db.models as models
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 # Unified numeric quantity options shared across all products
 STANDARD_SIZE_OPTIONS = ['120', '130', '140', '150', '160']
@@ -45,6 +51,148 @@ STANDARD_SIZE_OPTIONS = ['120', '130', '140', '150', '160']
 import re
 
 _ALLOWED_TEXT_PATTERN = re.compile(r"[^A-Za-z0-9\-\s(),./]+")
+
+
+def get_allowed_google_accounts():
+    """Combine env-configured Google accounts with user-configured accounts."""
+    allowed = dict(getattr(settings, 'GOOGLE_ALLOWED_ACCOUNTS', {}))
+    try:
+        dynamic_users = AppUser.objects.filter(
+            allow_google_login=True,
+            google_email__isnull=False
+        ).exclude(google_email__exact='')
+        for user in dynamic_users:
+            allowed[user.google_email.lower()] = {
+                'role': user.role,
+                'username': user.username,
+                'user_id': user.user_id,
+            }
+    except Exception:
+        # During migrations or initial setup, the table might not exist yet.
+        pass
+    return allowed
+
+def _map_app_role(role_value: str) -> str:
+    role_lower = (role_value or '').strip().lower()
+    if role_lower == 'admin':
+        return 'admin'
+    if role_lower == 'secretary':
+        return 'secretary'
+    return 'user'
+
+
+def _persist_user_session(request, user: AppUser):
+    mapped_role = _map_app_role(getattr(user, 'role', ''))
+    request.session['app_user_id'] = user.user_id
+    request.session['app_username'] = user.username
+    request.session['app_role'] = mapped_role
+
+
+def log_action(request, action: str, details: str = '', user: AppUser = None):
+    """Persist an audit log entry; swallow errors to avoid blocking user flow."""
+    try:
+        if user is None:
+            user_id = request.session.get('app_user_id') or request.session.get('user_id')
+            if user_id:
+                user = AppUser.objects.filter(user_id=user_id).first()
+        role = request.session.get('app_role') or (getattr(user, 'role', '') if user else '')
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        if ip_address:
+            ip_address = ip_address.split(',')[0].strip()
+        else:
+            ip_address = request.META.get('REMOTE_ADDR', '')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]
+        ActionLog.objects.create(
+            user=user,
+            role=role or '',
+            action=action[:150],
+            details=(details or '')[:2000],
+            ip_address=ip_address[:45],
+            user_agent=user_agent,
+        )
+    except Exception as e:
+        # Log error to console for debugging, but don't break user flow
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to create audit log entry: {action} - {str(e)}", exc_info=True)
+
+
+def _mask_email(email: str) -> str:
+    if not email or '@' not in email:
+        return email
+    local, domain = email.split('@', 1)
+    if len(local) <= 2:
+        masked_local = local[0] + '***'
+    else:
+        masked_local = local[0] + '***' + local[-1]
+    return f'{masked_local}@{domain}'
+
+
+def _generate_two_factor_code() -> str:
+    return get_random_string(length=6, allowed_chars='0123456789')
+
+
+def _send_two_factor_email(user: AppUser, code: str):
+    if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+        raise RuntimeError('Email credentials are not configured in the environment variables.')
+
+    subject = 'StockWise verification code'
+    display_name = (getattr(user, 'full_name', '') or user.username or 'StockWise user').strip()
+    context = {
+        'recipient_name': display_name,
+        'code': code,
+        'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+    }
+    text_body = render_to_string('emails/two_factor_code.txt', context)
+    html_body = render_to_string('emails/two_factor_code.html', context)
+
+    email = mail.EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email],
+    )
+    email.attach_alternative(html_body, 'text/html')
+    email.send(fail_silently=False)
+
+
+def _store_two_factor_session(request, user: AppUser, code: str):
+    expires = timezone.now() + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
+    request.session['pending_2fa_user_id'] = user.user_id
+    request.session['pending_2fa_code'] = code
+    request.session['pending_2fa_expiry'] = expires.timestamp()
+    request.session['pending_2fa_attempts'] = 0
+
+
+def _clear_two_factor_session(request):
+    for key in [
+        'pending_2fa_user_id',
+        'pending_2fa_code',
+        'pending_2fa_expiry',
+        'pending_2fa_attempts',
+    ]:
+        request.session.pop(key, None)
+
+
+def _initiate_two_factor(request, user: AppUser, resend: bool = False):
+    email = (user.email or '').strip()
+    if not email:
+        messages.error(request, 'This account does not have an email address on file. Please contact the administrator.')
+        return render(request, 'login_modern.html')
+    code = _generate_two_factor_code()
+    try:
+        _store_two_factor_session(request, user, code)
+        _send_two_factor_email(user, code)
+    except Exception as exc:
+        _clear_two_factor_session(request)
+        messages.error(request, f'Unable to send verification code: {exc}')
+        return render(request, 'login_modern.html')
+    masked = _mask_email(email)
+    if resend:
+        messages.success(request, f'A new verification code was sent to {masked}.')
+        return redirect('two_factor_verify')
+    messages.info(request, f'A verification code was sent to {masked}.')
+    return redirect('two_factor_verify')
 
 
 def format_local_datetime(dt, fmt='%b %d, %Y %I:%M %p'):
@@ -99,21 +247,24 @@ def redirect_to_login(request):
 @csrf_exempt
 def login_view(request):
     if request.method == 'POST':
-        username = request.POST.get('username', '').strip()
+        username_input = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         
         # TC-005, TC-006: Server-side validation for empty fields
-        if not username:
-            messages.error(request, 'Username is required.')
+        if not username_input:
+            messages.error(request, 'Email address or username is required.')
             return render(request, 'login_modern.html')
         if not password:
             messages.error(request, 'Password is required.')
             return render(request, 'login_modern.html')
         
         try:
-            user = AppUser.objects.filter(username=username).first()
+            if '@' in username_input:
+                user = AppUser.objects.filter(email__iexact=username_input).first()
+            else:
+                user = AppUser.objects.filter(username__iexact=username_input).first()
             if not user:
-                messages.error(request, 'Username not found.')
+                messages.error(request, 'Account not found. Check your email/username.')
                 return render(request, 'login_modern.html')
             
             # TC-003: Check if user account is active (check BEFORE password verification)
@@ -146,19 +297,8 @@ def login_view(request):
                     password_valid = False
             
             if password_valid:
-                # Map roles to legacy session values used across the app
-                role_lower = (user.role or '').strip().lower()
-                if role_lower == 'admin':
-                    mapped_role = 'admin'
-                elif role_lower == 'secretary':
-                    mapped_role = 'secretary'
-                else:
-                    mapped_role = 'user'
-                request.session['app_user_id'] = user.user_id
-                request.session['app_username'] = user.username
-                request.session['app_role'] = mapped_role
-                
-                # Check if there's a QR redirect URL to go back to
+                _persist_user_session(request, user)
+                log_action(request, 'Login success', f'User logged in with username/password ({user.username})', user=user)
                 qr_redirect_url = request.session.pop('qr_redirect_url', None)
                 if qr_redirect_url:
                     return redirect(qr_redirect_url)
@@ -174,14 +314,220 @@ def login_view(request):
     qr_redirect_url = request.session.get('qr_redirect_url')
     is_from_qr = qr_redirect_url and '/qr/confirm/' in qr_redirect_url
     
+    google_allowed_accounts = get_allowed_google_accounts()
+    
     return render(request, 'login_modern.html', {
-        'is_from_qr': is_from_qr
+        'is_from_qr': is_from_qr,
+        'google_login_enabled': bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET),
+        'google_allowed_emails': list(google_allowed_accounts.keys()),
     })
 
 
+@require_http_methods(["GET", "POST"])
+def two_factor_verify(request):
+    pending_user_id = request.session.get('pending_2fa_user_id')
+    pending_code = request.session.get('pending_2fa_code')
+    pending_expiry = request.session.get('pending_2fa_expiry')
+
+    if not (pending_user_id and pending_code and pending_expiry):
+        messages.info(request, 'Please sign in again to receive a verification code.')
+        return redirect('login')
+
+    try:
+        user = AppUser.objects.get(user_id=pending_user_id)
+    except AppUser.DoesNotExist:
+        _clear_two_factor_session(request)
+        messages.error(request, 'User no longer exists. Please sign in again.')
+        return redirect('login')
+
+    if request.method == 'POST':
+        if request.POST.get('resend_code'):
+            response = _initiate_two_factor(request, user, resend=True)
+            if response:
+                return response
+        else:
+            code_entered = request.POST.get('code', '').strip()
+            if len(code_entered) != 6 or not code_entered.isdigit():
+                messages.error(request, 'Enter the 6-digit code sent to your email.')
+            else:
+                now_ts = timezone.now().timestamp()
+                if now_ts > float(pending_expiry):
+                    messages.error(request, 'Your verification code has expired. A new code was sent.')
+                    response = _initiate_two_factor(request, user, resend=True)
+                    if response:
+                        return response
+                elif code_entered != pending_code:
+                    attempts = request.session.get('pending_2fa_attempts', 0) + 1
+                    request.session['pending_2fa_attempts'] = attempts
+                    if attempts >= settings.TWO_FACTOR_MAX_ATTEMPTS:
+                        _clear_two_factor_session(request)
+                        messages.error(request, 'Too many incorrect attempts. Please sign in again.')
+                        return redirect('login')
+                    messages.error(request, 'The code you entered is incorrect.')
+                else:
+                    _clear_two_factor_session(request)
+                    _persist_user_session(request, user)
+                    log_action(
+                        request,
+                        'Login success (2FA)',
+                        f'Verified code for {user.email or user.username}',
+                        user=user,
+                    )
+                    next_url = request.session.pop('google_oauth_next', None)
+                    if next_url:
+                        return redirect(next_url)
+                    qr_redirect_url = request.session.pop('qr_redirect_url', None)
+                    if qr_redirect_url:
+                        return redirect(qr_redirect_url)
+                    return redirect('dashboard')
+
+    return render(request, 'login_two_factor.html', {
+        'masked_email': _mask_email(user.email or ''),
+    })
+
+
+@require_GET
+def google_login_start(request):
+    """Redirect the user to Google's OAuth consent page."""
+    if not (settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET):
+        messages.error(request, 'Google sign-in is not configured yet.')
+        return redirect('login')
+
+    state_token = secrets.token_urlsafe(32)
+    redirect_uri = request.build_absolute_uri(reverse('google_login_callback'))
+
+    request.session['google_oauth_state'] = state_token
+    request.session['google_oauth_redirect_uri'] = redirect_uri
+    next_url = request.GET.get('next')
+    if next_url:
+        request.session['google_oauth_next'] = next_url
+
+    params = {
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': ' '.join(settings.GOOGLE_OAUTH_SCOPES),
+        'access_type': 'offline',
+        'include_granted_scopes': 'true',
+        'state': state_token,
+        'prompt': 'select_account',
+    }
+    auth_url = f"{settings.GOOGLE_AUTHORIZATION_ENDPOINT}?{urlencode(params)}"
+    return redirect(auth_url)
+
+
+@require_GET
+def google_login_callback(request):
+    """Handle Google's OAuth callback, verify the token, then log the user in."""
+    error_reason = request.GET.get('error')
+    if error_reason:
+        messages.error(request, f'Google sign-in failed: {error_reason}')
+        return redirect('login')
+
+    state = request.GET.get('state')
+    expected_state = request.session.pop('google_oauth_state', None)
+    if not expected_state or state != expected_state:
+        messages.error(request, 'Invalid Google sign-in state. Please try again.')
+        return redirect('login')
+
+    code = request.GET.get('code')
+    if not code:
+        messages.error(request, 'Missing authorization code from Google.')
+        return redirect('login')
+
+    redirect_uri = request.session.pop(
+        'google_oauth_redirect_uri',
+        request.build_absolute_uri(reverse('google_login_callback'))
+    )
+
+    token_payload = {
+        'code': code,
+        'client_id': settings.GOOGLE_CLIENT_ID,
+        'client_secret': settings.GOOGLE_CLIENT_SECRET,
+        'redirect_uri': redirect_uri,
+        'grant_type': 'authorization_code',
+    }
+
+    try:
+        token_response = requests.post(
+            settings.GOOGLE_TOKEN_ENDPOINT,
+            data=token_payload,
+            timeout=10
+        )
+        token_response.raise_for_status()
+        token_data = token_response.json()
+    except requests.RequestException as exc:
+        messages.error(request, f'Unable to complete Google sign-in (token error: {exc}).')
+        return redirect('login')
+
+    id_token_value = token_data.get('id_token')
+    if not id_token_value:
+        messages.error(request, 'Google did not return a valid ID token.')
+        return redirect('login')
+
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            id_token_value,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID
+        )
+    except ValueError as exc:
+        messages.error(request, f'Google token verification failed: {exc}')
+        return redirect('login')
+
+    email = (id_info.get('email') or '').lower()
+    if not email:
+        messages.error(request, 'Google account email is required to sign in.')
+        return redirect('login')
+
+    allowed_google_accounts = get_allowed_google_accounts()
+    allowed_account = allowed_google_accounts.get(email)
+    if not allowed_account:
+        messages.error(
+            request,
+            'This Google account is not allowed. Please use the authorized admin or secretary account.'
+        )
+        return redirect('login')
+
+    user = AppUser.objects.filter(email__iexact=email).first()
+    if not user and allowed_account.get('username'):
+        user = AppUser.objects.filter(username__iexact=allowed_account['username']).first()
+    if not user and allowed_account.get('role'):
+        user = AppUser.objects.filter(role__iexact=allowed_account['role']).order_by('user_id').first()
+
+    if not user:
+        messages.error(request, 'No matching StockWise user found for this Google account.')
+        return redirect('login')
+
+    if not user:
+        messages.error(request, 'No matching StockWise user found for this Google account.')
+        return redirect('login')
+
+    if not user.email:
+        user.email = email
+        user.save(update_fields=['email'])
+
+    if not getattr(user, 'is_active', True):
+        messages.error(request, 'Account disabled. Please contact the admin to enable your account.')
+        return redirect('login')
+
+    response = _initiate_two_factor(request, user)
+    return response if response else redirect('login')
+
+
 def logout_view(request):
-    for key in ['app_user_id', 'app_username', 'app_role']:
-        request.session.pop(key, None)
+    """Handle user logout - clear session and redirect to login"""
+    try:
+        # Log the logout action before clearing session (so we have user info)
+        log_action(request, 'Logout', 'User logged out of the system')
+    except Exception:
+        # Don't fail logout if logging fails
+        pass
+    
+    # Clear all session data
+    request.session.flush()
+    
+    # Redirect to login page
     return redirect('login')
 
 
@@ -713,6 +1059,11 @@ def product_add(request):
                     cost=cost
                 )
 
+        log_action(
+            request,
+            'Product added',
+            f'Added product {product.name} (ID {product.product_id}) with stock {stock}.'
+        )
         return JsonResponse({'success': True, 'message': 'Product added to inventory successfully.'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
@@ -736,6 +1087,11 @@ def product_edit(request, product_id):
                 product.stock = data['stock']
                 product.save()
 
+        log_action(
+            request,
+            'Product updated',
+            f'Updated product {product.product_id} ({product.name}).'
+        )
         return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found.'})
@@ -747,7 +1103,18 @@ def product_edit(request, product_id):
 def product_delete(request, product_id):
     """Delete a product."""
     try:
-        Product.objects.get(product_id=product_id).delete()
+        product = Product.objects.get(product_id=product_id)
+        product_name = product.name
+        
+        # Auto-backup before deletion
+        auto_backup_before_critical_operation(request, f'Product deletion: {product_name}')
+        
+        product.delete()
+        log_action(
+            request,
+            'Product deleted',
+            f'Deleted product {product_id} ({product_name})'
+        )
         return JsonResponse({'success': True, 'message': 'Product deleted successfully.'})
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found.'})
@@ -797,15 +1164,16 @@ def add_stock(request):
             else:
                 return JsonResponse({'success': False, 'message': 'No items provided.'})
         
+        # Auto-backup before bulk stock addition (if multiple items)
+        if len(items) > 1:
+            auto_backup_before_critical_operation(request, f'Bulk stock addition ({len(items)} products)')
+        
         with transaction.atomic():
             added_items = []
             for item in items:
                 product_id = item.get('product_id')
                 quantity = item.get('quantity')
                 supplier = item.get('supplier', '')
-                
-                # Debug: Print what supplier value we're receiving
-                print(f"DEBUG: Received supplier value: '{supplier}' (type: {type(supplier)}, length: {len(supplier) if supplier else 0})")
                 
                 if not product_id or not quantity:
                     continue
@@ -850,9 +1218,8 @@ def add_stock(request):
                         except ValueError:
                             pass
                     
-                    # Debug: Print what we're about to save
-                    supplier_to_save = supplier if supplier else None
-                    print(f"DEBUG: About to save supplier: '{supplier_to_save}' (type: {type(supplier_to_save)})")
+                    # Convert empty string to None for supplier
+                    supplier_to_save = supplier.strip() if supplier and supplier.strip() else None
                     
                     StockAddition.objects.create(
                         product=product,
@@ -869,6 +1236,13 @@ def add_stock(request):
                     # Update product stock directly
                     product.stock = models.F('stock') + int(quantity)
                     product.save()
+                    # Refresh to get updated stock value for low stock check
+                    product.refresh_from_db(fields=['stock'])
+                    
+                    # Check for low stock and send alert if needed
+                    if product.stock <= 10 and product.status.lower() == 'active':
+                        from core.signals import send_low_stock_alert
+                        send_low_stock_alert(product)
                     
                     # Update product supplier if provided
                     if supplier:
@@ -886,6 +1260,17 @@ def add_stock(request):
             
             if not added_items:
                 return JsonResponse({'success': False, 'message': 'No valid items to add.'})
+            
+            # Log stock addition (only mark as bulk if multiple products)
+            items_summary = ', '.join([f"{item['product_name']} (+{item['quantity']})" for item in added_items[:5]])
+            if len(added_items) > 5:
+                items_summary += f" and {len(added_items) - 5} more"
+            action_type = 'Stock added (bulk)' if len(added_items) > 1 else 'Stock added'
+            log_action(
+                request,
+                action_type,
+                f'Added stock for {len(added_items)} product(s): {items_summary}.'
+            )
             
             return JsonResponse({
                 'success': True,
@@ -934,7 +1319,8 @@ def stock_qr_apply(request):
             for item in items:
                 product_id = item.get('product_id')
                 quantity = item.get('quantity')
-                supplier = item.get('supplier', '')
+                supplier_raw = item.get('supplier', '')
+                supplier = supplier_raw.strip() if supplier_raw and supplier_raw.strip() else None
                 if not product_id or not quantity:
                     continue
                 try:
@@ -957,12 +1343,29 @@ def stock_qr_apply(request):
                     )
                     product.stock = models.F('stock') + quantity
                     product.save()
+                    # Refresh to get updated stock value for low stock check
+                    product.refresh_from_db(fields=['stock'])
+                    
+                    # Check for low stock and send alert if needed
+                    if product.stock <= 10 and product.status.lower() == 'active':
+                        from core.signals import send_low_stock_alert
+                        send_low_stock_alert(product)
+                    
                     if supplier:
                         product.supplier = supplier
                         product.save()
                     added_items.append({'name': product.name, 'qty': quantity})
                 except Product.DoesNotExist:
                     continue
+        if added_items:
+            summary = ', '.join([f"{it['name']} (+{it['qty']})" for it in added_items[:5]])
+            if len(added_items) > 5:
+                summary += f" and {len(added_items) - 5} more"
+            log_action(
+                request,
+                'Stock added via QR',
+                f'Applied QR token to add stock for {len(added_items)} product(s): {summary}.'
+            )
         html = ["<h3>Stock Added</h3>", "<ul>"]
         for it in added_items:
             html.append(f"<li>{it['name']}: +{it['qty']}</li>")
@@ -1065,18 +1468,32 @@ def stock_add(request, product_id):
             
             # Create one stock addition record with total quantity
             batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
+            supplier_value = data.get('supplier', '')
+            supplier_to_save = supplier_value.strip() if supplier_value and supplier_value.strip() else None
             StockAddition.objects.create(
                 product=product,
                 quantity=int(data['quantity']),
                 date_added=timezone.now().date(),
                 remaining_quantity=int(data['quantity']),
                 batch_id=batch_id,
-                supplier=data.get('supplier', '')
+                supplier=supplier_to_save
             )
 
             # Update product stock directly
             product.stock = models.F('stock') + int(data['quantity'])
             product.save()
+            product.refresh_from_db(fields=['stock'])
+            
+            # Check for low stock and send alert if needed
+            if product.stock <= 10 and product.status.lower() == 'active':
+                from core.signals import send_low_stock_alert
+                send_low_stock_alert(product)
+
+            log_action(
+                request,
+                'Stock added',
+                f'Added {data["quantity"]} units to product {product_id}.'
+            )
 
             return JsonResponse({
                 'success': True,
@@ -1575,6 +1992,12 @@ def void_sale(request, sale_id):
             sale.stock_restored = True
             sale.save()
 
+            log_action(
+                request,
+                'Sale voided',
+                f'Voided sale {sale_id} (OR {sale.or_number}).'
+            )
+
             return JsonResponse({
                 'success': True,
                 'message': 'Sale voided successfully.',
@@ -1626,6 +2049,12 @@ def complete_sale(request, sale_id):
             sale.voided_at = None
             sale.stock_restored = False
             sale.save()
+
+            log_action(
+                request,
+                'Sale completed',
+                f'Marked sale {sale_id} as completed.'
+            )
 
             return JsonResponse({
                 'success': True,
@@ -2490,6 +2919,8 @@ def export_report(request):
     
     # Get previous period for comparison
     previous_queryset = base_queryset.none()
+    current_start = None
+    current_end = None
     if date_range:
         current_start, current_end = date_range
         period_delta = current_end - current_start
@@ -2539,15 +2970,15 @@ def export_report(request):
     transaction_count = int(trans_cnt)
     total_boxes = int(total_items)
 
-    # Build PDF with proper margins for landscape A4
+    # Build PDF with portrait letter size (8.5" x 11")
     buffer = BytesIO()
-    # A4 landscape is 297mm x 210mm = 841.89 x 595.27 points
+    # Letter portrait is 8.5" x 11" = 612 x 792 points
     from reportlab.platypus import PageTemplate, Frame, PageBreak
     from reportlab.lib.units import inch
     
     # Compact margins for more content
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
-                          leftMargin=0.4*inch, rightMargin=0.4*inch, 
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                          leftMargin=0.5*inch, rightMargin=0.5*inch, 
                           topMargin=0.5*inch, bottomMargin=0.5*inch,
                           showBoundary=0)
     
@@ -2557,17 +2988,17 @@ def export_report(request):
     
     elems = []
 
-    # Calculate available width (landscape A4 width minus margins)
-    # Landscape A4: 841.89 points wide, minus 0.4 inch (28.8 points) on each side
-    available_width = landscape(A4)[0] - (0.4 * inch * 2)  # 841.89 - 57.6 = ~784 points
+    # Calculate available width (portrait letter width minus margins)
+    # Letter portrait: 612 points wide, minus 0.5 inch (36 points) on each side
+    available_width = letter[0] - (0.5 * inch * 2)  # 612 - 72 = 540 points
 
-    # Custom styles for better appearance
+    # Custom styles for better appearance (adjusted for portrait)
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Title'],
-        fontSize=20,
+        fontSize=18,
         textColor=colors.HexColor('#1f2937'),
-        spaceAfter=8,
+        spaceAfter=6,
         spaceBefore=0,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
@@ -2576,9 +3007,9 @@ def export_report(request):
     subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=9,
         textColor=colors.HexColor('#6b7280'),
-        spaceAfter=10,
+        spaceAfter=8,
         alignment=TA_CENTER,
         fontName='Helvetica'
     )
@@ -2618,9 +3049,9 @@ def export_report(request):
         'SectionHeader', 
         parent=styles['Heading2'], 
         textColor=colors.HexColor('#1f2937'), 
-        spaceAfter=8,
-        spaceBefore=10,
-        fontSize=14,
+        spaceAfter=6,
+        spaceBefore=8,
+        fontSize=12,
         fontName='Helvetica-Bold'
     )
     
@@ -2629,30 +3060,30 @@ def export_report(request):
     elems.append(Spacer(1, 8))
     
     avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
-    card_style = ParagraphStyle('Card', fontSize=8, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=11)
-    card_small_style = ParagraphStyle('CardSmall', fontSize=7, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=9)
+    card_style = ParagraphStyle('Card', fontSize=7, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=10)
+    card_small_style = ParagraphStyle('CardSmall', fontSize=6, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=8)
     
-    # Enhanced summary cards (3x3 grid for comprehensive metrics)
+    # Enhanced summary cards (3x3 grid for comprehensive metrics - adjusted for portrait)
     summary_cards = [
         [
-            Paragraph("<b>TOTAL REVENUE</b><br/><font size=14 color='#10b981'>₱{:,}</font><br/><font size=6>Growth: {:.1f}%</font>".format(int(total_revenue), revenue_growth_pct), card_style),
-            Paragraph("<b>GROSS PROFIT</b><br/><font size=14 color='#10b981'>₱{:,}</font><br/><font size=6>Margin: {:.1f}%</font>".format(int(gross_profit), gross_margin_pct), card_style),
-            Paragraph("<b>COGS</b><br/><font size=14 color='#ef4444'>₱{:,}</font>".format(int(total_cogs)), card_style),
+            Paragraph("<b>TOTAL REVENUE</b><br/><font size=12 color='#10b981'>₱{:,}</font><br/><font size=5>Growth: {:.1f}%</font>".format(int(total_revenue), revenue_growth_pct), card_style),
+            Paragraph("<b>GROSS PROFIT</b><br/><font size=12 color='#10b981'>₱{:,}</font><br/><font size=5>Margin: {:.1f}%</font>".format(int(gross_profit), gross_margin_pct), card_style),
+            Paragraph("<b>COGS</b><br/><font size=12 color='#ef4444'>₱{:,}</font>".format(int(total_cogs)), card_style),
         ],
         [
-            Paragraph("<b>TOTAL TRANSACTIONS</b><br/><font size=14 color='#6366f1'>{}</font><br/><font size=6>Growth: {:.1f}%</font>".format(transaction_count, transaction_growth_pct), card_style),
-            Paragraph("<b>AVG ORDER VALUE</b><br/><font size=14 color='#f59e0b'>₱{:,}</font>".format(int(avg_order)), card_style),
-            Paragraph("<b>TOTAL BOXES</b><br/><font size=14 color='#f59e0b'>{}</font>".format(total_boxes), card_style),
+            Paragraph("<b>TOTAL TRANSACTIONS</b><br/><font size=12 color='#6366f1'>{}</font><br/><font size=5>Growth: {:.1f}%</font>".format(transaction_count, transaction_growth_pct), card_style),
+            Paragraph("<b>AVG ORDER VALUE</b><br/><font size=12 color='#f59e0b'>₱{:,}</font>".format(int(avg_order)), card_style),
+            Paragraph("<b>TOTAL BOXES</b><br/><font size=12 color='#f59e0b'>{}</font>".format(total_boxes), card_style),
         ],
         [
-            Paragraph("<b>VAT (12%)</b><br/><font size=14 color='#8b5cf6'>₱{:,}</font>".format(int(vat_total)), card_style),
-            Paragraph("<b>NET PROFIT</b><br/><font size=14 color='#10b981'>₱{:,}</font>".format(int(net_profit)), card_style),
-            Paragraph("<b>ITEMS SOLD</b><br/><font size=14 color='#6366f1'>{}</font>".format(total_items), card_style),
+            Paragraph("<b>VAT (12%)</b><br/><font size=12 color='#8b5cf6'>₱{:,}</font>".format(int(vat_total)), card_style),
+            Paragraph("<b>NET PROFIT</b><br/><font size=12 color='#10b981'>₱{:,}</font>".format(int(net_profit)), card_style),
+            Paragraph("<b>ITEMS SOLD</b><br/><font size=12 color='#6366f1'>{}</font>".format(total_items), card_style),
         ]
     ]
     
     card_width = (available_width - 20) / 3
-    summary_grid = Table(summary_cards, colWidths=[card_width, card_width, card_width], rowHeights=[70, 70, 70])
+    summary_grid = Table(summary_cards, colWidths=[card_width, card_width, card_width], rowHeights=[60, 60, 60])
     summary_grid.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.white),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
@@ -2672,7 +3103,7 @@ def export_report(request):
         ('BACKGROUND', (2,2), (2,2), colors.HexColor('#eef2ff')),
     ]))
     elems.append(summary_grid)
-    elems.append(Spacer(1, 15))
+    elems.append(Spacer(1, 10))
 
     # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
     elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
@@ -2742,15 +3173,15 @@ def export_report(request):
                 str(transaction_count)
             ])
         
-        # Column widths optimized for comprehensive data
-        col_widths = [120, 50, 45, 60, 60, 70, 70, 70, 60, 60, 50]
+        # Column widths optimized for portrait letter (narrower columns)
+        col_widths = [90, 35, 30, 40, 40, 50, 50, 50, 45, 45, 35]
         sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
         sales_summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 8),
-            ('FONTSIZE', (0,1), (-1,-1), 7),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
             ('ALIGN', (2,1), (10,-1), 'RIGHT'),  # Right align numbers
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F0FDF4')]),
@@ -2764,7 +3195,7 @@ def export_report(request):
     else:
         elems.append(Paragraph("No product data available.", styles['Normal']))
     
-    elems.append(PageBreak())
+    elems.append(Spacer(1, 8))
     
     # ========== SECTION 3: TOP PRODUCTS (Enhanced) ==========
     elems.append(Paragraph("TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
@@ -2809,15 +3240,15 @@ def export_report(request):
                 f"{inventory_turnover:.2f}"
             ])
         
-        # Column widths for top products
-        top_col_widths = [35, 140, 50, 45, 60, 70, 60, 50, 60, 50]
+        # Column widths for top products (portrait)
+        top_col_widths = [25, 100, 35, 30, 40, 50, 45, 35, 45, 35]
         top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
         top_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 8),
-            ('FONTSIZE', (0,1), (-1,-1), 7),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
             ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center rank
             ('ALIGN', (3,1), (9,-1), 'RIGHT'),  # Right align numbers
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
@@ -2832,7 +3263,7 @@ def export_report(request):
     else:
         elems.append(Paragraph("No product data available.", styles['Normal']))
     
-    elems.append(PageBreak())
+    elems.append(Spacer(1, 8))
 
     # ========== SECTION 4: LOW STOCK INVENTORY (Enhanced) ==========
     elems.append(Paragraph("LOW STOCK ANALYSIS", section_style))
@@ -2903,22 +3334,22 @@ def export_report(request):
         for item in low_stock_data:
             days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
             low_rows.append([
-                str(item['product_name'])[:20],
+                str(item['product_name'])[:18],
                 str(item['size'] or ''),
                 str(int(item['current_stock'])),
-                f"₱{item['stock_value']:,.2f}",
+                f"₱{item['stock_value']:,.0f}",
                 f"{item['average_daily_sales']:.1f}",
                 days_supply_str,
                 str(item['reorder_point']),
                 str(item['reorder_quantity']),
                 f"{item['lead_time_days']}d",
-                item['last_sale_date'],
+                item['last_sale_date'][:10] if item['last_sale_date'] != 'N/A' else 'N/A',
                 item['status'],
                 item['action_required']
             ])
         
-        # Column widths for comprehensive low stock data
-        low_col_widths = [100, 45, 50, 60, 60, 55, 55, 55, 50, 60, 50, 50]
+        # Column widths for low stock (optimized for portrait with full headers)
+        low_col_widths = [75, 40, 45, 50, 50, 45, 45, 40, 40, 60, 40, 40]
         low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
         low_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
@@ -2940,9 +3371,9 @@ def export_report(request):
     else:
         elems.append(Paragraph("All products have sufficient stock.", styles['Normal']))
     
-    elems.append(PageBreak())
+    elems.append(Spacer(1, 8))
 
-    # ========== SECTION 4: DETAILED TRANSACTIONS ==========
+    # ========== SECTION 5: DETAILED TRANSACTIONS ==========
     elems.append(Paragraph("DETAILED TRANSACTIONS", section_style))
     elems.append(Spacer(1, 8))
 
@@ -2986,42 +3417,39 @@ def export_report(request):
 
     tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
 
-    # Better transactions table with improved readability
-    # Optimized column widths for landscape: 45+70+70+90+110+70+130+50+75+65+80+60 = 915 (but we have ~750 available)
-    # Adjusted: 40+65+65+85+100+65+125+45+70+60+75+55
-    rows = [['ID', 'Transaction #', 'OR #', 'Date', 'Customer', 'Contact', 'Products', 'Boxes', 'Subtotal', 'VAT', 'Total', 'Status']]
+    # Better transactions table with improved readability (portrait)
+    rows = [['ID', 'Transaction #', 'OR #', 'Date', 'Customer', 'Products', 'Boxes', 'Subtotal', 'VAT', 'Total', 'Status']]
     for tx in tx_data:
         # Format fruits list better
         fruits_str = ', '.join(tx['fruits']) if tx['fruits'] else 'N/A'
-        if len(fruits_str) > 25:
-            fruits_str = fruits_str[:22] + '...'
+        if len(fruits_str) > 20:
+            fruits_str = fruits_str[:17] + '...'
         
         rows.append([
             str(tx['sale_id']),
-            str(tx['transaction_number'])[:12],
+            str(tx['transaction_number'])[:10],
             str(tx['or_number'])[:10] if tx['or_number'] != 'N/A' else 'N/A',
-            tx['recorded_at'][:16],  # Date with time
-            str(tx['customer_name'])[:18],
-            str(tx['contact_number'])[:12] if tx['contact_number'] != 'N/A' else 'N/A',
+            tx['recorded_at'][:10],  # Date only for space
+            str(tx['customer_name'])[:15],
             fruits_str,
             str(tx['total_boxes']),
-            f"₱{tx['subtotal']:,.2f}",
-            f"₱{tx['vat']:,.2f}",
-            f"₱{tx['total']:,.2f}",
+            f"₱{tx['subtotal']:,.0f}",
+            f"₱{tx['vat']:,.0f}",
+            f"₱{tx['total']:,.0f}",
             tx['status'].title()
         ])
     
-    # Better column widths optimized for landscape
-    table = Table(rows, repeatRows=1, colWidths=[40, 70, 65, 85, 100, 65, 125, 45, 70, 60, 75, 55])
+    # Column widths optimized for portrait letter with full headers
+    table = Table(rows, repeatRows=1, colWidths=[25, 70, 40, 50, 70, 90, 35, 55, 40, 55, 40])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 9),
-        ('FONTSIZE', (0,1), (-1,-1), 8),
+        ('FONTSIZE', (0,0), (-1,0), 7),
+        ('FONTSIZE', (0,1), (-1,-1), 6),
         ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center ID
-        ('ALIGN', (7,1), (10,-1), 'RIGHT'),  # Right align numbers
-        ('ALIGN', (11,1), (11,-1), 'CENTER'),  # Center status
+        ('ALIGN', (6,1), (9,-1), 'RIGHT'),  # Right align numbers
+        ('ALIGN', (10,1), (10,-1), 'CENTER'),  # Center status
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -3055,7 +3483,7 @@ def export_report(request):
             ''
         ]
     ]
-    footer_table = Table(footer_data, colWidths=[40, 70, 65, 85, 100, 65, 125, 45, 70, 60, 75, 55])
+    footer_table = Table(footer_data, colWidths=[25, 70, 40, 50, 70, 90, 35, 55, 40, 55, 40])
     footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
         ('FONTNAME', (6,0), (10,0), 'Helvetica-Bold'),
@@ -3068,6 +3496,287 @@ def export_report(request):
         ('BOTTOMPADDING', (0,0), (-1,-1), 6),
     ]))
     elems.append(footer_table)
+    elems.append(Spacer(1, 8))
+
+    # ========== SECTION 6: ABC ANALYSIS ==========
+    elems.append(Paragraph("ABC ANALYSIS - PRODUCT CATEGORIZATION", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Calculate ABC analysis
+    total_current_revenue_for_abc = sum(Decimal(item['revenue'] or 0) for item in summary)
+    abc_data = []
+    if total_current_revenue_for_abc:
+        sorted_by_revenue = sorted(summary, key=lambda x: Decimal(x['revenue'] or 0), reverse=True)
+        cumulative_share = Decimal('0')
+        for entry in sorted_by_revenue[:20]:  # Top 20 for PDF
+            revenue_value = Decimal(entry['revenue'] or 0)
+            share_pct = (revenue_value / total_current_revenue_for_abc * Decimal('100')) if total_current_revenue_for_abc else Decimal('0')
+            cumulative_share += share_pct
+            if cumulative_share <= Decimal('70'):
+                category = 'A'
+            elif cumulative_share <= Decimal('90'):
+                category = 'B'
+            else:
+                category = 'C'
+            abc_data.append({
+                'product_name': entry['product__name'] or 'N/A',
+                'revenue': float(revenue_value),
+                'revenue_share_pct': float(share_pct),
+                'cumulative_pct': float(cumulative_share),
+                'category': category
+            })
+    
+    if abc_data:
+        abc_rows = [['Category', 'Product', 'Revenue', 'Revenue Share %', 'Cumulative %']]
+        for item in abc_data:
+            abc_rows.append([
+                item['category'],
+                str(item['product_name'])[:25],
+                f"₱{item['revenue']:,.2f}",
+                f"{item['revenue_share_pct']:.2f}%",
+                f"{item['cumulative_pct']:.2f}%"
+            ])
+        
+        abc_table = Table(abc_rows, repeatRows=1, colWidths=[30, 130, 80, 80, 80])
+        abc_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
+            ('ALIGN', (2,1), (4,-1), 'RIGHT'),
+            ('ALIGN', (0,1), (0,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3E8FF')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elems.append(abc_table)
+    else:
+        elems.append(Paragraph("No ABC analysis data available.", styles['Normal']))
+    
+    elems.append(Spacer(1, 8))
+
+    # ========== SECTION 7: SLOW MOVERS ==========
+    elems.append(Paragraph("SLOW MOVERS - LOW SALES PERFORMANCE", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Calculate slow movers
+    slow_movers_data = []
+    if summary:
+        sorted_by_boxes = sorted(summary, key=lambda x: x.get('boxes_sold') or 0)[:10]
+        for entry in sorted_by_boxes:
+            boxes = entry.get('boxes_sold') or 0
+            revenue = Decimal(entry.get('revenue') or 0)
+            # Calculate period days for average daily sales
+            if date_range and current_start and current_end:
+                period_days_calc = max(1, (current_end.date() - current_start.date()).days + 1)
+            else:
+                # Fallback to filter_type-based calculation
+                ft_lookup = (filter_type or '').lower()
+                if ft_lookup in ('weekly', 'week'):
+                    period_days_calc = 7
+                elif ft_lookup in ('monthly', 'month'):
+                    period_days_calc = 30
+                elif ft_lookup in ('quarter',):
+                    period_days_calc = 90
+                elif ft_lookup in ('year',):
+                    period_days_calc = 365
+                else:
+                    period_days_calc = 1
+            avg_daily_sales = round(float(boxes) / float(period_days_calc), 2) if period_days_calc else 0.0
+            slow_movers_data.append({
+                'product_name': entry.get('product__name') or 'N/A',
+                'boxes_sold': boxes,
+                'revenue': float(revenue),
+                'avg_daily_sales': avg_daily_sales
+            })
+    
+    if slow_movers_data:
+        slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
+        for item in slow_movers_data:
+            slow_rows.append([
+                str(item['product_name'])[:30],
+                str(item['boxes_sold']),
+                f"₱{item['revenue']:,.2f}",
+                f"{item['avg_daily_sales']:.2f}"
+            ])
+        
+        slow_table = Table(slow_rows, repeatRows=1, colWidths=[180, 70, 90, 80])
+        slow_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
+            ('ALIGN', (1,1), (3,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF3C7')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elems.append(slow_table)
+    else:
+        elems.append(Paragraph("No slow movers identified.", styles['Normal']))
+    
+    elems.append(Spacer(1, 8))
+
+    # ========== SECTION 8: DEAD STOCK ==========
+    elems.append(Paragraph("DEAD STOCK - AGING INVENTORY", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Calculate dead stock
+    dead_stock_data = []
+    dead_cutoff = timezone.localtime() - timedelta(days=45)
+    last_sales_lookup = {
+        row['product_id']: row['last_sale']
+        for row in Sale.objects.filter(status__iexact='completed').values('product_id').annotate(last_sale=Max('recorded_at'))
+    }
+    for prod in Product.objects.filter(status='active').order_by('-stock')[:15]:
+        last_sale = last_sales_lookup.get(prod.product_id)
+        if not last_sale or last_sale < dead_cutoff:
+            if last_sale:
+                idle_days = max((timezone.localtime() - last_sale).days, 0)
+                last_sale_label = format_local_datetime(last_sale, '%b %d, %Y')
+            else:
+                idle_days = None
+                last_sale_label = 'No recorded sale'
+            dead_stock_data.append({
+                'product_name': prod.name,
+                'stock': prod.stock,
+                'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
+                'last_sale': last_sale_label,
+                'days_idle': idle_days if idle_days is not None else '∞'
+            })
+    
+    if dead_stock_data:
+        dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
+        for item in dead_stock_data:
+            dead_rows.append([
+                str(item['product_name'])[:30],
+                str(item['stock']),
+                f"₱{item['stock_value']:,.2f}",
+                item['last_sale'],
+                str(item['days_idle'])
+            ])
+        
+        dead_table = Table(dead_rows, repeatRows=1, colWidths=[150, 70, 90, 90, 70])
+        dead_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
+            ('ALIGN', (1,1), (4,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEE2E2')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elems.append(dead_table)
+    else:
+        elems.append(Paragraph("No dead stock identified. All products have recent sales activity.", styles['Normal']))
+    
+    elems.append(Spacer(1, 8))
+
+    # ========== SECTION 9: VOIDED TRANSACTIONS ==========
+    elems.append(Paragraph("VOIDED TRANSACTIONS", section_style))
+    elems.append(Spacer(1, 8))
+    
+    # Get voided transactions
+    voided_queryset = Sale.objects.filter(status__iexact='voided').select_related('user', 'product')
+    voided_queryset = _apply_report_filters(voided_queryset, filter_type, start_date, end_date)
+    if user_filter and user_filter != 'all':
+        try:
+            voided_queryset = voided_queryset.filter(user_id=int(user_filter))
+        except (ValueError, TypeError):
+            pass
+    if fruit_filter and fruit_filter != 'all':
+        voided_queryset = voided_queryset.filter(
+            Q(product__name__istartswith=fruit_filter + ' ') |
+            Q(product__name__istartswith=fruit_filter + '(') |
+            Q(product__name__iexact=fruit_filter)
+        )
+    
+    voided_rows_data = voided_queryset.order_by('-voided_at', '-recorded_at', 'sale_id')[:100]
+    voided_grouped_pdf = {}
+    for row in voided_rows_data:
+        key = row.transaction_number or f"VOID{row.sale_id:06d}"
+        vg = voided_grouped_pdf.get(key)
+        if not vg:
+            voided_grouped_pdf[key] = {
+                'transaction_no': row.transaction_number if row.transaction_number else key,
+                'voided_at': format_local_datetime(row.voided_at, '%m/%d/%Y %I:%M %p') if row.voided_at else format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
+                'original_date': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
+                'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
+                'processed_by': row.user.username if row.user else 'admin',
+                'products': [row.product.name] if row.product and row.product.name else [],
+                'quantity': int(row.quantity or 0),
+                'total': float(row.total or 0),
+            }
+        else:
+            vg['quantity'] += int(row.quantity or 0)
+            vg['total'] += float(row.total or 0)
+            if row.product and row.product.name and row.product.name not in vg['products']:
+                vg['products'].append(row.product.name)
+    
+    voided_data_pdf = list(voided_grouped_pdf.values())
+    
+    if voided_data_pdf:
+        voided_rows = [['Transaction #', 'Voided Date', 'Original Date', 'Customer', 'Products', 'Quantity', 'Total Amount', 'Voided By']]
+        for tx in voided_data_pdf:
+            products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
+            if len(products_str) > 20:
+                products_str = products_str[:17] + '...'
+            voided_rows.append([
+                str(tx['transaction_no'])[:12],
+                tx['voided_at'][:16],
+                tx['original_date'][:16],
+                str(tx['customer_name'])[:18],
+                products_str,
+                str(tx['quantity']),
+                f"₱{tx['total']:,.2f}",
+                str(tx['processed_by'])[:15]
+            ])
+        
+        voided_table = Table(voided_rows, repeatRows=1, colWidths=[50, 50, 50, 60, 80, 30, 50, 50])
+        voided_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6b7280')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 7),
+            ('FONTSIZE', (0,1), (-1,-1), 6),
+            ('ALIGN', (5,1), (6,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3F4F6')]),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elems.append(voided_table)
+        
+        # Add voided summary
+        total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
+        total_voided_qty = sum(int(tx['quantity']) for tx in voided_data_pdf)
+        elems.append(Spacer(1, 8))
+        voided_summary = Paragraph(
+            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_qty} boxes, ₱{total_voided_amount:,.2f}",
+            ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
+        )
+        elems.append(voided_summary)
+    else:
+        elems.append(Paragraph("No voided transactions in this period.", styles['Normal']))
 
     doc.build(elems)
     pdf = buffer.getvalue()
@@ -3075,6 +3784,24 @@ def export_report(request):
 
     # Generate filename with date
     filename = f"StockWise_Complete_Report_{timezone.localtime().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    # Log PDF export
+    filter_details = []
+    if user_filter and user_filter != 'all':
+        try:
+            user_obj = AppUser.objects.get(user_id=int(user_filter))
+            filter_details.append(f"user: {user_obj.username}")
+        except:
+            pass
+    if fruit_filter and fruit_filter != 'all':
+        filter_details.append(f"fruit: {fruit_filter}")
+    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
+    log_action(
+        request,
+        'Report exported',
+        f'Exported PDF report: {period_text}' + (f' ({", ".join(filter_details)})' if filter_details else '.')
+    )
+    
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response.write(pdf)
@@ -3139,12 +3866,45 @@ def profile_view(request):
                 if not current_password_valid:
                     errors.append('Current password is incorrect.')
 
+        google_email = (request.POST.get('google_email') or '').strip().lower()
+        google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
+
+        if google_enabled and not google_email:
+            errors.append('Google account email is required when enabling Google sign-in.')
+        if google_email:
+            try:
+                validate_email(google_email)
+            except ValidationError:
+                errors.append('Enter a valid Google account email.')
+            else:
+                existing = AppUser.objects.filter(google_email__iexact=google_email).exclude(user_id=user_obj.user_id).first()
+                if existing:
+                    errors.append('This Google account is already linked to another user.')
+
         if not errors:
+            # Track changes before updating
+            changes = []
+            old_name = user_obj.username
+            old_email = user_obj.email or ''
+            email = request.POST.get('email', '').strip()
+            
+            if name and name != old_name:
+                changes.append('name')
+            if new_pw:
+                changes.append('password')
+            if picture_file:
+                changes.append('profile picture')
+            if email and email != old_email:
+                changes.append('email')
+            if google_email != (user_obj.google_email or '') or google_enabled != user_obj.allow_google_login:
+                changes.append('Google login settings')
+            
+            # Update user
             user_obj.username = name or user_obj.username
             user_obj.phone_number = phone or user_obj.phone_number
-            # Handle email update
-            email = request.POST.get('email', '').strip()
             user_obj.email = email if email else None
+            user_obj.allow_google_login = google_enabled
+            user_obj.google_email = google_email if google_email else None
             if new_pw:
                 user_obj.password = bcrypt.hash(new_pw)
             # Save picture if provided
@@ -3153,6 +3913,14 @@ def profile_view(request):
                 path = default_storage.save(os.path.join('uploads', filename), ContentFile(picture_file.read()))
                 user_obj.profile_picture = default_storage.url(path)
             user_obj.save()
+            
+            # Log profile update
+            log_action(
+                request,
+                'Profile updated',
+                f'Updated profile: {", ".join(changes) if changes else "information"}.'
+            )
+            
             success_msg = 'Profile updated successfully.'
             messages.success(request, success_msg)
             return redirect('profile')
@@ -3175,6 +3943,8 @@ def profile_view(request):
             'profile_picture': user.profile_picture,
             'is_active': user.is_active,
             'email': user.email if hasattr(user, 'email') else None,
+            'google_email': user.google_email or '',
+            'allow_google_login': user.allow_google_login,
         } for user in secretary_users]
 
     context = {
@@ -3185,6 +3955,117 @@ def profile_view(request):
         'all_users': all_users,
     }
     return render(request, 'profile_full.html', context)
+
+
+@require_app_login
+def action_logs_view(request):
+    if (request.session.get('app_role') or '').lower() != 'admin':
+        messages.error(request, 'Only admins can view the audit logs.')
+        return redirect('dashboard')
+    
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from datetime import datetime, timedelta, time as dt_time
+    
+    # Get filter parameters
+    date_range = request.GET.get('date_range', 'today')
+    date_start = request.GET.get('date_start', '')
+    date_end = request.GET.get('date_end', '')
+    user_filter = request.GET.get('user', '')
+    
+    # Start with base queryset
+    logs_qs = ActionLog.objects.select_related('user').order_by('-created_at')
+    
+    # Apply date range filter - use timezone-aware dates
+    today = timezone.localtime(timezone.now()).date()
+    display_start = date_start
+    display_end = date_end
+
+    if date_range == 'custom' and date_start and date_end:
+        try:
+            start_date = datetime.strptime(date_start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(date_end, '%Y-%m-%d').date()
+            # Use datetime range for timezone-aware filtering
+            start_datetime = timezone.make_aware(datetime.combine(start_date, dt_time.min))
+            end_datetime = timezone.make_aware(datetime.combine(end_date, dt_time.max))
+            logs_qs = logs_qs.filter(created_at__gte=start_datetime, created_at__lte=end_datetime)
+        except (ValueError, TypeError):
+            pass
+    elif date_range == 'week':
+        week_start = today - timedelta(days=6)
+        start_datetime = timezone.make_aware(datetime.combine(week_start, dt_time.min))
+        end_datetime = timezone.make_aware(datetime.combine(today, dt_time.max))
+        logs_qs = logs_qs.filter(created_at__gte=start_datetime, created_at__lte=end_datetime)
+        display_start = week_start.isoformat()
+        display_end = today.isoformat()
+    elif date_range == 'month':
+        month_start = today - timedelta(days=29)
+        start_datetime = timezone.make_aware(datetime.combine(month_start, dt_time.min))
+        end_datetime = timezone.make_aware(datetime.combine(today, dt_time.max))
+        logs_qs = logs_qs.filter(created_at__gte=start_datetime, created_at__lte=end_datetime)
+        display_start = month_start.isoformat()
+        display_end = today.isoformat()
+    else:  # today (default)
+        start_datetime = timezone.make_aware(datetime.combine(today, dt_time.min))
+        end_datetime = timezone.make_aware(datetime.combine(today, dt_time.max))
+        logs_qs = logs_qs.filter(created_at__gte=start_datetime, created_at__lte=end_datetime)
+        display_start = today.isoformat()
+        display_end = today.isoformat()
+
+    if date_range == 'custom' and not (date_start and date_end):
+        display_start = today.isoformat()
+        display_end = today.isoformat()
+    
+    # Apply user filter - exact match on username
+    if user_filter:
+        logs_qs = logs_qs.filter(user__username=user_filter)
+    
+    # Pagination: 10 per page
+    paginator = Paginator(logs_qs, 10)
+    page = request.GET.get('page', 1)
+    
+    try:
+        logs = paginator.page(page)
+    except PageNotAnInteger:
+        logs = paginator.page(1)
+    except EmptyPage:
+        logs = paginator.page(paginator.num_pages)
+    
+    # Get unique values for filters - get all users who have logs, plus all secretary users
+    users_with_logs = ActionLog.objects.select_related('user').exclude(user=None).values_list('user__username', flat=True).distinct()
+    all_secretaries = AppUser.objects.filter(role__iexact='Secretary').values_list('username', flat=True)
+    all_admins = AppUser.objects.filter(role__iexact='Admin').values_list('username', flat=True)
+    # Combine and deduplicate
+    all_users = sorted(set(list(users_with_logs) + list(all_secretaries) + list(all_admins)))
+    
+    # Calculate page numbers to display (up to 5 pages)
+    page_numbers = []
+    if logs.paginator.num_pages <= 5:
+        page_numbers = list(range(1, logs.paginator.num_pages + 1))
+    elif logs.number <= 3:
+        page_numbers = list(range(1, 6))
+    elif logs.number >= logs.paginator.num_pages - 2:
+        page_numbers = list(range(logs.paginator.num_pages - 4, logs.paginator.num_pages + 1))
+    else:
+        page_numbers = list(range(logs.number - 2, logs.number + 3))
+    
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+    
+    return render(request, 'logs.html', {
+        'app_role': 'admin',
+        'logs': logs,
+        'all_users': all_users,
+        'current_date_range': date_range,
+        'current_date_start': display_start,
+        'current_date_end': display_end,
+        'current_user': user_filter,
+        'page_numbers': page_numbers,
+        'user_obj': user_obj,
+    })
 
 
 @require_app_login
@@ -3239,6 +4120,13 @@ def toggle_user_status(request):
         if not is_active:
             message += ' The secretary will not be able to login until the account is enabled again.'
         
+        # Log account status change
+        log_action(
+            request,
+            f'Account {status_text}',
+            f'{status_text.capitalize()} secretary account: {user.username} (ID {user.user_id}).'
+        )
+        
         response_data = {
             'success': True, 
             'message': message,
@@ -3252,9 +4140,15 @@ def toggle_user_status(request):
             'phone_number': user.phone_number or '',
             'email': user.email or '',
             'profile_picture': user.profile_picture or '',
-            'is_active': user.is_active
+            'is_active': user.is_active,
+            'google_email': user.google_email or '',
+            'allow_google_login': user.allow_google_login,
         }
-        
+        log_action(
+            request,
+            'Secretary status changed',
+            f'{status_text.title()} secretary account {user.username} (ID {user.user_id}).'
+        )
         return JsonResponse(response_data)
     
     except Exception as e:
@@ -3276,6 +4170,8 @@ def update_secretary_account(request):
         password = request.POST.get('password', '').strip()
         phone_number = request.POST.get('phone_number', '').strip()
         email = request.POST.get('email', '').strip()
+        google_email = (request.POST.get('google_email') or '').strip().lower()
+        google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
         
         if not user_id:
             return JsonResponse({'success': False, 'message': 'User ID is required.'})
@@ -3302,6 +4198,16 @@ def update_secretary_account(request):
             return JsonResponse({'success': False, 'message': 'Password is required.'})
         if len(password) < 6:
             return JsonResponse({'success': False, 'message': 'Password must be at least 6 characters.'})
+        if google_enabled and not google_email:
+            return JsonResponse({'success': False, 'message': 'Google email is required when enabling Google sign-in.'})
+        if google_email:
+            try:
+                validate_email(google_email)
+            except ValidationError:
+                return JsonResponse({'success': False, 'message': 'Enter a valid Google account email.'})
+            existing_google = AppUser.objects.filter(google_email__iexact=google_email).exclude(user_id=user_id).first()
+            if existing_google:
+                return JsonResponse({'success': False, 'message': 'That Google account is already linked to another user.'})
         
         # Check if username is already taken by another user
         existing_user = AppUser.objects.filter(username=username).exclude(user_id=user_id).first()
@@ -3314,6 +4220,8 @@ def update_secretary_account(request):
         user.password = bcrypt.hash(password)
         user.phone_number = phone_number if phone_number else ''
         user.email = email if email else None
+        user.allow_google_login = google_enabled
+        user.google_email = google_email if google_email else None
         
         # Handle profile picture if provided
         picture_file = request.FILES.get('profile_picture')
@@ -3327,7 +4235,11 @@ def update_secretary_account(request):
         # Enable account if it was disabled
         user.is_active = True
         user.save()
-        
+        log_action(
+            request,
+            'Secretary account updated',
+            f'Updated secretary {user.username} (ID {user.user_id}).'
+        )
         return JsonResponse({
             'success': True, 
             'message': 'Secretary account updated successfully.',
@@ -3337,7 +4249,9 @@ def update_secretary_account(request):
                 'phone_number': user.phone_number,
                 'email': user.email,
                 'profile_picture': user.profile_picture,
-                'is_active': user.is_active
+                'is_active': user.is_active,
+                'google_email': user.google_email or '',
+                'allow_google_login': user.allow_google_login,
             }
         })
     
@@ -3386,6 +4300,19 @@ def fetch_products(request):
 
     data = []
     for p in products_qs:
+        # Get image URL
+        image_url = ''
+        if p.image:
+            # If image is a full URL, use it; otherwise construct MEDIA_URL path
+            if p.image.startswith('http://') or p.image.startswith('https://'):
+                image_url = p.image
+            else:
+                # Construct URL using MEDIA_URL
+                # Ensure MEDIA_URL ends with / and image doesn't start with /
+                media_url = settings.MEDIA_URL.rstrip('/') + '/'
+                image_path = p.image.lstrip('/')
+                image_url = media_url + image_path
+        
         data.append({
             'product_id': p.product_id,
             'name': p.name,
@@ -3395,9 +4322,62 @@ def fetch_products(request):
             'stock': p.stock,
             'status': p.status,
             'supplier': p.supplier or '',
-            'variant': p.variant or ''
+            'variant': p.variant or '',
+            'image': image_url
         })
     return JsonResponse({'success': True, 'data': data})
+
+
+@require_app_login
+@require_GET
+def get_product_details(request, product_id):
+    """Get full details of a single product for editing"""
+    try:
+        product = Product.objects.get(product_id=product_id)
+        
+        # Get image URL
+        image_url = ''
+        if product.image:
+            if product.image.startswith('http://') or product.image.startswith('https://'):
+                image_url = product.image
+            else:
+                # Construct URL using MEDIA_URL
+                # Ensure MEDIA_URL ends with / and image doesn't start with /
+                media_url = settings.MEDIA_URL.rstrip('/') + '/'
+                image_path = product.image.lstrip('/')
+                image_url = media_url + image_path
+        
+        # Parse name and variant
+        product_name = product.name or ''
+        variant = product.variant or ''
+        
+        # Check if variant is embedded in name (format: "Name (Variant)")
+        if not variant and '(' in product_name and product_name.endswith(')'):
+            import re
+            match = re.match(r'^(.+?)\s*\(([^)]+)\)$', product_name)
+            if match:
+                product_name = match.group(1).strip()
+                variant = match.group(2).strip()
+        
+        data = {
+            'product_id': product.product_id,
+            'name': product_name,
+            'variant': variant,
+            'size': product.size or '',
+            'cost': float(product.cost),
+            'price': float(product.price),
+            'stock': product.stock,
+            'status': product.status.title() if product.status else 'Active',
+            'supplier': product.supplier or '',
+            'date_added': product.date_added.strftime('%Y-%m-%d') if product.date_added else '',
+            'image': image_url
+        }
+        
+        return JsonResponse({'success': True, 'data': data})
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
 @require_app_login
@@ -3486,14 +4466,14 @@ def fetch_stock_details(request, product_id):
                 'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
                 'quantity': 1,
                 'remaining': box_remaining,
-                'supplier': product.supplier or '-',
+                'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             })
             group_visible_ids.append(box_id)
         groups.append({
             'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
-            'supplier': b.supplier or product.supplier or '-',
+            'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             'batch_ids': group_visible_ids,
         })
     return JsonResponse({
@@ -3695,13 +4675,26 @@ def record_sale(request):
                 # Deduct stock using FIFO when available; fall back to simple decrement in tests
                 try:
                     deduct_stock_fifo(product.product_id, quantity)
+                    # Refresh product to get updated stock after FIFO deduction
+                    product.refresh_from_db(fields=['stock'])
                 except Exception:
                     product.stock = models.F('stock') - int(quantity)
                     product.save()
+                    product.refresh_from_db(fields=['stock'])
+                
+                # Check for low stock and send alert if needed (after sale)
+                if product.stock <= 10 and product.status.lower() == 'active':
+                    from core.signals import send_low_stock_alert
+                    send_low_stock_alert(product)
 
                 created_sales.append(sale_row.sale_id)
                 total_amount += line_total
 
+            log_action(
+                request,
+                'Sale recorded',
+                f'Recorded {len(created_sales)} sale item(s) totaling {total_amount}.'
+            )
             return JsonResponse({
                 'success': True,
                 'message': f'Recorded {len(created_sales)} sale item(s).',
@@ -3854,14 +4847,14 @@ def stock_details(request, product_id):
                 'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
                 'quantity': 1,
                 'remaining': box_remaining,
-                'supplier': product.supplier or '-',
+                'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             })
             group_visible_ids.append(box_id)
         groups.append({
             'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
-            'supplier': b.supplier or product.supplier or '-',
+            'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             'batch_ids': group_visible_ids,
         })
     
@@ -3917,17 +4910,24 @@ def add_product(request):
     """Add new product"""
     try:
         with transaction.atomic():
-            # Get form data
-            name = request.POST.get('name', '').strip().title()
+            # Get form data - handle both 'name' and 'productName' field names
+            name = request.POST.get('name', '').strip() or request.POST.get('productName', '').strip()
+            name = name.title() if name else ''
             variant = request.POST.get('variant', '').strip().title()
             size = request.POST.get('size', '').strip()
             quantity_unit = (request.POST.get('quantity_unit') or 'box').strip().lower()
             cost = Decimal(request.POST.get('cost', 0))
             price = Decimal(request.POST.get('price', 0))
             status = request.POST.get('status', 'active')
-            boxes = int(request.POST.get('boxes', 0))
-            units_per_box = int(request.POST.get('units_per_box', 1))
-            stock = boxes * units_per_box
+            
+            # Get stock - prefer 'stock' field, then 'initialStock', then calculate from boxes
+            stock_input = request.POST.get('stock') or request.POST.get('initialStock')
+            if stock_input:
+                stock = int(stock_input)
+            else:
+                boxes = int(request.POST.get('boxes', 0))
+                units_per_box = int(request.POST.get('units_per_box', 1))
+                stock = boxes * units_per_box
             # Force today's date for new products (ignore client-provided value)
             date_added = timezone.now().date()
             supplier = request.POST.get('supplier', '').strip()
@@ -3965,10 +4965,15 @@ def add_product(request):
             if Product.objects.filter(name=full_name, size=size, is_built_in=False).exists():
                 raise ValueError("A product with this name and quantity already exists in your inventory.")
             
-            # Handle image upload
+            # Handle image upload - check both 'image' and 'productImage' field names
             image_path = None
+            uploaded_file = None
             if 'image' in request.FILES:
                 uploaded_file = request.FILES['image']
+            elif 'productImage' in request.FILES:
+                uploaded_file = request.FILES['productImage']
+            
+            if uploaded_file:
                 if uploaded_file.size > 2 * 1024 * 1024:  # 2MB limit
                     raise ValueError("Image too large. Maximum 2MB allowed.")
                 
@@ -4009,6 +5014,12 @@ def add_product(request):
                 product.stock = stock
                 product.save()
             
+            log_action(
+                request,
+                'Product added',
+                f'Added product {full_name} (ID {product.product_id}) with stock {stock}.'
+            )
+            
             return JsonResponse({'success': True, 'message': 'Product added successfully.'})
     
     except Exception as e:
@@ -4025,31 +5036,71 @@ def edit_product(request):
             
             product = Product.objects.get(product_id=product_id)
             
-            # Get form data
-            name = request.POST.get('name', '').strip().title()
-            variant = request.POST.get('variant', '').strip().title()
-            size = request.POST.get('size', '').strip()
-            cost = Decimal(request.POST.get('cost', 0))
-            price = Decimal(request.POST.get('price', 0))
-            status = request.POST.get('status', 'active')
-            boxes = int(request.POST.get('boxes', 0))
-            units_per_box = int(request.POST.get('units_per_box', 1))
-            stock = boxes * units_per_box
-            date_added = request.POST.get('date_added', timezone.now().date())
-            supplier = request.POST.get('supplier', '').strip()
+            # Get form data - use existing product values as defaults if not provided
+            # This allows editing just the image without requiring all fields
+            name_input = request.POST.get('name', '').strip() or request.POST.get('productName', '').strip()
+            name = name_input.title() if name_input else product.name
             
-            # Validate required fields
-            if not name or not size or cost < 0 or price < 0 or stock < 0:
-                raise ValueError("Invalid input data. Required fields: name, quantity, cost, price, stock.")
+            variant_input = request.POST.get('variant', '').strip()
+            variant = variant_input.title() if variant_input else (product.variant or '')
+            
+            size_input = request.POST.get('size', '').strip()
+            size = size_input if size_input else product.size
+            
+            cost_input = request.POST.get('cost', '')
+            cost = Decimal(cost_input) if cost_input else product.cost
+            
+            price_input = request.POST.get('price', '')
+            price = Decimal(price_input) if price_input else product.price
+            
+            status_input = request.POST.get('status', '')
+            status = status_input.lower() if status_input else product.status
+            
+            # Get stock - prefer initialStock, then boxes calculation, then existing stock
+            initial_stock = request.POST.get('initialStock')
+            if initial_stock:
+                stock = int(initial_stock)
+            else:
+                boxes = int(request.POST.get('boxes', 0))
+                units_per_box = int(request.POST.get('units_per_box', 1))
+                stock = boxes * units_per_box if boxes > 0 else product.stock
+            
+            # Get date_added - use existing if not provided
+            date_added_str = request.POST.get('date_added') or request.POST.get('dateAdded')
+            if date_added_str:
+                from datetime import datetime
+                try:
+                    date_added = datetime.strptime(date_added_str, '%Y-%m-%d').date()
+                except:
+                    date_added = product.date_added
+            else:
+                date_added = product.date_added
+            
+            supplier = request.POST.get('supplier', '').strip() or (product.supplier or '')
+            
+            # Ensure stock is valid (use existing if invalid)
+            if stock < 0:
+                stock = product.stock
+            
+            # Final validation - ensure we have valid values (should always pass since we use existing as defaults)
+            if not name or not size:
+                raise ValueError("Product name and quantity are required.")
+            if cost < 0 or price < 0:
+                raise ValueError("Cost and price must be non-negative.")
 
-            # Normalize and validate numeric-only quantity
+            # Normalize and validate quantity - be flexible for editing (allow existing values)
             try:
                 size_norm = str(Decimal(size))
                 if Decimal(size_norm) < 0:
                     raise ValueError("Quantity must be a non-negative number.")
                 size = size_norm
-                if size not in STANDARD_SIZE_OPTIONS:
+                # Only validate against STANDARD_SIZE_OPTIONS if size changed (for new products)
+                # For editing, allow existing size values even if not in standard options
+                if size != product.size and size not in STANDARD_SIZE_OPTIONS:
                     raise ValueError(f"Quantity must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
+            except ValueError as ve:
+                # Re-raise validation errors
+                raise ve
             except Exception:
                 raise ValueError("Quantity must be numeric (e.g., 10 or 10.5).")
             
@@ -4069,9 +5120,14 @@ def edit_product(request):
             if Product.objects.filter(name=full_name, size=size).exclude(product_id=product_id).exists():
                 raise ValueError("A product with this name and quantity already exists.")
             
-            # Handle image upload
+            # Handle image upload - check both 'image' and 'productImage' field names
+            uploaded_file = None
             if 'image' in request.FILES:
                 uploaded_file = request.FILES['image']
+            elif 'productImage' in request.FILES:
+                uploaded_file = request.FILES['productImage']
+            
+            if uploaded_file:
                 if uploaded_file.size > 2 * 1024 * 1024:  # 2MB limit
                     raise ValueError("Image too large. Maximum 2MB allowed.")
                 
@@ -4125,6 +5181,16 @@ def edit_product(request):
                 product.stock = 0
                 product.save()
             
+            # Log product edit
+            changes = []
+            if stock_difference != 0:
+                changes.append(f"stock {current_stock} → {stock}")
+            log_action(
+                request,
+                'Product updated',
+                f'Updated product {product_id} ({full_name})' + (f': {", ".join(changes)}' if changes else '.')
+            )
+            
             return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
     
     except Product.DoesNotExist:
@@ -4137,14 +5203,23 @@ def update_product_status(request):
     """Update product status"""
     try:
         product_id = request.POST.get('product_id')
-        status = request.POST.get('status')
+        status = request.POST.get('status', '').strip().lower()
         
         if not product_id or status not in ['active', 'discontinued']:
             raise ValueError("Invalid product ID or status.")
         
         product = Product.objects.get(product_id=product_id)
+        old_status = product.status
         product.status = status
         product.save()
+        
+        # Log the action with proper action type
+        action_type = 'Product continued' if status == 'active' and old_status == 'discontinued' else 'Product discontinued' if status == 'discontinued' else 'Product status changed'
+        log_action(
+            request,
+            action_type,
+            f'Changed product {product_id} ({product.name}) status from {old_status} to {status}.'
+        )
         
         return JsonResponse({'success': True, 'message': 'Status updated successfully.'})
     
@@ -4330,10 +5405,20 @@ def sms_settings_view(request):
             else:
                 user_obj.phone_number = phone_number
                 user_obj.save(update_fields=['phone_number'])
+                log_action(
+                    request,
+                    'SMS phone updated',
+                    f'Updated SMS phone number to {phone_number}.'
+                )
                 messages.success(request, f'SMS settings saved! Number: {phone_number}')
         else:
             user_obj.phone_number = ''
             user_obj.save(update_fields=['phone_number'])
+            log_action(
+                request,
+                'SMS phone cleared',
+                'Cleared phone number for SMS notifications.'
+            )
             messages.success(request, 'Phone number cleared.')
 
     # Get real-time data for SMS previews
@@ -4363,11 +5448,16 @@ def sms_settings_view(request):
         stock__lte=10
     ).order_by('stock')[:5]
 
+    # Get SMS notification settings
+    from core.models import SMSNotificationSettings
+    sms_settings = SMSNotificationSettings.get_settings()
+
     context = {
         'sms_notification': type('Obj', (), {
             'phone_number': getattr(user_obj, 'phone_number', ''),
             'is_active': bool(getattr(user_obj, 'phone_number', '')),
         })(),
+        'sms_settings': sms_settings,
         'app_role': request.session.get('app_role'),
         'today_stats': today_stats,
         'top_products': top_products,
@@ -4404,6 +5494,11 @@ def send_test_sms(request):
             sys.stdout = old_stdout
 
         if 'SMS sent successfully' in output or 'Daily summary sent to' in output or 'Test SMS sent to' in output:
+            log_action(
+                request,
+                'Test SMS sent',
+                f'Sent test SMS to {user_obj.phone_number}.'
+            )
             return JsonResponse({'success': True, 'message': 'Test SMS sent successfully!'})
         # Clean up ANSI color codes and provide a friendly hint for common Twilio errors
         try:
@@ -4420,8 +5515,18 @@ def send_test_sms(request):
             hint = ' Tip: Check IPROG_API_TOKEN in your environment or settings.py.'
 
         short_msg = cleaned[:300]
+        log_action(
+            request,
+            'Test SMS failed',
+            f'Failed to send test SMS: {short_msg}{hint}'
+        )
         return JsonResponse({'success': False, 'message': f'Failed to send test SMS: {short_msg}{hint}'})
     except Exception as e:
+        log_action(
+            request,
+            'Test SMS failed',
+            f'Error sending test SMS: {str(e)}'
+        )
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
 
 
@@ -4635,14 +5740,29 @@ def test_notification_type(request):
         sms_command = Command()
         
         try:
-            # Send the actual message we built
             from core.sms_service import sms_service as _svc
-            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=(notification_type == 'sales')):
+            send_success = _svc.send_sms(user_obj.phone_number, message, allow_multipart=(notification_type == 'sales'))
+            if send_success:
+                log_action(
+                    request,
+                    'Notification sent',
+                    f'Sent {notification_type} notification to {user_obj.phone_number}.'
+                )
                 return JsonResponse({'success': True, 'message': f'{notification_type.capitalize()} notification sent successfully!'})
             else:
+                log_action(
+                    request,
+                    'Notification failed',
+                    f'Failed to send {notification_type} notification to {user_obj.phone_number}.'
+                )
                 return JsonResponse({'success': False, 'message': 'Failed to send notification'})
         except Exception as e:
             error_msg = str(e)
+            log_action(
+                request,
+                'Notification test failed',
+                f'Error sending {notification_type} notification: {error_msg}'
+            )
             if 'invalid' in error_msg.lower() and 'phone' in error_msg.lower():
                 return JsonResponse({
                     'success': False, 
@@ -4652,6 +5772,11 @@ def test_notification_type(request):
                 return JsonResponse({'success': False, 'message': f'Failed to send notification: {error_msg}'})
             
     except Exception as e:
+        log_action(
+            request,
+            'Notification test failed',
+            f'Error sending notification test: {str(e)}'
+        )
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
 
 
@@ -4705,15 +5830,63 @@ def update_notification_settings(request):
         user_obj = AppUser.objects.get(user_id=user_id)
         
         # Get settings from POST data
+        from core.models import SMSNotificationSettings
+        
         sales_enabled = request.POST.get('sales_enabled') == 'true'
         stock_enabled = request.POST.get('stock_enabled') == 'true'
-        sales_time = request.POST.get('sales_time', '22:00')
+        pricing_enabled = request.POST.get('pricing_enabled') == 'true'
+        sales_time = request.POST.get('sales_time', '20:00')
         stock_threshold = int(request.POST.get('stock_threshold', 10))
+        pricing_sensitivity = request.POST.get('pricing_sensitivity', 'moderate')
         
-        # Store settings in user model (you might want to create a separate settings model)
-        # For now, we'll store in a JSON field or use existing fields
-        user_obj.phone_number = user_obj.phone_number  # Keep existing phone
-        user_obj.save()
+        # Validate sales_time format (HH:MM)
+        import re
+        if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', sales_time):
+            return JsonResponse({'success': False, 'message': 'Invalid time format. Use HH:MM (24-hour format)'})
+        
+        # Validate stock_threshold
+        if stock_threshold < 1 or stock_threshold > 100:
+            return JsonResponse({'success': False, 'message': 'Stock threshold must be between 1 and 100'})
+        
+        # Validate pricing_sensitivity
+        if pricing_sensitivity not in ['conservative', 'moderate', 'aggressive']:
+            return JsonResponse({'success': False, 'message': 'Invalid pricing sensitivity value'})
+        
+        # Get or create settings
+        settings = SMSNotificationSettings.get_settings()
+        
+        # Track what changed for audit logging
+        changes = []
+        if settings.sales_enabled != sales_enabled:
+            changes.append(f"Sales notifications: {'Enabled' if sales_enabled else 'Disabled'}")
+        if settings.stock_enabled != stock_enabled:
+            changes.append(f"Stock alerts: {'Enabled' if stock_enabled else 'Disabled'}")
+        if settings.pricing_enabled != pricing_enabled:
+            changes.append(f"Pricing recommendations: {'Enabled' if pricing_enabled else 'Disabled'}")
+        
+        # Update settings
+        settings.sales_enabled = sales_enabled
+        settings.stock_enabled = stock_enabled
+        settings.pricing_enabled = pricing_enabled
+        settings.sales_time = sales_time
+        settings.stock_threshold = stock_threshold
+        settings.pricing_sensitivity = pricing_sensitivity
+        settings.save()
+        
+        # Log the action with specific changes
+        if changes:
+            log_action(
+                request,
+                'SMS notification settings changed',
+                '; '.join(changes) + f' (Time: {sales_time}, Threshold: {stock_threshold}, Sensitivity: {pricing_sensitivity})'
+            )
+        else:
+            # Still log if settings were saved (even if no status changes)
+            log_action(
+                request,
+                'SMS notification settings updated',
+                f'Settings saved: sales={sales_enabled}, stock={stock_enabled}, pricing={pricing_enabled}, time={sales_time}, threshold={stock_threshold}, sensitivity={pricing_sensitivity}'
+            )
         
         return JsonResponse({
             'success': True, 
@@ -4721,8 +5894,10 @@ def update_notification_settings(request):
             'settings': {
                 'sales_enabled': sales_enabled,
                 'stock_enabled': stock_enabled,
+                'pricing_enabled': pricing_enabled,
                 'sales_time': sales_time,
-                'stock_threshold': stock_threshold
+                'stock_threshold': stock_threshold,
+                'pricing_sensitivity': pricing_sensitivity
             }
         })
         
@@ -4795,61 +5970,86 @@ def get_notification_stats(request):
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
 
 
-@require_app_login
-def get_pricing_recommendations(request):
-    """Get demand-driven pricing recommendations"""
-    if request.session.get('app_role') != 'admin':
-        return JsonResponse({'success': False, 'message': 'Unauthorized'})
-
-    try:
-        from core.pricing_ai import DemandPricingAI, PolicyConfig
-        from core.models import Sale, Product
-        from datetime import datetime, timedelta
-        import pandas as pd
-        
-        # Get sales data from last 120 days
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=120)
-        
-        sales_data = Sale.objects.filter(
-            recorded_at__date__gte=start_date,
-            recorded_at__date__lte=end_date
-        ).values('recorded_at', 'product__product_id', 'quantity', 'price')
-        
-        if not sales_data.exists():
-            return JsonResponse({
-                'success': False, 
-                'message': 'Insufficient sales data for pricing analysis. Need at least 15 days of sales.'
-            })
-        
-        # Convert to DataFrame
-        sales_df = pd.DataFrame(list(sales_data))
-        sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
-        
-        # Get product catalog
-        products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
-        catalog_df = pd.DataFrame(list(products))
-        catalog_df.columns = ['product_id', 'name', 'price', 'cost']
-        catalog_df['last_change_date'] = None  # Add last change tracking
-        
-        # Configure pricing AI
-        cfg = PolicyConfig(
-            min_margin_pct=0.10,         # 10% margin above cost
-            max_move_pct=0.20,           # don't move more than 20% at once
-            cooldown_days=3,             # respect 3-day cool-down
-            planning_horizon_days=7,     # optimize for next 7 days
-            min_obs_per_product=15,
-            default_elasticity=-1.0,
-            hold_band_pct=0.02,          # small changes (<2%) become HOLD
-        )
-        
-        # Generate recommendations
-        engine = DemandPricingAI(cfg)
-        proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
-        
-        # Convert to JSON-serializable format
-        recommendations = []
-        for _, row in proposals.iterrows():
+def generate_and_store_pricing_recommendations():
+    """
+    Helper function to generate pricing recommendations and store them with 3-day expiration.
+    
+    Uses 120 days of sales data for better statistical analysis and demand elasticity calculation.
+    However, products that have been accepted/rejected in the last 3 days are excluded from
+    new recommendations to respect the cooldown period.
+    """
+    from core.pricing_ai import DemandPricingAI, PolicyConfig
+    from core.models import Sale, Product, PricingRecommendation
+    from datetime import datetime, timedelta
+    import pandas as pd
+    
+    # Get sales data from last 120 days (for better statistical analysis)
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=120)
+    
+    sales_data = Sale.objects.filter(
+        recorded_at__date__gte=start_date,
+        recorded_at__date__lte=end_date
+    ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+    
+    if not sales_data.exists():
+        return []
+    
+    # Convert to DataFrame
+    sales_df = pd.DataFrame(list(sales_data))
+    sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+    
+    # Get product catalog - exclude products that were acted upon in the last 3 days
+    from django.db import models as db_models
+    cooldown_threshold = timezone.now() - timedelta(days=3)
+    products = Product.objects.filter(
+        db_models.Q(last_pricing_action_at__isnull=True) | 
+        db_models.Q(last_pricing_action_at__lt=cooldown_threshold)
+    ).values('product_id', 'name', 'price', 'cost', 'last_pricing_action_at')
+    catalog_df = pd.DataFrame(list(products))
+    catalog_df.columns = ['product_id', 'name', 'price', 'cost', 'last_change_date']
+    # Convert last_pricing_action_at to last_change_date format for pricing AI
+    catalog_df['last_change_date'] = catalog_df['last_change_date'].apply(
+        lambda x: pd.to_datetime(x).date() if pd.notna(x) else None
+    )
+    
+    # Configure pricing AI
+    cfg = PolicyConfig(
+        min_margin_pct=0.10,
+        max_move_pct=0.20,
+        cooldown_days=3,
+        planning_horizon_days=7,
+        min_obs_per_product=15,
+        default_elasticity=-1.0,
+        hold_band_pct=0.02,
+    )
+    
+    # Generate recommendations
+    engine = DemandPricingAI(cfg)
+    proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+    
+    # Delete expired recommendations for products that will get new recommendations
+    product_ids_to_update = proposals['product_id'].tolist()
+    PricingRecommendation.objects.filter(product_id__in=product_ids_to_update).delete()
+    
+    # Store new recommendations with 3-day expiration
+    expires_at = timezone.now() + timedelta(days=3)
+    recommendations = []
+    for _, row in proposals.iterrows():
+        try:
+            product = Product.objects.get(product_id=row['product_id'])
+            PricingRecommendation.objects.create(
+                product=product,
+                current_price=Decimal(str(row['current_price'])),
+                suggested_price=Decimal(str(row['suggested_price'])),
+                change_pct=Decimal(str(row['change_pct'])),
+                action=row['action'],
+                reason=row['reason'],
+                elasticity=Decimal(str(row['elasticity'])) if row['elasticity'] else None,
+                r2=Decimal(str(row['r2'])) if row['r2'] else None,
+                confidence=row['confidence'],
+                expires_at=expires_at
+            )
             recommendations.append({
                 'product_id': row['product_id'],
                 'name': row['name'],
@@ -4862,12 +6062,77 @@ def get_pricing_recommendations(request):
                 'r2': float(row['r2']) if row['r2'] else None,
                 'confidence': row['confidence']
             })
+        except Product.DoesNotExist:
+            continue
+    
+    return recommendations
+
+
+@require_app_login
+def get_pricing_recommendations(request):
+    """Get demand-driven pricing recommendations - uses stored recommendations if valid, otherwise generates new ones"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    try:
+        from core.models import PricingRecommendation
+        from datetime import timedelta
+        
+        # Check for valid (non-expired) stored recommendations
+        now = timezone.now()
+        valid_recommendations = PricingRecommendation.objects.filter(expires_at__gt=now).select_related('product')
+        
+        if valid_recommendations.exists():
+            # Return stored recommendations
+            recommendations = []
+            for rec in valid_recommendations:
+                recommendations.append({
+                    'product_id': rec.product.product_id,
+                    'name': rec.product.name,
+                    'current_price': float(rec.current_price),
+                    'suggested_price': float(rec.suggested_price),
+                    'change_pct': float(rec.change_pct),
+                    'action': rec.action,
+                    'reason': rec.reason,
+                    'elasticity': float(rec.elasticity) if rec.elasticity else None,
+                    'r2': float(rec.r2) if rec.r2 else None,
+                    'confidence': rec.confidence
+                })
+            
+            actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
+            
+            return JsonResponse({
+                'success': True,
+                'recommendations': recommendations,
+                'total_products': len(recommendations),
+                'actionable_count': actionable_count
+            })
+        
+        # No valid recommendations, generate new ones
+        recommendations = generate_and_store_pricing_recommendations()
+        
+        if not recommendations:
+            return JsonResponse({
+                'success': False,
+                'message': 'Insufficient sales data for pricing analysis. Need at least 15 days of sales.'
+            })
+        
+        actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
+        
+        # Only log if explicitly requested (not auto-loaded from dashboard)
+        is_silent = request.GET.get('silent', '').lower() == 'true' or request.META.get('HTTP_X_SILENT', '').lower() == 'true'
+        if not is_silent:
+            log_action(
+                request,
+                'Pricing recommendations generated',
+                f'Generated {len(recommendations)} recommendations ({actionable_count} actionable).'
+            )
         
         return JsonResponse({
-            'success': True, 
+            'success': True,
             'recommendations': recommendations,
             'total_products': len(recommendations),
-            'actionable_count': len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
+            'actionable_count': actionable_count
         })
         
     except Exception as e:
@@ -5606,20 +6871,21 @@ def apply_pricing_recommendation(request):
             return JsonResponse({'success': False, 'message': 'Invalid product ID or price'})
         
         # Update product price
-        from core.models import Product
+        from core.models import Product, PricingRecommendation
         product = Product.objects.get(product_id=product_id)
         old_price = product.price
         product.price = new_price
+        # Record that pricing action was taken (accepted)
+        product.last_pricing_action_at = timezone.now()
         product.save()
         
-        # Log the price change
-        from core.models import SMS
-        SMS.objects.create(
-            product=product,
-            user_id=request.session.get('app_user_id'),
-            message_type='pricing_alert',
-            demand_level='high',  # Could be determined by the recommendation
-            message_content=f"Price updated from ₱{old_price:.2f} to ₱{new_price:.2f}",
+        # Delete any existing recommendations for this product (accepted, so remove recommendation)
+        PricingRecommendation.objects.filter(product=product).delete()
+        
+        log_action(
+            request,
+            'Product price updated',
+            f'Applied pricing recommendation for product {product.product_id} ({product.name}): {old_price} -> {new_price}.'
         )
         
         return JsonResponse({
@@ -5631,6 +6897,47 @@ def apply_pricing_recommendation(request):
         return JsonResponse({'success': False, 'message': 'Product not found'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error updating price: {str(e)}'})
+
+
+@require_app_login
+def reject_pricing_recommendation(request):
+    """Reject a pricing recommendation - record the action to prevent re-recommendation for 3 days"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+
+    try:
+        product_id = request.POST.get('product_id')
+        
+        if not product_id:
+            return JsonResponse({'success': False, 'message': 'Invalid product ID'})
+        
+        # Record that pricing action was taken (rejected)
+        from core.models import Product, PricingRecommendation
+        product = Product.objects.get(product_id=product_id)
+        product.last_pricing_action_at = timezone.now()
+        product.save()
+        
+        # Delete any existing recommendations for this product (rejected, so remove recommendation)
+        PricingRecommendation.objects.filter(product=product).delete()
+        
+        log_action(
+            request,
+            'Pricing recommendation rejected',
+            f'Rejected pricing recommendation for product {product.product_id} ({product.name}).'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Recommendation rejected. This product will not be recommended again for 3 days.'
+        })
+        
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error rejecting recommendation: {str(e)}'})
 
 
 @require_app_login
@@ -5787,6 +7094,11 @@ def send_all_notifications_now(request):
         user_obj = AppUser.objects.get(user_id=user_id)
         if not user_obj.phone_number:
             print(f"DEBUG: Admin user {user_obj.username} has no phone number.")
+            log_action(
+                request,
+                'Bulk notifications skipped',
+                'Attempted to send notifications but no phone number is configured.'
+            )
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
         from core.sms_service import sms_service as _svc
@@ -5799,6 +7111,11 @@ def send_all_notifications_now(request):
             # If no active products, try to get any product
             product = Product.objects.first()
         if not product:
+            log_action(
+                request,
+                'Bulk notifications skipped',
+                'Attempted to send notifications but no products exist in the database.'
+            )
             return JsonResponse({
                 'success': False, 
                 'message': 'No products found in database. Please add at least one product before sending notifications.'
@@ -6025,6 +7342,11 @@ def send_all_notifications_now(request):
         print(f"DEBUG: Summary of results: {summary}")
         print(f"DEBUG: Success count: {success_count} out of {len(results)}")
         
+        log_action(
+            request,
+            'Bulk notifications sent',
+            f'Sent {success_count} of {len(results)} notifications (sales/stock/pricing).'
+        )
         return JsonResponse({
             'success': any(summary.values()), 
             'results': summary,
@@ -6035,6 +7357,11 @@ def send_all_notifications_now(request):
         import traceback
         error_trace = traceback.format_exc()
         print(f"DEBUG: Exception in send_all_notifications_now: {error_trace}")
+        log_action(
+            request,
+            'Bulk notifications failed',
+            f'Error sending notifications: {str(e)}'
+        )
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'}, status=500)
 
 @require_app_login
@@ -6282,6 +7609,12 @@ def print_thermal_receipt(request, sale_id):
         printer_service.close()
         
         if success:
+            # Log receipt print
+            log_action(
+                request,
+                'Receipt printed',
+                f'Printed receipt for sale {sale_id} (OR {sale.or_number or "N/A"}, TXN {txn_key or sale.transaction_number or "N/A"}).'
+            )
             return JsonResponse({
                 'success': True,
                 'message': 'Receipt printed successfully!'
@@ -6417,3 +7750,521 @@ def get_printer_ports(request):
             'success': False,
             'message': str(e)
         }, status=500)
+
+
+@require_app_login
+def backup_management_view(request):
+    """Backup management page - admin only"""
+    if request.session.get('app_role') != 'admin':
+        messages.error(request, 'Only admins can access backup management.')
+        return redirect('dashboard')
+    
+    # Get all backups
+    backups = Backup.objects.all().order_by('-created_at')
+    
+    # Verify backup files exist
+    for backup in backups:
+        backup.verify_file_exists()
+    
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+    
+    context = {
+        'app_role': 'admin',
+        'backups': backups,
+        'user_obj': user_obj,
+    }
+    return render(request, 'backup_management.html', context)
+
+
+@require_app_login
+def create_backup(request):
+    """Create a new backup via API"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        from django.core.management import call_command
+        from pathlib import Path
+        import os
+        
+        # Create backup using management command
+        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Call backup command - capture output
+        import io
+        from contextlib import redirect_stdout
+        f = io.StringIO()
+        with redirect_stdout(f):
+            call_command('backup_system', output_dir=str(backup_dir))
+        output = f.getvalue()
+        
+        # Find the latest backup file
+        backup_files = sorted(backup_dir.glob('stockwise_backup_*.zip'), key=os.path.getmtime, reverse=True)
+        if not backup_files:
+            return JsonResponse({'success': False, 'message': 'Backup file not found'}, status=500)
+        backup_file_path = backup_files[0]
+        
+        # Get file size
+        file_size = backup_file_path.stat().st_size
+        
+        # Get current user
+        user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        try:
+            user = AppUser.objects.get(user_id=user_id)
+            created_by = user.username
+        except:
+            created_by = 'admin'
+        
+        # Create or update Backup record
+        backup_record, created = Backup.objects.get_or_create(
+            filename=backup_file_path.name,
+            defaults={
+                'file_path': str(backup_file_path),
+                'file_size': file_size,
+                'backup_type': 'full',
+                'created_by': created_by,
+                'is_verified': True
+            }
+        )
+        
+        if not created:
+            # Update existing record
+            backup_record.file_path = str(backup_file_path)
+            backup_record.file_size = file_size
+            backup_record.is_verified = True
+            backup_record.save()
+        
+        # Log the action
+        log_action(
+            request,
+            'Backup created',
+            f'Created system backup: {backup_file_path.name} ({backup_record.get_file_size_mb()} MB)'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Backup created successfully',
+            'backup_id': backup_record.backup_id,
+            'filename': backup_record.filename,
+            'size_mb': backup_record.get_file_size_mb(),
+            'created_at': backup_record.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Error creating backup: {str(e)}'}, status=500)
+
+
+@require_app_login
+def download_backup(request, backup_id):
+    """Download a backup file"""
+    if request.session.get('app_role') != 'admin':
+        messages.error(request, 'Only admins can download backups.')
+        return redirect('backup_management')
+    
+    try:
+        backup = Backup.objects.get(backup_id=backup_id)
+        
+        if not backup.verify_file_exists():
+            messages.error(request, 'Backup file no longer exists.')
+            return redirect('backup_management')
+        
+        from django.http import FileResponse
+        from pathlib import Path
+        
+        file_path = Path(backup.file_path)
+        if not file_path.exists():
+            messages.error(request, 'Backup file not found.')
+            return redirect('backup_management')
+        
+        # Log the action
+        log_action(
+            request,
+            'Backup downloaded',
+            f'Downloaded backup: {backup.filename}'
+        )
+        
+        return FileResponse(
+            open(file_path, 'rb'),
+            as_attachment=True,
+            filename=backup.filename
+        )
+        
+    except Backup.DoesNotExist:
+        messages.error(request, 'Backup not found.')
+        return redirect('backup_management')
+    except Exception as e:
+        messages.error(request, f'Error downloading backup: {str(e)}')
+        return redirect('backup_management')
+
+
+@require_app_login
+def restore_backup(request, backup_id):
+    """Restore from a backup"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        backup = Backup.objects.get(backup_id=backup_id)
+        
+        if not backup.verify_file_exists():
+            return JsonResponse({'success': False, 'message': 'Backup file no longer exists'}, status=404)
+        
+        from django.core.management import call_command
+        
+        # Call restore command
+        call_command('restore_backup', backup.file_path, force=True)
+        
+        # Log the action
+        log_action(
+            request,
+            'System restored',
+            f'Restored system from backup: {backup.filename}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'System restored successfully. Please restart the server.'
+        })
+        
+    except Backup.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Backup not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Error restoring backup: {str(e)}'}, status=500)
+
+
+@require_app_login
+def delete_backup(request, backup_id):
+    """Delete a backup"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        backup = Backup.objects.get(backup_id=backup_id)
+        filename = backup.filename
+        
+        # Delete file if exists
+        from pathlib import Path
+        file_path = Path(backup.file_path)
+        if file_path.exists():
+            file_path.unlink()
+        
+        # Delete record
+        backup.delete()
+        
+        # Log the action
+        log_action(
+            request,
+            'Backup deleted',
+            f'Deleted backup: {filename}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Backup deleted successfully'
+        })
+        
+    except Backup.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Backup not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error deleting backup: {str(e)}'}, status=500)
+
+
+@require_app_login
+def upload_and_restore_backup(request):
+    """Upload a backup zip file and restore from it"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        if 'backup_file' not in request.FILES:
+            return JsonResponse({'success': False, 'message': 'No backup file provided'}, status=400)
+        
+        uploaded_file = request.FILES['backup_file']
+        
+        # Validate file extension
+        if not uploaded_file.name.endswith('.zip'):
+            return JsonResponse({'success': False, 'message': 'Backup file must be a .zip file'}, status=400)
+        
+        # Save uploaded file temporarily
+        from pathlib import Path
+        import tempfile
+        import os
+        
+        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save to temp location
+        import uuid
+        temp_filename = f'temp_restore_{uuid.uuid4().hex[:8]}_{uploaded_file.name}'
+        temp_path = backup_dir / temp_filename
+        
+        # Write file and ensure it's closed
+        with open(temp_path, 'wb+') as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+        
+        # Ensure file is closed before validation
+        import time
+        time.sleep(0.1)  # Small delay to ensure file is fully written and closed
+        
+        # Validate file size (max 500MB)
+        max_size = 500 * 1024 * 1024  # 500MB
+        if temp_path.stat().st_size > max_size:
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass  # Ignore deletion errors
+            return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
+        
+        # Validate it's a valid zip file and contains StockWise backup structure
+        import zipfile
+        test_zip = None
+        try:
+            test_zip = zipfile.ZipFile(temp_path, 'r')
+            # Test zip integrity
+            test_zip.testzip()
+            
+            # Get list of files in the zip
+            file_list = test_zip.namelist()
+            
+            # Check for required StockWise backup structure
+            has_database = any(f.startswith('database/') for f in file_list)
+            has_media = any(f.startswith('media/') for f in file_list)
+            has_env = '.env' in file_list
+            
+            # At minimum, must have database folder (required for StockWise backup)
+            if not has_database:
+                if test_zip:
+                    test_zip.close()
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+                return JsonResponse({
+                    'success': False, 
+                    'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing database folder.'
+                }, status=400)
+            
+            # Check for database file inside database/ folder
+            database_files = [f for f in file_list if f.startswith('database/') and not f.endswith('/')]
+            if not database_files:
+                if test_zip:
+                    test_zip.close()
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+                return JsonResponse({
+                    'success': False, 
+                    'message': 'Invalid backup file. Database folder is empty or does not contain a database file.'
+                }, status=400)
+            
+            # Validate database file extension
+            # Accept SQLite files (development) or database dumps (production: PostgreSQL, MySQL, etc.)
+            db_file = database_files[0]
+            valid_sqlite_extensions = ('.sqlite3', '.db', '.sqlite')
+            valid_dump_extensions = ('.sql', '.dump', '.pgdump', '.mysqldump', '.backup')
+            db_file_lower = db_file.lower()
+            
+            is_valid = (
+                any(db_file_lower.endswith(ext) for ext in valid_sqlite_extensions) or
+                any(db_file_lower.endswith(ext) for ext in valid_dump_extensions)
+            )
+            
+            if not is_valid:
+                if test_zip:
+                    test_zip.close()
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+                return JsonResponse({
+                    'success': False, 
+                    'message': f'Invalid backup file. Database file must have a valid extension. '
+                               f'SQLite: {", ".join(valid_sqlite_extensions)} or '
+                               f'Database dumps: {", ".join(valid_dump_extensions)}. '
+                               f'Found: {os.path.splitext(db_file)[1]}'
+                }, status=400)
+            
+            # Close zip file before proceeding
+            if test_zip:
+                test_zip.close()
+                test_zip = None
+                
+        except zipfile.BadZipFile:
+            if test_zip:
+                try:
+                    test_zip.close()
+                except Exception:
+                    pass
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+            return JsonResponse({'success': False, 'message': 'Invalid zip file. The file is corrupted or not a valid zip archive.'}, status=400)
+        except zipfile.LargeZipFile:
+            if test_zip:
+                try:
+                    test_zip.close()
+                except Exception:
+                    pass
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+            return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
+        except Exception as e:
+            if test_zip:
+                try:
+                    test_zip.close()
+                except Exception:
+                    pass
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+            return JsonResponse({'success': False, 'message': f'Error validating backup file: {str(e)}'}, status=400)
+        finally:
+            # Ensure zip file is closed
+            if test_zip:
+                try:
+                    test_zip.close()
+                except Exception:
+                    pass
+        
+        # Restore from the uploaded file
+        from django.core.management import call_command
+        call_command('restore_backup', str(temp_path), force=True)
+        
+        # Clean up temp file (with retry for Windows file locking)
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+                break
+            except (PermissionError, OSError) as e:
+                if attempt < max_retries - 1:
+                    time.sleep(0.5)  # Wait before retry
+                else:
+                    # Log but don't fail if we can't delete temp file
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f'Could not delete temp backup file {temp_path}: {e}')
+        
+        # Log the action
+        log_action(
+            request,
+            'System restored',
+            f'Restored system from uploaded backup: {uploaded_file.name}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'System restored successfully from uploaded backup. Please restart the server.'
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Error restoring backup: {str(e)}'}, status=500)
+
+
+def auto_backup_before_critical_operation(request, operation_name='Critical Operation'):
+    """
+    Helper function to create an automatic backup before critical operations.
+    Returns True if backup was created, False otherwise.
+    """
+    try:
+        from django.core.management import call_command
+        from pathlib import Path
+        import os
+        
+        # Only auto-backup if enabled (can be controlled via settings)
+        auto_backup_enabled = getattr(settings, 'AUTO_BACKUP_ENABLED', True)
+        if not auto_backup_enabled:
+            return False
+        
+        # Check if we should skip (avoid too frequent backups)
+        from datetime import timedelta
+        last_backup = Backup.objects.order_by('-created_at').first()
+        if last_backup:
+            time_since_last = timezone.now() - last_backup.created_at
+            # Don't auto-backup if last backup was less than 5 minutes ago
+            if time_since_last < timedelta(minutes=5):
+                return False
+        
+        # Create backup
+        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Call backup command
+        call_command('backup_system', output_dir=str(backup_dir))
+        
+        # Find the latest backup file
+        backup_files = sorted(backup_dir.glob('stockwise_backup_*.zip'), key=os.path.getmtime, reverse=True)
+        if not backup_files:
+            return False
+        
+        backup_file_path = backup_files[0]
+        file_size = backup_file_path.stat().st_size
+        
+        # Get current user
+        user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        try:
+            user = AppUser.objects.get(user_id=user_id)
+            created_by = user.username
+        except:
+            created_by = 'system'
+        
+        # Create Backup record
+        Backup.objects.get_or_create(
+            filename=backup_file_path.name,
+            defaults={
+                'file_path': str(backup_file_path),
+                'file_size': file_size,
+                'backup_type': 'full',
+                'created_by': f'{created_by} (auto)',
+                'notes': f'Auto-backup before: {operation_name}',
+                'is_verified': True
+            }
+        )
+        
+        # Log the auto-backup
+        log_action(
+            request,
+            'Auto-backup created',
+            f'Automatic backup created before: {operation_name}'
+        )
+        
+        return True
+        
+    except Exception as e:
+        # Don't fail the operation if backup fails
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Auto-backup failed: {str(e)}", exc_info=True)
+        return False

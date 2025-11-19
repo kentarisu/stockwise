@@ -1459,6 +1459,18 @@
                             <span>SMS Settings</span>
                         </a>
                     </div>
+                    <div class="nav-item">
+                        <a href="{% url 'action_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Audit Logs</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'backup_management' %}" class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}">
+                            <i class="bi bi-database"></i>
+                            <span>Backups</span>
+                        </a>
+                    </div>
                     {% endif %}
                     <div class="nav-item">
                         <a href="{% url 'profile' %}" class="nav-link">

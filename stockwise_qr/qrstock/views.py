@@ -290,6 +290,13 @@ def qr_sticker_print(request, product_id):
         printer_service.close()
         
         if success:
+            # Log sticker print
+            from core.views import log_action
+            log_action(
+                request,
+                'Sticker printed',
+                f'Printed QR sticker for product {product_id} ({product.name}).'
+            )
             return JsonResponse({'success': True, 'message': 'Sticker printed successfully!'})
         else:
             error_msg = getattr(printer_service, 'last_error', 'Unknown printer error.')

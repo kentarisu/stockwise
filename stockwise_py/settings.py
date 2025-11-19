@@ -12,9 +12,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+import ssl
+import certifi
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+ssl._create_default_https_context = ssl.create_default_context(cafile=certifi.where())
 
 
 # Quick-start development settings - unsuitable for production
@@ -38,7 +43,7 @@ ALLOWED_HOSTS = [
     'e8a6825b9d6a.ngrok-free.app',
     'c59af87671d6.ngrok-free.app',
     '45689adbba85.ngrok-free.app',
-    'b88dea3d7031.ngrok-free.app',  # Current ngrok URL
+    '251c03b3a516.ngrok-free.app',  # Current ngrok URL
     # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
     # 'NEW_NGROK_URL.ngrok-free.app',
     '.ngrok-free.app',  # Wildcard for all ngrok-free.app subdomains
@@ -62,7 +67,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://e8a6825b9d6a.ngrok-free.app',
     'https://c59af87671d6.ngrok-free.app',
     'https://45689adbba85.ngrok-free.app',
-    'https://b88dea3d7031.ngrok-free.app',  # Current ngrok URL
+    'https://b88dea3d7031.ngrok-free.app',  # Older ngrok URL
+    'https://c3d95c4375a7.ngrok-free.app',  # Older ngrok URL
+    'https://251c03b3a516.ngrok-free.app',  # Current ngrok URL
     # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
     # 'https://NEW_NGROK_URL.ngrok-free.app',
     'https://*.ngrok-free.app',  # Wildcard for all ngrok URLs
@@ -180,6 +187,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Ensure static files are only served from the static directories
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
+# Media files (user uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR.parent / 'media'  # Points to C:\Users\Orly\stockwise\media
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -202,7 +213,14 @@ CRONJOBS = [
     # ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
     # AI Pricing recommendations automatically every 3 days at 8 PM
     ('0 20 */3 * *', 'django.core.management.call_command', ['send_auto_pricing']),
+    # Daily backup at 2:00 AM
+    ('0 2 * * *', 'django.core.management.call_command', ['backup_system']),
+    # Cleanup old backups at 3:00 AM (keep last 7 days)
+    ('0 3 * * *', 'django.core.management.call_command', ['cleanup_old_backups', '--keep-days=7']),
 ]
+
+# Auto-backup settings
+AUTO_BACKUP_ENABLED = True  # Enable automatic backups before critical operations
 
 # Disable HTTPS redirect for ngrok
 SECURE_SSL_REDIRECT = False
@@ -254,3 +272,55 @@ THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 910
 # The printer name should match exactly as it appears in Windows Settings → Printers & scanners
 THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com
+
+# ========== GOOGLE AUTH SETTINGS ==========
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
+GOOGLE_AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+
+# Allow only the temporary admin+secretary Google accounts unless overridden
+GOOGLE_ALLOWED_ACCOUNTS = {
+    os.getenv('GOOGLE_ADMIN_EMAIL', 'otmedina.chmsu@gmail.com').lower(): {
+        'role': 'Admin',
+        'username': os.getenv('GOOGLE_ADMIN_USERNAME', 'admin'),
+    },
+    os.getenv('GOOGLE_SECRETARY_EMAIL', 'orly.m8xz@gmail.com').lower(): {
+        'role': 'Secretary',
+        'username': os.getenv('GOOGLE_SECRETARY_USERNAME', 'secretary'),
+    },
+}
+
+# ========== EMAIL / TWO-FACTOR SETTINGS ==========
+# Default to SMTP backend (production-safe). Override via EMAIL_BACKEND env var if needed.
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+# Use STARTTLS by default (change via env vars if needed)
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@stockwise.local')
+
+TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '10'))
+TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv('TWO_FACTOR_MAX_ATTEMPTS', '5'))
+
+# SSL Context for email (production-ready)
+# In production, use proper certificate verification (default)
+# Only use unverified context for development/testing if explicitly set
+# Django's SMTP backend will use proper SSL verification by default when EMAIL_USE_SSL=True
+# This ensures emails work with proper certificates and won't be blocked by antivirus/firewall
+if os.getenv('EMAIL_SSL_VERIFY', 'true').lower() == 'false':
+    # Only for development/testing - NOT recommended for production
+    # WARNING: This bypasses SSL certificate verification and is insecure
+    import ssl
+    EMAIL_SSL_CERT_REQS = ssl.CERT_NONE
+    # Create a custom SSL context only if needed for development
+    # In production, Django will use default SSL context with proper verification
+else:
+    # Production: Use proper SSL certificate verification (default)
+    # Django's SMTP backend automatically verifies certificates when EMAIL_USE_SSL=True
+    # No custom SSL context needed - Django handles it properly
+    pass

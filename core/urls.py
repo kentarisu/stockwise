@@ -6,6 +6,9 @@ from .password_change_view import change_password
 urlpatterns = [
 	path('', views.redirect_to_login, name='root'),
 	path('login/', views.login_view, name='login'),
+	path('login/verify/', views.two_factor_verify, name='two_factor_verify'),
+	path('accounts/google/login/', views.google_login_start, name='google_login_start'),
+	path('accounts/google/login/callback/', views.google_login_callback, name='google_login_callback'),
 	path('logout/', views.logout_view, name='logout'),
 	path('dashboard/', views.dashboard_view, name='dashboard'),
 	path('products_inventory/', views.products_inventory, name='products_inventory'),
@@ -17,6 +20,7 @@ path('stock/add/', views.add_stock_page, name='add_stock_page'),
 path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('products_inventory/post/', views.handle_product_post, name='handle_product_post'),
 	path('profile/', views.profile_view, name='profile'),
+	path('logs/', views.action_logs_view, name='action_logs'),
 	path('api/user/toggle-status/', views.toggle_user_status, name='toggle_user_status'),
 	path('api/user/update-secretary/', views.update_secretary_account, name='update_secretary_account'),
 	path('change-password/', change_password, name='change_password'),  # TC-035
@@ -27,6 +31,7 @@ path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 path('api/products/<int:product_id>/delete/', views.product_delete, name='delete_product'),
 	path('api/products/<int:product_id>/stock/add/', views.stock_add, name='stock_add'),
 	path('api/products/list/', views.fetch_products, name='fetch_products'),
+	path('api/products/<int:product_id>/details/', views.get_product_details, name='get_product_details'),
 	path('api/products/active/', views.get_active_products, name='get_active_products'),
 	path('api/products/get_id/', views.get_product_id, name='get_product_id'),
 	# Stock details API for modal (FIFO batches)
@@ -79,6 +84,7 @@ path('sales/record/', views.record_sale_page, name='record_sale'),
     # Pricing AI URLs
     path('api/pricing/recommendations/', views.get_pricing_recommendations, name='get_pricing_recommendations'),
     path('api/pricing/apply/', views.apply_pricing_recommendation, name='apply_pricing_recommendation'),
+    path('api/pricing/reject/', views.reject_pricing_recommendation, name='reject_pricing_recommendation'),
     path('api/pricing/test/', views.test_pricing_notification, name='test_pricing_notification'),
     
     # Inventory Reports URLs
@@ -88,4 +94,12 @@ path('sales/record/', views.record_sale_page, name='record_sale'),
     path('api/inventory/reports/turnover/', views.inventory_turnover_report, name='inventory_turnover_report'),
     path('api/inventory/reports/suppliers/', views.inventory_supplier_report, name='inventory_supplier_report'),
     path('api/inventory/reports/pdf/', views.generate_inventory_pdf_report, name='generate_inventory_pdf_report'),
+    
+    # Backup management URLs
+    path('backups/', views.backup_management_view, name='backup_management'),
+    path('api/backups/create/', views.create_backup, name='create_backup'),
+    path('api/backups/upload-restore/', views.upload_and_restore_backup, name='upload_and_restore_backup'),
+    path('api/backups/<int:backup_id>/download/', views.download_backup, name='download_backup'),
+    path('api/backups/<int:backup_id>/restore/', views.restore_backup, name='restore_backup'),
+    path('api/backups/<int:backup_id>/delete/', views.delete_backup, name='delete_backup'),
 ] 

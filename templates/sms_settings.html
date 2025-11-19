@@ -881,6 +881,14 @@
             font-size: 0.875rem;
             transition: all 0.2s ease;
         }
+        
+        .form-select:disabled,
+        .form-range:disabled {
+            background-color: var(--gray-100);
+            opacity: 0.7;
+            cursor: not-allowed;
+            border-color: var(--gray-300);
+        }
 
         .form-select:focus {
             border-color: var(--primary);
@@ -1366,6 +1374,24 @@
                                 <span>SMS Settings</span>
                             </a>
                         </li>
+                        {% if request.session.app_role|default:''|lower == 'admin' %}
+                        <li class="nav-item">
+                            <a href="{% url 'action_logs' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                <span>Audit Logs</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'backup_management' %}"
+                               class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-database" aria-hidden="true"></i>
+                                <span>Backups</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a href="{% url 'profile' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
@@ -1473,7 +1499,7 @@
         <div class="row">
             <!-- Daily Sales Summary -->
             <div class="col-lg-4">
-                <div class="notification-card {% if sms_notification.is_active %}active{% else %}inactive{% endif %}" id="salesCard">
+                <div class="notification-card {% if sms_settings.sales_enabled %}active{% else %}inactive{% endif %}" id="salesCard">
                     <div class="notification-icon sales">
                         <i class="bi bi-graph-up"></i>
                     </div>
@@ -1487,7 +1513,7 @@
                             <span class="setting-label">Status</span>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="sales_enabled" 
-                                       {% if sms_notification.is_active %}checked{% endif %}>
+                                       {% if sms_settings.sales_enabled %}checked{% endif %}>
                                 <label class="form-check-label" for="sales_enabled">
                                     <span class="setting-value">Enabled</span>
                                 </label>
@@ -1496,14 +1522,14 @@
                         
                         <div class="setting-row">
                             <span class="setting-label">Send Time</span>
-                            <select class="form-select form-select-sm" id="sales_time" style="width: auto;">
-                                <option value="20:00" selected>8:00 PM</option>
-                                <option value="00:15">12:15 AM</option>
-                                <option value="21:00">9:00 PM</option>
-                                <option value="22:00">10:00 PM</option>
-                                <option value="23:00">11:00 PM</option>
-                                <option value="06:00">6:00 AM</option>
-                                <option value="07:00">7:00 AM</option>
+                            <select class="form-select form-select-sm" id="sales_time" style="width: auto;" disabled data-fixed-value="{{ sms_settings.sales_time|default:'20:00' }}">
+                                <option value="20:00" {% if sms_settings.sales_time == '20:00' %}selected{% endif %}>8:00 PM</option>
+                                <option value="00:15" {% if sms_settings.sales_time == '00:15' %}selected{% endif %}>12:15 AM</option>
+                                <option value="21:00" {% if sms_settings.sales_time == '21:00' %}selected{% endif %}>9:00 PM</option>
+                                <option value="22:00" {% if sms_settings.sales_time == '22:00' %}selected{% endif %}>10:00 PM</option>
+                                <option value="23:00" {% if sms_settings.sales_time == '23:00' %}selected{% endif %}>11:00 PM</option>
+                                <option value="06:00" {% if sms_settings.sales_time == '06:00' %}selected{% endif %}>6:00 AM</option>
+                                <option value="07:00" {% if sms_settings.sales_time == '07:00' %}selected{% endif %}>7:00 AM</option>
                             </select>
                         </div>
                         
@@ -1537,10 +1563,10 @@
                     </div>
                     
                     <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('salesPreview')">
+                        <button type="button" class="btn btn-outline-primary btn-sm sales-action-btn" onclick="togglePreview('salesPreview')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('sales')">
+                        <button type="button" class="btn btn-outline-success btn-sm sales-action-btn" onclick="sendNotificationNow('sales')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
                             <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
@@ -1549,7 +1575,7 @@
 
             <!-- Low Stock Alerts -->
             <div class="col-lg-4">
-                <div class="notification-card {% if sms_notification.is_active %}active{% else %}inactive{% endif %}" id="stockCard">
+                <div class="notification-card {% if sms_settings.stock_enabled %}active{% else %}inactive{% endif %}" id="stockCard">
                     <div class="notification-icon stock">
                         <i class="bi bi-exclamation-triangle"></i>
                     </div>
@@ -1563,7 +1589,7 @@
                             <span class="setting-label">Status</span>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="stock_enabled" 
-                                       {% if sms_notification.is_active %}checked{% endif %}>
+                                       {% if sms_settings.stock_enabled %}checked{% endif %}>
                                 <label class="form-check-label" for="stock_enabled">
                                     <span class="setting-value">Enabled</span>
                                 </label>
@@ -1573,8 +1599,8 @@
                         <div class="setting-row">
                             <span class="setting-label">Threshold</span>
                             <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range" id="stock_threshold" min="1" max="50" value="10" style="flex: 1;">
-                                <span class="setting-value" id="thresholdValue">10</span>
+                                <input type="range" class="form-range" id="stock_threshold" min="1" max="50" value="{{ sms_settings.stock_threshold|default:10 }}" style="flex: 1;" disabled data-fixed-value="{{ sms_settings.stock_threshold|default:10 }}">
+                                <span class="setting-value" id="thresholdValue">{{ sms_settings.stock_threshold|default:10 }}</span>
                             </div>
                         </div>
                         
@@ -1603,10 +1629,10 @@
                     </div>
                     
                     <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('stockPreview')">
+                        <button type="button" class="btn btn-outline-primary btn-sm stock-action-btn" onclick="togglePreview('stockPreview')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('stock')">
+                        <button type="button" class="btn btn-outline-success btn-sm stock-action-btn" onclick="sendNotificationNow('stock')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
                             <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
@@ -1615,7 +1641,7 @@
 
             <!-- Demand-Driven Pricing -->
             <div class="col-lg-4">
-                <div class="notification-card {% if sms_notification.is_active %}active{% else %}inactive{% endif %}" id="pricingCard">
+                <div class="notification-card {% if sms_settings.pricing_enabled %}active{% else %}inactive{% endif %}" id="pricingCard">
                     <div class="notification-icon pricing">
                         <i class="bi bi-tags"></i>
                     </div>
@@ -1629,7 +1655,7 @@
                             <span class="setting-label">Status</span>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="pricing_enabled" 
-                                       {% if sms_notification.is_active %}checked{% endif %}>
+                                       {% if sms_settings.pricing_enabled %}checked{% endif %}>
                                 <label class="form-check-label" for="pricing_enabled">
                                     <span class="setting-value">Enabled</span>
                                 </label>
@@ -1638,10 +1664,10 @@
                         
                         <div class="setting-row">
                             <span class="setting-label">Sensitivity</span>
-                            <select class="form-select form-select-sm" id="pricing_sensitivity" style="width: auto;">
-                                <option value="conservative">Conservative</option>
-                                <option value="moderate" selected>Moderate</option>
-                                <option value="aggressive">Aggressive</option>
+                            <select class="form-select form-select-sm" id="pricing_sensitivity" style="width: auto;" disabled data-fixed-value="{{ sms_settings.pricing_sensitivity|default:'moderate' }}">
+                                <option value="conservative" {% if sms_settings.pricing_sensitivity == 'conservative' %}selected{% endif %}>Conservative</option>
+                                <option value="moderate" {% if sms_settings.pricing_sensitivity == 'moderate' or not sms_settings.pricing_sensitivity %}selected{% endif %}>Moderate</option>
+                                <option value="aggressive" {% if sms_settings.pricing_sensitivity == 'aggressive' %}selected{% endif %}>Aggressive</option>
                             </select>
                         </div>
                         
@@ -1667,13 +1693,13 @@
                     </div>
                     
                     <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="togglePreview('pricingPreview')">
+                        <button type="button" class="btn btn-outline-primary btn-sm pricing-action-btn" onclick="togglePreview('pricingPreview')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
                             <i class="bi bi-eye me-1"></i>Preview
                         </button>
-                        <button type="button" class="btn btn-outline-info btn-sm" onclick="getPricingRecommendations()">
+                        <button type="button" class="btn btn-outline-info btn-sm pricing-action-btn" onclick="getPricingRecommendations()" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
                             <i class="bi bi-lightbulb me-1"></i>Get Recommendations
                         </button>
-                        <button type="button" class="btn btn-outline-success btn-sm" onclick="sendNotificationNow('pricing')">
+                        <button type="button" class="btn btn-outline-success btn-sm pricing-action-btn" onclick="sendNotificationNow('pricing')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
                             <i class="bi bi-send me-1"></i>Send Now
                         </button>
                     </div>
@@ -1842,25 +1868,35 @@
                 });
             });
 
-            // Stock threshold slider
-            $('#stock_threshold').on('input', function() {
-                $('#thresholdValue').text($(this).val());
-            });
+            // Stock threshold slider (disabled - no need to update display since it's fixed)
+            // $('#stock_threshold').on('input', function() {
+            //     $('#thresholdValue').text($(this).val());
+            // });
 
-            // Notification toggle handlers
+            // Notification toggle handlers - update card state, button states, and save settings
             $('#sales_enabled, #stock_enabled, #pricing_enabled').on('change', function() {
-                const cardId = $(this).attr('id').replace('_enabled', 'Card');
+                const toggleId = $(this).attr('id');
+                const cardId = toggleId.replace('_enabled', 'Card');
                 const $card = $('#' + cardId);
+                const isEnabled = $(this).is(':checked');
                 
-                if ($(this).is(':checked')) {
+                // Update card visual state
+                if (isEnabled) {
                     $card.removeClass('inactive').addClass('active');
                 } else {
                     $card.removeClass('active').addClass('inactive');
                 }
-            });
-
-            // Auto-save notification settings
-            $('#sales_time, #stock_threshold').on('change', function() {
+                
+                // Update button states based on notification type
+                if (toggleId === 'sales_enabled') {
+                    $('.sales-action-btn').prop('disabled', !isEnabled);
+                } else if (toggleId === 'stock_enabled') {
+                    $('.stock-action-btn').prop('disabled', !isEnabled);
+                } else if (toggleId === 'pricing_enabled') {
+                    $('.pricing-action-btn').prop('disabled', !isEnabled);
+                }
+                
+                // Auto-save settings when toggle changes
                 saveNotificationSettings();
             });
         });
@@ -1966,17 +2002,25 @@
 
         // Save notification settings
         function saveNotificationSettings() {
+            // Get fixed values from database (these fields are disabled and cannot be changed)
+            // These values are stored in data attributes on the form elements
+            const fixedSalesTime = $('#sales_time').data('fixed-value') || '20:00';
+            const fixedStockThreshold = parseInt($('#stock_threshold').data('fixed-value') || '10');
+            const fixedPricingSensitivity = $('#pricing_sensitivity').data('fixed-value') || 'moderate';
+            
             const settings = {
-                sales_time: $('#sales_time').val(),
-                stock_threshold: $('#stock_threshold').val(),
-                sales_enabled: $('#sales_enabled').is(':checked'),
-                stock_enabled: $('#stock_enabled').is(':checked')
+                sales_time: fixedSalesTime,  // Fixed value - cannot be changed
+                stock_threshold: fixedStockThreshold,  // Fixed value - cannot be changed
+                pricing_sensitivity: fixedPricingSensitivity,  // Fixed value - cannot be changed
+                sales_enabled: $('#sales_enabled').is(':checked') ? 'true' : 'false',  // Convert to string for POST
+                stock_enabled: $('#stock_enabled').is(':checked') ? 'true' : 'false',  // Convert to string for POST
+                pricing_enabled: $('#pricing_enabled').is(':checked') ? 'true' : 'false'  // Convert to string for POST
             };
             
-            // Save to localStorage
+            // Save to localStorage as backup
             localStorage.setItem('sms_notification_settings', JSON.stringify(settings));
             
-            // Call the API to save settings
+            // Call the API to save settings to database
             $.ajax({
                 url: "{% url 'update_notification_settings' %}",
                 method: 'POST',
@@ -1991,34 +2035,63 @@
                         $indicator.fadeIn().delay(2000).fadeOut(function() {
                             $(this).remove();
                         });
+                    } else {
+                        // Show error message
+                        alert('Failed to save: ' + (response.message || 'Unknown error'));
                     }
                 },
-                error: function() {
+                error: function(xhr) {
+                    let errorMsg = 'Save Failed';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
                     // Show error indicator
-                    const $indicator = $('<small class="text-danger ms-2"><i class="bi bi-exclamation-circle me-1"></i>Save Failed</small>');
-                    $indicator.fadeIn().delay(2000).fadeOut(function() {
+                    const $indicator = $('<small class="text-danger ms-2"><i class="bi bi-exclamation-circle me-1"></i>' + errorMsg + '</small>');
+                    $indicator.fadeIn().delay(3000).fadeOut(function() {
                         $(this).remove();
                     });
                 }
             });
         }
 
-        // Load saved settings
+        // Load saved settings from server (already loaded in template, but sync with localStorage if needed)
         function loadNotificationSettings() {
+            // Settings are already loaded from database via template variables
+            // This function is kept for backward compatibility and localStorage sync
             const saved = localStorage.getItem('sms_notification_settings');
             if (saved) {
-                const settings = JSON.parse(saved);
-                $('#sales_time').val(settings.sales_time || '22:00');
-                $('#stock_threshold').val(settings.stock_threshold || '10');
-                $('#sales_enabled').prop('checked', settings.sales_enabled || false);
-                $('#stock_enabled').prop('checked', settings.stock_enabled || false);
-                
-                // Update threshold display
-                $('#thresholdValue').text(settings.stock_threshold || '10');
-                
-                // Update card states
-                $('#sales_enabled, #stock_enabled').trigger('change');
+                try {
+                    const settings = JSON.parse(saved);
+                    // Only use localStorage if database values are not available
+                    // Database values take precedence (already set in template)
+                } catch(e) {
+                    console.warn('Failed to parse localStorage settings', e);
+                }
             }
+            
+            // Initialize card states and button states based on current checkbox states (without triggering save)
+            $('#sales_enabled, #stock_enabled, #pricing_enabled').each(function() {
+                const toggleId = $(this).attr('id');
+                const cardId = toggleId.replace('_enabled', 'Card');
+                const $card = $('#' + cardId);
+                const isEnabled = $(this).is(':checked');
+                
+                // Update card visual state
+                if (isEnabled) {
+                    $card.removeClass('inactive').addClass('active');
+                } else {
+                    $card.removeClass('active').addClass('inactive');
+                }
+                
+                // Update button states
+                if (toggleId === 'sales_enabled') {
+                    $('.sales-action-btn').prop('disabled', !isEnabled);
+                } else if (toggleId === 'stock_enabled') {
+                    $('.stock-action-btn').prop('disabled', !isEnabled);
+                } else if (toggleId === 'pricing_enabled') {
+                    $('.pricing-action-btn').prop('disabled', !isEnabled);
+                }
+            });
         }
 
         // Load notification statistics

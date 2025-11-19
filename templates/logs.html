@@ -1,0 +1,1385 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockWise - Audit Logs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
+    <link rel="stylesheet" href="{% static 'css/responsive-enhancements.css' %}">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #e0e7ff;
+            --secondary: #f8fafc;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --sidebar-width: 212px;
+            --header-height: 72px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --layout-max-width: 1120px;
+            --radius-lg: 14px;
+            --radius-md: 10px;
+            --space-2xs: 0.25rem;
+            --space-xs: 0.5rem;
+            --space-sm: 0.75rem;
+            --space-md: 1rem;
+            --space-lg: 1.25rem;
+            --space-xl: 1.5rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 14px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            background: var(--gray-50);
+            min-height: 100vh;
+            color: var(--gray-800);
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar - Same as sales page */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            position: fixed;
+            top: var(--header-height);
+            height: calc(100vh - var(--header-height));
+            z-index: 1000;
+            transition: none;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .sidebar-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--gray-100);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header .burger-menu-btn {
+            width: 1.5rem;
+            height: 1.5rem;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .sidebar-header .burger-menu-btn span {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header .burger-menu-btn:hover span {
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .sidebar-header .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+            flex: 1;
+        }
+
+        .sidebar-brand i {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem;
+            border-radius: 8px;
+        }
+
+        .sidebar-nav {
+            padding: var(--space-sm) 0;
+        }
+
+        .nav-section {
+            margin-bottom: 1rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gray-400);
+            padding: 0 var(--space-sm);
+            margin-bottom: var(--space-xs);
+        }
+
+        .nav-item {
+            margin-bottom: var(--space-2xs);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: var(--space-sm);
+            color: var(--gray-600);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-radius: 0;
+            font-size: 0.85rem;
+            font-weight: 500;
+            position: relative;
+            gap: 0.5rem;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .nav-link.active {
+            color: var(--primary);
+            background: var(--primary-light);
+            border-right: 3px solid var(--primary);
+        }
+
+        .nav-link i {
+            font-size: 1.1rem;
+            margin-right: 0.4rem;
+            width: 1.2rem;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            margin-top: var(--header-height);
+            padding: var(--space-lg);
+            transition: none;
+            min-height: calc(100vh - var(--header-height));
+            overflow-x: hidden;
+            width: calc(100% - var(--sidebar-width));
+        }
+
+        /* Desktop sidebar toggle */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                width: var(--sidebar-width);
+            }
+
+            .sidebar:not(.active) {
+                width: 64px;
+            }
+
+            .sidebar:not(.active) .nav-section-title {
+                display: none;
+            }
+
+            .sidebar:not(.active) .nav-link {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
+                font-size: 0;
+            }
+
+            .sidebar:not(.active) .nav-link i {
+                margin-right: 0;
+            }
+
+            .sidebar:not(.active) .nav-link > span,
+            .sidebar:not(.active) .nav-link > :not(i) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-nav {
+                padding: 0.5rem 0;
+            }
+
+            .main-content {
+                margin-left: var(--sidebar-width);
+                margin-top: var(--header-height);
+            }
+
+            .main-content:not(.sidebar-open) {
+                margin-left: 64px;
+                width: calc(100% - 64px);
+            }
+
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+                width: calc(100% - var(--sidebar-width));
+            }
+
+            .sidebar-overlay {
+                display: none !important;
+            }
+        }
+
+        .header {
+            background: white;
+            min-height: var(--header-height);
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-sm) var(--space-xl);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex: 1;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            text-decoration: none;
+            color: var(--gray-900);
+            flex-shrink: 0;
+        }
+
+        .header-brand i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .header-brand:hover {
+            color: var(--primary);
+        }
+
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            padding-left: 3rem;
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0;
+            line-height: 1.25;
+        }
+
+        .header-subtitle {
+            color: var(--gray-500);
+            font-size: 0.8rem;
+            margin-top: var(--space-xs);
+            line-height: 1.3;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .user-avatar {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Burger Menu Button */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span {
+            background: var(--primary);
+        }
+
+        .burger-menu-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(2.5px, 2.5px);
+        }
+
+        .burger-menu-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .burger-menu-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(2.5px, -2.5px);
+        }
+
+        /* Sidebar Overlay Backdrop */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Content Area */
+        .content-area {
+            padding: var(--space-lg);
+            max-width: var(--layout-max-width);
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-lg);
+            overflow-x: hidden;
+        }
+
+        /* Modern Cards - Matching sales page */
+        .modern-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            overflow: hidden;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
+        }
+
+        .modern-card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modern-card .card-body {
+            padding: 0;
+        }
+
+        .modern-card .table > :not(caption) > * > * {
+            padding: 0.75rem;
+        }
+
+        /* Filters Panel - Matching sales page */
+        .filter-panel {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: 0 16px 40px -32px rgba(15, 23, 42, 0.45);
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-panel::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 24px;
+            right: 24px;
+            height: 4px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5b7cfa 0%, #34d399 100%);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 1.25rem;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .filter-group > div {
+            flex: 1 1 220px;
+            min-width: 220px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-label {
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--gray-500);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-control,
+        .form-select {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.9);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            outline: none;
+        }
+
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
+        }
+
+        .btn-filter-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Logs Table Card - Matching sales table card */
+        .logs-table-card {
+            position: relative;
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-100);
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .logs-table-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 16px 16px 0 0;
+            background: linear-gradient(90deg, #34d399, #22d3ee, #6366f1);
+        }
+
+        .table-header {
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-title i {
+            color: var(--primary);
+            font-size: 1.125rem;
+        }
+
+        .table-responsive {
+            overflow-x: visible;
+            width: 100%;
+        }
+
+        .table {
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            width: 100%;
+            table-layout: auto;
+        }
+
+        .table thead th {
+            background: var(--gray-50);
+            border-bottom: 2px solid var(--gray-200);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: var(--gray-700);
+            padding: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .table tbody td {
+            padding: 0.75rem;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--gray-100);
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        /* Responsive table columns */
+        .table th:nth-child(1),
+        .table td:nth-child(1) {
+            min-width: 140px;
+            max-width: 180px;
+        }
+
+        .table th:nth-child(2),
+        .table td:nth-child(2) {
+            min-width: 80px;
+            max-width: 120px;
+        }
+
+        .table th:nth-child(3),
+        .table td:nth-child(3) {
+            min-width: 80px;
+            max-width: 100px;
+        }
+
+        .table th:nth-child(4),
+        .table td:nth-child(4) {
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .table th:nth-child(5),
+        .table td:nth-child(5) {
+            min-width: 200px;
+            max-width: none;
+        }
+
+        .table th:nth-child(6),
+        .table td:nth-child(6) {
+            min-width: 100px;
+            max-width: 120px;
+        }
+
+        /* Pagination - Matching sales page */
+        .pagination-container {
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .pagination-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .pagination {
+            margin-bottom: 0;
+        }
+
+        .pagination .page-link {
+            color: var(--primary);
+            border-color: var(--gray-300);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: var(--gray-400);
+            pointer-events: none;
+            background-color: var(--gray-50);
+            border-color: var(--gray-200);
+        }
+
+        .pagination .page-link:hover:not(.disabled) {
+            background-color: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: var(--space-md);
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                z-index: 1001;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay {
+                display: block;
+            }
+
+            .filter-group {
+                flex-direction: column;
+            }
+
+            .filter-group > div {
+                width: 100%;
+                min-width: 100%;
+            }
+
+            /* Mobile table - card layout */
+            .table-responsive {
+                overflow-x: visible;
+            }
+
+            .table {
+                display: block;
+                width: 100%;
+            }
+
+            .table thead {
+                display: none;
+            }
+
+            .table tbody {
+                display: block;
+            }
+
+            .table tbody tr {
+                display: block;
+                margin-bottom: 1rem;
+                border: 1px solid var(--gray-200);
+                border-radius: 12px;
+                padding: 1rem;
+                background: white;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .table tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 0.5rem 0;
+                border: none;
+                border-bottom: 1px solid var(--gray-100);
+            }
+
+            .table tbody td:last-child {
+                border-bottom: none;
+            }
+
+            .table tbody td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--gray-600);
+                text-transform: uppercase;
+                font-size: 0.7rem;
+                letter-spacing: 0.05em;
+                min-width: 100px;
+                flex-shrink: 0;
+            }
+
+            .table tbody td {
+                text-align: right;
+            }
+
+            .pagination-container {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: center;
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body class="app-role-{{ app_role|default:'admin'|lower }}" data-role="{{ app_role|default:'admin'|lower }}">
+    <div class="app-container">
+        <!-- Unified Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="header-brand">
+                    <i class="bi bi-basket-fill"></i>
+                    <span>StockWise</span>
+                </a>
+                <div class="header-title-section">
+                    <h1>Audit Logs</h1>
+                    <p class="header-subtitle">Latest actions performed by the admin and secretary.</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <!-- Sidebar -->
+        <nav class="sidebar active">
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Main</div>
+                    <div class="nav-item">
+                        <a href="{% url 'dashboard' %}" class="nav-link">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'products_inventory' %}" class="nav-link">
+                            <i class="bi bi-basket"></i>
+                            <span>Inventory</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'sales' %}" class="nav-link">
+                            <i class="bi bi-cart"></i>
+                            <span>Sales</span>
+                        </a>
+                    </div>
+                </div>
+
+                {% if app_role == 'admin' %}
+                <div class="nav-section">
+                    <div class="nav-section-title">Reports</div>
+                    <div class="nav-item">
+                        <a href="{% url 'reports' %}" class="nav-link">
+                            <i class="bi bi-graph-up"></i>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Account</div>
+                    {% if app_role == 'admin' %}
+                    <div class="nav-item">
+                        <a href="{% url 'sms_settings' %}" class="nav-link">
+                            <i class="bi bi-chat-dots"></i>
+                            <span>SMS Settings</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'action_logs' %}" class="nav-link active">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Audit Logs</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'backup_management' %}" class="nav-link">
+                            <i class="bi bi-database"></i>
+                            <span>Backups</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                    <div class="nav-item">
+                        <a href="{% url 'profile' %}" class="nav-link">
+                            <i class="bi bi-person"></i>
+                            <span>Profile</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'logout' %}" class="nav-link logout-link">
+                            <i class="bi bi-box-arrow-right"></i>
+                            <span>Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content sidebar-open">
+            <div class="content-area">
+                <!-- Filters -->
+                <div class="filter-panel">
+                    <form method="get" action="{% url 'action_logs' %}" id="filtersForm">
+                        <div class="filter-group">
+                            <div>
+                                <label for="dateRange" class="form-label">Date Range</label>
+                                <select name="date_range" id="dateRange" class="form-select">
+                                    <option value="today" {% if current_date_range == 'today' %}selected{% endif %}>Today</option>
+                                    <option value="week" {% if current_date_range == 'week' %}selected{% endif %}>This Week</option>
+                                    <option value="month" {% if current_date_range == 'month' %}selected{% endif %}>This Month</option>
+                                    <option value="custom" {% if current_date_range == 'custom' %}selected{% endif %}>Custom</option>
+                                </select>
+                                <input type="hidden" name="date_start" id="dateStart" value="{{ current_date_start }}">
+                                <input type="hidden" name="date_end" id="dateEnd" value="{{ current_date_end }}">
+                            </div>
+                            <div>
+                                <label for="user" class="form-label">User</label>
+                                <select name="user" id="user" class="form-select">
+                                    <option value="">All Users</option>
+                                    {% for user in all_users %}
+                                        <option value="{{ user }}" {% if current_user == user %}selected{% endif %}>{{ user }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div style="flex: 0 0 auto; align-self: flex-end;">
+                                <label class="form-label" style="opacity: 0;">Actions</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button type="button" id="refreshBtn" class="btn-filter-action">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                        <span>Refresh</span>
+                                    </button>
+                                    {% if current_date_range or current_user %}
+                                    <a href="{% url 'action_logs' %}" class="btn-filter-action">
+                                        <i class="bi bi-x-circle"></i>
+                                        <span>Clear Filters</span>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Logs Table -->
+                <div class="logs-table-card">
+                    <div class="table-header">
+                        <div class="table-title">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Audit Logs</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Timestamp</th>
+                                    <th scope="col">User</th>
+                                    <th scope="col">Role</th>
+                                    <th scope="col">Action</th>
+                                    <th scope="col">Details</th>
+                                    <th scope="col">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                    <tr>
+                                        <td data-label="Timestamp">{{ log.created_at|date:"M d, Y h:i A" }}</td>
+                                        <td data-label="User">{{ log.user.username|default:"-" }}</td>
+                                        <td data-label="Role">{{ log.role|default:"-"|title }}</td>
+                                        <td data-label="Action">{{ log.action }}</td>
+                                        <td data-label="Details" class="text-break">{{ log.details|default:"-" }}</td>
+                                        <td data-label="IP">{{ log.ip_address|default:"-" }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">No activity recorded yet.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="pagination-container mt-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="pagination-info">
+                                <span class="text-muted">Showing {{ logs.start_index }} to {{ logs.end_index }} of {{ logs.paginator.count }} entries</span>
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    {% if logs.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if current_date_range %}&date_range={{ current_date_range }}{% endif %}{% if current_date_start %}&date_start={{ current_date_start }}{% endif %}{% if current_date_end %}&date_end={{ current_date_end }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.previous_page_number }}{% if current_date_range %}&date_range={{ current_date_range }}{% endif %}{% if current_date_start %}&date_start={{ current_date_start }}{% endif %}{% if current_date_end %}&date_end={{ current_date_end }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}">
+                                                <i class="bi bi-chevron-left"></i> Previous
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </span>
+                                        </li>
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                <i class="bi bi-chevron-left"></i> Previous
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    {% for page_num in page_numbers %}
+                                        <li class="page-item {% if page_num == logs.number %}active{% endif %}">
+                                            <a class="page-link" href="?page={{ page_num }}{% if current_date_range %}&date_range={{ current_date_range }}{% endif %}{% if current_date_start %}&date_start={{ current_date_start }}{% endif %}{% if current_date_end %}&date_end={{ current_date_end }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}">{{ page_num }}</a>
+                                        </li>
+                                    {% endfor %}
+                                    
+                                    {% if logs.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.next_page_number }}{% if current_date_range %}&date_range={{ current_date_range }}{% endif %}{% if current_date_start %}&date_start={{ current_date_start }}{% endif %}{% if current_date_end %}&date_end={{ current_date_end }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}">
+                                                Next <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if current_date_range %}&date_range={{ current_date_range }}{% endif %}{% if current_date_start %}&date_start={{ current_date_start }}{% endif %}{% if current_date_end %}&date_end={{ current_date_end }}{% endif %}{% if current_user %}&user={{ current_user }}{% endif %}">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                Next <i class="bi bi-chevron-right"></i>
+                                            </span>
+                                        </li>
+                                        <li class="page-item disabled">
+                                            <span class="page-link">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Date Range Modal -->
+    <div class="modal fade" id="customRangeModal" tabindex="-1" aria-labelledby="customRangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="customRangeModalLabel">Custom Date Range</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="customStart" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="customStart">
+                    </div>
+                    <div class="mb-3">
+                        <label for="customEnd" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="customEnd">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="applyCustomRange">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <p class="text-muted small mb-0">You will need to login again to access the system.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="{% url 'logout' %}" class="btn btn-danger" id="confirmLogoutBtn">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            const dateRangeSelect = document.getElementById('dateRange');
+            const userSelect = document.getElementById('user');
+            const filtersForm = document.getElementById('filtersForm');
+            const dateStartInput = document.getElementById('dateStart');
+            const dateEndInput = document.getElementById('dateEnd');
+            let customStart = '';
+            let customEnd = '';
+            
+            // Format date for display
+            function formatDate(d) {
+                return d.toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
+            }
+            
+            // Update date range labels
+            function updateRangeLabels() {
+                const today = new Date();
+                const todayOpt = document.querySelector('#dateRange option[value="today"]');
+                const weekOpt = document.querySelector('#dateRange option[value="week"]');
+                const monthOpt = document.querySelector('#dateRange option[value="month"]');
+                const customOpt = document.querySelector('#dateRange option[value="custom"]');
+                
+                if (todayOpt) {
+                    todayOpt.textContent = `Today (${formatDate(today)})`;
+                }
+                
+                if (weekOpt) {
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - 6);
+                    weekOpt.textContent = `This Week (${formatDate(weekStart)} – ${formatDate(today)})`;
+                }
+                
+                if (monthOpt) {
+                    const monthStart = new Date(today);
+                    monthStart.setDate(today.getDate() - 29);
+                    monthOpt.textContent = `This Month (${formatDate(monthStart)} – ${formatDate(today)})`;
+                }
+                
+                if (customOpt && customStart && customEnd) {
+                    customOpt.textContent = `Custom (${formatDate(new Date(customStart))} – ${formatDate(new Date(customEnd))})`;
+                } else if (customOpt) {
+                    customOpt.textContent = 'Custom';
+                }
+            }
+            
+            // Compute date range based on selection
+            function computeDateRange() {
+                const today = new Date();
+                const iso = (dt) => dt.toISOString().slice(0, 10);
+                const selected = dateRangeSelect.value || 'today';
+                
+                if (selected === 'custom') {
+                    if (customStart && customEnd) {
+                        dateStartInput.value = customStart;
+                        dateEndInput.value = customEnd;
+                    } else {
+                        dateStartInput.value = iso(today);
+                        dateEndInput.value = iso(today);
+                    }
+                } else if (selected === 'week') {
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - 6);
+                    dateStartInput.value = iso(weekStart);
+                    dateEndInput.value = iso(today);
+                } else if (selected === 'month') {
+                    const monthStart = new Date(today);
+                    monthStart.setDate(today.getDate() - 29);
+                    dateStartInput.value = iso(monthStart);
+                    dateEndInput.value = iso(today);
+                } else {
+                    dateStartInput.value = iso(today);
+                    dateEndInput.value = iso(today);
+                }
+            }
+            
+            // Initialize labels
+            updateRangeLabels();
+            
+            // Load saved custom dates if any
+            const savedStart = dateStartInput.value;
+            const savedEnd = dateEndInput.value;
+            if (savedStart && savedEnd && dateRangeSelect.value === 'custom') {
+                customStart = savedStart;
+                customEnd = savedEnd;
+                updateRangeLabels();
+            }
+            
+            // Refresh button
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    const btn = this;
+                    btn.disabled = true;
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                });
+            }
+            
+            // Date range change handler
+            if (dateRangeSelect) {
+                dateRangeSelect.addEventListener('change', function() {
+                    const selected = this.value;
+                    if (selected === 'custom') {
+                        const modal = new bootstrap.Modal(document.getElementById('customRangeModal'));
+                        const todayIso = new Date().toISOString().slice(0, 10);
+                        document.getElementById('customStart').value = customStart || todayIso;
+                        document.getElementById('customEnd').value = customEnd || todayIso;
+                        modal.show();
+                    } else {
+                        computeDateRange();
+                        filtersForm.submit();
+                    }
+                });
+            }
+            
+            // Apply custom range
+            document.getElementById('applyCustomRange')?.addEventListener('click', function() {
+                customStart = document.getElementById('customStart').value;
+                customEnd = document.getElementById('customEnd').value;
+                if (customStart && customEnd) {
+                    dateStartInput.value = customStart;
+                    dateEndInput.value = customEnd;
+                    updateRangeLabels();
+                    filtersForm.submit();
+                }
+            });
+            
+            // User filter change
+            if (userSelect) {
+                userSelect.addEventListener('change', function() {
+                    computeDateRange();
+                    filtersForm.submit();
+                });
+            }
+            
+            // Sidebar toggle functionality
+            const sidebar = document.querySelector('.sidebar');
+            const burgerMenuBtn = document.getElementById('burgerMenuBtn');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const mainContent = document.querySelector('.main-content');
+
+            if (burgerMenuBtn && sidebar) {
+                burgerMenuBtn.addEventListener('click', function() {
+                    sidebar.classList.toggle('active');
+                    burgerMenuBtn.classList.toggle('active');
+                    
+                    if (window.innerWidth > 768) {
+                        if (sidebar.classList.contains('active')) {
+                            if (mainContent) mainContent.classList.add('sidebar-open');
+                        } else {
+                            if (mainContent) mainContent.classList.remove('sidebar-open');
+                        }
+                    } else {
+                        if (sidebar.classList.contains('active')) {
+                            if (sidebarOverlay) sidebarOverlay.classList.add('active');
+                            document.body.style.overflow = 'hidden';
+                        } else {
+                            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        }
+                    }
+                });
+            }
+
+            // Close sidebar when clicking overlay
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        sidebarOverlay.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
+                });
+            }
+
+            // Close sidebar when clicking navigation links
+            if (sidebar) {
+                const navLinks = sidebar.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        const mainContent = document.querySelector('.main-content');
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                            if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        } else {
+                            sidebar.classList.remove('active');
+                            if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                            if (mainContent) mainContent.classList.remove('sidebar-open');
+                        }
+                    });
+                });
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const mainContent = document.querySelector('.main-content');
+                if (window.innerWidth > 768) {
+                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                    if (sidebar && sidebar.classList.contains('active') && mainContent) {
+                        mainContent.classList.add('sidebar-open');
+                    } else if (mainContent) {
+                        mainContent.classList.remove('sidebar-open');
+                    }
+                } else {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                }
+            });
+
+            // Handle escape key to close sidebar
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    const mainContent = document.querySelector('.main-content');
+                    if (window.innerWidth > 768) {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    } else {
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                        document.body.style.overflow = '';
+                    }
+                }
+            });
+
+            // Handle logout confirmation
+            document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+                // Skip the confirm button inside the modal
+                if (link.id === 'confirmLogoutBtn') {
+                    return;
+                }
+                link.addEventListener('click', function(e) {
+                    if (typeof bootstrap !== 'undefined') {
+                        e.preventDefault();
+                        const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                        logoutModal.show();
+                    }
+                });
+            });
+            
+            // Ensure the confirm logout button works properly
+            const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+            if (confirmLogoutBtn) {
+                confirmLogoutBtn.addEventListener('click', function(e) {
+                    // Allow the link to navigate normally - don't prevent default
+                    // The modal will close automatically when navigating
+                });
+            }
+        });
+    </script>
+</body>
+</html>

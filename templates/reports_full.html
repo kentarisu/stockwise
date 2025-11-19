@@ -2444,7 +2444,6 @@
             button,
             .btn,
             #generateReport,
-            #exportPDFBtn,
             #printReportBtn {
                 display: none !important;
             }
@@ -2612,6 +2611,22 @@
                                 <span>SMS Settings</span>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{% url 'action_logs' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                <span>Audit Logs</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'backup_management' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-database" aria-hidden="true"></i>
+                                <span>Backups</span>
+                            </a>
+                        </li>
                         {% endif %}
                         <li class="nav-item">
                             <a href="{% url 'profile' %}" 
@@ -2716,9 +2731,6 @@
                     <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn-modern primary" id="generateReport">
                             <i class="bi bi-bar-chart"></i> Generate Report
-                        </button>
-                        <button type="button" class="btn-modern success" id="exportPDFBtn" onclick="exportCompletePDF()">
-                            <i class="bi bi-file-pdf"></i> Export PDF
                         </button>
                         <button type="button" class="btn-modern secondary" id="printReportBtn" onclick="printReport()">
                             <i class="bi bi-printer"></i> Print Report
@@ -3730,89 +3742,6 @@
             new bootstrap.Modal(modal[0]).show();
         }
 
-        async function exportCompletePDF() {
-            try {
-                // Get current filter values
-                const filterType = $('#dateRange').val() || 'today';
-                const userFilter = $('#userFilter').val() || 'all';
-                const fruitFilter = $('#fruitFilter').val() || 'all';
-                
-                // Determine start and end dates based on filter
-                let startDate = '';
-                let endDate = '';
-                const today = new Date();
-                
-                if (filterType === 'custom' && customStart && customEnd) {
-                    startDate = customStart;
-                    endDate = customEnd;
-                } else if (filterType === 'today') {
-                    startDate = endDate = today.toISOString().slice(0, 10);
-                } else if (filterType === 'week') {
-                    const weekStart = new Date(today);
-                    weekStart.setDate(today.getDate() - 6);
-                    startDate = weekStart.toISOString().slice(0, 10);
-                    endDate = today.toISOString().slice(0, 10);
-                } else if (filterType === 'month') {
-                    const monthStart = new Date(today);
-                    monthStart.setDate(today.getDate() - 29);
-                    startDate = monthStart.toISOString().slice(0, 10);
-                    endDate = today.toISOString().slice(0, 10);
-                }
-                
-                // Create form data
-                const formData = new FormData();
-                formData.append('report_type', 'comprehensive');
-                formData.append('filter', filterType);
-                formData.append('start_date', startDate);
-                formData.append('end_date', endDate);
-                formData.append('search', '');
-                formData.append('user', userFilter);
-                formData.append('fruit', fruitFilter);
-                
-                // Show loading indicator
-                const exportBtn = $('#exportPDFBtn');
-                const originalText = exportBtn.html();
-                exportBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Generating...');
-                
-                // Make request to backend
-                const response = await fetch('/api/reports/export/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to generate PDF');
-                }
-                
-                // Get the PDF blob
-                const blob = await response.blob();
-                
-                // Create download link
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `StockWise_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-                
-                // Restore button
-                exportBtn.prop('disabled', false).html(originalText);
-                
-            } catch (error) {
-                console.error('PDF export error:', error);
-                alert('Failed to export PDF. Please try again.');
-                
-                // Restore button on error
-                const exportBtn = $('#exportPDFBtn');
-                exportBtn.prop('disabled', false).html('<i class="bi bi-file-pdf"></i> Export PDF');
-            }
-        }
-        
         // Helper function to get CSRF token
         function getCookie(name) {
             let cookieValue = null;
@@ -4039,9 +3968,96 @@
                 }
             });
 
-            $('#generateReport').on('click', function() {
-                saveReportsFilters();
-                loadReports();
+            $('#generateReport').on('click', async function() {
+                try {
+                    // Save filters first
+                    saveReportsFilters();
+                    
+                    // Get current filter values
+                    const filterType = localStorage.getItem('reportsFilterType') || 'today';
+                    const startDate = localStorage.getItem('reportsStartDate') || '';
+                    const endDate = localStorage.getItem('reportsEndDate') || '';
+                    const userFilter = $('#userFilter').val() || 'all';
+                    const fruitFilter = $('#fruitFilter').val() || 'all';
+                    
+                    // Determine actual dates
+                    let actualStartDate = startDate;
+                    let actualEndDate = endDate;
+                    const today = new Date();
+                    
+                    if (!actualStartDate || !actualEndDate) {
+                        if (filterType === 'today') {
+                            actualStartDate = today.toISOString().slice(0, 10);
+                            actualEndDate = today.toISOString().slice(0, 10);
+                        } else if (filterType === 'week') {
+                            const weekStart = new Date(today);
+                            weekStart.setDate(today.getDate() - 6);
+                            actualStartDate = weekStart.toISOString().slice(0, 10);
+                            actualEndDate = today.toISOString().slice(0, 10);
+                        } else if (filterType === 'month') {
+                            const monthStart = new Date(today);
+                            monthStart.setDate(today.getDate() - 29);
+                            actualStartDate = monthStart.toISOString().slice(0, 10);
+                            actualEndDate = today.toISOString().slice(0, 10);
+                        }
+                    }
+                    
+                    // Create form data for PDF generation
+                    const formData = new FormData();
+                    formData.append('report_type', 'comprehensive');
+                    formData.append('filter', filterType);
+                    formData.append('start_date', actualStartDate);
+                    formData.append('end_date', actualEndDate);
+                    formData.append('search', '');
+                    formData.append('user', userFilter);
+                    formData.append('fruit', fruitFilter);
+                    
+                    // Show loading indicator
+                    const generateBtn = $('#generateReport');
+                    const originalText = generateBtn.html();
+                    generateBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating PDF...');
+                    
+                    // Make request to backend to generate PDF
+                    const response = await fetch('/api/reports/export/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to generate PDF report');
+                    }
+                    
+                    // Get the PDF blob
+                    const blob = await response.blob();
+                    
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const dateStr = actualStartDate === actualEndDate ? actualStartDate : `${actualStartDate}_to_${actualEndDate}`;
+                    a.download = `StockWise_Report_${dateStr}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Restore button
+                    generateBtn.prop('disabled', false).html(originalText);
+                    
+                    // Show success message
+                    console.log('Report generated and downloaded successfully');
+                    
+                } catch (error) {
+                    console.error('PDF generation error:', error);
+                    alert('Failed to generate PDF report. Please try again.');
+                    
+                    // Restore button on error
+                    const generateBtn = $('#generateReport');
+                    generateBtn.prop('disabled', false).html('<i class="bi bi-bar-chart"></i> Generate Report');
+                }
             });
 
             // Tab navigation logic

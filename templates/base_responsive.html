@@ -136,6 +136,7 @@
             transition: all var(--transition-base);
             overflow-y: auto;
             box-shadow: var(--shadow-xl);
+            top: var(--header-height);
         }
 
         .sidebar.active {
@@ -255,7 +256,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: rgba(255, 255, 255, 0.7);
+            color: var(--gray-500);
             padding: 0 var(--space-6);
             margin-bottom: var(--space-3);
         }
@@ -274,7 +275,7 @@
             display: flex;
             align-items: center;
             padding: 0.6rem var(--space-4);
-            color: rgba(255, 255, 255, 0.8);
+            color: var(--gray-700);
             text-decoration: none;
             transition: all var(--transition-base);
             border-radius: 0;
@@ -296,8 +297,8 @@
         }
 
         .nav-link:hover {
-            color: white;
-            background: rgba(255, 255, 255, 0.1);
+            color: var(--primary);
+            background: var(--primary-light);
             transform: translateX(4px);
         }
 
@@ -306,8 +307,8 @@
         }
 
         .nav-link.active {
-            color: white;
-            background: rgba(255, 255, 255, 0.15);
+            color: var(--primary);
+            background: var(--primary-light);
             border-right: 4px solid var(--primary);
             font-weight: 600;
         }
@@ -331,6 +332,7 @@
             min-height: 100vh;
             background: var(--secondary);
             position: relative;
+            padding-top: var(--header-height);
         }
 
         .header {
@@ -1367,6 +1369,24 @@
                                 <span>SMS Settings</span>
                             </a>
                         </li>
+                        {% if request.session.app_role|default:''|lower == 'admin' %}
+                        <li class="nav-item">
+                            <a href="{% url 'action_logs' %}"
+                               class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                <span>Audit Logs</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'backup_management' %}"
+                               class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-database" aria-hidden="true"></i>
+                                <span>Backups</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         {% endif %}
                         <li class="nav-item">
                             <a href="{% url 'profile' %}" 

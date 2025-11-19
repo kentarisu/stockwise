@@ -25,6 +25,7 @@ class Product(models.Model):
 	sku = models.CharField(max_length=50, unique=True, null=True, blank=True)  # TC-009: SKU with unique constraint
 	created_at = models.DateTimeField(default=timezone.now)
 	last_updated = models.DateTimeField(auto_now=True)
+	last_pricing_action_at = models.DateTimeField(null=True, blank=True)  # Track when pricing recommendation was last accepted/rejected
 
 	class Meta:
 		db_table = 'products'
@@ -73,6 +74,8 @@ class AppUser(models.Model):
 	profile_picture = models.CharField(max_length=100, null=True, blank=True)
 	is_active = models.BooleanField(default=True)  # TC-003: User account status
 	email = models.EmailField(max_length=100, null=True, blank=True)  # TC-034: Profile email
+	google_email = models.EmailField(max_length=150, null=True, blank=True, unique=False, help_text='Google account email used for OAuth login')
+	allow_google_login = models.BooleanField(default=False, help_text='Allow this account to sign in via Google OAuth')
 
 	class Meta:
 		db_table = 'users'
@@ -147,6 +150,50 @@ class SMS(models.Model):
 		return f"SMS {self.sms_id}"
 
 
+class SMSNotificationSettings(models.Model):
+	"""Store SMS notification settings for the system"""
+	setting_id = models.AutoField(primary_key=True)
+	# Sales notification settings
+	sales_enabled = models.BooleanField(default=True)
+	sales_time = models.CharField(max_length=5, default='20:00', help_text='Time in HH:MM format (24-hour)')
+	# Stock notification settings
+	stock_enabled = models.BooleanField(default=True)
+	stock_threshold = models.IntegerField(default=10, help_text='Low stock threshold in boxes')
+	# Pricing notification settings
+	pricing_enabled = models.BooleanField(default=True)
+	pricing_sensitivity = models.CharField(max_length=20, default='moderate', choices=[
+		('conservative', 'Conservative'),
+		('moderate', 'Moderate'),
+		('aggressive', 'Aggressive'),
+	])
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		db_table = 'sms_notification_settings'
+		verbose_name = 'SMS Notification Settings'
+		verbose_name_plural = 'SMS Notification Settings'
+
+	def __str__(self):
+		return f"SMS Settings (Updated: {self.updated_at.strftime('%Y-%m-%d %H:%M')})"
+
+	@classmethod
+	def get_settings(cls):
+		"""Get or create the singleton settings instance"""
+		settings, created = cls.objects.get_or_create(
+			setting_id=1,
+			defaults={
+				'sales_enabled': True,
+				'sales_time': '20:00',
+				'stock_enabled': True,
+				'stock_threshold': 10,
+				'pricing_enabled': True,
+				'pricing_sensitivity': 'moderate',
+			}
+		)
+		return settings
+
+
 class ReportProductSummary(models.Model):
 	report_id = models.AutoField(primary_key=True)
 	product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -194,3 +241,95 @@ class ReportProductSummary(models.Model):
 		db_table = 'report_product_summary'
 		verbose_name = 'generated reports'
 		verbose_name_plural = 'generated reports'
+
+
+class ActionLog(models.Model):
+    action_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(AppUser, null=True, blank=True, on_delete=models.SET_NULL)
+    role = models.CharField(max_length=20, blank=True)
+    action = models.CharField(max_length=150)
+    details = models.TextField(blank=True)
+    ip_address = models.CharField(max_length=45, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'action_logs'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        base = self.action
+        if self.user:
+            base = f"{self.user.username}: {base}"
+        return f"{base} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
+
+
+class PricingRecommendation(models.Model):
+    """Store pricing recommendations with 3-day expiration"""
+    recommendation_id = models.AutoField(primary_key=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    current_price = models.DecimalField(max_digits=10, decimal_places=2)
+    suggested_price = models.DecimalField(max_digits=10, decimal_places=2)
+    change_pct = models.DecimalField(max_digits=6, decimal_places=2)
+    action = models.CharField(max_length=10)  # INCREASE, DECREASE, HOLD
+    reason = models.TextField()
+    elasticity = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    r2 = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True)
+    confidence = models.CharField(max_length=20, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()  # 3 days from creation
+
+    class Meta:
+        db_table = 'pricing_recommendations'
+        ordering = ('-created_at',)
+        indexes = [
+            models.Index(fields=['product', 'expires_at'], name='idx_pr_product_expires'),
+            models.Index(fields=['expires_at'], name='idx_pr_expires'),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name}: {self.action} to {self.suggested_price}"
+
+    def is_expired(self):
+        """Check if recommendation has expired (older than 3 days)"""
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+
+class Backup(models.Model):
+    """Track system backups"""
+    backup_id = models.AutoField(primary_key=True)
+    filename = models.CharField(max_length=255)
+    file_path = models.CharField(max_length=500)
+    file_size = models.BigIntegerField(help_text='File size in bytes')
+    backup_type = models.CharField(max_length=20, default='full', choices=[
+        ('full', 'Full Backup'),
+        ('database', 'Database Only'),
+        ('media', 'Media Only'),
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    is_verified = models.BooleanField(default=False, help_text='Whether backup file still exists and is valid')
+
+    class Meta:
+        db_table = 'backups'
+        ordering = ['-created_at']
+        verbose_name = 'Backup'
+        verbose_name_plural = 'Backups'
+
+    def __str__(self):
+        return f"{self.filename} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+    def get_file_size_mb(self):
+        """Return file size in MB"""
+        return round(self.file_size / (1024 * 1024), 2)
+
+    def verify_file_exists(self):
+        """Check if backup file still exists"""
+        from pathlib import Path
+        exists = Path(self.file_path).exists()
+        if exists != self.is_verified:
+            self.is_verified = exists
+            self.save(update_fields=['is_verified'])
+        return exists

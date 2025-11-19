@@ -172,7 +172,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('No sales data for pricing analysis. Use --force to send anyway.'))
                 return
 
-            # Generate pricing recommendations
+            # Check if we have valid stored recommendations, if not generate them
+            from core.models import PricingRecommendation
+            from django.utils import timezone
+            now = timezone.now()
+            valid_recommendations = PricingRecommendation.objects.filter(expires_at__gt=now)
+            
+            if not valid_recommendations.exists():
+                # Generate and store new recommendations
+                from core.views import generate_and_store_pricing_recommendations
+                generate_and_store_pricing_recommendations()
+
+            # Generate pricing recommendations message from stored recommendations
             message = self.generate_pricing_recommendations(sales)
             
             # Send SMS to all admins
@@ -245,51 +256,19 @@ class Command(BaseCommand):
         return message
 
     def generate_pricing_recommendations(self, sales):
-        """Generate pricing recommendations based on sales data"""
+        """Generate pricing recommendations message from stored recommendations (same as dashboard)"""
         try:
-            from core.pricing_ai import DemandPricingAI, PolicyConfig
-            import pandas as pd
+            from core.models import PricingRecommendation
+            from django.utils import timezone
             
-            # Convert to DataFrame
-            sales_data = []
-            for sale in sales:
-                sales_data.append({
-                    'product_id': sale.product.product_id,
-                    'date': sale.recorded_at.date(),
-                    'quantity': sale.quantity,
-                    'price': sale.product.price,
-                    'revenue': sale.total
-                })
+            # Get valid (non-expired) stored recommendations
+            now = timezone.now()
+            valid_recommendations = PricingRecommendation.objects.filter(
+                expires_at__gt=now,
+                action__in=['INCREASE', 'DECREASE']
+            ).select_related('product').order_by('-change_pct')[:3]  # Top 3 by change percentage
             
-            sales_df = pd.DataFrame(sales_data)
-            sales_df['date'] = pd.to_datetime(sales_df['date'])
-            # Rename quantity to units_sold for pricing AI
-            sales_df.rename(columns={'quantity': 'units_sold'}, inplace=True)
-            
-            # Get product catalog
-            products = Product.objects.all().values('product_id', 'name', 'price', 'cost')
-            catalog_df = pd.DataFrame(list(products))
-            catalog_df.columns = ['product_id', 'name', 'price', 'cost']
-            catalog_df['last_change_date'] = None
-            
-            # Generate recommendations
-            cfg = PolicyConfig(
-                min_margin_pct=0.10,
-                max_move_pct=0.20,
-                cooldown_days=3,
-                planning_horizon_days=7,
-                min_obs_per_product=3,
-                default_elasticity=-1.0,
-                hold_band_pct=0.02,
-            )
-            
-            engine = DemandPricingAI(cfg)
-            proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
-            
-            # Get actionable recommendations
-            actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
-            
-            if actionable.empty:
+            if not valid_recommendations.exists():
                 message = "STOCKWISE Pricing Report\n\n"
                 message += "No pricing changes recommended.\n"
                 message += "All products are optimally priced.\n\n"
@@ -298,33 +277,35 @@ class Command(BaseCommand):
             
             # Format recommendations
             message = "STOCKWISE Pricing Recommendation\n"
-            message += "Based on 30 days of sales data\n\n"
+            message += "Based on sales data analysis\n\n"
             
             # Add top recommendations (limit to 3)
-            top_recommendations = actionable.head(3)
-            
-            for i, (_, rec) in enumerate(top_recommendations.iterrows(), 1):
-                action_text = "INCREASE" if rec['action'] == 'INCREASE' else "DECREASE"
-                change_pct = abs(rec['change_pct'])
+            for i, rec in enumerate(valid_recommendations, 1):
+                action_text = rec.action
+                change_pct = abs(float(rec.change_pct))
                 
                 # Extract clean reason (without technical details)
-                reason = rec['reason']
+                reason = rec.reason
                 if '[Data:' in reason:
                     reason = reason.split('[Data:')[0].strip()
                 
                 message += f"==== RECOMMENDATION {i} ====\n"
-                message += f"Product: {rec['name']}\n\n"
-                message += f"Current: PHP {rec['current_price']:.2f}\n"
-                message += f"Suggested: PHP {rec['suggested_price']:.2f}\n"
+                message += f"Product: {rec.product.name}\n\n"
+                message += f"Current: PHP {float(rec.current_price):.2f}\n"
+                message += f"Suggested: PHP {float(rec.suggested_price):.2f}\n"
                 message += f"Action: {action_text} by {change_pct:.1f}%\n\n"
                 message += f"Why: {reason}\n\n"
             
             # Add summary
-            increase_count = len(actionable[actionable['action'] == 'INCREASE'])
-            decrease_count = len(actionable[actionable['action'] == 'DECREASE'])
+            all_actionable = PricingRecommendation.objects.filter(
+                expires_at__gt=now,
+                action__in=['INCREASE', 'DECREASE']
+            )
+            increase_count = all_actionable.filter(action='INCREASE').count()
+            decrease_count = all_actionable.filter(action='DECREASE').count()
             
             message += f"Summary: {increase_count} increases, {decrease_count} decreases\n"
-            message += f"Total recommendations: {len(actionable)}\n\n"
+            message += f"Total recommendations: {all_actionable.count()}\n\n"
             message += "- STOCKWISE AI Analytics"
             
             return message

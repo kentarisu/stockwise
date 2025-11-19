@@ -784,6 +784,39 @@
             font-size: 0.875rem;
         }
 
+        /* Product Images */
+        .product-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+            background: var(--gray-50);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .product-image:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-image-placeholder {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gray-100);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            color: var(--gray-400);
+        }
+
+        .product-image-placeholder i {
+            font-size: 1.5rem;
+        }
+
         /* Pagination - Matching Stock Details */
         .pagination-container {
             padding: 1rem;
@@ -1810,6 +1843,18 @@
                             <span>SMS Settings</span>
                         </a>
                     </div>
+                    <div class="nav-item">
+                        <a href="{% url 'action_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}">
+                            <i class="bi bi-journal-text"></i>
+                            <span>Audit Logs</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'backup_management' %}" class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}">
+                            <i class="bi bi-database"></i>
+                            <span>Backups</span>
+                        </a>
+                    </div>
                     {% endif %}
                     <div class="nav-item">
                         <a href="{% url 'profile' %}" class="nav-link">
@@ -1958,6 +2003,7 @@
                                 <table class="table table-mobile-card" id="allProductsTable">
                                     <thead>
                                         <tr>
+                                            <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
@@ -1982,6 +2028,7 @@
                                 <table class="table table-mobile-card" id="lowStockTable">
                                     <thead>
                                         <tr>
+                                            <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
@@ -1995,7 +2042,7 @@
                                     <tbody>
                                         <!-- Low stock products will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">Loading low stock products...</td>
+                                            <td colspan="9" class="text-center text-muted py-4">Loading low stock products...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2008,6 +2055,7 @@
                                 <table class="table table-mobile-card" id="outOfStockTable">
                                     <thead>
                                         <tr>
+                                            <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
                                             <th>Fruit</th>
                                             <th>Variant</th>
@@ -2021,7 +2069,7 @@
                                     <tbody>
                                         <!-- Out of stock products will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">Loading out of stock products...</td>
+                                            <td colspan="9" class="text-center text-muted py-4">Loading out of stock products...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2112,6 +2160,30 @@
         </div>
     </div>
 
+    <!-- Image Viewer Modal -->
+    <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-labelledby="imageViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold" id="imageViewerModalLabel">
+                        <i class="bi bi-image me-2"></i>Product Image
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4" style="background: #f8f9fa; min-height: 400px; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); max-width: 100%;">
+                        <img id="fullSizeImage" src="" alt="Product Image" class="img-fluid" style="max-height: 70vh; max-width: 100%; border-radius: 4px; display: block;">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Product Modal (Add/Edit) -->
     <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" role="dialog">
         <div class="modal-dialog modal-lg">
@@ -2184,6 +2256,7 @@
                             <label for="productImage" class="form-label">Product Image (Optional)</label>
                             <input type="file" class="form-control w-auto" style="max-width: 400px;" id="productImage" name="productImage" accept="image/jpeg,image/png" aria-describedby="productImageFeedback" title="Upload an image (JPG/PNG, max 2MB)">
                             <div id="productImageFeedback" class="invalid-feedback">Please upload a valid image (JPG/PNG, max 2MB).</div>
+                            <div id="productImagePreview" class="mt-2"></div>
                         </div>
                     </form>
                 </div>
@@ -2517,68 +2590,152 @@
             }
 
             // Product Modal (Add/Edit) - Initialize
-            $('#productModal').on('show.bs.modal', function() {
-                // Reset form for add mode
+            // Only reset when opening for ADD mode (not edit mode)
+            $('#productModal').on('show.bs.modal', function(e) {
+                // Check if this is edit mode (productId is set)
+                const isEditMode = $('#productId').val() && $('#productId').val() !== '';
+                
+                if (!isEditMode) {
+                    // Reset form only for add mode
+                    $('#productForm')[0].reset();
+                    $('#formAction').val('add');
+                    $('#productId').val('');
+                    $('#productModalLabel').text('Add New Product');
+                    $('#saveProductBtn').text('Add Product').attr('title', 'Save the product details');
+                    $('#productFormAlert').empty();
+                    $('#productImagePreview').empty(); // Clear image preview
+                    
+                    // Set today's date as default and lock it
+                    $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
+                }
+            });
+            
+            // Reset form when modal is hidden (for next time it opens)
+            $('#productModal').on('hidden.bs.modal', function() {
                 $('#productForm')[0].reset();
                 $('#formAction').val('add');
                 $('#productId').val('');
-                $('#productModalLabel').text('Add New Fruit');
-                $('#productModalLabel').text('Add New Product');
-                $('#saveProductBtn').text('Add Product').attr('title', 'Save the product details');
-                $('#productFormAlert').empty();
-                
-                // Set today's date as default and lock it
-                $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
+                $('#productImagePreview').empty();
             });
 
-            // Handle Edit button from dropdown (use table row data to populate main modal)
+            // Handle Edit button from dropdown (fetch full product details from API)
             $(document).on('click', '.edit-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const productId = $(this).data('id');
-                const row = $(this).closest('tr');
-                const nameText = row.find('td').eq(1).text().trim();
-                const variantText = row.find('td').eq(2).text().trim();
-                const sizeText = row.find('td').eq(3).text().trim();
-                const priceText = row.find('td').eq(4).text().trim().replace('₱','').replace(',','');
-                const statusText = row.find('td').eq(6).text().trim();
-
-                // Parse name and variant if embedded
-                let productName = nameText;
-                let variant = variantText;
-                if (!variant && /\(.*\)/.test(nameText)) {
-                    const m = nameText.match(/^(.*?)\s*\((.*?)\)$/);
-                    if (m) { productName = m[1].trim(); variant = m[2].trim(); }
-                    }
-                    
-                // Set edit state and texts
-                    $('#formAction').val('edit');
-                    $('#productId').val(productId);
-                $('#productModalLabel').text('Edit Product');
-                $('#saveProductBtn').text('Save Changes').attr('title', 'Save the product details');
-                    
-                // Fill fields
-                    $('#productName').val(productName);
-                $('#variant').val(variant || '');
-                $('#size').val(sizeText || '');
-                $('#price').val(priceText || 0);
-                $('#status').val(statusText);
-                // Unit detect
-                const detectedUnit = (sizeText || '').toLowerCase().includes('kilo') ? 'kilo' : 'box';
-                $('#quantityUnit').val(detectedUnit);
-                $('#productSizeUnit').val(detectedUnit);
-                // Lock date to today
-                $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
-                    $('#productFormAlert').empty();
-                $('#productImage').val('');
-
-                // Show main modal
-                $('#productModal').modal('show');
+                
+                // Set edit mode flag BEFORE showing modal (to prevent reset)
+                $('#productId').val(productId);
+                $('#formAction').val('edit');
+                
+                // Fetch full product details from API
+                fetch(`{% url 'get_product_details' 0 %}`.replace('0', productId))
+                    .then(response => response.json())
+                    .then(result => {
+                        if (!result.success) {
+                            alert('Error loading product: ' + (result.message || 'Unknown error'));
+                            // Reset on error
+                            $('#productId').val('');
+                            $('#formAction').val('add');
+                            return;
+                        }
+                        
+                        const product = result.data;
+                        
+                        // Update modal title and button
+                        $('#productModalLabel').text('Edit Product');
+                        $('#saveProductBtn').text('Save Changes').attr('title', 'Save the product details');
+                        
+                        // Fill ALL form fields with existing product data
+                        // This is the EXACT SAME form as "Add Product", just pre-filled
+                        $('#productName').val(product.name || '');
+                        $('#variant').val(product.variant || '');
+                        $('#size').val(product.size || '');
+                        $('#cost').val(product.cost || 0);
+                        $('#price').val(product.price || 0);
+                        $('#status').val(product.status || 'Active');
+                        $('#dateAdded').val(product.date_added || new Date().toISOString().split('T')[0]).prop('readOnly', true);
+                        $('#initialStock').val(product.stock || 0);
+                        
+                        // Detect and set unit (box or kilo) from size field
+                        const sizeText = (product.size || '').toLowerCase();
+                        let detectedUnit = 'box'; // default
+                        if (sizeText.includes('kilo')) {
+                            detectedUnit = 'kilo';
+                        } else if (sizeText.includes('box')) {
+                            detectedUnit = 'box';
+                        }
+                        $('#quantityUnit').val(detectedUnit);
+                        if ($('#productSizeUnit').length) {
+                            $('#productSizeUnit').val(detectedUnit);
+                        }
+                        
+                        // Clear image file input (user can upload new image if needed)
+                        $('#productImage').val('');
+                        
+                        // Show current product image preview if exists
+                        const imagePreview = $('#productImagePreview');
+                        if (product.image) {
+                            imagePreview.html(`
+                                <div class="mt-2">
+                                    <small class="text-muted d-block mb-1">Current image:</small>
+                                    <img src="${product.image}" alt="Current product image" 
+                                         style="max-width: 120px; max-height: 120px; border-radius: 8px; border: 1px solid #e5e7eb; padding: 4px; background: #f9fafb;"
+                                         onerror="this.style.display='none';">
+                                </div>
+                            `);
+                        } else {
+                            imagePreview.html('<small class="text-muted">No image uploaded</small>');
+                        }
+                        
+                        // Clear any previous alerts
+                        $('#productFormAlert').empty();
+                        
+                        // Show the modal (form is now pre-filled with existing data)
+                        $('#productModal').modal('show');
+                    })
+                    .catch(error => {
+                        console.error('Error fetching product details:', error);
+                        alert('Error loading product details. Please try again.');
+                        // Reset on error
+                        $('#productId').val('');
+                        $('#formAction').val('add');
+                    });
             });
 
             // Handle save button click
             $('#saveProductBtn').on('click', function() {
                 const formData = new FormData($('#productForm')[0]);
+                const isEditMode = $('#formAction').val() === 'edit';
+                
+                // Map form field names to backend expected names
+                // Form uses 'productName' but backend expects 'name'
+                const productName = formData.get('productName') || formData.get('name') || '';
+                if (productName) {
+                    formData.set('name', productName);
+                }
+                
+                // Map quantityUnit to quantity_unit (for add_product function)
+                const quantityUnit = formData.get('quantityUnit') || formData.get('quantity_unit') || 'box';
+                formData.set('quantity_unit', quantityUnit);
+                
+                // Map dateAdded to date_added
+                const dateAdded = formData.get('dateAdded') || formData.get('date_added') || '';
+                if (dateAdded) {
+                    formData.set('date_added', dateAdded);
+                }
+                
+                // Note: productImage file is already in FormData with name 'productImage'
+                // Backend will check for both 'image' and 'productImage' in request.FILES
+                
+                // For both add and edit, map initialStock to boxes/units_per_box
+                const initialStock = parseInt($('#initialStock').val()) || 0;
+                formData.set('stock', initialStock);
+                formData.set('boxes', initialStock);
+                formData.set('units_per_box', 1);
+                
+                // Clear any previous alerts
+                $('#productFormAlert').empty();
                 
                 $.ajax({
                     url: "{% url 'handle_product_post' %}",
@@ -2590,11 +2747,34 @@
                         if (response.success) {
                             $('#productModal').modal('hide');
                             loadProducts();
+                            // Show success message outside modal
+                            showAlert(response.message, 'success');
+                        } else {
+                            // Show error message INSIDE the modal
+                            const alertHtml = `
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    ${response.message || 'Error saving product. Please check all required fields.'}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            `;
+                            $('#productFormAlert').html(alertHtml);
                         }
-                        showAlert(response.message, response.success ? 'success' : 'danger');
                     },
-                    error: function() {
-                        showAlert('Error saving product. Please try again.', 'danger');
+                    error: function(xhr) {
+                        let errorMessage = 'Error saving product. Please try again.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        // Show error message INSIDE the modal
+                        const alertHtml = `
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                ${errorMessage}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('#productFormAlert').html(alertHtml);
                     }
                 });
             });
@@ -2701,7 +2881,7 @@
             $(document).on('click', '.discontinue-btn', function() {
                 currentStatusChangeProductId = $(this).data('id');
                 const currentStatus = $(this).data('status');
-                const isDiscontinued = currentStatus === 'Discontinued';
+                const isDiscontinued = (currentStatus || '').toLowerCase() === 'discontinued';
                 
                 if (isDiscontinued) {
                     // Continue/Reactivate mode
@@ -3826,37 +4006,8 @@
             });
         });
 
-        // Event handlers for action buttons
-        $(document).on('click', '.edit-btn', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const productId = $(this).data('id');
-            console.log('Edit button clicked for product ID:', productId);
-            
-            // Find the product data from the current table
-            const row = $(this).closest('tr');
-            const productData = {
-                product_id: productId,
-                name: row.find('td').eq(1).text().trim(), // Fruit column
-                variant: row.find('td').eq(2).text().trim(), // Variant column
-                size: row.find('td').eq(3).text().trim(), // Quantity column
-                price: row.find('td').eq(4).text().trim().replace('₱', '').replace(',', ''), // Price column
-                status: row.find('td').eq(6).text().trim() === 'ACTIVE' ? 'Active' : 'Discontinued' // Status column
-            };
-            
-            console.log('Product data extracted:', productData);
-            
-            // Populate the edit form
-            $('#productModalLabel').text('Edit Product');
-            $('input[name="product_id"]').val(productData.product_id);
-            $('input[name="name"]').val(productData.name);
-            $('input[name="price"]').val(productData.price);
-            $('input[name="size"]').val(productData.size);
-            $('select[name="status"]').val(productData.status);
-            
-            // Show the modal
-            $('#productModal').modal('show');
-        });
+        // Note: Edit button handler is defined above in the main script section
+        // This duplicate handler has been removed to avoid conflicts
 
 
         // Handle product form submission
@@ -3991,7 +4142,7 @@
         function renderProductsTableForPage(data, tableId){
             const $tbody = $(`#${tableId} tbody`).empty();
             if(!data || !data.length){
-                $tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                $tbody.append('<tr><td colspan="9" class="text-center text-muted py-4">No product yet</td></tr>');
                 invUpdateControls(0, tableId);
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 return;
@@ -4000,6 +4151,12 @@
             const rows = invSlice(data, page);
             rows.forEach((product)=>{
                 const row = $('<tr>');
+                // Product Image
+                const imageUrl = product.image || '';
+                const imageHtml = imageUrl 
+                    ? `<img src="${imageUrl}" alt="${product.name || 'Product'}" class="product-image" data-full-image="${imageUrl}" onerror="this.src='https://via.placeholder.com/60?text=No+Image'; this.onerror=null;">`
+                    : '<div class="product-image-placeholder"><i class="bi bi-image"></i></div>';
+                row.append(`<td>${imageHtml}</td>`);
                 row.append(`<td>${product.product_id}</td>`);
                 let productName = product.name; let variant = product.variant || '-';
                 const m = productName && productName.match(/^(.+?)\s*\(([^)]+)\)$/);
@@ -4014,6 +4171,7 @@
                 const statusLower = (product.status || '').toLowerCase();
                 const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
                 const statusDisplay = product.status || 'N/A';
+                const isDiscontinued = statusLower === 'discontinued';
                 row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
                 let optionsHtml = `
                     <div class="dropdown">
@@ -4023,7 +4181,7 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
-                            <li><button class="dropdown-item discontinue-btn ${product.status==='Discontinued'?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${product.status==='Discontinued'?'Continue this product':'Discontinue this product'}"><i class="bi bi-${product.status==='Discontinued'?'arrow-counterclockwise':'x-circle'} me-2"></i> ${product.status==='Discontinued'?'Continue':'Discontinue'}</button></li>
+                            <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
                         </ul>
                     </div>`;
                 row.append(`<td>${optionsHtml}</td>`);
@@ -4033,7 +4191,21 @@
             if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
         }
 
-        document.addEventListener('DOMContentLoaded', function(){ if (window.enhanceMobileTables) { window.enhanceMobileTables(); } });
+        document.addEventListener('DOMContentLoaded', function(){ 
+            if (window.enhanceMobileTables) { 
+                window.enhanceMobileTables(); 
+            }
+            
+            // Image viewer click handler - use event delegation for dynamically added images
+            $(document).on('click', '.product-image', function(e) {
+                e.preventDefault();
+                const fullImageUrl = $(this).data('full-image') || $(this).attr('src');
+                if (fullImageUrl && !fullImageUrl.includes('placeholder')) {
+                    $('#fullSizeImage').attr('src', fullImageUrl);
+                    $('#imageViewerModal').modal('show');
+                }
+            });
+        });
     </script>
     <script>
         // Sanitize Product Modal inputs

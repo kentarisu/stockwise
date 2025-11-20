@@ -5,7 +5,7 @@ Runs every 3 days to analyze sales and suggest optimal prices
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Sum
-from core.models import Sale, Product, AppUser
+from core.models import Sale, Product, AppUser, SMSNotificationSettings
 from core.sms_service import sms_service
 import logging
 
@@ -26,6 +26,12 @@ class Command(BaseCommand):
         force = options.get('force', False)
         
         try:
+            # Check if pricing notifications are enabled
+            settings = SMSNotificationSettings.get_settings()
+            if not settings.pricing_enabled and not force:
+                self.stdout.write(self.style.WARNING('Pricing SMS notifications are disabled in settings.'))
+                return
+            
             # Get all admins with phone numbers
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
@@ -94,6 +100,7 @@ class Command(BaseCommand):
                 
                 # Send SMS to each admin
                 sent_count = 0
+                recipients = []
                 for admin in admins:
                     if actionable.empty:
                         message = self._format_no_recommendations_message()
@@ -105,9 +112,27 @@ class Command(BaseCommand):
                     result = sms_service.send_sms(admin.phone_number, message, allow_multipart=True)
                     if result['success']:
                         sent_count += 1
+                        recipients.append(admin.username)
                         logger.info(f"Pricing recommendations sent to {admin.username}")
                     else:
                         logger.error(f"Failed to send to {admin.username}: {result['message']}")
+                
+                # Log to audit trail
+                if recipients:
+                    from core.views import log_system_action
+                    if actionable.empty:
+                        details = 'Status: No changes recommended - all products optimally priced'
+                    else:
+                        details = f'Recommendations: {len(actionable)} products\n'
+                        for idx, (_, rec) in enumerate(actionable.head(3).iterrows(), 1):
+                            action_symbol = "↑" if rec['action'] == 'INCREASE' else "↓"
+                            details += f'{idx}. {rec["name"]}: ₱{rec["current_price"]:.0f} → ₱{rec["suggested_price"]:.0f} ({action_symbol}{abs(rec["change_pct"]):.0f}%)\n'
+                    details += f'Recipients: {", ".join(recipients)}'
+                    
+                    log_system_action(
+                        action='Automatic SMS: Pricing Recommendations',
+                        details=details
+                    )
                 
                 self.stdout.write(self.style.SUCCESS(f'Pricing recommendations sent to {sent_count} admin(s)'))
                 

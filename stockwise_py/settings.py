@@ -43,9 +43,8 @@ ALLOWED_HOSTS = [
     'e8a6825b9d6a.ngrok-free.app',
     'c59af87671d6.ngrok-free.app',
     '45689adbba85.ngrok-free.app',
-    '251c03b3a516.ngrok-free.app',  # Current ngrok URL
-    # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
-    # 'NEW_NGROK_URL.ngrok-free.app',
+    '251c03b3a516.ngrok-free.app',
+    '8ad38ee8cba3.ngrok-free.app',  # Current ngrok URL
     '.ngrok-free.app',  # Wildcard for all ngrok-free.app subdomains
     '.ngrok.io',        # Legacy ngrok domains
 ]
@@ -67,11 +66,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://e8a6825b9d6a.ngrok-free.app',
     'https://c59af87671d6.ngrok-free.app',
     'https://45689adbba85.ngrok-free.app',
-    'https://b88dea3d7031.ngrok-free.app',  # Older ngrok URL
-    'https://c3d95c4375a7.ngrok-free.app',  # Older ngrok URL
-    'https://251c03b3a516.ngrok-free.app',  # Current ngrok URL
-    # Add your new ngrok URL here (replace NEW_NGROK_URL with your actual URL)
-    # 'https://NEW_NGROK_URL.ngrok-free.app',
+    'https://b88dea3d7031.ngrok-free.app',
+    'https://c3d95c4375a7.ngrok-free.app',
+    'https://251c03b3a516.ngrok-free.app',
+    'https://8ad38ee8cba3.ngrok-free.app',  # Current ngrok URL
     'https://*.ngrok-free.app',  # Wildcard for all ngrok URLs
     'https://*.ngrok.app',        # Alternative ngrok domain
     'https://*.ngrok.io',         # Legacy ngrok domains

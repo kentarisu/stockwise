@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
-from core.models import Sale, Product, AppUser
+from core.models import Sale, Product, AppUser, SMSNotificationSettings
 from core.sms_service import sms_service
 import logging
 from datetime import timedelta
@@ -57,6 +57,12 @@ def send_low_stock_alert(product):
     Prevents duplicate alerts for the same product within 24 hours to prevent spam
     """
     try:
+        # Check if stock notifications are enabled
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.stock_enabled:
+            logger.info("Stock SMS notifications are disabled in settings")
+            return
+        
         # Check if we've already alerted for this product recently (within 24 hours)
         # IMPORTANT: Use only product_id, not stock, to prevent duplicate alerts when stock changes
         now = timezone.now()
@@ -73,25 +79,39 @@ def send_low_stock_alert(product):
             return
         
         # Format the alert message with proper spacing
+        quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
+        
         if product.stock == 0:
             message = f"STOCKWISE Stock Alert\n\n"
             message += f"CRITICAL - OUT OF STOCK:\n"
-            message += f"- {product.name} ({product.size})\n\n"
+            message += f"- {product.name}{quantity_info}\n\n"
             message += f"- STOCKWISE"
         else:
             box_text = "box" if product.stock == 1 else "boxes"
             message = f"STOCKWISE Stock Alert\n\n"
             message += f"WARNING - LOW STOCK:\n"
-            message += f"- {product.name} ({product.size}): {product.stock} {box_text} left\n\n"
+            message += f"- {product.name}{quantity_info}: {product.stock} {box_text} left\n\n"
             message += f"- STOCKWISE"
         
         # Send SMS to all admins IMMEDIATELY (REAL-TIME)
+        recipients = []
         for admin in admins:
             result = sms_service.send_sms(admin.phone_number, message)
             if result['success']:
                 logger.info(f"REAL-TIME low stock alert sent to {admin.username} at {admin.phone_number}")
+                recipients.append(admin.username)
             else:
                 logger.error(f"Failed to send low stock alert to {admin.username}: {result['message']}")
+        
+        # Log to audit trail
+        if recipients:
+            from core.views import log_system_action
+            quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
+            alert_type = "OUT OF STOCK" if product.stock == 0 else "LOW STOCK"
+            log_system_action(
+                action=f'Automatic SMS: {alert_type} Alert',
+                details=f'Product: {product.name}{quantity_info}\nStock: {product.stock} boxes\nRecipients: {", ".join(recipients)}'
+            )
         
         # Record that we've sent an alert for this product
         _recently_alerted[product_key] = now

@@ -412,6 +412,21 @@
             transform: translateY(-2px);
         }
 
+        .stat-card.clickable {
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card.clickable:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .stat-card.clickable:active {
+            transform: translateY(-1px);
+        }
+
         .stat-icon {
             width: 2rem;
             height: 2rem;
@@ -1878,46 +1893,46 @@
             <div class="content-area">
                 <!-- Stats Grid -->
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <a href="?tab=all&status=All Products" class="stat-card clickable">
                         <div class="stat-icon primary">
                             <i class="bi bi-box-seam"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-value">{{ total_products }}</div>
-                            <div class="stat-label">Total Boxes</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total number of product boxes</div>
+                            <div class="stat-value">{{ product_categories }}</div>
+                            <div class="stat-label">Product Categories</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Unique types (e.g., Apple, Mango)</div>
                         </div>
-                    </div>
-                    <div class="stat-card">
+                    </a>
+                    <a href="?tab=all&status=Active" class="stat-card clickable">
                         <div class="stat-icon success">
                             <i class="bi bi-check-circle"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ active_products }}</div>
                             <div class="stat-label">Active Products</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products currently active</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">All products including variants ready for sale</div>
                         </div>
-                    </div>
-                    <div class="stat-card">
+                    </a>
+                    <a href="?tab=all&status=All Products" class="stat-card clickable">
                         <div class="stat-icon warning">
                             <i class="bi bi-boxes"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ total_stock }}</div>
                             <div class="stat-label">Total Stock</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity in stock</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes in warehouse right now</div>
                         </div>
-                    </div>
-                    <div class="stat-card">
+                    </a>
+                    <a href="?tab=low-stock" class="stat-card clickable">
                         <div class="stat-icon danger">
                             <i class="bi bi-exclamation-triangle"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ restock_alerts }}</div>
                             <div class="stat-label">Restock Alerts</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products needing restock</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with less than 10 boxes left</div>
                         </div>
-                    </div>
+                    </a>
                 </div>
 
                 <!-- Action Buttons -->
@@ -1953,7 +1968,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Filter</label>
+                            <label class="form-label">Status</label>
                             <select class="form-select" id="filterSelect">
                                 <option value="All Products">All Products</option>
                                 <option value="Active">Active Only</option>
@@ -2005,7 +2020,7 @@
                                         <tr>
                                             <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
-                                            <th>Fruit</th>
+                                            <th>Product</th>
                                             <th>Variant</th>
                                             <th>Quantity</th>
                                             <th>Price</th>
@@ -2030,7 +2045,7 @@
                                         <tr>
                                             <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
-                                            <th>Fruit</th>
+                                            <th>Products</th>
                                             <th>Variant</th>
                                             <th>Quantity</th>
                                             <th>Price</th>
@@ -2057,7 +2072,7 @@
                                         <tr>
                                             <th style="width: 80px">Image</th>
                                             <th style="width: 60px">Product ID</th>
-                                            <th>Fruit</th>
+                                            <th>Products</th>
                                             <th>Variant</th>
                                             <th>Quantity</th>
                                             <th>Price</th>
@@ -2075,6 +2090,70 @@
                                 </table>
                                 <div id="pagination-outOfStockTable" class="mt-3"></div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description & Legend Section -->
+                <div class="report-description mt-4" style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+                    <h6 style="color: #4f46e5; font-weight: 600; margin-bottom: 1rem;">Understanding Your Inventory</h6>
+                    <p style="margin-bottom: 1rem; color: #4b5563;">This page displays all your products and their current stock levels. Use the tabs to view all products, items running low on stock, or items that are out of stock.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
+                        <div>
+                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📋 Column Definitions</h6>
+                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
+                                <li><strong>Image:</strong> Product photo for visual identification. Click on any image to view it in full size.</li>
+                                <li><strong>Product ID:</strong> Unique identifier assigned to each product in your system.</li>
+                                <li><strong>Product:</strong> The name of the product (e.g., Apple, Mango, Orange).</li>
+                                <li><strong>Variant:</strong> Specific variety or type of the product (e.g., Fuji, Granny Smith, Red Delicious).</li>
+                                <li><strong>Quantity:</strong> Size specification or unit measurement (e.g., "125-138" for count per box, "kilo" for weight).</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">💡 Understanding Columns (cont.)</h6>
+                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
+                                <li><strong>Price:</strong> Current selling price per box for this product.</li>
+                                <li><strong>Stock:</strong> Total number of boxes currently available in inventory.</li>
+                                <li><strong>Status:</strong> 
+                                    <span class="badge bg-success" style="font-size: 0.75rem;">Available</span> = In stock and ready to sell, 
+                                    <span class="badge bg-danger" style="font-size: 0.75rem;">Discontinued</span> = No longer stocked
+                                </li>
+                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Add stock, Change price, or Discontinue product.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📊 Inventory Tabs Explained</h6>
+                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
+                            <li><strong>All Products:</strong> Complete list of every product in your inventory, regardless of stock level. Use this to get an overview of your entire catalog.</li>
+                            <li><strong>Low Stock:</strong> Products that are running low and need to be reordered soon. These items are close to their minimum stock threshold and require attention to avoid stockouts.</li>
+                            <li><strong>Out of Stock:</strong> Products with zero inventory. These items cannot be sold until new stock is added. Prioritize restocking these items to avoid missing sales opportunities.</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">🔍 Quick Tips</h6>
+                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                            <li><strong>Search Products:</strong> Use the search box to quickly find products by name, variant, or ID.</li>
+                            <li><strong>Filter by Type:</strong> Use the "Product Type" dropdown to view only specific product categories.</li>
+                            <li><strong>Add New Product:</strong> Click the "+ New Product" button to register a new item in your inventory.</li>
+                            <li><strong>Bulk Actions:</strong> Use the "Manage Prices" and "Manage Stock" buttons to update multiple products at once.</li>
+                            <li><strong>Stock Alerts:</strong> Keep an eye on the "Low Stock" tab to know when to reorder products.</li>
+                            <li><strong>Product Details:</strong> Click the eye icon (👁️) in the Options menu to view complete product information including sales history.</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">⚠️ Stock Level Indicators</h6>
+                        <div style="font-size: 0.85rem; color: #4b5563;">
+                            <p style="margin-bottom: 0.5rem;"><strong>Stock Status Colors:</strong></p>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong style="color: #10b981;">Green (Healthy):</strong> Stock level is sufficient. No immediate action needed.</li>
+                                <li><strong style="color: #f59e0b;">Yellow/Orange (Low):</strong> Stock is running low. Consider reordering soon to avoid stockouts.</li>
+                                <li><strong style="color: #ef4444;">Red (Critical/Out):</strong> Stock is critically low or depleted. Reorder immediately to maintain sales.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -2209,9 +2288,9 @@
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="size" class="form-label">Quantity</label>
+                                <label for="quantity_unit" class="form-label">Quantity</label>
                                 <div class="input-group quantity-unit-group">
-                                    <input type="text" class="form-control" id="size" name="size" required placeholder="Enter quantity">
+                                    <input type="text" class="form-control" id="quantity_unit" name="quantity_unit" required placeholder="Enter quantity">
                                     <select class="form-select" id="quantityUnit" name="quantity_unit" aria-label="Quantity unit">
                                         <option value="box" selected>Box</option>
                                         <option value="kilo">Kilo</option>
@@ -2262,7 +2341,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" title="Close without saving">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveProductBtn" title="Save the fruit details">Add Fruit</button>
+                    <button type="button" class="btn btn-primary" id="saveProductBtn" title="Save the product details">Add Product</button>
                 </div>
             </div>
         </div>
@@ -2284,7 +2363,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    Are you sure you want to delete this fruit? This action cannot be undone.
+                    Are you sure you want to delete this product? This action cannot be undone.
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -2498,7 +2577,45 @@
             // Restore saved filters after handlers are set up
             applySavedFilters();
             
-            // Load products after filters are restored
+            // Check for tab and status parameters in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            const statusParam = urlParams.get('status');
+            
+            // Apply status filter if specified (BEFORE switching tabs)
+            if (statusParam) {
+                const filterSelect = $('#filterSelect');
+                if (filterSelect.length) {
+                    const validStatuses = ['All Products', 'Active', 'Discontinued'];
+                    if (validStatuses.includes(statusParam)) {
+                        filterSelect.val(statusParam);
+                        // Save the filter to localStorage
+                        saveFilters();
+                    }
+                }
+            }
+            
+            // Switch to the specified tab BEFORE loading products
+            if (tabParam) {
+                // Map tab parameter to tab button ID
+                const tabMap = {
+                    'all': 'all-products-tab',
+                    'low-stock': 'low-stock-tab',
+                    'out-of-stock': 'out-of-stock-tab'
+                };
+                
+                const tabId = tabMap[tabParam];
+                if (tabId) {
+                    const tabButton = document.getElementById(tabId);
+                    if (tabButton) {
+                        // Use Bootstrap's Tab API to properly trigger the tab switch
+                        const tab = new bootstrap.Tab(tabButton);
+                        tab.show();
+                    }
+                }
+            }
+            
+            // Load products after filters are restored and tab is switched
             setTimeout(function() {
                 const activeTab = document.querySelector('.nav-link.active');
                 const tabId = activeTab?.id || 'all-products-tab';
@@ -2516,7 +2633,10 @@
                         loadProducts('allProductsTable', 'all');
                 }
                 loadActiveProducts();
-            }, 100);
+                
+                // Scroll to top after everything is loaded
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 200);
 
             console.log('Document ready - all initialization complete');
         });
@@ -2650,7 +2770,7 @@
                         // This is the EXACT SAME form as "Add Product", just pre-filled
                         $('#productName').val(product.name || '');
                         $('#variant').val(product.variant || '');
-                        $('#size').val(product.size || '');
+                        $('#size').val(product.quantity_unit || '');
                         $('#cost').val(product.cost || 0);
                         $('#price').val(product.price || 0);
                         $('#status').val(product.status || 'Active');
@@ -2658,7 +2778,7 @@
                         $('#initialStock').val(product.stock || 0);
                         
                         // Detect and set unit (box or kilo) from size field
-                        const sizeText = (product.size || '').toLowerCase();
+                        const sizeText = (product.quantity_unit || '').toLowerCase();
                         let detectedUnit = 'box'; // default
                         if (sizeText.includes('kilo')) {
                             detectedUnit = 'kilo';
@@ -2825,15 +2945,15 @@
             // Function to populate product select
             function populateProductSelect(selectElement) {
                 const $select = $(selectElement);
-                $select.html('<option value="">Select a fruit</option>');
+                $select.html('<option value="">Select a product</option>');
                 products.forEach(product => {
                     const variant = product.variant ? `(${product.variant})` : '';
-                    const size = product.size ? `(${product.size})` : '';
+                    const size = product.quantity_unit ? `(${product.quantity_unit})` : '';
                     const option = $(`<option 
                         value="${product.product_id}"
                         data-name="${product.name}"
                         data-variant="${product.variant || ''}"
-                        data-size="${product.size || ''}"
+                        data-size="${product.quantity_unit || ''}"
                         data-price="${product.price || 0}"
                         data-stock="${product.stock || 0}"
                     >${product.name} ${variant} ${size}</option>`);
@@ -2843,7 +2963,7 @@
                 // Initialize Select2 for stock selects as well
                 if (!$select.hasClass('select2-hidden-accessible')) {
                     $select.select2({
-                        placeholder: 'Search and select a fruit...',
+                        placeholder: 'Search and select a product...',
                         allowClear: true,
                         width: '100%',
                         dropdownParent: $select.closest('.modal'),
@@ -2852,7 +2972,7 @@
                             const $opt = $(option.element);
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                            const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
+                            const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
                             const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                             const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : '';
                             return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
@@ -2862,7 +2982,7 @@
                             const $opt = $(option.element);
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                            const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
+                            const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
                             const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                             return `${name}${variant}${size}${price}`;
                         }
@@ -2947,9 +3067,9 @@
                     <div class="stock-item mb-3 p-3 border rounded">
                         <div class="row">
                             <div class="col-md-4">
-                                <label class="form-label">Fruit</label>
+                                <label class="form-label">Product</label>
                                 <select class="form-select stock-product-select" required>
-                                    <option value="">Select a fruit</option>
+                                    <option value="">Select a product</option>
                                 </select>
                                 <div class="stock-indicator text-muted small mt-1"></div>
                             </div>
@@ -2985,7 +3105,7 @@
                     const $sel = $(this);
                     if (!$sel.hasClass('select2-hidden-accessible')) {
                         $sel.select2({
-                            placeholder: 'Search and select a fruit...',
+                            placeholder: 'Search and select a product...',
                             allowClear: true,
                             width: '100%',
                             dropdownParent: $sel.closest('.modal'),
@@ -2994,7 +3114,7 @@
                                 const $opt = $(option.element);
                                 const name = $opt.data('name') || '';
                                 const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                                const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
+                                const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
                                 const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                                 const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : '';
                                 return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
@@ -3004,7 +3124,7 @@
                                 const $opt = $(option.element);
                                 const name = $opt.data('name') || '';
                                 const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                                const size = $opt.data('size') ? ` (${$opt.data('size')})` : '';
+                                const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
                                 const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
                                 return `${name}${variant}${size}${price}`;
                             }
@@ -3026,7 +3146,7 @@
                             <div class="col-md-4">
                                 <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label>
                                 <select class="form-select stock-product-select" required>
-                                    <option value="">Select a fruit</option>
+                                    <option value="">Select a product</option>
                                 </select>
                                 <div class="stock-indicator text-muted small mt-1"></div>
                             </div>
@@ -3131,7 +3251,7 @@
                 const productId = $row.find('.stock-product-select').val();
                 const dateISO = $('#stockDate').val(); // YYYY-MM-DD
                 if (!productId || !dateISO) {
-                    $('#addStockFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Please select a fruit and ensure the date is set before generating a QR.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                    $('#addStockFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Please select a product and ensure the date is set before generating a QR.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
                     return;
                 }
                 const url = `/qr/generate/${productId}/?date=${encodeURIComponent(dateISO)}`;
@@ -3324,7 +3444,7 @@
                 saleItems.push({
                     product_id: product.product_id,
                     name: product.name,
-                    size: product.size,
+                    size: product.quantity_unit,
                     quantity: quantity,
                     price: product.price
                 });
@@ -3505,8 +3625,8 @@
                 });
                 // Update all existing dropdowns
                 document.querySelectorAll('.product-select').forEach(select => {
-                    select.innerHTML = '<option value="">Select a fruit</option>' + 
-                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-size="${p.size || ''}" data-stock="${p.stock || 0}">${p.name} (${p.size}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
+                    select.innerHTML = '<option value="">Select a product</option>' + 
+                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-size="${p.quantity_unit || ''}" data-stock="${p.stock || 0}">${p.name} (${p.quantity_unit}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
                 });
                 return products; // Return products for Promise chain
             });
@@ -3548,16 +3668,16 @@
             $('.product-select').each(function() {
                 const $this = $(this);
                 if ($this.find('option').length <= 1) { // Only has default option
-                    let options = '<option value="">Select a fruit</option>';
+                    let options = '<option value="">Select a product</option>';
                     products.forEach(product => {
-                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-size="${product.size || ''}" data-stock="${product.stock || 0}">${product.name} (${product.size || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
+                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-size="${product.quantity_unit || ''}" data-stock="${product.stock || 0}">${product.name} (${product.quantity_unit || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
                     });
                     $this.html(options);
                     
                     // Initialize Select2 if not already initialized
                     if (!$this.hasClass('select2-hidden-accessible')) {
                         $this.select2({
-                            placeholder: 'Search and select a fruit...',
+                            placeholder: 'Search and select a product...',
                             allowClear: true,
                             width: '100%',
                             dropdownParent: $this.closest('.modal'),
@@ -3566,7 +3686,7 @@
                                 const $option = $(option.element);
                                 const name = $option.data('name') || '';
                                 const variant = $option.data('variant') ? ` (${$option.data('variant')})` : '';
-                                const size = $option.data('size') ? ` (${$option.data('size')})` : '';
+                                const size = $option.data('quantity_unit') ? ` (${$option.data('quantity_unit')})` : '';
                                 const price = $option.data('price') ? ` - ₱${formatCurrency($option.data('price'))}` : '';
                                 const stock = $option.data('stock') ? ` - Stock: ${$option.data('stock')}` : '';
                                 return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
@@ -3576,7 +3696,7 @@
                                 const $option = $(option.element);
                                 const name = $option.data('name') || '';
                                 const variant = $option.data('variant') ? ` (${$option.data('variant')})` : '';
-                                const size = $option.data('size') ? ` (${$option.data('size')})` : '';
+                                const size = $option.data('quantity_unit') ? ` (${$option.data('quantity_unit')})` : '';
                                 const price = $option.data('price') ? ` - ₱${formatCurrency($option.data('price'))}` : '';
                                 return `${name}${variant}${size}${price}`;
                             }
@@ -3638,7 +3758,7 @@
             items.forEach(item => {
                 let description = `${item.name}`;
                 if (item.variant) description += ` (${item.variant})`;
-                if (item.size) description += ` (${item.size})`;
+                if (item.quantity_unit) description += ` (${item.quantity_unit})`;
                 receiptItemsHtml += `
                     <tr>
                         <td>${description}</td>
@@ -3721,6 +3841,27 @@
             });
         }
 
+        // Detect if device is mobile/tablet or desktop
+        function isMobileOrTablet() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            
+            // Check for mobile/tablet user agents
+            const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
+            if (mobileRegex.test(userAgent.toLowerCase())) {
+                return true;
+            }
+            
+            // Check for touch screen (tablets/mobile)
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                // Additional check: if screen is small, it's likely mobile
+                if (window.innerWidth <= 1024) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
         function printReceipt() {
             // Get the sale ID from the transaction number or use the most recent sale
             const saleId = window.lastRecordedSaleId || transactionNumber;
@@ -3730,8 +3871,13 @@
                 return;
             }
             
-            // Use thermal printer
-            printThermalReceipt(saleId);
+            // Smart printer detection: use thermal for desktop, regular print for mobile/tablet
+            if (isMobileOrTablet()) {
+                // For mobile/tablet, use browser print (not implemented in inventory page yet)
+                alert('Mobile printing not available on this page. Please use the Sales page to print receipts from mobile devices.');
+            } else {
+                printThermalReceipt(saleId);
+            }
         }
         
         function printThermalReceipt(saleId) {
@@ -3852,7 +3998,7 @@
             }));
 
             // Add input validation for size fields to only allow numbers
-            $('input[name="size"], #stickerSizeSelect').on('input', function() {
+            $('input[name="quantity_unit"], #stickerSizeSelect').on('input', function() {
                 let value = $(this).val();
                 // Remove any non-numeric characters except decimal point
                 value = value.replace(/[^0-9.]/g, '');
@@ -3865,7 +4011,7 @@
             });
 
             // Prevent non-numeric characters from being typed
-            $('input[name="size"], #stickerSizeSelect').on('keypress', function(e) {
+            $('input[name="quantity_unit"], #stickerSizeSelect').on('keypress', function(e) {
                 const char = String.fromCharCode(e.which);
                 // Allow: backspace, delete, tab, escape, enter, decimal point
                 if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
@@ -4163,7 +4309,7 @@
                 if(m){ productName = m[1].trim(); variant = m[2].trim(); }
                 row.append(`<td>${productName}</td>`);
                 row.append(`<td>${variant}</td>`);
-                row.append(`<td>${product.size||''}</td>`);
+                row.append(`<td>${product.quantity_unit||''}</td>`);
                 row.append(`<td>₱${formatCurrency(product.price)}</td>`);
                 const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
                 const stockValue = parseInt(product.stock)||0;
@@ -4250,7 +4396,7 @@
             if (unitSelectInline) {
                 unitSelectInline.addEventListener('change', function(){
                     const unit = (unitSelectInline.value || 'box').toLowerCase();
-                    const sizeField = document.getElementById('size');
+                    const sizeField = document.getElementById('quantity_unit');
                     if (sizeField) {
                         if (unit === 'kilo') {
                             sizeField.value = '';
@@ -4263,7 +4409,7 @@
                     }
                 });
                 // initial
-                const sizeField = document.getElementById('size');
+                const sizeField = document.getElementById('quantity_unit');
                 if (sizeField) {
                     if ((unitSelectInline.value || 'box').toLowerCase() === 'kilo') {
                         sizeField.value = '';

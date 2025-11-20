@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-title" content="StockWise">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="format-detection" content="telephone=no">
-    <title>StockWise - Confirm Add Stock</title>
+    <title>StockWise - QR Code Verification</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -17,23 +17,23 @@
     <style>
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            background: #f3f4f6;
+            margin: 0;
+            padding: 0;
         }
         .page-container { 
             min-height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 2rem 1rem; 
+            padding: 0;
         }
         .card-modern { 
             width: 100%; 
-            max-width: 600px; 
+            max-width: 100%;
             background: #fff; 
-            border-radius: 16px; 
-            border: 1px solid #e5e7eb; 
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); 
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
             overflow: hidden; 
+            min-height: 100vh;
         }
         .card-header-modern { 
             background: #f3f4f6; 
@@ -65,71 +65,77 @@
             gap: 0.25rem;
         }
         .product-info-card {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
+            background: linear-gradient(to bottom, #f9fafb 0%, #ffffff 100%);
+            border: 2px solid #e5e7eb;
             border-radius: 12px;
-            padding: 1.5rem;
-            margin: 1rem 0;
+            padding: 1.75rem;
+            margin: 1rem 0 1.5rem 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         .action-card {
             background: white;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
-            padding: 1.5rem;
-            margin: 0.5rem 0;
+            padding: 1.25rem 1.5rem;
+            margin: 0.75rem 0;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             text-decoration: none;
             color: inherit;
             display: block;
         }
         .action-card:hover {
             border-color: #4f46e5;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.12);
+            transform: translateY(-3px);
             text-decoration: none;
             color: inherit;
         }
         .action-card.add-stock {
-            border-color: #10b981;
+            border-color: #d1fae5;
+            background: linear-gradient(to right, #ffffff 0%, #f0fdf4 100%);
         }
         .action-card.add-stock:hover {
-            border-color: #059669;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
         }
         .action-card.record-sale {
-            border-color: #3b82f6;
+            border-color: #dbeafe;
+            background: linear-gradient(to right, #ffffff 0%, #eff6ff 100%);
         }
         .action-card.record-sale:hover {
-            border-color: #2563eb;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
         }
         .action-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
-            margin-bottom: 1rem;
+            margin-right: 1.25rem;
+            flex-shrink: 0;
         }
         .action-icon.add-stock {
-            background: #d1fae5;
-            color: #10b981;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
         }
         .action-icon.record-sale {
-            background: #dbeafe;
-            color: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
         }
         .action-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: #111827;
         }
         .action-description {
             color: #6b7280;
             font-size: 0.875rem;
+            line-height: 1.5;
         }
         .back-button {
             background: #6b7280;
@@ -155,73 +161,140 @@
 <div class="page-container">
   <div class="card-modern">
     <div class="card-header-modern">
-      <h5 class="m-0"><i class="bi bi-qr-code me-2"></i>Confirm Add Stock</h5>
-      <div>
+      <h5 class="m-0"><i class="bi bi-qr-code-scan me-2"></i>QR Code Verification</h5>
+      {% if request.session.app_user_id %}
+      <div class="d-flex gap-2 align-items-center">
         <div class="qr-verified-badge">
-          <i class="bi bi-check-circle"></i>
-          QR VERIFIED
+          <i class="bi bi-shield-check"></i>
+          VERIFIED
         </div>
         <div class="admin-badge">
-          <i class="bi bi-person"></i>
-          ADMIN (ADMIN)
+          <i class="bi bi-person-badge"></i>
+          {{ request.session.app_role|upper|default:"USER" }}
         </div>
       </div>
+      {% endif %}
     </div>
-    <div class="p-3">
+    <div class="p-4">
+      
+      {% if session_expired %}
+      <!-- Session Expired Message -->
+      <div class="alert alert-danger text-center" role="alert" style="padding: 2.5rem 1.5rem;">
+        <div>
+          <i class="bi bi-clock-history" style="font-size: 4rem; color: #dc3545; opacity: 0.8;"></i>
+          <h4 class="alert-heading mt-3 mb-3 fw-bold">
+            <i class="bi bi-exclamation-triangle me-2"></i>QR Session Expired
+          </h4>
+          <p class="mb-3" style="font-size: 1.1rem;">
+            Your QR code scan session has expired after 1 hour of inactivity for security reasons.
+          </p>
+          <div class="mb-4 p-3" style="background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
+            <p class="mb-0 fw-bold" style="color: #856404; font-size: 1.15rem;">
+              <i class="bi bi-qr-code-scan me-2"></i>Please scan the QR code again to continue
+            </p>
+          </div>
+          <hr style="margin: 1.5rem 0;">
+          <div class="text-muted mb-3">
+            <strong>Product Information:</strong><br>
+            <span style="font-size: 1.05rem; color: #495057;">{{ product.name }}</span>
+          </div>
+          <p class="mb-0 small text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            For security, QR scan sessions automatically expire after 1 hour. 
+            Simply scan the QR code on the product sticker again to restart the session.
+          </p>
+        </div>
+      </div>
+      {% else %}
       
       <!-- Product Information -->
       <div class="product-info-card">
-        <h6 class="mb-3"><i class="bi bi-box me-2"></i>Product Information</h6>
-        <div class="row">
+        <h6 class="mb-3 fw-bold" style="color: #1f2937; font-size: 1rem;">
+          <i class="bi bi-box-seam me-2"></i>Product Details
+        </h6>
+        <div class="row g-3">
           <div class="col-md-6">
-            <p class="mb-1"><strong>Product:</strong> {{ product.name }}</p>
-            <p class="mb-1"><strong>Quantity:</strong> {{ product.size }}</p>
+            <div class="mb-2">
+              <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Product Name</small>
+              <p class="mb-0 fw-semibold" style="color: #111827;">{{ product.name }}</p>
+            </div>
+            <div class="mb-2">
+              <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Unit Specification</small>
+              <p class="mb-0 fw-semibold" style="color: #111827;">{{ product.quantity_unit }}</p>
+            </div>
           </div>
           <div class="col-md-6">
-            <p class="mb-1"><strong>Date Arrived:</strong> {{ date_arrived }}</p>
-            <p class="mb-1"><strong>Batch ID:</strong> <span style="background: #fce7f3; padding: 2px 6px; border-radius: 4px;">{{ batch_id }}</span></p>
+            <div class="mb-2">
+              <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Arrival Date</small>
+              <p class="mb-0 fw-semibold" style="color: #111827;">{{ date_arrived }}</p>
+            </div>
+            <div class="mb-2">
+              <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Batch Reference</small>
+              <p class="mb-0">
+                <span class="badge" style="background: #fce7f3; color: #be185d; font-weight: 600; font-size: 0.875rem; padding: 0.375rem 0.75rem;">{{ batch_id }}</span>
+              </p>
+            </div>
           </div>
         </div>
-        {% if product.variant %}
-        <p class="mb-0 mt-2"><strong>Variant:</strong> {{ product.variant }}</p>
-        {% endif %}
       </div>
 
       <!-- Action Selection -->
-      <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Choose Action</h6>
-      <p class="text-muted mb-4">What would you like to do with this product?</p>
+      <div class="mt-4 mb-3">
+        <h6 class="mb-2 fw-bold" style="color: #1f2937; font-size: 1rem;">
+          <i class="bi bi-list-check me-2"></i>Choose Action
+        </h6>
+        <p class="text-muted mb-3" style="font-size: 0.875rem;">Please choose the appropriate action for this product.</p>
+      </div>
 
       <!-- Add Stock Action -->
       <a href="{% url 'add_stock_page' %}?product_id={{ product.product_id }}" class="action-card add-stock">
+        <div class="d-flex align-items-center">
         <div class="action-icon add-stock">
-          <i class="bi bi-plus-circle"></i>
+            <i class="bi bi-box-arrow-in-down"></i>
         </div>
+          <div class="flex-grow-1">
         <div class="action-title">Add Stock</div>
-        <div class="action-description">Add inventory to this product.</div>
+            <div class="action-description">Add new stock units to the existing inventory for this product.</div>
+          </div>
+          <i class="bi bi-chevron-right" style="color: #9ca3af; font-size: 1.25rem;"></i>
+        </div>
       </a>
 
       <!-- Record Sale Action -->
       <a href="{% url 'record_sale_page' %}?product_id={{ product.product_id }}" class="action-card record-sale">
+        <div class="d-flex align-items-center">
         <div class="action-icon record-sale">
-          <i class="bi bi-cart-plus"></i>
+            <i class="bi bi-receipt"></i>
         </div>
+          <div class="flex-grow-1">
         <div class="action-title">Record Sale</div>
-        <div class="action-description">Record a sale transaction for this product.</div>
-      </a>
-
-      <!-- Back Button -->
-      <div class="text-center mt-4">
-        <a href="{% url 'products_inventory' %}" class="back-button">
-          <i class="bi bi-arrow-left"></i>
-          Back to Inventory
-        </a>
+            <div class="action-description">Process and record a new sales transaction for this product.</div>
+          </div>
+          <i class="bi bi-chevron-right" style="color: #9ca3af; font-size: 1.25rem;"></i>
       </div>
+      </a>
+      {% endif %}
 
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% if not session_expired and minutes_remaining %}
+<script>
+// Display session timer
+document.addEventListener('DOMContentLoaded', function() {
+  var minutesRemaining = {{ minutes_remaining|default:60 }};
+  
+  // Only show warning if less than 15 minutes remain
+  if (minutesRemaining < 15) {
+    var alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-warning mt-3';
+    alertDiv.innerHTML = '<i class="bi bi-clock me-2"></i><strong>Session Reminder:</strong> This QR scan session will expire in ' + minutesRemaining + ' minutes. Please complete your action soon.';
+    document.querySelector('.p-4').insertBefore(alertDiv, document.querySelector('.product-info-card'));
+  }
+});
 </script>
+{% endif %}
 </body>
 </html>

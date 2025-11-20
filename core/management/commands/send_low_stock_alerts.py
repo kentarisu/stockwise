@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from core.models import Product, AppUser
+from core.models import Product, AppUser, SMSNotificationSettings
 
 
 class Command(BaseCommand):
@@ -40,8 +40,18 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.ERROR(f'Failed to send test low stock alert to {u.username} at {u.phone_number}'))
 
-    def send_low_stock_alerts(self, threshold=10):
+    def send_low_stock_alerts(self, threshold=None):
         """Send low stock alerts based on real inventory data"""
+        # Check if stock notifications are enabled
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.stock_enabled:
+            self.stdout.write(self.style.WARNING('Stock SMS notifications are disabled in settings.'))
+            return
+        
+        # Use threshold from settings if not provided
+        if threshold is None:
+            threshold = settings.stock_threshold
+        
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -68,9 +78,11 @@ class Command(BaseCommand):
         
         # Send SMS to all admins
         success_count = 0
+        recipients = []
         for u in admins:
             if self.send_sms(u.phone_number, message):
                 success_count += 1
+                recipients.append(u.username)
                 self.stdout.write(self.style.SUCCESS(f'Low stock alert sent to {u.username} at {u.phone_number}'))
             else:
                 self.stdout.write(self.style.ERROR(f'Failed to send low stock alert to {u.username} at {u.phone_number}'))
@@ -78,6 +90,23 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(f'Low stock alerts sent to {success_count} admin(s)')
         )
+        
+        # Log to audit logs
+        if recipients:
+            try:
+                from core.views import log_system_action
+                total_low_stock = low_stock_products.count()
+                total_out_of_stock = out_of_stock_products.count()
+                details = f'Threshold: {threshold} boxes\n'
+                details += f'Low Stock Items: {total_low_stock}\n'
+                details += f'Out of Stock Items: {total_out_of_stock}\n'
+                details += f'Recipients: {", ".join(recipients)}'
+                log_system_action(
+                    action='Automatic SMS: Low Stock Alert (Scheduled)',
+                    details=details
+                )
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products, threshold):
         """Format the low stock alert message"""
@@ -87,14 +116,16 @@ class Command(BaseCommand):
         if out_of_stock_products.exists():
             message += "🚨 OUT OF STOCK:\n"
             for product in out_of_stock_products[:5]:  # Limit to 5 items
-                message += f"• {product.name} ({product.size})\n"
+                quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
+                message += f"• {product.name}{quantity_info}\n"
             message += "\n"
         
         # Add low stock items
         if low_stock_products.exists():
             message += f"📉 LOW STOCK (≤{threshold}):\n"
             for product in low_stock_products[:5]:  # Limit to 5 items
-                message += f"• {product.name} ({product.size}): {product.stock} boxes\n"
+                quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
+                message += f"• {product.name}{quantity_info}: {product.stock} boxes\n"
             message += "\n"
         
         # Add action recommendation

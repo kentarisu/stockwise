@@ -1774,10 +1774,10 @@
                             setTimeout(function() {
                                 submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
                             }, 500);
-                        } else {
+                } else {
                             showAlert(response.message || 'Failed to update account', 'danger');
                             submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
-                        }
+                }
                     },
                     error: function(xhr) {
                         let errorMsg = 'An error occurred while updating account';

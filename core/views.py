@@ -117,6 +117,23 @@ def log_action(request, action: str, details: str = '', user: AppUser = None):
         logger.error(f"Failed to create audit log entry: {action} - {str(e)}", exc_info=True)
 
 
+def log_system_action(action: str, details: str = ''):
+    """Log automated system actions (SMS, backups, etc.) without a user/request context."""
+    try:
+        ActionLog.objects.create(
+            user=None,
+            role='System',
+            action=action[:150],
+            details=(details or '')[:2000],
+            ip_address='127.0.0.1',  # System/localhost
+            user_agent='StockWise Automated System',
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to create system audit log: {action} - {str(e)}", exc_info=True)
+
+
 def _mask_email(email: str) -> str:
     if not email or '@' not in email:
         return email
@@ -541,6 +558,8 @@ def require_app_login(view_func):
         
         # Accept either legacy 'user_id' or new 'app_user_id' from tests/fixtures
         if not (request.session.get('app_user_id') or request.session.get('user_id')):
+            # Save the current URL (with query parameters) to redirect back after login
+            request.session['qr_redirect_url'] = request.get_full_path()
             return redirect('login')
         
         # Normalize into 'app_user_id' so downstream code works
@@ -608,7 +627,7 @@ def dashboard_view(request):
     # Top selling products (single-table sales) - include size to determine unit
     top_products = (
         Sale.objects
-        .values('product__name', 'product__size')
+        .values('product__name', 'product__quantity_unit')
         .annotate(quantity=Sum('quantity'))
         .order_by('-quantity')[:5]
     )
@@ -678,7 +697,7 @@ def dashboard_view(request):
     product_categories = (
         Product.objects
         .filter(status='active')
-        .values('size')
+        .values('quantity_unit')
         .annotate(
             count=Count('product_id'),
             total_stock=Sum('stock')
@@ -827,6 +846,7 @@ def products_inventory(request):
             'products': products_page,  # Use paginated products for table
             'paginator': paginator,  # For pagination controls
             'total_products': total_products,
+            'product_categories': len(unique_fruits),  # Count of unique product types
             'active_products': active_products,
             'total_stock': total_stock,
             'restock_alerts': restock_alerts,
@@ -886,12 +906,31 @@ def record_sale_page(request):
     # Get product_id from URL parameters (from QR code scan)
     product_id = request.GET.get('product_id')
     
+    # Check if this is from a QR scan and if the session is still valid
+    qr_session_expired = False
+    if product_id and request.session.get('qr_scan_active'):
+        from datetime import datetime, timedelta
+        qr_token = request.session.get('qr_token')
+        if qr_token:
+            session_key = f'qr_scan_{qr_token}'
+            scan_time_str = request.session.get(session_key)
+            if scan_time_str:
+                scan_time = datetime.fromisoformat(scan_time_str)
+                if datetime.now() - scan_time > timedelta(hours=1):
+                    # Session expired
+                    qr_session_expired = True
+                    request.session.pop(session_key, None)
+                    request.session.pop('qr_scan_active', None)
+                    request.session.pop('qr_token', None)
+                    request.session.pop('qr_product_id', None)
+    
     context = {
         'app_role': request.session.get('app_role', 'user'),
         'today': timezone.now().date(),
         'show_cost': request.session.get('app_role') == 'admin',
         'preselected_product_id': product_id,  # Pass to template for auto-selection
         'product_locked': bool(product_id),  # Lock product selection when accessed via QR
+        'qr_session_expired': qr_session_expired,
     }
     return render(request, 'record_sale.html', context)
 
@@ -921,7 +960,27 @@ def add_stock_page(request):
             # If QR token is invalid, just ignore it
             pass
     
-    if product_id:
+    # Check if this is from a QR scan and if the session is still valid
+    qr_session_expired = False
+    if product_id and request.session.get('qr_scan_active'):
+        from datetime import datetime, timedelta
+        qr_token_session = request.session.get('qr_token')
+        if qr_token_session:
+            session_key = f'qr_scan_{qr_token_session}'
+            scan_time_str = request.session.get(session_key)
+            if scan_time_str:
+                scan_time = datetime.fromisoformat(scan_time_str)
+                if datetime.now() - scan_time > timedelta(hours=1):
+                    # Session expired
+                    qr_session_expired = True
+                    request.session.pop(session_key, None)
+                    request.session.pop('qr_scan_active', None)
+                    request.session.pop('qr_token', None)
+                    request.session.pop('qr_product_id', None)
+    
+    context['qr_session_expired'] = qr_session_expired
+    
+    if product_id and not qr_session_expired:
         try:
             product = Product.objects.get(product_id=product_id)
             context['qr_product'] = {
@@ -935,15 +994,6 @@ def add_stock_page(request):
     
     return render(request, 'add_stock.html', context)
 
-
-@require_GET
-def record_sale_page(request):
-    """Simple page endpoint for tests; renders the sale page template."""
-    context = {
-        'app_role': request.session.get('app_role', 'user'),
-        'today': timezone.now().date(),
-    }
-    return render(request, 'record_sale.html', context)
 
 @require_app_login
 def print_stickers_page(request):
@@ -966,7 +1016,7 @@ def product_add(request):
         built_in_product_id = request.POST.get('built_in_product_id', '').strip()
         name = request.POST.get('name', '').strip()
         variant = request.POST.get('variant', '').strip()
-        size = request.POST.get('size', '').strip()
+        size = request.POST.get('quantity_unit', '').strip()
         # Always set new products to Active and date to today
         status = 'active'
         date_added = timezone.now().date()
@@ -1077,7 +1127,7 @@ def product_edit(request, product_id):
         with transaction.atomic():
             product = Product.objects.get(product_id=product_id)
             product.name = data['name']
-            product.size = data.get('size', '')
+            product.quantity_unit = data.get('quantity_unit', '')
             product.status = data.get('status', 'active')
             product.price = data['price']
             product.cost = data.get('cost', 0)
@@ -1402,7 +1452,7 @@ def qr_next_batch_sequence(request, product_id):
         
         # Create base batch ID: first 2 chars of product name + quantity + date
         product_prefix = base_name.replace(f"({variant})", '').strip()[:2].upper() if variant else base_name[:2].upper()
-        size_clean = product.size.replace('-', '') if product.size else ''
+        size_clean = product.quantity_unit.replace('-', '') if product.quantity_unit else ''
         date_str = today.strftime('%m%d%Y')
         base_batch_id = f"{product_prefix}{size_clean}{date_str}"
         
@@ -1608,7 +1658,7 @@ def sales_view(request):
             else:
                 sales_query = sales_query.filter(
                     Q(product__name__icontains=s) |
-                    Q(product__size__icontains=s)
+                    Q(product__quantity_unit__icontains=s)
                 ).distinct()
 
     # Calculate statistics (across all rows)
@@ -1624,9 +1674,15 @@ def sales_view(request):
     for row in rows:
         key = row.transaction_number or f"SID{row.sale_id}"
         g = grouped.get(key)
+        
+        # Format product display as "Name (Quantity/Unit)"
+        product_display = row.product.name if row.product else ''
+        if row.product and row.product.quantity_unit:
+            product_display = f"{product_display} ({row.product.quantity_unit})"
+        
         item = {
-            'product_name': row.product.name if row.product else '',
-            'size': row.product.size if row.product else '',
+            'product_name': product_display,
+            'quantity_unit': row.product.quantity_unit if row.product else '',
             'quantity': int(row.quantity or 0),
             'price': row.price,
             'subtotal': row.total
@@ -1642,7 +1698,7 @@ def sales_view(request):
                 'status': row.status,
                 'product_count': 1,
                 'total_boxes': int(row.quantity or 0),
-                'products': item['product_name'],
+                'products': product_display,
                 'customer_name': getattr(row, 'customer_name', '') or '',
                 'recorded_by': row.user.username if row.user else 'N/A'
             }
@@ -1652,8 +1708,8 @@ def sales_view(request):
             g['total'] = (g['total'] or 0) + row.total
             g['product_count'] += 1
             g['total_boxes'] += int(row.quantity or 0)
-            if item['product_name'] and item['product_name'] not in g['products']:
-                g['products'] += f", {item['product_name']}"
+            if product_display and product_display not in g['products']:
+                g['products'] += f", {product_display}"
             if not g.get('customer_name') and (getattr(row, 'customer_name', '') or ''):
                 g['customer_name'] = getattr(row, 'customer_name', '')
 
@@ -1693,7 +1749,7 @@ def sales_view(request):
                 except ValueError:
                     voided_query = voided_query.filter(
                         Q(product__name__icontains=search) |
-                        Q(product__size__icontains=search)
+                        Q(product__quantity_unit__icontains=search)
                     ).distinct()
 
         for sale in voided_query.select_related('user', 'product'):
@@ -1703,7 +1759,7 @@ def sales_view(request):
                 items_data = [{
                     'product_id': sale.product.product_id,
                     'product_name': sale.product.name,
-                    'size': sale.product.size,
+                    'quantity_unit': sale.product.quantity_unit,
                         'units_sold': sale.quantity,
                     'price': float(sale.price),
                     'subtotal': float(sale.total)
@@ -1886,7 +1942,7 @@ def fetch_sales(request):
                 else:
                     sales_query = sales_query.filter(
                         Q(items__product__name__icontains=s) |
-                        Q(items__product__size__icontains=s)
+                        Q(items__product__quantity_unit__icontains=s)
                     ).distinct()
 
         # Get sales rows and group by transaction_number
@@ -1895,9 +1951,15 @@ def fetch_sales(request):
         for row in rows:
             key = row.transaction_number or f"SID{row.sale_id}"
             g = grouped.get(key)
+            
+            # Format product display as "Name (Quantity/Unit)"
+            product_display = row.product.name if row.product else ''
+            if row.product and row.product.quantity_unit:
+                product_display = f"{product_display} ({row.product.quantity_unit})"
+            
             item = {
-                'product_name': row.product.name if row.product else '',
-                'size': row.product.size if row.product else '',
+                'product_name': product_display,
+                'quantity_unit': row.product.quantity_unit if row.product else '',
                 'quantity': int(row.quantity or 0),
                 'price': float(row.price or 0),
                 'subtotal': float(row.total or 0)
@@ -1913,7 +1975,7 @@ def fetch_sales(request):
                     'status': row.status,
                     'product_count': 1,
                     'total_boxes': int(row.quantity or 0),
-                    'products': item['product_name'],
+                    'products': product_display,
                     'customer_name': getattr(row, 'customer_name', '') or '',
                     'recorded_by': row.user.username if row.user else 'N/A'
                 }
@@ -1923,8 +1985,8 @@ def fetch_sales(request):
                 g['total'] = str((Decimal(g['total']) if isinstance(g['total'], str) else g['total']) + (row.total or 0))
                 g['product_count'] += 1
                 g['total_boxes'] += int(row.quantity or 0)
-                if item['product_name'] and item['product_name'] not in g['products']:
-                    g['products'] += f", {item['product_name']}"
+                if product_display and product_display not in g['products']:
+                    g['products'] += f", {product_display}"
                 if not g.get('customer_name') and (getattr(row, 'customer_name', '') or ''):
                     g['customer_name'] = getattr(row, 'customer_name', '')
 
@@ -2092,7 +2154,7 @@ def get_sale_details(request, sale_id):
             items_data.append({
                 'product_name': product_name,
                 'variant': variant,
-                'size': item.product.size,
+                'quantity_unit': item.product.quantity_unit,
                 'quantity': item.quantity,
                 'price': str(item.product.price),
                 'subtotal': str(item.subtotal)
@@ -2386,7 +2448,7 @@ def fetch_reports(request):
                 else:
                     qs = qs.filter(
                         Q(product__name__icontains=search) |
-                        Q(product__size__icontains=search) |
+                        Q(product__quantity_unit__icontains=search) |
                         Q(customer_name__icontains=search) |
                         Q(transaction_number__icontains=search)
                     ).distinct()
@@ -2489,7 +2551,8 @@ def fetch_reports(request):
             sales_queryset.values(
                 'product__product_id',
                 'product__name',
-                'product__size',
+                'product__variant',
+                'product__quantity_unit',
                 'product__cost'
             ).annotate(
                 boxes_sold=Sum('quantity'),
@@ -2521,10 +2584,16 @@ def fetch_reports(request):
             elif revenue:
                 sales_growth_pct = 100.0
 
+            # Format product display as "Name (Variant) (Quantity/Unit)"
+            product_display = s['product__name'] or ''
+            if s['product__quantity_unit']:
+                product_display = f"{product_display} ({s['product__quantity_unit']})"
+            product_display = product_display.strip()
+
             sales_summary_data.append({
                 'product_id': product_id,
-                'product_name': s['product__name'],
-                'size': s['product__size'],
+                'product_name': product_display,
+                'quantity_unit': s['product__quantity_unit'],
                 'boxes_sold': boxes,
                 'unit_price': unit_price,
                 'unit_cost': unit_cost,
@@ -2580,11 +2649,17 @@ def fetch_reports(request):
             average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
             inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
 
+            # Format product display as "Name (Variant) (Quantity/Unit)"
+            product_display = t['product__name'] or ''
+            if t['product__quantity_unit']:
+                product_display = f"{product_display} ({t['product__quantity_unit']})"
+            product_display = product_display.strip()
+
             top_fruits.append({
                 'rank': idx,
                 'product_id': product_id,
-                'product_name': t['product__name'],
-                'size': t['product__size'],
+                'product_name': product_display,
+                'quantity_unit': t['product__quantity_unit'],
                 'boxes_sold': boxes,
                 'avg_price': avg_price,
                 'revenue': float(revenue),
@@ -2659,10 +2734,17 @@ def fetch_reports(request):
                 last_sale = stats.get('last_sale')
                 last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
 
+                # Format product display as "Name (Variant) (Quantity/Unit)"
+                product_display = inv.name or ''
+                if inv.quantity_unit:
+                    product_display = f"{product_display} ({inv.quantity_unit})"
+                product_display = product_display.strip()
+
                 low_stock.append({
                     'product_id': inv.product_id,
-                    'product_name': inv.name,
-                    'size': inv.size,
+                    'product_name': product_display,
+                    'variant': inv.variant or 'N/A',
+                    'quantity_unit': inv.quantity_unit,
                     'current_stock': inv.stock,
                     'stock_value': stock_value,
                     'average_daily_sales': avg_daily_sales,
@@ -2710,6 +2792,15 @@ def fetch_reports(request):
         for row in rows:
             key = row.transaction_number or f"ORD{row.sale_id:06d}"
             g = grouped.get(key)
+            
+            # Format product display as "Name (Variant) (Quantity/Unit)"
+            product_display = None
+            if row.product:
+                product_display = row.product.name or ''
+                if row.product.quantity_unit:
+                    product_display = f"{product_display} ({row.product.quantity_unit})"
+                product_display = product_display.strip() if product_display else None
+            
             if not g:
                 # Initialize new transaction
                 grouped[key] = {
@@ -2722,8 +2813,8 @@ def fetch_reports(request):
                     'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
                     'address': row.address.strip() if row.address and row.address.strip() else 'N/A',
                     'processed_by': row.user.username if row.user else 'admin',
-                    'fruits': [row.product.name] if row.product and row.product.name else [],
-                    'size': [row.product.size] if row.product and row.product.size else [], 
+                    'fruits': [product_display] if product_display else [],
+                    'quantity_unit': [row.product.quantity_unit] if row.product and row.product.quantity_unit else [], 
                     'items_count': int(row.quantity or 0),
                     'boxes_count': int(row.quantity or 0),
                     'subtotal': float(row.total or 0),
@@ -2745,11 +2836,10 @@ def fetch_reports(request):
                 g['amount_paid'] += float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))
                 g['change_amount'] += (float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))) - float((row.total or 0) * Decimal('1.12'))
 
-                if row.product:
-                    if row.product.name and row.product.name not in g['fruits']:
-                        g['fruits'].append(row.product.name)
-                    if row.product.size and row.product.size not in g['size']:
-                        g['size'].append(row.product.size) 
+                if product_display and product_display not in g['fruits']:
+                    g['fruits'].append(product_display)
+                if row.product and row.product.quantity_unit and row.product.quantity_unit not in g['quantity_unit']:
+                    g['quantity_unit'].append(row.product.quantity_unit) 
                 if row.sale_id not in g.get('sale_ids', []):
                     g.setdefault('sale_ids', []).append(row.sale_id)
 
@@ -2761,6 +2851,15 @@ def fetch_reports(request):
         for row in voided_rows:
             key = row.transaction_number or f"VOID{row.sale_id:06d}"
             vg = voided_grouped.get(key)
+            
+            # Format product display as "Name (Variant) (Quantity/Unit)"
+            product_display = None
+            if row.product:
+                product_display = row.product.name or ''
+                if row.product.quantity_unit:
+                    product_display = f"{product_display} ({row.product.quantity_unit})"
+                product_display = product_display.strip() if product_display else None
+            
             if not vg:
                 voided_grouped[key] = {
                     'sale_id': row.sale_id,
@@ -2770,19 +2869,21 @@ def fetch_reports(request):
                     'receipt_number': row.or_number or 'N/A',
                     'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
                     'processed_by': row.user.username if row.user else 'admin',
-                    'products': [row.product.name] if row.product and row.product.name else [],
-                    'quantity': int(row.quantity or 0),
-                    'boxes': int(row.quantity or 0),
-                    'total': float(row.total or 0),
+                    'products': [product_display] if product_display else [],
+                    'boxes_count': int(row.quantity or 0),
+                    'subtotal': float(row.total or 0),
+                    'vat_amount': float((row.total or 0) * Decimal('0.12')),
+                    'total_amount': float((row.total or 0) * Decimal('1.12')),
                     'status': row.status,
                     'sale_ids': [row.sale_id],
                 }
             else:
-                vg['quantity'] += int(row.quantity or 0)
-                vg['boxes'] += int(row.quantity or 0)
-                vg['total'] += float(row.total or 0)
-                if row.product and row.product.name and row.product.name not in vg['products']:
-                    vg['products'].append(row.product.name)
+                vg['boxes_count'] += int(row.quantity or 0)
+                vg['subtotal'] += float(row.total or 0)
+                vg['vat_amount'] += float((row.total or 0) * Decimal('0.12'))
+                vg['total_amount'] += float((row.total or 0) * Decimal('1.12'))
+                if product_display and product_display not in vg['products']:
+                    vg['products'].append(product_display)
                 if row.sale_id not in vg.get('sale_ids', []):
                     vg.setdefault('sale_ids', []).append(row.sale_id)
 
@@ -2884,7 +2985,7 @@ def export_report(request):
         else:
             # Match product name or quantity
             sales_q = sales_q.filter(
-                Q(product__name__icontains=search) | Q(product__size__icontains=search)
+                Q(product__name__icontains=search) | Q(product__quantity_unit__icontains=search)
             ).distinct()
 
     # Use the same comprehensive calculation logic as fetch_reports
@@ -2912,7 +3013,7 @@ def export_report(request):
         else:
             sales_queryset = sales_queryset.filter(
                 Q(product__name__icontains=search) |
-                Q(product__size__icontains=search) |
+                Q(product__quantity_unit__icontains=search) |
                 Q(customer_name__icontains=search) |
                 Q(transaction_number__icontains=search)
             ).distinct()
@@ -3078,7 +3179,7 @@ def export_report(request):
         [
             Paragraph("<b>VAT (12%)</b><br/><font size=12 color='#8b5cf6'>₱{:,}</font>".format(int(vat_total)), card_style),
             Paragraph("<b>NET PROFIT</b><br/><font size=12 color='#10b981'>₱{:,}</font>".format(int(net_profit)), card_style),
-            Paragraph("<b>ITEMS SOLD</b><br/><font size=12 color='#6366f1'>{}</font>".format(total_items), card_style),
+            Paragraph("<b>TOTAL BOXES SOLD</b><br/><font size=12 color='#6366f1'>{}</font>".format(total_items), card_style),
         ]
     ]
     
@@ -3114,7 +3215,7 @@ def export_report(request):
         sales_queryset.values(
             'product__product_id',
             'product__name',
-            'product__size',
+            'product__quantity_unit',
             'product__cost'
         ).annotate(
             boxes_sold=Sum('quantity'),
@@ -3144,7 +3245,7 @@ def export_report(request):
     total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
     
     if summary:
-        sales_summary_rows = [['Product', 'Quantity', 'Boxes', 'Unit Price', 'Unit Cost', 'Revenue', 'COGS', 'Profit', 'Gross Margin %', 'Sales Growth %', 'Transactions']]
+        sales_summary_rows = [['Product', 'Boxes Sold', 'Unit Price', 'Unit Cost', 'Revenue', 'COGS', 'Profit', 'Gross Margin %', 'Sales Growth %', 'Transactions']]
         for s in summary:
             product_id = s['product__product_id']
             boxes = s['boxes_sold'] or 0
@@ -3159,9 +3260,13 @@ def export_report(request):
             prev_revenue = prev['revenue']
             sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
             
+            # Format product name with variant and quantity_unit
+            product_name = str(s['product__name'] or 'N/A')
+            if s['product__quantity_unit']:
+                product_name = f"{product_name} ({s['product__quantity_unit']})"
+            
             sales_summary_rows.append([
-                str(s['product__name'] or 'N/A')[:25],
-                str(s['product__size'] or ''),
+                product_name[:35],
                 str(boxes),
                 f"₱{unit_price:,.2f}",
                 f"₱{unit_cost:,.2f}",
@@ -3173,8 +3278,8 @@ def export_report(request):
                 str(transaction_count)
             ])
         
-        # Column widths optimized for portrait letter (narrower columns)
-        col_widths = [90, 35, 30, 40, 40, 50, 50, 50, 45, 45, 35]
+        # Column widths optimized for portrait letter (removed separate quantity column)
+        col_widths = [120, 40, 45, 45, 55, 55, 55, 50, 50, 45]
         sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
         sales_summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
@@ -3208,7 +3313,7 @@ def export_report(request):
     ).in_bulk(field_name='product_id')
     
     if top_summary_sorted:
-        top_rows = [['Rank', 'Product', 'Quantity', 'Boxes', 'Avg Price', 'Revenue', 'Profit Margin %', 'Growth %', 'Market Share %', 'Inv Turnover']]
+        top_rows = [['Rank', 'Product', 'Boxes Sold', 'Avg Price', 'Revenue', 'Profit Margin %', 'Growth %', 'Market Share %', 'Inv Turnover']]
         for idx, t in enumerate(top_summary_sorted, start=1):
             product_id = t['product__product_id']
             revenue = Decimal(t['revenue'] or 0)
@@ -3227,10 +3332,14 @@ def export_report(request):
             average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
             inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
             
+            # Format product name with variant and quantity_unit
+            product_name = str(t['product__name'] or 'N/A')
+            if t['product__quantity_unit']:
+                product_name = f"{product_name} ({t['product__quantity_unit']})"
+            
             top_rows.append([
                 str(idx),
-                str(t['product__name'] or 'N/A')[:20],
-                str(t['product__size'] or ''),
+                product_name[:30],
                 str(boxes),
                 f"₱{avg_price:,.2f}",
                 f"₱{float(revenue):,.2f}",
@@ -3240,8 +3349,8 @@ def export_report(request):
                 f"{inventory_turnover:.2f}"
             ])
         
-        # Column widths for top products (portrait)
-        top_col_widths = [25, 100, 35, 30, 40, 50, 45, 35, 45, 35]
+        # Column widths for top products (portrait, removed separate quantity column)
+        top_col_widths = [25, 130, 45, 50, 60, 55, 45, 55, 45]
         top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
         top_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
@@ -3316,7 +3425,8 @@ def export_report(request):
             
             low_stock_data.append({
                 'product_name': inv.name,
-                'size': inv.size,
+                'variant': inv.variant or 'N/A',
+                'quantity_unit': inv.quantity_unit,
                 'current_stock': inv.stock,
                 'stock_value': stock_value,
                 'average_daily_sales': avg_daily_sales,
@@ -3335,7 +3445,7 @@ def export_report(request):
             days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
             low_rows.append([
                 str(item['product_name'])[:18],
-                str(item['size'] or ''),
+                str(item['quantity_unit'] or ''),
                 str(int(item['current_stock'])),
                 f"₱{item['stock_value']:,.0f}",
                 f"{item['average_daily_sales']:.1f}",
@@ -3383,24 +3493,31 @@ def export_report(request):
     for row in sale_rows:
         key = row.transaction_number or f"ORD{row.sale_id:06d}"
         g = grouped.get(key)
+        
+        # Format product name with variant and quantity_unit
+        product_display_name = ''
+        if row.product:
+            product_display_name = row.product.name or ''
+            if row.product.quantity_unit:
+                product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
+        
         if not g:
             grouped[key] = {
                 'sale_id': row.sale_id,
                 'transaction_number': row.transaction_number if row.transaction_number else key,
                 'or_number': row.or_number or 'N/A',
                 'recorded_at': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                'customer_name': row.customer_name or 'Walk-in',
+                'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
                 'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
                 'address': row.address or 'N/A',
                 'processed_by': row.user.username if row.user else 'admin',
-                'fruits': [row.product.name] if row.product else [],
-                'size': [row.product.size] if row.product and row.product.size else [],
+                'products': [product_display_name] if product_display_name else [],
                 'total_boxes': int(row.quantity or 0),
                 'subtotal': float(row.total or 0),
                 'vat': float((row.total or 0) * Decimal('0.12')),
                 'total': float(row.total or 0),
                 'status': row.status,
-                'fruit_count': 1,
+                'product_count': 1,
             }
         else:
             # Add to existing transaction
@@ -3408,52 +3525,42 @@ def export_report(request):
             g['subtotal'] += float(row.total or 0)
             g['vat'] += float((row.total or 0) * Decimal('0.12'))
             g['total'] += float(row.total or 0)
-            g['fruit_count'] += 1
-            if row.product:
-                if row.product.name and row.product.name not in g['fruits']:
-                    g['fruits'].append(row.product.name)
-                if row.product.size and row.product.size not in g['size']:
-                    g['size'].append(row.product.size)
+            g['product_count'] += 1
+            if product_display_name and product_display_name not in g['products']:
+                g['products'].append(product_display_name)
 
     tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
 
-    # Better transactions table with improved readability (portrait)
-    rows = [['ID', 'Transaction #', 'OR #', 'Date', 'Customer', 'Products', 'Boxes', 'Subtotal', 'VAT', 'Total', 'Status']]
+    # Simplified transactions table with better spacing (portrait)
+    rows = [['OR No.', 'Date', 'Customer', 'Products', 'Boxes Sold', 'Total']]
     for tx in tx_data:
-        # Format fruits list better
-        fruits_str = ', '.join(tx['fruits']) if tx['fruits'] else 'N/A'
-        if len(fruits_str) > 20:
-            fruits_str = fruits_str[:17] + '...'
+        # Format products list better
+        products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
+        if len(products_str) > 40:
+            products_str = products_str[:37] + '...'
         
         rows.append([
-            str(tx['sale_id']),
-            str(tx['transaction_number'])[:10],
-            str(tx['or_number'])[:10] if tx['or_number'] != 'N/A' else 'N/A',
-            tx['recorded_at'][:10],  # Date only for space
-            str(tx['customer_name'])[:15],
-            fruits_str,
+            str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A',
+            tx['recorded_at'][:10],  # Date only
+            str(tx['customer_name'])[:20],
+            products_str,
             str(tx['total_boxes']),
-            f"₱{tx['subtotal']:,.0f}",
-            f"₱{tx['vat']:,.0f}",
-            f"₱{tx['total']:,.0f}",
-            tx['status'].title()
+            f"₱{tx['total']:,.2f}"
         ])
     
-    # Column widths optimized for portrait letter with full headers
-    table = Table(rows, repeatRows=1, colWidths=[25, 70, 40, 50, 70, 90, 35, 55, 40, 55, 40])
+    # Column widths optimized for portrait letter - 6 columns with better spacing
+    table = Table(rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 7),
-        ('FONTSIZE', (0,1), (-1,-1), 6),
-        ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center ID
-        ('ALIGN', (6,1), (9,-1), 'RIGHT'),  # Right align numbers
-        ('ALIGN', (10,1), (10,-1), 'CENTER'),  # Center status
+        ('FONTSIZE', (0,0), (-1,0), 8),
+        ('FONTSIZE', (0,1), (-1,-1), 7),
+        ('ALIGN', (4,1), (5,-1), 'RIGHT'),  # Right align numbers
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
@@ -3461,39 +3568,35 @@ def export_report(request):
     ]))
     elems.append(table)
     
-    # Add summary footer - using Paragraphs instead of raw HTML
+    # Add summary footer - simplified
     elems.append(Spacer(1, 10))
-    total_subtotal = sum(float(tx['subtotal']) for tx in tx_data)
-    total_vat = sum(float(tx['vat']) for tx in tx_data)
+    total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
     total_all = sum(float(tx['total']) for tx in tx_data)
     total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
     
     # Create footer with proper Paragraph formatting
-    footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold')
-    footer_normal = ParagraphStyle('FooterNormal', fontSize=9, textColor=colors.HexColor('#374151'), fontName='Helvetica')
+    footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold', alignment=TA_RIGHT)
     
     footer_data = [
         [
-            '', '', '', '', '', '',
-            Paragraph('Total:', footer_style),
-            Paragraph(str(total_boxes_all), footer_style),
-            Paragraph(f'₱{total_subtotal:,.2f}', footer_style),
-            Paragraph(f'₱{total_vat:,.2f}', footer_style),
-            Paragraph(f'₱{total_all:,.2f}', footer_style),
-            ''
+            '', '', '',
+            Paragraph('<b>Total:</b>', footer_style),
+            Paragraph(f'<b>{total_boxes_all}</b>', footer_style),
+            Paragraph(f'<b>₱{total_all:,.2f}</b>', footer_style)
         ]
     ]
-    footer_table = Table(footer_data, colWidths=[25, 70, 40, 50, 70, 90, 35, 55, 40, 55, 40])
+    footer_table = Table(footer_data, colWidths=[80, 60, 100, 160, 50, 90])
     footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
-        ('FONTNAME', (6,0), (10,0), 'Helvetica-Bold'),
-        ('ALIGN', (7,0), (10,0), 'RIGHT'),
-        ('GRID', (6,0), (10,0), 0.5, colors.HexColor('#6366f1')),
+        ('FONTNAME', (3,0), (5,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('ALIGN', (3,0), (5,0), 'RIGHT'),
+        ('GRID', (3,0), (5,0), 1, colors.HexColor('#6366f1')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
     ]))
     elems.append(footer_table)
     elems.append(Spacer(1, 8))
@@ -3712,55 +3815,63 @@ def export_report(request):
     for row in voided_rows_data:
         key = row.transaction_number or f"VOID{row.sale_id:06d}"
         vg = voided_grouped_pdf.get(key)
+        
+        # Format product name with variant and quantity_unit
+        product_display_name = ''
+        if row.product:
+            product_display_name = row.product.name or ''
+            if row.product.quantity_unit:
+                product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
+        
         if not vg:
             voided_grouped_pdf[key] = {
+                'sale_no': row.sale_id,
+                'or_no': row.or_number or 'N/A',
                 'transaction_no': row.transaction_number if row.transaction_number else key,
                 'voided_at': format_local_datetime(row.voided_at, '%m/%d/%Y %I:%M %p') if row.voided_at else format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
                 'original_date': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
                 'customer_name': row.customer_name.strip() if row.customer_name and row.customer_name.strip() else 'N/A',
                 'processed_by': row.user.username if row.user else 'admin',
-                'products': [row.product.name] if row.product and row.product.name else [],
-                'quantity': int(row.quantity or 0),
+                'products': [product_display_name] if product_display_name else [],
+                'boxes_sold': int(row.quantity or 0),
                 'total': float(row.total or 0),
             }
         else:
-            vg['quantity'] += int(row.quantity or 0)
+            vg['boxes_sold'] += int(row.quantity or 0)
             vg['total'] += float(row.total or 0)
-            if row.product and row.product.name and row.product.name not in vg['products']:
-                vg['products'].append(row.product.name)
+            if product_display_name and product_display_name not in vg['products']:
+                vg['products'].append(product_display_name)
     
     voided_data_pdf = list(voided_grouped_pdf.values())
     
     if voided_data_pdf:
-        voided_rows = [['Transaction #', 'Voided Date', 'Original Date', 'Customer', 'Products', 'Quantity', 'Total Amount', 'Voided By']]
+        voided_rows = [['OR No.', 'Voided Date', 'Customer', 'Products', 'Boxes Sold', 'Total']]
         for tx in voided_data_pdf:
             products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
-            if len(products_str) > 20:
-                products_str = products_str[:17] + '...'
+            if len(products_str) > 40:
+                products_str = products_str[:37] + '...'
             voided_rows.append([
-                str(tx['transaction_no'])[:12],
-                tx['voided_at'][:16],
-                tx['original_date'][:16],
-                str(tx['customer_name'])[:18],
+                str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A',
+                tx['voided_at'][:10],  # Date only
+                str(tx['customer_name'])[:20],
                 products_str,
-                str(tx['quantity']),
-                f"₱{tx['total']:,.2f}",
-                str(tx['processed_by'])[:15]
+                str(tx['boxes_sold']),
+                f"₱{tx['total']:,.2f}"
             ])
         
-        voided_table = Table(voided_rows, repeatRows=1, colWidths=[50, 50, 50, 60, 80, 30, 50, 50])
+        voided_table = Table(voided_rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
         voided_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6b7280')),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (5,1), (6,-1), 'RIGHT'),
+            ('FONTSIZE', (0,0), (-1,0), 8),
+            ('FONTSIZE', (0,1), (-1,-1), 7),
+            ('ALIGN', (4,1), (5,-1), 'RIGHT'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3F4F6')]),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+            ('LEFTPADDING', (0,0), (-1,-1), 8),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
         ]))
@@ -3768,10 +3879,10 @@ def export_report(request):
         
         # Add voided summary
         total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
-        total_voided_qty = sum(int(tx['quantity']) for tx in voided_data_pdf)
+        total_voided_boxes = sum(int(tx['boxes_sold']) for tx in voided_data_pdf)
         elems.append(Spacer(1, 8))
         voided_summary = Paragraph(
-            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_qty} boxes, ₱{total_voided_amount:,.2f}",
+            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, ₱{total_voided_amount:,.2f}",
             ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
         )
         elems.append(voided_summary)
@@ -4015,9 +4126,12 @@ def action_logs_view(request):
         display_start = today.isoformat()
         display_end = today.isoformat()
     
-    # Apply user filter - exact match on username
+    # Apply user filter - handle "System" specially
     if user_filter:
-        logs_qs = logs_qs.filter(user__username=user_filter)
+        if user_filter == 'System':
+            logs_qs = logs_qs.filter(role='System', user=None)
+        else:
+            logs_qs = logs_qs.filter(user__username=user_filter)
     
     # Pagination: 10 per page
     paginator = Paginator(logs_qs, 10)
@@ -4316,7 +4430,7 @@ def fetch_products(request):
         data.append({
             'product_id': p.product_id,
             'name': p.name,
-            'size': p.size,
+            'quantity_unit': p.quantity_unit,
             'price': float(p.price),
             'cost': float(p.cost),
             'stock': p.stock,
@@ -4363,7 +4477,7 @@ def get_product_details(request, product_id):
             'product_id': product.product_id,
             'name': product_name,
             'variant': variant,
-            'size': product.size or '',
+            'quantity_unit': product.quantity_unit or '',
             'cost': float(product.cost),
             'price': float(product.price),
             'stock': product.stock,
@@ -4396,7 +4510,7 @@ def fetch_active_products(request):
             'name': p.name,
             'variant': p.variant or '',
             'price': float(p.price),
-            'size': p.size,
+            'quantity_unit': p.quantity_unit,
             'stock': stock_val,
         })
     return JsonResponse({'success': True, 'data': data})
@@ -4712,7 +4826,7 @@ def record_sale(request):
 def get_active_products(request):
     """Return active products for the record sale modal"""
     try:
-        products = Product.objects.filter(status='active').values('product_id', 'name', 'variant', 'price', 'size', 'stock')
+        products = Product.objects.filter(status='active').values('product_id', 'name', 'variant', 'price', 'quantity_unit', 'stock')
         return JsonResponse({'success': True, 'data': list(products)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -4739,7 +4853,7 @@ def get_sale_details(request, sale_id):
             items_data.append({
                 'product_id': row.product.product_id if row.product else None,
                 'product__name': row.product.name if row.product else 'Unknown',
-                'product__size': row.product.size if row.product else '',
+                'product__quantity_unit': row.product.quantity_unit if row.product else '',
                 'quantity': int(row.quantity or 0),
                 'price': float(row.price or 0),
                 'batch_ids': batch_ids
@@ -4914,7 +5028,7 @@ def add_product(request):
             name = request.POST.get('name', '').strip() or request.POST.get('productName', '').strip()
             name = name.title() if name else ''
             variant = request.POST.get('variant', '').strip().title()
-            size = request.POST.get('size', '').strip()
+            size = request.POST.get('quantity_unit', '').strip()
             quantity_unit = (request.POST.get('quantity_unit') or 'box').strip().lower()
             cost = Decimal(request.POST.get('cost', 0))
             price = Decimal(request.POST.get('price', 0))
@@ -4925,9 +5039,9 @@ def add_product(request):
             if stock_input:
                 stock = int(stock_input)
             else:
-                boxes = int(request.POST.get('boxes', 0))
-                units_per_box = int(request.POST.get('units_per_box', 1))
-                stock = boxes * units_per_box
+            boxes = int(request.POST.get('boxes', 0))
+            units_per_box = int(request.POST.get('units_per_box', 1))
+            stock = boxes * units_per_box
             # Force today's date for new products (ignore client-provided value)
             date_added = timezone.now().date()
             supplier = request.POST.get('supplier', '').strip()
@@ -5044,8 +5158,8 @@ def edit_product(request):
             variant_input = request.POST.get('variant', '').strip()
             variant = variant_input.title() if variant_input else (product.variant or '')
             
-            size_input = request.POST.get('size', '').strip()
-            size = size_input if size_input else product.size
+            size_input = request.POST.get('quantity_unit', '').strip()
+            size = size_input if size_input else product.quantity_unit
             
             cost_input = request.POST.get('cost', '')
             cost = Decimal(cost_input) if cost_input else product.cost
@@ -5061,8 +5175,8 @@ def edit_product(request):
             if initial_stock:
                 stock = int(initial_stock)
             else:
-                boxes = int(request.POST.get('boxes', 0))
-                units_per_box = int(request.POST.get('units_per_box', 1))
+            boxes = int(request.POST.get('boxes', 0))
+            units_per_box = int(request.POST.get('units_per_box', 1))
                 stock = boxes * units_per_box if boxes > 0 else product.stock
             
             # Get date_added - use existing if not provided
@@ -5096,7 +5210,7 @@ def edit_product(request):
                 size = size_norm
                 # Only validate against STANDARD_SIZE_OPTIONS if size changed (for new products)
                 # For editing, allow existing size values even if not in standard options
-                if size != product.size and size not in STANDARD_SIZE_OPTIONS:
+                if size != product.quantity_unit and size not in STANDARD_SIZE_OPTIONS:
                     raise ValueError(f"Quantity must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
             except ValueError as ve:
                 # Re-raise validation errors
@@ -5144,7 +5258,7 @@ def edit_product(request):
             # Update product
             product.name = full_name
             product.variant = variant
-            product.size = size
+            product.quantity_unit = size
             product.cost = cost
             product.price = price
             product.status = status
@@ -5243,7 +5357,7 @@ def generate_batch_id(product, name, variant):
     
     fruit_acr = get_acronym(base_name)
     variant_acr = get_acronym(variant) if variant else ''
-    size_full = str(product.size) if product.size else ''
+    size_full = str(product.quantity_unit) if product.quantity_unit else ''
     
     today = date.today()
     date_part = f"{today.month:02d}{today.day:02d}{today.year}"
@@ -5559,7 +5673,7 @@ def test_notification_type(request):
             # Get product breakdown with remaining stock and revenue
             product_sales = today_sales.values(
                 'product__name', 
-                'product__size',
+                'product__quantity_unit',
                 'product__stock'
             ).annotate(
                 boxes_sold=Sum('quantity'),
@@ -5576,7 +5690,7 @@ def test_notification_type(request):
             if product_sales:
                 message += f"==== TOP PRODUCTS TODAY ====\n"
                 for i, prod in enumerate(product_sales, 1):
-                    product_name = f"{prod['product__name']} ({prod['product__size']})"
+                    product_name = f"{prod['product__name']} ({prod['product__quantity_unit']})"
                     boxes_sold = prod['boxes_sold']
                     revenue = prod['revenue'] or 0
                     remaining = prod['product__stock']
@@ -5607,14 +5721,14 @@ def test_notification_type(request):
             if out_of_stock_products.exists():
                 message += "CRITICAL - OUT OF STOCK:\n"
                 for product in out_of_stock_products:
-                    message += f"- {product.name} ({product.size})\n"
+                    message += f"- {product.name} ({product.quantity_unit})\n"
                 message += "\n"
             
             if low_stock_products.exists():
                 message += "WARNING - LOW STOCK:\n"
                 for product in low_stock_products:
                     box_text = "box" if product.stock == 1 else "boxes"
-                    message += f"- {product.name} ({product.size}): {product.stock} {box_text} left\n"
+                    message += f"- {product.name} ({product.quantity_unit}): {product.stock} {box_text} left\n"
                 message += "\n"
             
             if not low_stock_products.exists() and not out_of_stock_products.exists():
@@ -5978,27 +6092,27 @@ def generate_and_store_pricing_recommendations():
     However, products that have been accepted/rejected in the last 3 days are excluded from
     new recommendations to respect the cooldown period.
     """
-    from core.pricing_ai import DemandPricingAI, PolicyConfig
+        from core.pricing_ai import DemandPricingAI, PolicyConfig
     from core.models import Sale, Product, PricingRecommendation
-    from datetime import datetime, timedelta
-    import pandas as pd
-    
+        from datetime import datetime, timedelta
+        import pandas as pd
+        
     # Get sales data from last 120 days (for better statistical analysis)
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=120)
-    
-    sales_data = Sale.objects.filter(
-        recorded_at__date__gte=start_date,
-        recorded_at__date__lte=end_date
-    ).values('recorded_at', 'product__product_id', 'quantity', 'price')
-    
-    if not sales_data.exists():
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=120)
+        
+        sales_data = Sale.objects.filter(
+            recorded_at__date__gte=start_date,
+            recorded_at__date__lte=end_date
+        ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+        
+        if not sales_data.exists():
         return []
-    
-    # Convert to DataFrame
-    sales_df = pd.DataFrame(list(sales_data))
-    sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
-    
+        
+        # Convert to DataFrame
+        sales_df = pd.DataFrame(list(sales_data))
+        sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+        
     # Get product catalog - exclude products that were acted upon in the last 3 days
     from django.db import models as db_models
     cooldown_threshold = timezone.now() - timedelta(days=3)
@@ -6006,36 +6120,36 @@ def generate_and_store_pricing_recommendations():
         db_models.Q(last_pricing_action_at__isnull=True) | 
         db_models.Q(last_pricing_action_at__lt=cooldown_threshold)
     ).values('product_id', 'name', 'price', 'cost', 'last_pricing_action_at')
-    catalog_df = pd.DataFrame(list(products))
+        catalog_df = pd.DataFrame(list(products))
     catalog_df.columns = ['product_id', 'name', 'price', 'cost', 'last_change_date']
     # Convert last_pricing_action_at to last_change_date format for pricing AI
     catalog_df['last_change_date'] = catalog_df['last_change_date'].apply(
         lambda x: pd.to_datetime(x).date() if pd.notna(x) else None
     )
-    
-    # Configure pricing AI
-    cfg = PolicyConfig(
+        
+        # Configure pricing AI
+        cfg = PolicyConfig(
         min_margin_pct=0.10,
         max_move_pct=0.20,
         cooldown_days=3,
         planning_horizon_days=7,
-        min_obs_per_product=15,
-        default_elasticity=-1.0,
+            min_obs_per_product=15,
+            default_elasticity=-1.0,
         hold_band_pct=0.02,
-    )
-    
-    # Generate recommendations
-    engine = DemandPricingAI(cfg)
-    proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
-    
+        )
+        
+        # Generate recommendations
+        engine = DemandPricingAI(cfg)
+        proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+        
     # Delete expired recommendations for products that will get new recommendations
     product_ids_to_update = proposals['product_id'].tolist()
     PricingRecommendation.objects.filter(product_id__in=product_ids_to_update).delete()
     
     # Store new recommendations with 3-day expiration
     expires_at = timezone.now() + timedelta(days=3)
-    recommendations = []
-    for _, row in proposals.iterrows():
+        recommendations = []
+        for _, row in proposals.iterrows():
         try:
             product = Product.objects.get(product_id=row['product_id'])
             PricingRecommendation.objects.create(
@@ -6100,11 +6214,11 @@ def get_pricing_recommendations(request):
                 })
             
             actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
-            
-            return JsonResponse({
-                'success': True,
-                'recommendations': recommendations,
-                'total_products': len(recommendations),
+        
+        return JsonResponse({
+            'success': True, 
+            'recommendations': recommendations,
+            'total_products': len(recommendations),
                 'actionable_count': actionable_count
             })
         
@@ -6169,7 +6283,7 @@ def inventory_stock_report(request):
             report_data.append({
                 'product_id': product.product_id,
                 'name': product.name,
-                'size': product.size,
+                'quantity_unit': product.quantity_unit,
                 'current_stock': int(product.stock),
                 'unit_cost': float(product.cost or 0),
                 'unit_price': float(product.price),
@@ -6234,7 +6348,7 @@ def inventory_movement_report(request):
                 'date': addition.date_added.strftime('%Y-%m-%d'),
                 'time': addition.created_at.strftime('%H:%M') if addition.created_at else '',
                 'product_name': addition.product.name,
-                'product_size': addition.product.size,
+                'product_size': addition.product.quantity_unit,
                 'type': 'Addition',
                 'quantity': int(addition.quantity),
                 'batch_id': addition.batch_id,
@@ -6250,7 +6364,7 @@ def inventory_movement_report(request):
                 'date': sale.recorded_at.strftime('%Y-%m-%d'),
                 'time': sale.recorded_at.strftime('%H:%M'),
                 'product_name': sale.product.name,
-                'product_size': sale.product.size,
+                'product_size': sale.product.quantity_unit,
                 'type': 'Sale',
                 'quantity': -int(sale.quantity),  # Negative for sales
                 'batch_id': sale.batch_id or 'N/A',
@@ -6337,7 +6451,7 @@ def inventory_batch_report(request):
                     'batch_id': batch.batch_id,
                     'individual_batches': individual_batches,
                     'product_name': batch.product.name,
-                    'product_size': batch.product.size,
+                    'product_size': batch.product.quantity_unit,
                     'date_added': batch.date_added.strftime('%Y-%m-%d'),
                     'supplier': batch.supplier or 'N/A',
                     'original_quantity': total_boxes,
@@ -6425,7 +6539,7 @@ def inventory_turnover_report(request):
             turnover_data.append({
                 'product_id': product.product_id,
                 'product_name': product.name,
-                'product_size': product.size,
+                'product_size': product.quantity_unit,
                 'current_stock': int(product.stock),
                 'sales_qty_30d': int(sales_qty),
                 'additions_qty_30d': int(additions_qty),
@@ -6642,7 +6756,7 @@ def generate_inventory_pdf_report(request):
                 
                 stock_data.append([
                     product.name,
-                    product.size or 'N/A',
+                    product.quantity_unit or 'N/A',
                     str(int(product.stock)),
                     f"₱{product.price:.2f}",
                     f"₱{stock_value_price:.2f}",
@@ -7072,7 +7186,7 @@ def test_pricing_notification(request):
 def get_product_id(request):
     name = request.GET.get('name')
     variant = request.GET.get('variant')
-    size = request.GET.get('size')
+    size = request.GET.get('quantity_unit')
     full_name = f"{name} ({variant})" if variant else name
     product = Product.objects.filter(name=full_name, size=size, is_built_in=False).first()
     if product:
@@ -7131,7 +7245,7 @@ def send_all_notifications_now(request):
         # Get product breakdown with remaining stock
         product_sales = today_sales.values(
             'product__name', 
-            'product__size',
+            'product__quantity_unit',
             'product__stock'
         ).annotate(
             boxes_sold=Sum('quantity')
@@ -7147,7 +7261,7 @@ def send_all_notifications_now(request):
         if product_sales:
             sales_msg += f"==== TOP PRODUCTS TODAY ====\n"
             for i, prod in enumerate(product_sales, 1):
-                product_name = f"{prod['product__name']} ({prod['product__size']})"
+                product_name = f"{prod['product__name']} ({prod['product__quantity_unit']})"
                 boxes_sold = prod['boxes_sold']
                 remaining = prod['product__stock']
                 sales_msg += f"{i}. {product_name}\n"
@@ -7199,14 +7313,14 @@ def send_all_notifications_now(request):
         if oos.exists():
             stock_msg += "CRITICAL - OUT OF STOCK:\n"
             for p in oos:
-                stock_msg += f"- {p.name} ({p.size})\n"
+                stock_msg += f"- {p.name} ({p.quantity_unit})\n"
             stock_msg += "\n"
         
         if low_stock.exists():
             stock_msg += "WARNING - LOW STOCK:\n"
             for p in low_stock:
                 box_text = "box" if p.stock == 1 else "boxes"
-                stock_msg += f"- {p.name} ({p.size}): {p.stock} {box_text} left\n"
+                stock_msg += f"- {p.name} ({p.quantity_unit}): {p.stock} {box_text} left\n"
             stock_msg += "\n"
         
         if not low_stock.exists() and not oos.exists():
@@ -7374,14 +7488,13 @@ def transaction_details(request, sale_id):
         main_sale = (
             Sale.objects
             .select_related('product', 'user')
-            .get(sale_id=sale_id, status__iexact='completed')
+            .get(sale_id=sale_id)
         )
 
         txn_number = main_sale.transaction_number
         related_sales = (
             Sale.objects
             .select_related('product', 'user')
-            .filter(status__iexact='completed')
         )
         if txn_number:
             related_sales = related_sales.filter(transaction_number=txn_number)
@@ -7411,9 +7524,14 @@ def transaction_details(request, sale_id):
             amount_paid_total += line_amount_paid
             change_total += line_change
 
+            # Format product display as "Name (Variant) (Quantity/Unit)"
+            product_display = sale.product.name if sale.product else 'Unknown'
+            if sale.product and sale.product.quantity_unit:
+                product_display = f"{product_display} ({sale.product.quantity_unit})"
+
             items.append({
-                'product_name': sale.product.name if sale.product else 'Unknown',
-                'size': sale.product.size if sale.product else 'N/A',
+                'product_name': product_display,
+                'quantity_unit': sale.product.quantity_unit if sale.product else 'N/A',
                 'quantity': sale.quantity,
                 'price': float(sale.product.price) if sale.product else 0.0,
                 'total_price': float(line_total),
@@ -7507,7 +7625,7 @@ def print_thermal_receipt(request, sale_id):
             amount = float(row.total or Decimal('0'))
             
             product_name = row.product.name if row.product else 'Unknown'
-            product_size = row.product.size if row.product else ''
+            product_size = row.product.quantity_unit if row.product else ''
             
             # Format product name with quantity if available
             display_name = product_name

@@ -430,12 +430,14 @@
         /* Content Area */
         .content-area {
             padding: var(--space-md);
-            max-width: var(--layout-max-width);
             margin: 0 auto;
             width: 100%;
+            max-width: 100%;
             display: flex;
+            overflow-x: hidden;
             flex-direction: column;
             gap: 0.75rem;
+            box-sizing: border-box;
         }
 
         /* Modern Cards - Matching other pages */
@@ -510,8 +512,8 @@
         }
 
         .cashbook-table {
-            min-width: 100%;
-            width: max-content;
+            width: 100%;
+            min-width: max-content;
         }
 
         .cashbook-table thead th,
@@ -758,9 +760,12 @@
         /* Compact Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.75rem;
             margin-bottom: 1rem;
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
         }
 
         .stat-card {
@@ -778,6 +783,21 @@
         .stat-card:hover {
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
+        }
+
+        .stat-card.clickable {
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card.clickable:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .stat-card.clickable:active {
+            transform: translateY(-1px);
         }
 
         .stat-icon {
@@ -1226,6 +1246,31 @@
             color: var(--gray-800);
         }
 
+        .report-description {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            padding: var(--space-sm) var(--space-md);
+            margin-bottom: var(--space-sm);
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .report-description h6 {
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.35rem;
+        }
+
+        .report-description ul {
+            margin-bottom: 0;
+            padding-left: 1.25rem;
+        }
+
+        .report-description li {
+            margin-bottom: 0.1rem;
+        }
+
         /* Professional Table Styles */
         .cashbook-table-container {
             background: white;
@@ -1235,12 +1280,33 @@
             padding: var(--space-sm);
             width: 100%;
             max-width: 100%;
+            overflow: visible !important;
+        }
+
+        .table-responsive-wrapper {
+            overflow-x: auto !important;
+            max-width: 100%;
         }
 
         .cashbook-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.9rem;
+            table-layout: auto;
+            min-width: max-content;
+        }
+
+        .cashbook-table th,
+        .cashbook-table td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        .cashbook-table th:first-child,
+        .cashbook-table td:first-child {
+            max-width: 200px;
         }
 
         .cashbook-table thead th {
@@ -1500,6 +1566,8 @@
             border-radius: 12px;
             padding: 2rem;
             box-shadow: var(--shadow-md);
+            overflow-x: hidden;
+            max-width: 100%;
         }
 
         .transaction-summary-card {
@@ -1987,6 +2055,7 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
             width: 100%;
+            align-items: start;
         }
 
         @media (max-width: 1200px) {
@@ -2010,7 +2079,9 @@
             display: flex;
             flex-direction: column;
             min-height: 200px;
+            max-height: 400px;
             overflow: hidden;
+            width: 100%;
         }
 
         .analytics-card h5 {
@@ -2019,21 +2090,28 @@
             margin-bottom: 0.625rem;
             color: var(--gray-700);
             line-height: 1.2;
+            flex-shrink: 0;
+        }
+        
+        .analytics-card * {
+            box-sizing: border-box;
         }
 
         .mini-table {
             width: 100%;
-            overflow-x: auto;
+            overflow-x: hidden;
+            overflow-y: auto;
             flex: 1;
             display: flex;
             flex-direction: column;
+            max-height: 100%;
         }
 
         .mini-table table {
             width: 100%;
             font-size: 0.75rem;
             margin: 0;
-            table-layout: auto;
+            table-layout: fixed;
         }
 
         .mini-table thead th {
@@ -2050,6 +2128,24 @@
             border-bottom: 1px solid var(--gray-100);
             padding: 0.35rem 0.25rem;
             font-size: 0.7rem;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 0;
+        }
+        
+        .mini-table tbody td:first-child,
+        .mini-table thead th:first-child {
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        
+        .mini-table thead th {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
         }
 
         /* Charts Section */
@@ -2685,46 +2781,46 @@
 
                 <!-- Summary Cards Section - Only Essential Metrics -->
                     <div class="stats-grid">
-                        <div class="stat-card">
+                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('sales-summary-tab').click();">
                             <div class="stat-icon primary">
                                 <i class="bi bi-currency-dollar"></i>
                             </div>
                             <div class="stat-content">
                                 <div class="stat-value" id="statTotalRevenue">₱0.00</div>
                                 <div class="stat-label">Total Revenue</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total revenue amount</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned from sales</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
+                        </a>
+                        <a href="#transactions" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('transactions-tab').click();">
                             <div class="stat-icon success">
                                 <i class="bi bi-cart-check"></i>
                             </div>
                             <div class="stat-content">
                                 <div class="stat-value" id="statTransactions">0</div>
                                 <div class="stat-label">Total Transactions</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of sales transactions</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of completed sales</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
+                        </a>
+                        <a href="#transactions" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('transactions-tab').click();">
                             <div class="stat-icon warning">
                                 <i class="bi bi-boxes"></i>
                             </div>
                             <div class="stat-content">
                                 <div class="stat-value" id="statItemsSold">0</div>
-                                <div class="stat-label">Items Sold</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity of items sold</div>
+                                <div class="stat-label">Total Boxes Sold</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes sold in selected period</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
+                        </a>
+                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('sales-summary-tab').click();">
                             <div class="stat-icon info">
                                 <i class="bi bi-graph-up"></i>
                             </div>
                             <div class="stat-content">
                                 <div class="stat-value" id="statAvgOrder">₱0.00</div>
                                 <div class="stat-label">Average Sale</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Average transaction amount</div>
+                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Average money per transaction</div>
                             </div>
-                        </div>
+                        </a>
                     </div>
 
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
@@ -2800,13 +2896,13 @@
                                 {% if app_role == 'admin' %}
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="voided-reports-tab" data-bs-toggle="tab" data-bs-target="#voided-reports" type="button" role="tab" aria-controls="voided-reports" aria-selected="false">
-                                        <i class="bi bi-x-octagon me-2"></i>Voided Sales
+                                        <i class="bi bi-x-octagon me-2"></i>Voided Transactions
                                     </button>
                                 </li>
                                 {% endif %}
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab" aria-controls="analytics" aria-selected="false">
-                                        <i class="bi bi-graph-up-arrow me-2"></i>Analytics & Insights
+                                        <i class="bi bi-graph-up-arrow me-2"></i>Product Insights
                                     </button>
                                 </li>
                             </ul>
@@ -2821,7 +2917,6 @@
                                                 <tr>
                                                     <th>Date</th>
                                                     <th>Product</th>
-                                                    <th>Variant</th>
                                                     <th>Boxes Sold</th>
                                                     <th>Revenue</th>
                                                     <th>Profit</th>
@@ -2831,6 +2926,16 @@
                                             <tbody id="summaryBody"></tbody>
                                         </table>
                                         <div id="pagination-summary" class="mt-2"></div>
+                                    </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>See how much you sold for each product every day. Check which items made the most money and which ones brought in the most profit.</p>
+                                        <ul>
+                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold for this product on this date.</li>
+                                            <li><strong>Revenue:</strong> Total money earned from selling this product (before subtracting costs).</li>
+                                            <li><strong>Profit:</strong> Actual money you keep after subtracting the cost of the product.</li>
+                                            <li>Click "Details" to see more information about any item.</li>
+                                        </ul>
                                     </div>
                                 </div>
 
@@ -2842,7 +2947,6 @@
                                                 <tr>
                                                     <th>Rank</th>
                                                     <th>Product</th>
-                                                    <th>Variant</th>
                                                     <th>Boxes Sold</th>
                                                     <th>Avg Price</th>
                                                     <th>Revenue</th>
@@ -2858,32 +2962,57 @@
                                         </table>
                                         <div id="pagination-top" class="mt-2"></div>
                                     </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>See your best-selling products ranked from top to bottom. Find out which items are selling faster or slower than before.</p>
+                                        <ul>
+                                            <li><strong>Rank:</strong> Position from best-seller (#1) to lowest seller.</li>
+                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold for this period.</li>
+                                            <li><strong>Avg Price:</strong> Average selling price per box.</li>
+                                            <li><strong>Revenue:</strong> Total money earned from this product.</li>
+                                            <li><strong>Profit Margin %:</strong> How much profit you make per sale (higher is better—means more money stays with you).</li>
+                                            <li><strong>Growth %:</strong> Whether sales are going up (positive number) or down (negative number) compared to before.</li>
+                                            <li><strong>Market Share %:</strong> What portion of your total sales this product represents—for example, 25% means 1 out of every 4 sales is this product.</li>
+                                            <li><strong>Trend:</strong> Shows arrows (▲ up, ▼ down) to indicate if demand is increasing or decreasing.</li>
+                                            <li><strong>Inventory Turnover:</strong> How many times you sold and restocked this product—higher numbers mean faster movement.</li>
+                                            <li>Click "Details" for more history about each product.</li>
+                                        </ul>
+                                    </div>
                                 </div>
 
                                 <!-- Low Stock Tab -->
                                 <div class="tab-pane fade" id="inventory" role="tabpanel" aria-labelledby="inventory-tab">
                                     <div class="cashbook-table-container table-responsive-wrapper mt-2">
-                                        <table class="cashbook-table table-mobile-card">
+                                        <table class="cashbook-table table-mobile-card" style="table-layout: fixed;">
                                             <thead>
                                                 <tr>
-                                                    <th>Product</th>
-                                                    <th>Variant</th>
-                                                    <th>Current Stock</th>
-                                                    <th>Stock Value</th>
-                                                    <th>Avg Daily Sales</th>
-                                                    <th>Days of Supply</th>
-                                                    <th>Reorder Point</th>
-                                                    <th>Reorder Qty</th>
-                                                    <th>Lead Time (Days)</th>
-                                                    <th>Last Sale</th>
-                                                    <th>Status</th>
-                                                    <th>Action</th>
-                                                    <th></th>
+                                                    <th style="width: 25%;">Product</th>
+                                                    <th style="width: 10%;">Stock</th>
+                                                    <th style="width: 10%;">Days Left</th>
+                                                    <th style="width: 10%;">Reorder</th>
+                                                    <th style="width: 10%;">Order Qty</th>
+                                                    <th style="width: 15%;">Last Sale</th>
+                                                    <th style="width: 12%;">Status</th>
+                                                    <th style="width: 8%;"></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="lowBody"></tbody>
                                         </table>
                                         <div id="pagination-low" class="mt-2"></div>
+                                    </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>See which products are running low so you can order more before you run out.</p>
+                                        <ul>
+                                            <li><strong>Current Stock:</strong> How many boxes you have right now.</li>
+                                            <li><strong>Stock Value:</strong> How much money your current stock is worth.</li>
+                                            <li><strong>Avg Daily Sales:</strong> Average number of boxes sold per day.</li>
+                                            <li><strong>Days of Supply:</strong> How many days until you run out (based on current sales speed).</li>
+                                            <li><strong>Reorder Point:</strong> When stock reaches this number, it's time to order more.</li>
+                                            <li><strong>Reorder Qty:</strong> How many boxes you should order to restock.</li>
+                                            <li><strong>Lead Time:</strong> How many days it takes for your order to arrive after you place it.</li>
+                                            <li>Click "Details" to review sales history and decide if you need to rush the order.</li>
+                                        </ul>
                                     </div>
                                 </div>
 
@@ -2895,11 +3024,11 @@
                                             <thead>
                                                 <tr>
                                                     <th>Sale No.</th>
-                                                    <th>Receipt #</th>
+                                                    <th>OR No.</th>
                                                     <th>Date & Time</th>
                                                     <th>Customer</th>
                                                     <th>Products</th>
-                                                    <th>Boxes</th>
+                                                    <th>Boxes Sold</th>
                                                     <th>Subtotal</th>
                                                     <th>VAT</th>
                                                     <th>Total</th>
@@ -2912,6 +3041,21 @@
                                         <div id="pagination-transactions" class="mt-2"></div>
                                         </div>
                                     </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>View a complete list of all sales made during the selected dates—just like the receipts your customers received.</p>
+                                        <ul>
+                                            <li><strong>Sale No.:</strong> Unique number for this sale in your system.</li>
+                                            <li><strong>OR No.:</strong> Official receipt number given to the customer.</li>
+                                            <li><strong>Products:</strong> List of all items included in this sale, shown as "Product Name (Variant) (Size)" (e.g., "Apple (Fuji) (125-138)").</li>
+                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold in this transaction.</li>
+                                            <li><strong>Subtotal:</strong> Total before adding tax.</li>
+                                            <li><strong>VAT:</strong> 12% tax added to the sale.</li>
+                                            <li><strong>Total:</strong> Final amount the customer paid (Subtotal + VAT).</li>
+                                            <li><strong>Status:</strong> Completed (finished sale), or Voided (cancelled).</li>
+                                            <li>Click "Details" to see full payment information and notes.</li>
+                                        </ul>
+                                    </div>
                                 </div>
 
                                 {% if app_role == 'admin' %}
@@ -2923,12 +3067,13 @@
                                                 <thead>
                                                     <tr>
                                                         <th>Sale No.</th>
-                                                        <th>Receipt #</th>
+                                                        <th>OR No.</th>
                                                         <th>Date & Time</th>
                                                         <th>Customer</th>
                                                         <th>Products</th>
-                                                        <th>Quantity</th>
-                                                        <th>Boxes</th>
+                                                        <th>Boxes Sold</th>
+                                                        <th>Subtotal</th>
+                                                        <th>VAT</th>
                                                         <th>Total</th>
                                                         <th>Status</th>
                                                         <th></th>
@@ -2938,6 +3083,21 @@
                                             </table>
                                             <div id="pagination-voidedReports" class="mt-2"></div>
                                         </div>
+                                    </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>List of all transactions that were cancelled so you can track every change made.</p>
+                                        <ul>
+                                            <li><strong>Sale No.:</strong> Unique number for this sale in your system.</li>
+                                            <li><strong>OR No.:</strong> Official receipt number given to the customer.</li>
+                                            <li><strong>Products:</strong> List of all items included in this sale, shown as "Product Name (Variant) (Size)" (e.g., "Apple (Fuji) (125-138)").</li>
+                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold in this transaction.</li>
+                                            <li><strong>Subtotal:</strong> Total before adding tax.</li>
+                                            <li><strong>VAT:</strong> 12% tax added to the sale.</li>
+                                            <li><strong>Total:</strong> Final amount the customer paid (Subtotal + VAT).</li>
+                                            <li><strong>Status:</strong> Shows "Voided" for cancelled transactions.</li>
+                                            <li>Click "Details" to see void reason, who cancelled it, and timestamps.</li>
+                                        </ul>
                                     </div>
                                 </div>
                                 {% endif %}
@@ -2951,10 +3111,10 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th>Class</th>
-                                                            <th>Product</th>
-                                                            <th>Share %</th>
-                                                            <th>Cumulative</th>
+                                                            <th style="width: 10%;">Class</th>
+                                                            <th style="width: 50%;">Product</th>
+                                                            <th style="width: 20%;">Share %</th>
+                                                            <th style="width: 20%;">Cumulative</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody id="abcAnalysisBody">
@@ -2969,10 +3129,10 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th>Product</th>
-                                                            <th>Boxes</th>
-                                                            <th>Revenue</th>
-                                                            <th>Avg / Day</th>
+                                                            <th style="width: 40%;">Product</th>
+                                                            <th style="width: 20%;">Boxes Sold</th>
+                                                            <th style="width: 25%;">Revenue</th>
+                                                            <th style="width: 15%;">Avg / Day</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody id="slowMoversBody">
@@ -2987,10 +3147,10 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th>Product</th>
-                                                            <th>Stock</th>
-                                                            <th>Last Sale</th>
-                                                            <th>Days Idle</th>
+                                                            <th style="width: 40%;">Product</th>
+                                                            <th style="width: 15%;">Stock</th>
+                                                            <th style="width: 25%;">Last Sale</th>
+                                                            <th style="width: 20%;">Days Idle</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody id="deadStockBody">
@@ -2999,6 +3159,34 @@
                                                 </table>
                                             </div>
                                         </div>
+                                    </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>Get smart insights about your products without needing complicated calculations or extra software.</p>
+                                        
+                                        <h6 style="margin-top: 1rem;">ABC Analysis - Understanding Your Top Revenue Drivers</h6>
+                                        <ul>
+                                            <li><strong>Class:</strong> Category A = highest revenue contributors (usually top 70% of revenue), B = medium contributors (next 20%), C = lowest contributors (remaining 10%).</li>
+                                            <li><strong>Product:</strong> Product name with variant and quantity/unit in parentheses.</li>
+                                            <li><strong>Share %:</strong> Percentage of total revenue this product generates. Shows what portion of your money comes from this item.</li>
+                                            <li><strong>Cumulative:</strong> Running total percentage when you add up all products from top to this one. Example: 94.9% means this product plus all above it make up 94.9% of your total revenue.</li>
+                                        </ul>
+                                        
+                                        <h6 style="margin-top: 1rem;">Slow Movers - Products Selling Very Slowly</h6>
+                                        <ul>
+                                            <li><strong>Product:</strong> Items that are still selling but at a very slow pace—good candidates for discounts or promotions.</li>
+                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold during the selected period.</li>
+                                            <li><strong>Revenue:</strong> Total money earned from this product during the period.</li>
+                                            <li><strong>Avg / Day:</strong> Average number of boxes sold per day. Low numbers mean it's moving very slowly.</li>
+                                        </ul>
+                                        
+                                        <h6 style="margin-top: 1rem;">Dead Stock / Aging - Items Not Selling</h6>
+                                        <ul>
+                                            <li><strong>Product:</strong> Items that haven't sold in a long time—consider returning them, marking them down, or using them for promotions.</li>
+                                            <li><strong>Stock:</strong> Number of boxes currently sitting in your inventory unsold.</li>
+                                            <li><strong>Last Sale:</strong> The date when this product was last sold. "No recorded sale" means it has never sold.</li>
+                                            <li><strong>Days Idle:</strong> Number of days since the last sale. ∞ (infinity) means it has never sold. Higher numbers mean the product is collecting dust.</li>
+                                        </ul>
                                     </div>
                                 </div>
                             </div>
@@ -3334,14 +3522,13 @@
             const tbody = $('#summaryBody');
             tbody.empty();
             const rows = repSlice(repData.summary, reportsPagination.currentPage.summary||1);
-            if(!rows.length){ tbody.append('<tr><td colspan="7" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            if(!rows.length){ tbody.append('<tr><td colspan="6" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx) => {
                 const boxesSold = Number(item.boxes_sold ?? 0);
                 const row = `
                     <tr>
                         <td class="date-col">${item.date || 'N/A'}</td>
                         <td>${item.product_name}</td>
-                        <td>${item.size || 'N/A'}</td>
                         <td>${boxesSold.toLocaleString()}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
                         <td class="amount-col currency">${formatCurrency(item.profit || 0)}</td>
@@ -3366,7 +3553,7 @@
         function renderTopProductsPage(){
             const tbody = $('#topBody'); tbody.empty();
             const all = repData.top; const page = reportsPagination.currentPage.top||1; const rows = repSlice(all, page);
-            if(!rows.length){ tbody.append('<tr><td colspan="12" class="text-center">No top products data available for this period.</td></tr>'); updateRepControls('top',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            if(!rows.length){ tbody.append('<tr><td colspan="11" class="text-center">No top products data available for this period.</td></tr>'); updateRepControls('top',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx)=>{
                 const trend = Number(item.units_change || 0);
                 const trendLabel = trend > 0 ? `▲ ${trend}` : trend < 0 ? `▼ ${Math.abs(trend)}` : '—';
@@ -3374,7 +3561,6 @@
                     <tr>
                         <td>${item.rank || '-'}</td>
                         <td>${item.product_name}</td>
-                        <td>${item.size || 'N/A'}</td>
                         <td>${Number(item.boxes_sold ?? 0).toLocaleString()}</td>
                         <td class="amount-col currency">${formatCurrency(item.avg_price || 0)}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
@@ -3404,25 +3590,23 @@
         function renderLowStockPage(){
             const tbody = $('#lowBody'); tbody.empty();
             const rows = repSlice(repData.low, reportsPagination.currentPage.low||1);
-            if(!rows.length){ tbody.append('<tr><td colspan="13" class="text-center">No low stock data available.</td></tr>'); updateRepControls('low',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            if(!rows.length){ tbody.append('<tr><td colspan="8" class="text-center">No low stock data available.</td></tr>'); updateRepControls('low',0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx)=>{
                 const daysSupply = item.days_of_supply !== null && item.days_of_supply !== undefined
                     ? Number(item.days_of_supply).toFixed(1)
                     : '∞';
+                const statusClass = item.status === 'Critical' ? 'badge bg-danger' : 
+                                   item.status === 'Low' ? 'badge bg-warning text-dark' : 
+                                   'badge bg-success';
                 const row = `
                     <tr>
-                        <td>${item.product_name}</td>
-                        <td>${item.size || 'N/A'}</td>
+                        <td style="white-space: normal;">${item.product_name}</td>
                         <td>${(item.current_stock ?? 0).toLocaleString()}</td>
-                        <td class="amount-col currency">${formatCurrency(item.stock_value || 0)}</td>
-                        <td>${Number(item.average_daily_sales || 0).toFixed(2)}</td>
                         <td>${daysSupply}</td>
                         <td>${item.reorder_point ?? 0}</td>
                         <td>${item.reorder_quantity ?? 0}</td>
-                        <td>${item.lead_time_days ?? 'N/A'}</td>
                         <td>${item.last_sale_date || 'N/A'}</td>
-                        <td>${item.status}</td>
-                        <td>${item.action_required || 'Monitor'}</td>
+                        <td><span class="${statusClass}">${item.status}</span></td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary view-low-details" data-index="${idx}" type="button">
                                 Details
@@ -3501,25 +3685,47 @@
             if(!tbody) return;
             const rows = repSlice(repData.voidedReports, reportsPagination.currentPage.voidedReports || 1);
             if(!rows.length){
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No voided sales found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No voided transactions found.</td></tr>`;
                 updateRepControls('voidedReports', 0);
                 return;
             }
-            tbody.innerHTML = rows.map(row => `
+            tbody.innerHTML = rows.map((row, idx) => {
+                const productsText = Array.isArray(row.products) && row.products.length
+                    ? row.products.join(', ')
+                    : 'N/A';
+                return `
                 <tr>
                     <td>#${row.sale_id !== undefined ? row.sale_id : ''}</td>
                     <td>${row.receipt_number || 'N/A'}</td>
                     <td>${row.voided_at || row.date_time || ''}</td>
                     <td>${row.customer_name || 'N/A'}</td>
-                    <td>${(row.products || []).join(', ') || 'N/A'}</td>
-                    <td>${row.quantity !== undefined ? row.quantity : 0}</td>
-                    <td>${row.boxes !== undefined ? row.boxes : 0}</td>
-                    <td>₱${formatCurrency(row.total || 0)}</td>
+                    <td>${productsText}</td>
+                    <td>${row.boxes_count ?? 'N/A'}</td>
+                    <td class="amount-col currency">${formatCurrency(row.subtotal || 0)}</td>
+                    <td class="amount-col currency">${formatCurrency(row.vat_amount || 0)}</td>
+                    <td class="amount-col currency">${formatCurrency(row.total_amount || 0)}</td>
                     <td><span class="badge bg-danger">Voided</span></td>
-                    <td></td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary view-voided-details" data-sale-id="${row.sale_id ?? ''}" type="button">
+                            Details
+                        </button>
+                    </td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
             updateRepControls('voidedReports', repData.voidedReports.length);
+            
+            // Bind click handlers for view details buttons
+            $(tbody).find('.view-voided-details').off('click').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const saleId = $(this).data('sale-id');
+                if (!saleId) {
+                    alert('Transaction details are unavailable for this record.');
+                    return;
+                }
+                showTransactionDetailsModal(saleId);
+            });
         }
         function populateVoidedReportsTable(data){
             if(!document.getElementById('voidedReportsBody')) return;
@@ -3603,7 +3809,7 @@
                         items.forEach(item => {
                         itemsBody.append(`
                                 <tr>
-                                <td>${item.product_name || 'N/A'} ${item.size ? `(${item.size})` : ''}</td>
+                                <td>${item.product_name || 'N/A'}</td>
                                 <td class="text-end">${item.quantity ?? 0}</td>
                                 <td class="text-end amount-col">${formatCurrency(item.price || 0)}</td>
                                 <td class="text-end amount-col">${formatCurrency(item.total_price || 0)}</td>
@@ -3626,14 +3832,13 @@
                     payments.forEach(pay => {
                         paymentsBody.append(`
                             <tr>
-                                <td>${pay.mode || 'N/A'}</td>
-                                <td class="text-end">${pay.reference || 'N/A'}</td>
-                                <td class="text-end amount-col">${formatCurrency(pay.amount || 0)}</td>
+                                <td>${pay.mode || 'Cash'}</td>
+                                <td class="text-end amount-col">₱${formatCurrency(pay.amount || 0)}</td>
                             </tr>
                         `);
                     });
                 } else {
-                    paymentsBody.append('<tr><td colspan="3" class="text-center text-muted">No payment breakdown available.</td></tr>');
+                    paymentsBody.append('<tr><td colspan="2" class="text-center text-muted">No payment breakdown available.</td></tr>');
                 }
 
                 const trailBody = $('#reportDetailTrail');
@@ -3673,7 +3878,7 @@
             // Meta items
             $('#ssDate').text(item.date || 'N/A');
             $('#ssProduct').text(item.product_name || 'N/A');
-            $('#ssQuantity').text(item.size || 'N/A');
+            $('#ssQuantity').text(item.quantity_unit || 'N/A');
             $('#ssBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
             $('#ssTransactions').text(Number(item.transaction_count || 0).toLocaleString());
             $('#ssSalesGrowth').text(formatPercent(item.sales_growth_pct || 0));
@@ -3704,7 +3909,7 @@
             // Meta items
             $('#tpRank').text(item.rank || '-');
             $('#tpProduct').text(item.product_name || 'N/A');
-            $('#tpQuantity').text(item.size || 'N/A');
+            $('#tpQuantity').text(item.quantity_unit || 'N/A');
             $('#tpBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
             $('#tpGrowth').text(formatPercent(item.growth_rate_pct || 0));
             $('#tpMarketShare').text(formatPercent(item.market_share_pct || 0));
@@ -3724,21 +3929,31 @@
         function showLowStockDetails(item) {
             const modal = $('#lowStockDetailsModal');
             modal.find('.modal-title').text(`Low Stock Details - ${item.product_name}`);
-            modal.find('#lsProduct').text(item.product_name || 'N/A');
-            modal.find('#lsQuantity').text(item.size || 'N/A');
-            modal.find('#lsCurrentStock').text((item.current_stock ?? 0).toLocaleString());
-            modal.find('#lsStockValue').text(formatCurrency(item.stock_value || 0));
-            modal.find('#lsAvgDailySales').text(Number(item.average_daily_sales || 0).toFixed(2));
+            
+            // Banner
+            $('#lsBannerTitle').text(`Low Stock Report · ${item.product_name || 'N/A'}`);
+            const now = new Date();
+            $('#lsBannerDate').text(`Generated on ${now.toLocaleString()}`);
+            
+            // Meta items
+            $('#lsProduct').text(item.product_name || 'N/A');
+            $('#lsQuantity').text(item.variant || 'N/A');
+            $('#lsCurrentStock').text((item.current_stock ?? 0).toLocaleString());
             const daysSupply = item.days_of_supply !== null && item.days_of_supply !== undefined
                 ? Number(item.days_of_supply).toFixed(1)
                 : '∞';
-            modal.find('#lsDaysSupply').text(daysSupply);
-            modal.find('#lsReorderPoint').text(item.reorder_point ?? 0);
-            modal.find('#lsReorderQty').text(item.reorder_quantity ?? 0);
-            modal.find('#lsLeadTime').text(item.lead_time_days ?? 'N/A');
-            modal.find('#lsLastSale').text(item.last_sale_date || 'N/A');
-            modal.find('#lsStatus').text(item.status || 'N/A');
-            modal.find('#lsActionRequired').text(item.action_required || 'Monitor');
+            $('#lsDaysSupply').text(daysSupply);
+            $('#lsLastSale').text(item.last_sale_date || 'N/A');
+            $('#lsStatus').text(item.status || 'N/A');
+            
+            // Report cards
+            $('#lsStockValue').text(`₱${formatCurrency(item.stock_value || 0)}`);
+            $('#lsAvgDailySales').text(Number(item.average_daily_sales || 0).toFixed(2));
+            $('#lsReorderPoint').text(item.reorder_point ?? 0);
+            $('#lsReorderQty').text(item.reorder_quantity ?? 0);
+            $('#lsLeadTime').text(item.lead_time_days ?? 'N/A');
+            $('#lsActionRequired').text(item.action_required || 'Monitor');
+            
             new bootstrap.Modal(modal[0]).show();
         }
 
@@ -4075,7 +4290,7 @@
 
     <!-- Report Details Modal -->
     <div class="modal fade" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="reportDetailsModalLabel">Transaction Details</h5>
@@ -4152,63 +4367,75 @@
 
                         <div class="report-table-section">
                             <h6>Itemized Details</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th>Description</th>
-                                            <th class="text-end">Qty</th>
-                                            <th class="text-end">Price</th>
-                                            <th class="text-end">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="reportDetailItems">
-                                        <tr>
-                                            <td colspan="4" class="text-center text-muted">No itemized details available.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="text-end">Qty</th>
+                                        <th class="text-end">Price</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportDetailItems">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted">No itemized details available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
 
                         <div class="report-table-section">
                             <h6>Payment Breakdown</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th>Mode</th>
-                                            <th class="text-end">Reference</th>
-                                            <th class="text-end">Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="reportDetailPayments">
-                                        <tr>
-                                            <td colspan="3" class="text-center text-muted">No payment breakdown available.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mode</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportDetailPayments">
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted">No payment breakdown available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
 
                         <div class="report-table-section">
                             <h6>Audit Trail</h6>
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th>User</th>
-                                            <th>Action</th>
-                                            <th class="text-end">Timestamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="reportDetailTrail">
-                                        <tr>
-                                            <td colspan="3" class="text-center text-muted">No audit trail recorded.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 30%;">User</th>
+                                        <th style="width: 40%;">Action</th>
+                                        <th class="text-end" style="width: 30%;">Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportDetailTrail">
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">No audit trail recorded.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Legend for Transaction Details -->
+                        <div class="report-description mt-3">
+                            <h6>Understanding These Numbers:</h6>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong>Sale ID:</strong> Internal system number for this sale.</li>
+                                <li><strong>Transaction No.:</strong> Transaction reference number.</li>
+                                <li><strong>OR No. (Official Receipt):</strong> Official receipt number given to the customer for tax purposes.</li>
+                                <li><strong>Subtotal:</strong> Total cost of all items before adding tax.</li>
+                                <li><strong>Plus 12% VAT:</strong> The 12% Value Added Tax charged to the customer.</li>
+                                <li><strong>Total Amount:</strong> Final amount the customer needs to pay (Subtotal + VAT).</li>
+                                <li><strong>Amount Paid:</strong> How much money the customer gave.</li>
+                                <li><strong>Change:</strong> Money returned to the customer (Amount Paid - Total Amount).</li>
+                                <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and size/unit (e.g., 125-138 or kilo) in parentheses.</li>
+                                <li><strong>Itemized Details:</strong> List of all products sold with their quantities and prices.</li>
+                                <li><strong>Payment Breakdown:</strong> Shows payment mode (currently Cash) and amount paid.</li>
+                                <li><strong>Audit Trail:</strong> Record of who created, modified, or voided this transaction and when.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -4403,6 +4630,48 @@
                             <div class="metric-subtext">Highest volume date</div>
                         </div>
                     </div>
+                    
+                    <!-- Legend Section -->
+                    <div class="report-description mt-4">
+                        <h6>Understanding These Metrics:</h6>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div>
+                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Financial Metrics</h6>
+                                <ul style="font-size: 0.85rem; margin-bottom: 1rem;">
+                                    <li><strong>Total COGS:</strong> Cost of Goods Sold - how much you paid to buy all the products you sold. Lower is better for profit.</li>
+                                    <li><strong>Gross Profit:</strong> Money earned minus product costs (Revenue - COGS). This is your profit before expenses.</li>
+                                    <li><strong>Net Profit:</strong> Actual money you keep after all costs. Currently same as Gross Profit (expenses tracking coming soon).</li>
+                                    <li><strong>VAT Collected:</strong> The 12% tax you collected from customers that must be remitted to BIR.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Growth Metrics</h6>
+                                <ul style="font-size: 0.85rem; margin-bottom: 1rem;">
+                                    <li><strong>Revenue Growth:</strong> How much your sales increased (or decreased) compared to the previous period. Positive % = growing, negative % = declining.</li>
+                                    <li><strong>Txn Growth:</strong> Transaction Growth - how many more (or fewer) sales you made compared to before. Shows if you're getting more customers.</li>
+                                    <li><strong>Sales Velocity:</strong> Average number of boxes sold per day. Higher numbers = faster inventory movement.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <div>
+                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Operational Metrics</h6>
+                                <ul style="font-size: 0.85rem; margin-bottom: 0;">
+                                    <li><strong>Void Rate:</strong> Percentage of transactions that were cancelled. Lower is better - high void rate may indicate pricing issues or customer dissatisfaction.</li>
+                                    <li><strong>Peak Sales Day:</strong> The date with the highest number of sales. Use this to understand your busiest days and plan inventory accordingly.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Formula Reference</h6>
+                                <ul style="font-size: 0.85rem; margin-bottom: 0;">
+                                    <li><strong>Gross Profit:</strong> Revenue - COGS</li>
+                                    <li><strong>Gross Margin:</strong> (Gross Profit ÷ Revenue) × 100</li>
+                                    <li><strong>Growth %:</strong> ((Current - Previous) ÷ Previous) × 100</li>
+                                    <li><strong>Void Rate:</strong> (Voided ÷ Total Transactions) × 100</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -4413,7 +4682,7 @@
 
     <!-- Sales Summary Details Modal -->
     <div class="modal fade" id="salesSummaryDetailsModal" tabindex="-1" aria-labelledby="salesSummaryDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="salesSummaryDetailsModalLabel">Sales Summary Details</h5>
@@ -4492,6 +4761,22 @@
                                 <strong id="ssAvgTransaction">₱0.00</strong>
                             </div>
                         </div>
+
+                        <!-- Legend for Sales Summary Details -->
+                        <div class="report-description mt-3">
+                            <h6>Understanding These Numbers:</h6>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong>Unit Price:</strong> How much you sell one box for.</li>
+                                <li><strong>Unit Cost:</strong> How much it costs you to buy one box.</li>
+                                <li><strong>Revenue:</strong> Total money earned (Unit Price × Boxes Sold).</li>
+                                <li><strong>COGS (Cost of Goods Sold):</strong> Total cost of all boxes sold (Unit Cost × Boxes Sold).</li>
+                                <li><strong>Profit:</strong> Money you keep after costs (Revenue - COGS).</li>
+                                <li><strong>Gross Margin %:</strong> Profit percentage per sale—higher is better.</li>
+                                <li><strong>VAT:</strong> 12% tax collected from customers.</li>
+                                <li><strong>Avg. Transaction:</strong> Average amount per sale for this product.</li>
+                                <li><strong>Sales Growth %:</strong> If positive, sales increased; if negative, sales decreased.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -4503,7 +4788,7 @@
 
     <!-- Top Products Details Modal -->
     <div class="modal fade" id="topProductsDetailsModal" tabindex="-1" aria-labelledby="topProductsDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="topProductsDetailsModalLabel">Top Product Details</h5>
@@ -4570,6 +4855,22 @@
                                 <strong id="tpProfitMargin">0%</strong>
                             </div>
                         </div>
+
+                        <!-- Legend for Top Products Details -->
+                        <div class="report-description mt-3">
+                            <h6>Understanding These Numbers:</h6>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong>Rank:</strong> Where this product stands—#1 is your best seller.</li>
+                                <li><strong>Boxes Sold:</strong> Total boxes sold during the period.</li>
+                                <li><strong>Growth %:</strong> Sales increase (positive) or decrease (negative) compared to before.</li>
+                                <li><strong>Market Share %:</strong> What portion of all sales comes from this product (e.g., 25% = 1 in 4 sales).</li>
+                                <li><strong>Units Δ (Delta):</strong> The change in boxes sold—▲ means more, ▼ means less.</li>
+                                <li><strong>Inventory Turnover:</strong> How many times you sold and restocked—higher means faster selling.</li>
+                                <li><strong>Avg. Price:</strong> Average price per box.</li>
+                                <li><strong>Revenue:</strong> Total money earned from this product.</li>
+                                <li><strong>Profit Margin %:</strong> How much profit you make per sale—higher is better.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -4581,27 +4882,94 @@
 
     <!-- Low Stock Details Modal -->
     <div class="modal fade" id="lowStockDetailsModal" tabindex="-1" aria-labelledby="lowStockDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="lowStockDetailsModalLabel">Low Stock Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <table class="table table-bordered">
-                        <tr><th style="width: 40%;">Product</th><td id="lsProduct">-</td></tr>
-                        <tr><th>Quantity</th><td id="lsQuantity">-</td></tr>
-                        <tr><th>Current Stock</th><td id="lsCurrentStock">-</td></tr>
-                        <tr><th>Stock Value</th><td class="currency" id="lsStockValue">-</td></tr>
-                        <tr><th>Avg. Daily Sales</th><td id="lsAvgDailySales">-</td></tr>
-                        <tr><th>Days of Supply</th><td id="lsDaysSupply">-</td></tr>
-                        <tr><th>Reorder Point</th><td id="lsReorderPoint">-</td></tr>
-                        <tr><th>Reorder Qty</th><td id="lsReorderQty">-</td></tr>
-                        <tr><th>Lead Time (Days)</th><td id="lsLeadTime">-</td></tr>
-                        <tr><th>Last Sale</th><td id="lsLastSale">-</td></tr>
-                        <tr><th>Status</th><td id="lsStatus">-</td></tr>
-                        <tr><th>Action Required</th><td id="lsActionRequired">-</td></tr>
-                    </table>
+                    <div class="transaction-report">
+                        <div class="report-banner">
+                            <div class="banner-title">
+                                <div class="banner-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                                <div>
+                                    <h6 id="lsBannerTitle">Low Stock Report</h6>
+                                    <p id="lsBannerDate">Generated -</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="report-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Product</span>
+                                <span class="meta-value" id="lsProduct">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Variant</span>
+                                <span class="meta-value" id="lsQuantity">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Current Stock</span>
+                                <span class="meta-value" id="lsCurrentStock">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Days of Supply</span>
+                                <span class="meta-value" id="lsDaysSupply">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Last Sale</span>
+                                <span class="meta-value" id="lsLastSale">-</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Status</span>
+                                <span class="meta-value" id="lsStatus">-</span>
+                            </div>
+                        </div>
+
+                        <div class="report-cards">
+                            <div class="report-card">
+                                <span>Stock Value</span>
+                                <strong id="lsStockValue">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Avg. Daily Sales</span>
+                                <strong id="lsAvgDailySales">0</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Reorder Point</span>
+                                <strong id="lsReorderPoint">0</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Reorder Qty</span>
+                                <strong id="lsReorderQty">0</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Lead Time (Days)</span>
+                                <strong id="lsLeadTime">-</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Action Required</span>
+                                <strong id="lsActionRequired">-</strong>
+                            </div>
+                        </div>
+
+                        <!-- Legend for Low Stock Details -->
+                        <div class="report-description mt-3">
+                            <h6>Understanding These Numbers:</h6>
+                            <ul style="margin-bottom: 0;">
+                                <li><strong>Current Stock:</strong> How many boxes you have in stock right now.</li>
+                                <li><strong>Stock Value:</strong> Total worth of your current stock (Current Stock × Unit Cost).</li>
+                                <li><strong>Avg. Daily Sales:</strong> How many boxes you typically sell per day.</li>
+                                <li><strong>Days of Supply:</strong> How many days your stock will last at current sales speed (Current Stock ÷ Avg Daily Sales).</li>
+                                <li><strong>Reorder Point:</strong> When your stock hits this number, place a new order.</li>
+                                <li><strong>Reorder Qty:</strong> The recommended number of boxes to order.</li>
+                                <li><strong>Lead Time:</strong> How many days between ordering and receiving the products.</li>
+                                <li><strong>Status:</strong> Current stock level (Critical, Low, Normal).</li>
+                                <li><strong>Action Required:</strong> What you should do (Rush Order, Monitor, etc.).</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

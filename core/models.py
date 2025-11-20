@@ -16,7 +16,7 @@ class Product(models.Model):
 	date_added = models.DateField(default=timezone.now)
 	price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-	size = models.CharField(max_length=50)
+	quantity_unit = models.CharField(max_length=50)
 	low_stock_threshold = models.IntegerField(default=10)
 	stock = models.IntegerField(default=0)
 	is_built_in = models.BooleanField(default=False)  # Distinguishes built-in products from inventory products

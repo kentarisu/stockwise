@@ -311,7 +311,7 @@
     async function loadAllProducts(){ try{ const resp=await fetch('/api/products/active/',{headers:{'X-Requested-With':'XMLHttpRequest'}}); if(!resp.ok) throw new Error('Network error'); const data=await resp.json(); if(data.success){ allProducts=data.data; } }catch(e){ console.error('Load products error:', e); } }
     function baseName(name){ if(!name) return ''; const s=String(name); const i=s.indexOf('('); const j=s.endsWith(')')?s.lastIndexOf('('):-1; if(i>=0){ return s.substring(0,i).trim(); } return s.trim(); }
     function loadStickerVariants(fruit){ const variantList=$('#stickerVariantList'); $('#stickerVariantSelect').prop('disabled',true).val(''); $('#stickerSizeSelect').prop('disabled',true).val(''); variantList.empty(); if(!fruit) return; const variants=[...new Set(allProducts.filter(p=>baseName(p.name)===fruit).map(p=>p.variant).filter(v=>v))]; if(variants.length===0){       $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','No variants available - proceed to quantity'); loadStickerSizes(fruit,''); } else { $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','Search or select variant'); variants.forEach(v=>variantList.append($('<option>',{value:v}))); } }
-    function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return baseName(p.name)===fruit && (!p.variant||p.variant==='');} else {return baseName(p.name)===fruit && (p.variant||'')===variant;} }).map(p=>p.size).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter quantity (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric quantity'); } }
+    function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return baseName(p.name)===fruit && (!p.variant||p.variant==='');} else {return baseName(p.name)===fruit && (p.variant||'')===variant;} }).map(p=>p.quantity_unit).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter quantity (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric quantity'); } }
     function validateForm(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>baseName(p.name)===fruit && (p.variant||'')!==''); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
     $('#stickerFruitSelect').on('change', function(){ loadStickerVariants($(this).val()); validateForm(); });
     $('#stickerVariantSelect').on('change', function(){ loadStickerSizes($('#stickerFruitSelect').val(), $(this).val()); validateForm(); });
@@ -426,7 +426,7 @@
                 (allProducts || [])
                   .filter(p => baseName(p.name) === base)
                   .filter(p => selectedVariant ? (p.variant || '') === selectedVariant : (p.variant || '') === (p.variant || ''))
-                  .map(p => p.size)
+                  .map(p => p.quantity_unit)
                   .filter(s => s)
             ));
             let $menu = $('#sizeSuggestions');
@@ -583,7 +583,7 @@
             const match = (allProducts || []).find(p => {
                 const nameOk = baseName(p.name) === fruit;
                 const variantOk = hasVariants ? ((p.variant || '') === (variant || '')) : true;
-                const sizeOk = (String(p.size) === String(size));
+                const sizeOk = (String(p.quantity_unit) === String(size));
                 return nameOk && variantOk && sizeOk;
             });
             if (match) {

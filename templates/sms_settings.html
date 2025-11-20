@@ -1619,7 +1619,7 @@
                         {% if low_stock_products %}
                         WARNING - LOW STOCK:<br>
                         {% for product in low_stock_products %}
-                        - {{ product.name }} ({{ product.size }}): {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
+                        - {{ product.name }} ({{ product.quantity_unit }}): {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
                         {% endfor %}
                         <br>
                         {% else %}

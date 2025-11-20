@@ -291,7 +291,7 @@
             <div class="col-md-6">
                 <label class="form-label" for="productSizeDisplay">Quantity</label>
                 <div class="input-group quantity-unit-group">
-                    <input type="number" class="form-control" id="productSizeDisplay" name="size" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled list="quantitySuggestions">
+                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled list="quantitySuggestions">
                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit" disabled>
                         <option value="box" selected>Box</option>
                         <option value="kilo">Kilo</option>
@@ -548,12 +548,12 @@ $(document).ready(function(){
         e.preventDefault();
         const formData = new FormData(this);
         const name = formData.get('name');
-        let size = formData.get('size');
+        let size = formData.get('quantity_unit');
         const unitSel = (formData.get('quantity_unit') || 'box').toLowerCase();
         if (unitSel === 'kilo') {
             // No quantity input when kilo is chosen; send sentinel to satisfy validation
             size = 'Kilo';
-            formData.set('size', size);
+            formData.set('quantity_unit', size);
         }
         const price = parseFloat(formData.get('price'));
         const cost = parseFloat(formData.get('cost'));

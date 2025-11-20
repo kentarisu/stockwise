@@ -727,6 +727,21 @@
             transform: translateY(-2px);
         }
 
+        .stat-card.clickable {
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card.clickable:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .stat-card.clickable:active {
+            transform: translateY(-1px);
+        }
+
         .stat-icon {
             width: 2rem;
             height: 2rem;
@@ -809,6 +824,38 @@
             color: var(--primary);
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
+        }
+
+        .action-btn-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.125rem;
+        }
+
+        .action-btn-content h6 {
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+
+        .action-btn-content p {
+            margin: 0;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .action-btn:hover .action-btn-content h6 {
+            color: var(--primary);
+        }
+
+        .action-btn:hover .action-btn-content p {
+            color: var(--primary-dark);
+        }
+
+        .action-btn i {
+            font-size: 1.5rem;
+            color: var(--primary);
         }
 
         .action-btn i {
@@ -1462,125 +1509,127 @@
             <div class="content-area">
                 <!-- Stats Cards - Compact Design -->
                 <div class="stats-grid">
-                    <div class="stat-card">
+                    <a href="{% url 'products_inventory' %}?tab=all" class="stat-card clickable">
                         <div class="stat-icon primary">
                             <i class="bi bi-box-seam"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">{{ total_products }}</div>
                         <div class="stat-label">Total Products</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Active products in inventory</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">All products including variants ready for sale</div>
                         <div class="stat-change {% if products_change >= 0 %}positive{% else %}negative{% endif %}">
                             <i class="bi bi-{% if products_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
                             {% if products_change >= 0 %}+{% endif %}{{ products_change }}% vs {{ last_month_date|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    <a href="{% url 'products_inventory' %}?tab=low-stock" class="stat-card clickable">
                         <div class="stat-icon warning">
                             <i class="bi bi-exclamation-triangle"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">{{ low_stock }}</div>
                         <div class="stat-label">Low Stock Alerts</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with stock ≤ 10</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with 10 boxes or less</div>
                         <div class="stat-change {% if low_stock_change <= 0 %}positive{% else %}negative{% endif %}">
                             <i class="bi bi-{% if low_stock_change <= 0 %}arrow-down{% else %}arrow-up{% endif %}"></i>
                             {% if low_stock_change >= 0 %}+{% endif %}{{ low_stock_change }}% vs {{ yesterday|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    <a href="{% url 'products_inventory' %}?tab=out-of-stock" class="stat-card clickable">
                         <div class="stat-icon danger">
                             <i class="bi bi-x-circle"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">{{ out_of_stock }}</div>
                         <div class="stat-label">Out of Stock</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with zero stock</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with no boxes left</div>
                         <div class="stat-change negative">
                             <i class="bi bi-exclamation-triangle"></i>
                             As of {{ today|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    <a href="{% url 'sales' %}?tab=today&range=today" class="stat-card clickable">
                         <div class="stat-icon success">
                             <i class="bi bi-cart-check"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">{{ today_sales }}</div>
                         <div class="stat-label">Transactions Today</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of sales transactions</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Completed sales today</div>
                         <div class="stat-change {% if sales_change >= 0 %}positive{% else %}negative{% endif %}">
                             <i class="bi bi-{% if sales_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
                             {% if sales_change >= 0 %}+{% endif %}{{ sales_change }}% vs {{ yesterday|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    <a href="{% url 'sales' %}?tab=today&range=today" class="stat-card clickable">
                         <div class="stat-icon info">
                             <i class="bi bi-currency-dollar"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">₱{{ today_revenue_formatted }}</div>
                         <div class="stat-label">Revenue Today</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total sales amount in pesos</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned today</div>
                         <div class="stat-change {% if revenue_change >= 0 %}positive{% else %}negative{% endif %}">
                             <i class="bi bi-{% if revenue_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
                             {% if revenue_change >= 0 %}+{% endif %}{{ revenue_change }}% vs {{ yesterday|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    {% if app_role == 'admin' %}
+                    <a href="{% url 'sales' %}?tab=all" class="stat-card clickable">
                         <div class="stat-icon secondary">
                             <i class="bi bi-calendar-month"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">₱{{ monthly_revenue_formatted }}</div>
                         <div class="stat-label">Monthly Revenue</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total sales amount this month</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned this month</div>
                         <div class="stat-change positive">
                             <i class="bi bi-calendar-month"></i>
                             {{ this_month_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="stat-card">
+                    <a href="{% url 'products_inventory' %}?tab=all" class="stat-card clickable">
                         <div class="stat-icon dark">
                             <i class="bi bi-boxes"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">₱{{ total_inventory_value_formatted }}</div>
                         <div class="stat-label">Inventory Value</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total value of all stock</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Worth of all boxes at cost price</div>
                         <div class="stat-change positive">
                             <i class="bi bi-boxes"></i>
                             As of {{ today|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
+                    {% endif %}
 
-                    <div class="stat-card">
+                    <a href="{% url 'sales' %}?tab=recent&range=week" class="stat-card clickable">
                         <div class="stat-icon success">
                             <i class="bi bi-graph-up"></i>
                         </div>
                         <div class="stat-content">
                         <div class="stat-value">{{ weekly_sales_count }}</div>
-                        <div class="stat-label">Items Sold This Week</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity of items sold</div>
+                        <div class="stat-label">Boxes Sold This Week</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes sold in the last 7 days</div>
                         <div class="stat-change positive">
                             <i class="bi bi-calendar-week"></i>
                             {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
                             </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
 
                 <!-- Quick Actions -->
@@ -1614,6 +1663,7 @@
                                     <p>Restock existing products</p>
                                 </div>
                             </a>
+                            {% if app_role == 'admin' %}
                             <a href="{% url 'sms_settings' %}" class="action-btn">
                                 <i class="bi bi-chat-dots"></i>
                                 <div class="action-btn-content">
@@ -1621,7 +1671,6 @@
                                     <p>Update SMS sender info</p>
                                 </div>
                             </a>
-                            {% if app_role == 'admin' %}
                             <a href="{% url 'reports' %}" class="action-btn">
                                 <i class="bi bi-file-earmark-text"></i>
                                 <div class="action-btn-content">
@@ -1650,8 +1699,8 @@
                             <div class="overview-item">
                                 <div class="overview-rank">{{ forloop.counter }}</div>
                                 <div class="overview-content">
-                                    <h6>{{ product.product__name }}</h6>
-                                    <p>{{ product.quantity }} {% if product.product__size|lower == 'kilo' %}{% if product.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if product.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
+                                    <h6>{{ product.product__name }}{% if product.product__quantity_unit %} ({{ product.product__quantity_unit }}){% endif %}</h6>
+                                    <p>{{ product.quantity }} {% if product.product__quantity_unit|lower == 'kilo' %}{% if product.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if product.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
                                     <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
                                 </div>
                                 <div class="overview-value">
@@ -1684,7 +1733,7 @@
                             </div>
                             <div class="activity-content">
                                 <h6>New sale recorded</h6>
-                                <p>₱{{ sale.formatted_total }} - {{ sale.product.name }} {% if sale.product.variant %}({{ sale.product.variant }}, {{ sale.product.size }}){% else %}({{ sale.product.size }}){% endif %} x{{ sale.quantity }} {% if sale.product.size|lower == 'kilo' %}{% if sale.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if sale.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}</p>
+                                <p>₱{{ sale.formatted_total }} - {{ sale.product.name }}{% if sale.product.quantity_unit %} ({{ sale.product.quantity_unit }}){% endif %} x{{ sale.quantity }} {% if sale.product.quantity_unit|lower == 'kilo' %}{% if sale.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if sale.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}</p>
                                 <small class="text-muted">By: {{ sale.user.username|default:"Unknown" }}</small>
                             </div>
                             <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
@@ -1697,7 +1746,7 @@
                             </div>
                             <div class="activity-content">
                                 <h6>Stock added</h6>
-                                <p>{{ stock.product.name }} {% if stock.product.variant %}({{ stock.product.variant }}, {{ stock.product.size }}){% else %}({{ stock.product.size }}){% endif %} - Added {{ stock.quantity }} {% if stock.product.size|lower == 'kilo' %}{% if stock.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if stock.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}</p>
+                                <p>{{ stock.product.name }} {% if stock.product.variant %}({{ stock.product.variant }}, {{ stock.product.quantity_unit }}){% else %}({{ stock.product.quantity_unit }}){% endif %} - Added {{ stock.quantity }} {% if stock.product.quantity_unit|lower == 'kilo' %}{% if stock.quantity == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if stock.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}</p>
                             </div>
                             <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
                         </div>
@@ -1709,7 +1758,7 @@
                             </div>
                             <div class="activity-content">
                                 <h6>Low stock alert</h6>
-                                <p>{{ product.name }} {% if product.variant %}({{ product.variant }}, {{ product.size }}){% else %}({{ product.size }}){% endif %} - Only {{ product.stock }} {% if product.size|lower == 'kilo' %}{% if product.stock == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if product.stock == 1 %}box{% else %}boxes{% endif %}{% endif %} left</p>
+                                <p>{{ product.name }} {% if product.variant %}({{ product.variant }}, {{ product.quantity_unit }}){% else %}({{ product.quantity_unit }}){% endif %} - Only {{ product.stock }} {% if product.quantity_unit|lower == 'kilo' %}{% if product.stock == 1 %}kilo{% else %}kilos{% endif %}{% else %}{% if product.stock == 1 %}box{% else %}boxes{% endif %}{% endif %} left</p>
                             </div>
                             <span class="activity-time">Now</span>
                         </div>

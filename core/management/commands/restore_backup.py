@@ -242,6 +242,19 @@ class Command(BaseCommand):
                                 target.write(source.read())
                         self.stdout.write(self.style.SUCCESS('  ✓ .env file restored'))
             
+            # Log the restore operation to audit logs
+            try:
+                from core.views import log_system_action
+                backup_filename = backup_file.name
+                backup_size = backup_file.stat().st_size / (1024 * 1024)  # Convert to MB
+                log_system_action(
+                    action='System Restore from Backup',
+                    details=f'Backup File: {backup_filename}\nSize: {backup_size:.2f} MB\nDatabase Restored: {"Yes" if not options["no_database"] else "No"}\nMedia Restored: {"Yes" if not options["no_media"] else "No"}\nStatus: Success'
+                )
+            except Exception:
+                # If logging fails, don't break the restore process
+                pass
+            
             self.stdout.write(self.style.SUCCESS(
                 '\n✓ Restore completed successfully!\n'
                 'Please restart your Django server to ensure all changes take effect.'

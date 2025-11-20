@@ -525,6 +525,21 @@
             transform: translateY(-2px);
         }
 
+        .stat-card.clickable {
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .stat-card.clickable:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .stat-card.clickable:active {
+            transform: translateY(-1px);
+        }
+
         .stat-icon {
             width: 2rem;
             height: 2rem;
@@ -1494,36 +1509,36 @@
             <div class="content-area">
                 <!-- Sales Stats -->
                 <div class="sales-stats-grid">
-                    <div class="stat-card">
+                    <a href="?tab=all" class="stat-card clickable">
                         <div class="stat-icon primary">
                             <i class="bi bi-currency-dollar"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">₱{{ total_revenue_formatted|default:"0.00" }}</div>
                             <div class="stat-label">Total Sales</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total revenue amount</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned from all sales</div>
                         </div>
-                    </div>
-                    <div class="stat-card">
+                    </a>
+                    <a href="?tab=all" class="stat-card clickable">
                         <div class="stat-icon success">
                             <i class="bi bi-cart-check"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ total_sales|default:0 }}</div>
                             <div class="stat-label">Total Transactions</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of sales transactions</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of completed sales</div>
                         </div>
-                    </div>
-                    <div class="stat-card">
+                    </a>
+                    <a href="?tab=all" class="stat-card clickable">
                         <div class="stat-icon warning">
                             <i class="bi bi-boxes"></i>
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ total_boxes|default:0 }}</div>
                             <div class="stat-label">Total Boxes Sold</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity of boxes sold</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes sold across all sales</div>
                         </div>
-                    </div>
+                    </a>
                 </div>
 
                 <div class="action-buttons justify-content-end align-items-center">
@@ -1550,8 +1565,10 @@
                             <select class="form-select" id="rangeFilter">
                                 <option value="today" selected>Today</option>
                                 <option value="week">This Week</option>
+                                {% if app_role == 'admin' %}
                                 <option value="month">This Month</option>
                                 <option value="custom">Custom Range</option>
+                                {% endif %}
                             </select>
                         </div>
                         <div>
@@ -1605,7 +1622,6 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
-                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
@@ -1621,7 +1637,6 @@
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
-                                            <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
                                             <td>
@@ -1673,7 +1688,7 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="11" class="text-center text-muted py-4">No sales found.</td>
+                                            <td colspan="10" class="text-center text-muted py-4">No sales found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -1690,7 +1705,6 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
-                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
@@ -1702,7 +1716,7 @@
                                     <tbody>
                                         <!-- Today's sales will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="11" class="text-center text-muted py-4">Loading today's sales...</td>
+                                            <td colspan="10" class="text-center text-muted py-4">Loading today's sales...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -1718,7 +1732,6 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
-                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
@@ -1734,7 +1747,6 @@
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
-                                            <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
                                             <td>
@@ -1786,7 +1798,7 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="11" class="text-center text-muted py-4">No transactions found.</td>
+                                            <td colspan="10" class="text-center text-muted py-4">No transactions found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -1804,7 +1816,6 @@
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
-                                            <th>Quantity</th>
                                             <th>Items</th>
                                             <th>Boxes</th>
                                             <th>Total</th>
@@ -1820,7 +1831,6 @@
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
-                                            <td>{% if sale.items %}{% for it in sale.items %}{{ it.size }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
                                             <td>{% if sale.items %}{{ sale.items|length }}{% else %}1{% endif %}</td>
                                             <td class="boxes-column">{{ sale.total_boxes }}</td>
                                             <td>
@@ -1862,7 +1872,7 @@
                                         </tr>
                                         {% empty %}
                                         <tr>
-                                            <td colspan="11" class="text-center text-muted py-4">No voided transactions found.</td>
+                                            <td colspan="10" class="text-center text-muted py-4">No voided transactions found.</td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -1871,6 +1881,47 @@
                             </div>
                         </div>
                         {% endif %}
+                    </div>
+                </div>
+
+                <!-- Description & Legend Section -->
+                <div class="report-description mt-4" style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+                    <h6 style="color: #4f46e5; font-weight: 600; margin-bottom: 1rem;">Understanding Your Sales Data</h6>
+                    <p style="margin-bottom: 1rem; color: #4b5563;">This page shows all your completed and voided transactions. Use the filters above to narrow down your search by date, user, or product type.</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
+                        <div>
+                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📋 Column Definitions</h6>
+                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
+                                <li><strong>Sale No.:</strong> Unique identifier for each transaction. Use this when searching for specific sales.</li>
+                                <li><strong>Date & Time:</strong> When the transaction was recorded in the system.</li>
+                                <li><strong>Customer:</strong> Name of the customer who made the purchase.</li>
+                                <li><strong>Products:</strong> List of items sold, shown as "Product Name (Quantity/Unit)" - e.g., "Apple (125-138)" or "Mango (kilo)".</li>
+                                <li><strong>Items:</strong> Total number of different product types in this sale.</li>
+                                <li><strong>Boxes:</strong> Total quantity of boxes sold in this transaction.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">💡 Understanding Columns (cont.)</h6>
+                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
+                                <li><strong>Total:</strong> The final amount the customer paid for this transaction.</li>
+                                <li><strong>Recorded By:</strong> Username of the staff member who processed this sale.</li>
+                                <li><strong>Status:</strong> 
+                                    <span class="badge bg-success" style="font-size: 0.75rem;">Completed</span> = Sale was successful, 
+                                    <span class="badge bg-danger" style="font-size: 0.75rem;">Voided</span> = Sale was cancelled by admin
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">🔍 Quick Tips</h6>
+                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                            <li><strong>View Details:</strong> Click the three-dot menu (⋮) and select "View Details" to see full transaction information including payment breakdown.</li>
+                            <li><strong>Print Receipt:</strong> Generate a receipt for any completed transaction from the options menu.</li>
+                            <li><strong>Void Sale:</strong> Admins can cancel completed sales if there's an error or customer return (this action is logged in audit).</li>
+                            <li><strong>Filter by Date:</strong> Use "Today"{% if app_role == 'admin' %}, "This Week", "This Month", or set a custom date range{% else %} or "This Week"{% endif %} to analyze specific periods.</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -2046,6 +2097,42 @@
                                     </tbody>
                         </table>
                     </div>
+                        </div>
+                        
+                        <!-- Legend Section -->
+                        <div class="report-description mt-4" style="background: #f8fafc; border-radius: 8px; padding: 1rem; border: 1px solid #e5e7eb;">
+                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.75rem;">Understanding This Sale</h6>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                                <div>
+                                    <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Transaction Information</h6>
+                                    <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0;">
+                                        <li><strong>Sale ID:</strong> Internal database identifier for this sale.</li>
+                                        <li><strong>Transaction No.:</strong> Unique transaction number for tracking and grouping related sales.</li>
+                                        <li><strong>OR No.:</strong> Official Receipt number for this transaction.</li>
+                                        <li><strong>Processed By:</strong> Staff member who recorded this sale.</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Financial Breakdown</h6>
+                                    <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0;">
+                                        <li><strong>Subtotal:</strong> Total cost of all items before tax.</li>
+                                        <li><strong>Plus 12% VAT:</strong> Value-Added Tax collected for BIR remittance.</li>
+                                        <li><strong>Total Amount:</strong> Final amount customer needs to pay (Subtotal + VAT).</li>
+                                        <li><strong>Amount Paid:</strong> Cash received from customer.</li>
+                                        <li><strong>Change:</strong> Money returned to customer (Paid - Total).</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #d1d5db;">
+                                <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Itemized Details</h6>
+                                <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                                    <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and quantity/unit (e.g., 125-138 or kilo) in parentheses.</li>
+                                    <li><strong>Qty:</strong> Number of boxes of this product sold.</li>
+                                    <li><strong>Batch ID(s):</strong> Inventory batch identifiers for stock tracking and traceability.</li>
+                                    <li><strong>Price:</strong> Price per box for this product.</li>
+                                    <li><strong>Amount:</strong> Total for this item (Qty × Price).</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2287,7 +2374,6 @@
                     <td>${safeText(row.recorded_at,'N/A')}</td>
                     <td>${safeText(row.customer_name || row.customer || '')}</td>
                     <td class="products-column">${safeText(row.products || (row.items && row.items[0]?.product_name) || '')}</td>
-                    <td>${safeText(row.items && row.items[0]?.size ? row.items[0].size : '')}</td>
                     <td>${safeNum(row.items ? row.items.length : 1, 0)}</td>
                     <td class="boxes-column">${safeNum(row.total_boxes || row.items?.reduce((a,b)=>a+(b.quantity||0),0) || row.quantity, 0)}</td>
                     <td>${currency(row.total)}</td>
@@ -2355,17 +2441,17 @@
             console.log('Updating stats:', { total, boxes, count, rowsCount: rows?.length });
             
             // Try multiple selector strategies to find the elements
-            const totalEl = document.querySelector('.stats-grid .stat-card:first-child .stat-content .stat-value') ||
-                           document.querySelector('.stats-grid .stat-card:first-child .stat-value') ||
-                           document.querySelector('.stats-grid .primary').closest('.stat-card')?.querySelector('.stat-value');
+            const totalEl = document.querySelector('.sales-stats-grid .stat-card:first-child .stat-content .stat-value') ||
+                           document.querySelector('.sales-stats-grid .stat-card:first-child .stat-value') ||
+                           document.querySelector('.sales-stats-grid .primary')?.closest('.stat-card')?.querySelector('.stat-value');
             
-            const countEl = document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-content .stat-value') ||
-                           document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value') ||
-                           document.querySelector('.stats-grid .success').closest('.stat-card')?.querySelector('.stat-value');
+            const countEl = document.querySelector('.sales-stats-grid .stat-card:nth-child(2) .stat-content .stat-value') ||
+                           document.querySelector('.sales-stats-grid .stat-card:nth-child(2) .stat-value') ||
+                           document.querySelector('.sales-stats-grid .success')?.closest('.stat-card')?.querySelector('.stat-value');
             
-            const boxesEl = document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-content .stat-value') ||
-                           document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-value') ||
-                           document.querySelector('.stats-grid .warning').closest('.stat-card')?.querySelector('.stat-value');
+            const boxesEl = document.querySelector('.sales-stats-grid .stat-card:nth-child(3) .stat-content .stat-value') ||
+                           document.querySelector('.sales-stats-grid .stat-card:nth-child(3) .stat-value') ||
+                           document.querySelector('.sales-stats-grid .warning')?.closest('.stat-card')?.querySelector('.stat-value');
             
             console.log('Found elements:', { totalEl: !!totalEl, countEl: !!countEl, boxesEl: !!boxesEl });
             
@@ -2385,7 +2471,7 @@
             if (!totalEl || !countEl || !boxesEl) {
                 console.warn('Could not find all stat elements. Trying fallback selectors...');
                 // Fallback: try finding by icon class
-                const cards = document.querySelectorAll('.stats-grid .stat-card');
+                const cards = document.querySelectorAll('.sales-stats-grid .stat-card');
                 if (cards.length >= 3) {
                     const primaryCard = Array.from(cards).find(card => card.querySelector('.stat-icon.primary'));
                     const successCard = Array.from(cards).find(card => card.querySelector('.stat-icon.success'));
@@ -2820,7 +2906,49 @@
             // Update cards immediately with current filters
             updateSummaryCards();
             
-            // Load sales after filters are restored
+            // Check for tab and range parameters in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            const rangeParam = urlParams.get('range');
+            
+            // Apply date range filter if specified
+            if (rangeParam) {
+                const rangeFilter = document.getElementById('rangeFilter');
+                if (rangeFilter) {
+                    const validRanges = ['today', 'week', 'month', 'custom'];
+                    if (validRanges.includes(rangeParam)) {
+                        rangeFilter.value = rangeParam;
+                        // Save the filter to localStorage
+                        saveSalesFilters();
+                        // Update the labels
+                        if (rangeParam === 'today') updateTodayLabel();
+                        updateSpanLabels();
+                    }
+                }
+            }
+            
+            // Switch to the specified tab BEFORE loading sales
+            if (tabParam) {
+                // Map tab parameter to tab button ID
+                const tabMap = {
+                    'all': 'all-tab',
+                    'today': 'today-tab',
+                    'recent': 'recent-tab',
+                    'voided': 'voided-tab'
+                };
+                
+                const tabId = tabMap[tabParam];
+                if (tabId) {
+                    const tabButton = document.getElementById(tabId);
+                    if (tabButton) {
+                        // Use Bootstrap's Tab API to properly trigger the tab switch
+                        const tab = new bootstrap.Tab(tabButton);
+                        tab.show();
+                    }
+                }
+            }
+            
+            // Load sales after filters are restored and tab is switched
             setTimeout(() => {
                 const activeTab = document.querySelector('.nav-link.active');
                 const tabId = activeTab?.id || 'all-tab';
@@ -2840,7 +2968,10 @@
                     default: 
                         loadSales('all', 'allSalesTable');
                 }
-            }, 100);
+                
+                // Scroll to top after everything is loaded
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 200);
         });
 
         // Record Sale button functionality
@@ -2980,7 +3111,7 @@
                         // Support both product_name and product__name, etc.
                         const fullName = it.product_name || it['product__name'] || '';
                         const prodName = fullName.replace(/\s*\(.*?\)\s*$/, '');
-                        const sizeVal = it.size || it['product__size'] || '';
+                        const sizeVal = it.quantity_unit || it['product__size'] || '';
                         const variant = it.variant ? ` (${safeText(it.variant)})` : '';
                         const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
                         // Batch IDs: accept arrays (batch_ids, batches, boxes) or single field (batch_id, batch)
@@ -3089,11 +3220,39 @@
             });
         }
 
-        function printReceipt(saleId) {
-            // Always use thermal printer
-            printThermalReceipt(saleId);
-            return;
+        // Detect if device is mobile/tablet or desktop
+        function isMobileOrTablet() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
             
+            // Check for mobile/tablet user agents
+            const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i;
+            if (mobileRegex.test(userAgent.toLowerCase())) {
+                return true;
+            }
+            
+            // Check for touch screen (tablets/mobile)
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                // Additional check: if screen is small, it's likely mobile
+                if (window.innerWidth <= 1024) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        function printReceipt(saleId) {
+            // Smart printer detection: use thermal for desktop, regular print for mobile/tablet
+            if (isMobileOrTablet()) {
+                printRegularReceipt(saleId);
+            } else {
+            printThermalReceipt(saleId);
+            }
+            return;
+        }
+            
+        // Regular browser print for mobile/tablet devices
+        function printRegularReceipt(saleId) {
             // Regular print (styled like record_sale.html)
             fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
                 .then(r => r.json())
@@ -3156,7 +3315,7 @@
                         const fullName2 = safeText(it.product__name || it.product_name || '', '');
                         let description = fullName2.replace(/\s*\(.*?\)\s*$/, '');
                         const variant = it.variant ? ` (${safeText(it.variant)})` : '';
-                        const sizeVal = it.size || it.product__size;
+                        const sizeVal = it.quantity_unit || it.product__size;
                         const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
                         description += variant + size;
                         
@@ -3266,14 +3425,30 @@
 </body>
 </html>`;
                     
-                    const w = window.open('', '_blank');
-                    w.document.write(html);
-                    w.document.close();
-                    w.focus();
+                    // Use hidden iframe instead of pop-up window (no pop-up blocker)
+                    let printFrame = document.getElementById('hiddenPrintFrame');
+                    if (!printFrame) {
+                        printFrame = document.createElement('iframe');
+                        printFrame.id = 'hiddenPrintFrame';
+                        printFrame.style.position = 'fixed';
+                        printFrame.style.right = '0';
+                        printFrame.style.bottom = '0';
+                        printFrame.style.width = '0';
+                        printFrame.style.height = '0';
+                        printFrame.style.border = '0';
+                        document.body.appendChild(printFrame);
+                    }
+                    
+                    const doc = printFrame.contentWindow.document;
+                    doc.open();
+                    doc.write(html);
+                    doc.close();
+                    
+                    // Wait for content to load, then trigger print
                     setTimeout(() => {
-                    w.print();
-                    w.close();
-                    }, 250);
+                        printFrame.contentWindow.focus();
+                        printFrame.contentWindow.print();
+                    }, 500);
                 })
                 .catch(err => console.error('Print error', err));
         }

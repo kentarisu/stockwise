@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Sum, Count
 from datetime import datetime, timedelta
-from core.models import Sale, AppUser
+from core.models import Sale, AppUser, SMSNotificationSettings
 
 
 class Command(BaseCommand):
@@ -41,6 +41,12 @@ class Command(BaseCommand):
 
     def send_daily_summary(self, use_today=False):
         """Send daily sales summary SMS"""
+        # Check if sales notifications are enabled
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.sales_enabled:
+            self.stdout.write(self.style.WARNING('Sales SMS notifications are disabled in settings.'))
+            return
+        
         admins = AppUser.objects.filter(role='Admin').exclude(phone_number='')
         if not admins.exists():
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -75,12 +81,22 @@ class Command(BaseCommand):
         
         # Send SMS to all active notifications
         success_count = 0
+        recipients = []
         for u in admins:
             if self.send_sms(u.phone_number, message):
                 success_count += 1
+                recipients.append(u.username)
                 self.stdout.write(self.style.SUCCESS(f'Daily summary sent to {u.username} at {u.phone_number}'))
             else:
                 self.stdout.write(self.style.ERROR(f'Failed to send daily summary to {u.username} at {u.phone_number}'))
+        
+        # Log to audit trail
+        if recipients:
+            from core.views import log_system_action
+            log_system_action(
+                action='Automatic SMS: Daily Sales Summary',
+                details=f'Date: {date_str}\nRevenue: ₱{total_revenue:,.2f}\nTransactions: {total_sales}\nBoxes Sold: {total_boxes}\nRecipients: {", ".join(recipients)}'
+            )
         
         self.stdout.write(
             self.style.SUCCESS(f'Daily SMS summary sent to {success_count} admin(s)')

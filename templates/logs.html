@@ -941,6 +941,7 @@
                                 <label for="user" class="form-label">User</label>
                                 <select name="user" id="user" class="form-select">
                                     <option value="">All Users</option>
+                                    <option value="System" {% if current_user == 'System' %}selected{% endif %}>🤖 System (Automated)</option>
                                     {% for user in all_users %}
                                         <option value="{{ user }}" {% if current_user == user %}selected{% endif %}>{{ user }}</option>
                                     {% endfor %}
@@ -989,8 +990,20 @@
                                 {% for log in logs %}
                                     <tr>
                                         <td data-label="Timestamp">{{ log.created_at|date:"M d, Y h:i A" }}</td>
-                                        <td data-label="User">{{ log.user.username|default:"-" }}</td>
-                                        <td data-label="Role">{{ log.role|default:"-"|title }}</td>
+                                        <td data-label="User">
+                                            {% if log.role == "System" %}
+                                                <span class="badge bg-secondary"><i class="bi bi-gear-fill"></i> System</span>
+                                            {% else %}
+                                                {{ log.user.username|default:"-" }}
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Role">
+                                            {% if log.role == "System" %}
+                                                <span class="badge bg-info">Automated</span>
+                                            {% else %}
+                                                {{ log.role|default:"-"|title }}
+                                            {% endif %}
+                                        </td>
                                         <td data-label="Action">{{ log.action }}</td>
                                         <td data-label="Details" class="text-break">{{ log.details|default:"-" }}</td>
                                         <td data-label="IP">{{ log.ip_address|default:"-" }}</td>

@@ -160,6 +160,17 @@ class Command(BaseCommand):
                     backup_type='full',
                     is_verified=True
                 )
+                
+                # Log the automated backup to audit logs
+                try:
+                    from core.views import log_system_action
+                    log_system_action(
+                        action='Automatic System Backup',
+                        details=f'Backup File: {backup_filename}\nSize: {size_mb:.2f} MB\nType: Full Backup\nStatus: Success'
+                    )
+                except Exception:
+                    # If logging fails, don't break the backup process
+                    pass
             except Exception:
                 # If models aren't available (e.g., during initial setup), skip
                 pass

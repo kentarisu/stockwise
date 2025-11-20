@@ -4,9 +4,9 @@ from .models import Product, StockAddition, AppUser, Sale, SMS, ReportProductSum
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("product_id", "name", "size", "status", "price", "cost", "date_added", "stock")
+    list_display = ("product_id", "name", "quantity_unit", "status", "price", "cost", "date_added", "stock")
     list_filter = ("status",)
-    search_fields = ("name", "size")
+    search_fields = ("name", "quantity_unit")
     ordering = ("product_id",)
 
 @admin.register(StockAddition)

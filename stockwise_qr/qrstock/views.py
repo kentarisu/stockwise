@@ -49,7 +49,7 @@ def qr_sticker_view(request, product_id):
                     'product_id': product.product_id,
                     'product_name': product.name,
                     'variant': product.variant or '',
-                    'quantity': product.size or '',
+                    'quantity': product.quantity_unit or '',
                     'qr_code_base64': qr_code_base64,
                     'qr_data': qr_data,
                 }
@@ -95,7 +95,7 @@ def qr_scan_view(request):
                             'product': {
                                 'id': product.product_id,
                                 'name': product.name,
-                                'size': product.size,
+                                'size': product.quantity_unit,
                                 'price': float(product.price),
                                 'stock': product.stock,
                                 'variant': product.variant
@@ -122,7 +122,7 @@ def qr_test_view(request, product_id):
         product = get_object_or_404(Product, product_id=product_id)
         
         # Create QR code with structured product information
-        qr_data = f"STOCKWISE_PRODUCT:{product.product_id}:{product.name}:{product.size}:{product.price}:{product.stock}"
+        qr_data = f"STOCKWISE_PRODUCT:{product.product_id}:{product.name}:{product.quantity_unit}:{product.price}:{product.stock}"
         
         return JsonResponse({
             'success': True,
@@ -130,7 +130,7 @@ def qr_test_view(request, product_id):
             'qr_data': qr_data,
             'product_info': {
                 'name': product.name,
-                'size': product.size,
+                'size': product.quantity_unit,
                 'price': float(product.price),
                 'stock': product.stock,
                 'variant': product.variant
@@ -190,6 +190,8 @@ def qr_confirm_view(request, token):
     try:
         # Decode the QR token to get product information
         from itsdangerous import URLSafeSerializer
+        from datetime import datetime, timedelta
+        
         s = URLSafeSerializer(settings.SECRET_KEY)
         data = s.loads(token)
         product_id = data.get('p')
@@ -202,19 +204,55 @@ def qr_confirm_view(request, token):
         except Product.DoesNotExist:
             return HttpResponse(f'Product with ID {product_id} not found.', status=404)
         
+        # Check if this is a new QR scan or an existing session
+        current_time = datetime.now()
+        session_key = f'qr_scan_{token}'
+        
+        if session_key not in request.session:
+            # New QR scan - set the scan timestamp
+            request.session[session_key] = current_time.isoformat()
+            request.session['qr_scan_active'] = True
+            request.session['qr_token'] = token
+            request.session['qr_product_id'] = product_id
+        else:
+            # Existing session - check if it's expired (1 hour)
+            scan_time_str = request.session.get(session_key)
+            scan_time = datetime.fromisoformat(scan_time_str)
+            
+            if current_time - scan_time > timedelta(hours=1):
+                # Session expired - clear the session and show error
+                request.session.pop(session_key, None)
+                request.session.pop('qr_scan_active', None)
+                request.session.pop('qr_token', None)
+                request.session.pop('qr_product_id', None)
+                
+                context = {
+                    'session_expired': True,
+                    'product': product,
+                }
+                return render(request, 'qrstock/confirm.html', context)
+        
         # Generate batch ID and date for display
         from datetime import date
         today = date.today()
         date_arrived = today.strftime('%b. %d, %Y')
         
         # Generate a simple batch ID
-        batch_id = f"AF{product.size}{today.strftime('%m%d%Y')}XX"
+        batch_id = f"AF{product.quantity_unit}{today.strftime('%m%d%Y')}XX"
+        
+        # Calculate time remaining for display
+        scan_time_str = request.session.get(session_key)
+        scan_time = datetime.fromisoformat(scan_time_str)
+        time_remaining = timedelta(hours=1) - (current_time - scan_time)
+        minutes_remaining = int(time_remaining.total_seconds() / 60)
         
         context = {
             'product': product,
             'product_id': product_id,
             'date_arrived': date_arrived,
             'batch_id': batch_id,
+            'session_expired': False,
+            'minutes_remaining': minutes_remaining,
         }
         
         return render(request, 'qrstock/confirm.html', context)
@@ -252,7 +290,7 @@ def qr_sticker_print(request, product_id):
         sticker_data = {
             'product_name': product.name,
             'variant': product.variant or '',
-            'quantity': product.size or '',
+            'quantity': product.quantity_unit or '',
             'qr_image_bytes': qr_bytes,
         }
         

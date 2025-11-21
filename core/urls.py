@@ -24,6 +24,10 @@ path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('api/user/toggle-status/', views.toggle_user_status, name='toggle_user_status'),
 	path('api/user/update-secretary/', views.update_secretary_account, name='update_secretary_account'),
 	path('change-password/', change_password, name='change_password'),  # TC-035
+
+	# Password assistance
+	path('password/forgot/', views.forgot_password, name='forgot_password'),
+	path('password/reset/', views.password_reset_verify, name='password_reset_verify'),
 	
 	# Product API endpoints
 	path('api/products/add/', views.product_add, name='product_add'),
@@ -55,7 +59,8 @@ path('api/products/<int:product_id>/delete/', views.product_delete, name='delete
 	path('charts/', views.charts_view, name='charts'),
 	path('api/reports/fetch/', views.fetch_reports, name='fetch_reports'),
 	path('api/reports/export/', views.export_report, name='export_report'),
-    path('api/fruit_master/search/', views.fruit_master_search, name='fruit_master_search'),
+	path('reports/print/', views.export_report, name='reports_print'),
+	    path('api/fruit_master/search/', views.fruit_master_search, name='fruit_master_search'),
     path('api/fruit_master/sizes/', views.fruit_master_sizes, name='fruit_master_sizes'),
     path('api/fruit_master/variants/', views.fruit_master_variants, name='fruit_master_variants'),
 path('api/sales/record/', views.record_sale, name='record_sale_api'),
@@ -102,4 +107,4 @@ path('sales/record/', views.record_sale_page, name='record_sale'),
     path('api/backups/<int:backup_id>/download/', views.download_backup, name='download_backup'),
     path('api/backups/<int:backup_id>/restore/', views.restore_backup, name='restore_backup'),
     path('api/backups/<int:backup_id>/delete/', views.delete_backup, name='delete_backup'),
-] 
+]

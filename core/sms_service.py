@@ -271,19 +271,19 @@ class IPROGSMSService:
                     'message': 'iProg API token not configured'
                 }
             
-            # Prepare API request for status check
-            payload = {
+            # Prepare API request for status check (use official status endpoint)
+            # iProg provides a message status link like:
+            #   https://sms.iprogtech.com/api/v1/sms_messages/status?api_token=...&message_id=...
+            params = {
                 'api_token': self.api_token,
-                'message_code': message_code
+                'message_id': message_code
             }
-            
-            # Send request to iProg API status endpoint
-            status_url = 'https://sms.iprogtech.com/api/v1/sms_status'
-            response = requests.post(status_url, data=payload, timeout=30)
+            status_url = 'https://sms.iprogtech.com/api/v1/sms_messages/status'
+            response = requests.get(status_url, params=params, timeout=30)
             
             if response.status_code == 200:
                 response_data = response.json()
-                status = response_data.get('status', 'unknown')
+                status = response_data.get('message_status', response_data.get('status', 'unknown'))
                 return {
                     'success': True,
                     'status': status,

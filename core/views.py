@@ -53,16 +53,29 @@ import re
 _ALLOWED_TEXT_PATTERN = re.compile(r"[^A-Za-z0-9\-\s(),./]+")
 
 
+def _is_strong_password(p: str) -> bool:
+    if not p or len(p) < 8:
+        return False
+    if not re.search(r"[A-Z]", p):
+        return False
+    if not re.search(r"[a-z]", p):
+        return False
+    if not re.search(r"\d", p):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", p):
+        return False
+    return True
+
 def get_allowed_google_accounts():
     """Combine env-configured Google accounts with user-configured accounts."""
     allowed = dict(getattr(settings, 'GOOGLE_ALLOWED_ACCOUNTS', {}))
     try:
         dynamic_users = AppUser.objects.filter(
             allow_google_login=True,
-            google_email__isnull=False
-        ).exclude(google_email__exact='')
+            email__isnull=False
+        ).exclude(email__exact='')
         for user in dynamic_users:
-            allowed[user.google_email.lower()] = {
+            allowed[(user.email or '').lower()] = {
                 'role': user.role,
                 'username': user.username,
                 'user_id': user.user_id,
@@ -262,26 +275,234 @@ def redirect_to_login(request):
 
 @require_http_methods(["GET", "POST"])
 @csrf_exempt
+def forgot_password(request):
+    if request.method == 'GET':
+        for key in ['pending_reset_email', 'pending_reset_sent_at', 'reset_attempts', 'reset_block_until_ts']:
+            request.session.pop(key, None)
+        return redirect(reverse('password_reset_verify') + '?start=email')
+    def _send_password_reset_email(user: AppUser, code: str):
+        subject = 'Your StockWise password recovery code'
+        display_name = (getattr(user, 'full_name', '') or user.username or 'StockWise user').strip()
+        context = {
+            'recipient_name': display_name,
+            'code': code,
+            'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+        }
+        text_body = render_to_string('emails/password_reset_code.txt', context)
+        html_body = render_to_string('emails/password_reset_code.html', context)
+        # Development fallback: if credentials are missing, don't raise, just return False
+        if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+            if settings.DEBUG:
+                return False
+            raise RuntimeError('Email credentials are not configured in the environment variables.')
+        email = mail.EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        email.attach_alternative(html_body, 'text/html')
+        email.send(fail_silently=False)
+        return True
+
+    context = {}
+    if request.method == 'POST':
+        email = (request.POST.get('email', '') or '').strip()
+        if not email:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'ok': False, 'error': 'Please enter your email address.'}, status=400)
+            messages.error(request, 'Please enter your email address.')
+        else:
+            try:
+                validate_email(email)
+                user = AppUser.objects.filter(email__iexact=email).first()
+                if not user:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({'ok': False, 'error': 'No account found with that email.'}, status=404)
+                    messages.error(request, 'No account found with that email.')
+                else:
+                    sent_at_ts = request.session.get('pending_reset_sent_at', 0)
+                    if sent_at_ts:
+                        now_ts = timezone.now().timestamp()
+                        remaining = int(settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60 - (now_ts - sent_at_ts))
+                        if remaining > 0:
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return JsonResponse({'ok': False, 'error': 'Please wait before requesting a new code.', 'seconds_remaining': remaining}, status=429)
+                            messages.error(request, 'Please wait before requesting a new code.')
+                            context['submitted_email'] = email
+                            return render(request, 'password_forgot_help.html', context)
+                    code = get_random_string(length=6, allowed_chars='0123456789')
+                    details = json.dumps({'code': code})
+                    ActionLog.objects.create(
+                        user=user,
+                        role=user.role,
+                        action='password_reset_code',
+                        details=details,
+                        ip_address=request.META.get('REMOTE_ADDR', ''),
+                        user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    )
+                    try:
+                        sent_ok = _send_password_reset_email(user, code)
+                        masked = _mask_email(user.email or '')
+                        request.session['pending_reset_email'] = user.email
+                        request.session['pending_reset_sent_at'] = timezone.now().timestamp()
+                        request.session['reset_attempts'] = 0
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            resp = {'ok': True, 'email': user.email, 'masked': masked, 'expires_in': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60}
+                            if settings.DEBUG and not sent_ok:
+                                resp['dev_code'] = code
+                            return JsonResponse(resp)
+                        messages.success(request, f'Recovery code sent to {masked}.')
+                        return redirect('password_reset_verify')
+                    except Exception as exc:
+                        if settings.DEBUG:
+                            masked = _mask_email(user.email or '')
+                            request.session['pending_reset_email'] = user.email
+                            request.session['pending_reset_sent_at'] = timezone.now().timestamp()
+                            request.session['reset_attempts'] = 0
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return JsonResponse({'ok': True, 'email': user.email, 'masked': masked, 'expires_in': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60, 'dev_code': code})
+                            messages.info(request, 'Development mode: email not configured, showing code on the next screen.')
+                            return redirect('password_reset_verify')
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'ok': False, 'error': f'Unable to send recovery code: {exc}'}, status=500)
+                        messages.error(request, f'Unable to send recovery code: {exc}')
+            except ValidationError:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'ok': False, 'error': 'Please enter a valid email address.'}, status=400)
+                messages.error(request, 'Please enter a valid email address.')
+        context['submitted_email'] = email
+    return render(request, 'password_forgot_help.html', context)
+
+@require_http_methods(["GET", "POST"])
+@csrf_exempt
+def password_reset_verify(request):
+    ctx = {'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES}
+    pending_email = (request.session.get('pending_reset_email', '') or '').strip()
+    ctx['pending_email'] = pending_email
+    seconds_remaining = 0
+    start = (request.GET.get('start', '') or '').strip().lower()
+    if request.method == 'GET':
+        if start == 'email':
+            for key in ['pending_reset_email', 'pending_reset_sent_at', 'reset_attempts', 'reset_block_until_ts']:
+                request.session.pop(key, None)
+            pending_email = ''
+            ctx['pending_email'] = ''
+            seconds_remaining = 0
+            ctx['start_step'] = 'email'
+        else:
+            ctx['start_step'] = ''
+    if pending_email:
+        user = AppUser.objects.filter(email__iexact=pending_email).first()
+        if user:
+            log = ActionLog.objects.filter(user=user, action='password_reset_code').order_by('-created_at').first()
+            if log:
+                expires_at = log.created_at + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
+                remaining = int((expires_at - timezone.now()).total_seconds())
+                if remaining > 0:
+                    seconds_remaining = remaining
+                if settings.DEBUG:
+                    try:
+                        data = json.loads(log.details or '{}')
+                        ctx['dev_code'] = str(data.get('code', '')).strip()
+                    except Exception:
+                        ctx['dev_code'] = ''
+    ctx['seconds_remaining'] = seconds_remaining
+    ctx['masked_email'] = _mask_email(pending_email) if pending_email else ''
+    if request.method == 'POST':
+        block_ts = request.session.get('reset_block_until_ts', 0)
+        if block_ts and timezone.now().timestamp() < block_ts:
+            messages.error(request, 'Too many attempts. Please try again later.')
+            return render(request, 'password_reset_verify.html', ctx)
+        email = (request.session.get('pending_reset_email', '') or '').strip()
+        code = (request.POST.get('code', '') or '').strip()
+        new_pw = (request.POST.get('new_password', '') or '').strip()
+        confirm_pw = (request.POST.get('confirm_password', '') or '').strip()
+
+        # Basic validation
+        if not code:
+            messages.error(request, 'Recovery code is required.')
+            return render(request, 'password_reset_verify.html', ctx)
+        if not new_pw or not confirm_pw:
+            messages.error(request, 'Please enter and confirm your new password.')
+            return render(request, 'password_reset_verify.html', ctx)
+        if new_pw != confirm_pw:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'password_reset_verify.html', ctx)
+        if not _is_strong_password(new_pw):
+            messages.error(request, 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.')
+            return render(request, 'password_reset_verify.html', ctx)
+
+        try:
+            if not email:
+                messages.error(request, 'Recovery session not found. Please request a new code.')
+                return render(request, 'password_reset_verify.html', ctx)
+            user = AppUser.objects.filter(email__iexact=email).first()
+            if not user:
+                messages.error(request, 'No account found with that email.')
+                return render(request, 'password_reset_verify.html', ctx)
+
+            # Find the latest reset code for this user
+            log = ActionLog.objects.filter(user=user, action='password_reset_code').order_by('-created_at').first()
+            if not log:
+                messages.error(request, 'No recovery code found. Please request a new code.')
+                return render(request, 'password_reset_verify.html', ctx)
+
+            # Check expiry based on TWO_FACTOR_CODE_EXPIRY_MINUTES
+            expires_at = log.created_at + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
+            if timezone.now() > expires_at:
+                messages.error(request, 'Recovery code has expired. Please request a new one.')
+                return render(request, 'password_reset_verify.html', ctx)
+
+            # Compare code
+            try:
+                data = json.loads(log.details or '{}')
+            except Exception:
+                data = {}
+            if str(data.get('code', '')).strip() != code:
+                attempts = int(request.session.get('reset_attempts', 0)) + 1
+                request.session['reset_attempts'] = attempts
+                if attempts >= 5:
+                    request.session['reset_block_until_ts'] = timezone.now().timestamp() + 600
+                messages.error(request, 'Invalid recovery code.')
+                return render(request, 'password_reset_verify.html', ctx)
+
+            # Update password
+            user.password = bcrypt.hash(new_pw)
+            user.save(update_fields=['password'])
+            log_action(request, 'Password reset', f'User reset password via recovery code', user=user)
+            # Clear pending email session after successful reset
+            request.session.pop('pending_reset_email', None)
+            request.session.pop('pending_reset_sent_at', None)
+            request.session.pop('reset_attempts', None)
+            request.session.pop('reset_block_until_ts', None)
+            messages.success(request, 'Your password has been updated. Please log in.')
+            return redirect('login')
+        except Exception as exc:
+            messages.error(request, f'Unable to reset password: {exc}')
+
+    return render(request, 'password_reset_verify.html', ctx)
+
+
+@require_http_methods(["GET", "POST"])
+@csrf_exempt
 def login_view(request):
     if request.method == 'POST':
-        username_input = request.POST.get('username', '').strip()
+        identifier = request.POST.get('email', '').strip()
         password = request.POST.get('password', '').strip()
         
         # TC-005, TC-006: Server-side validation for empty fields
-        if not username_input:
-            messages.error(request, 'Email address or username is required.')
+        if not identifier:
+            messages.error(request, 'Email or username is required.')
             return render(request, 'login_modern.html')
         if not password:
             messages.error(request, 'Password is required.')
             return render(request, 'login_modern.html')
         
         try:
-            if '@' in username_input:
-                user = AppUser.objects.filter(email__iexact=username_input).first()
-            else:
-                user = AppUser.objects.filter(username__iexact=username_input).first()
+            user = AppUser.objects.filter(Q(email__iexact=identifier) | Q(username__iexact=identifier)).first()
             if not user:
-                messages.error(request, 'Account not found. Check your email/username.')
+                messages.error(request, 'Account not found. Check your email or username.')
                 return render(request, 'login_modern.html')
             
             # TC-003: Check if user account is active (check BEFORE password verification)
@@ -314,6 +535,17 @@ def login_view(request):
                     password_valid = False
             
             if password_valid:
+                # If the entered password does not meet strength policy, force update flow
+                if not _is_strong_password(password):
+                    _persist_user_session(request, user)
+                    messages.warning(request, 'Your password is weak. Please update it to include uppercase, lowercase, number, and symbol.')
+                    return redirect(reverse('profile') + '?force_password_update=1')
+
+                try:
+                    user.last_login_at = timezone.now()
+                    user.save(update_fields=['last_login_at'])
+                except Exception:
+                    pass
                 _persist_user_session(request, user)
                 log_action(request, 'Login success', f'User logged in with username/password ({user.username})', user=user)
                 qr_redirect_url = request.session.pop('qr_redirect_url', None)
@@ -383,6 +615,11 @@ def two_factor_verify(request):
                     messages.error(request, 'The code you entered is incorrect.')
                 else:
                     _clear_two_factor_session(request)
+                    try:
+                        user.last_login_at = timezone.now()
+                        user.save(update_fields=['last_login_at'])
+                    except Exception:
+                        pass
                     _persist_user_session(request, user)
                     log_action(
                         request,
@@ -412,6 +649,9 @@ def google_login_start(request):
 
     state_token = secrets.token_urlsafe(32)
     redirect_uri = request.build_absolute_uri(reverse('google_login_callback'))
+    # If a fixed redirect base is configured (e.g., localhost), always use it
+    if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
+        redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}" + reverse('google_login_callback')
 
     request.session['google_oauth_state'] = state_token
     request.session['google_oauth_redirect_uri'] = redirect_uri
@@ -452,10 +692,10 @@ def google_login_callback(request):
         messages.error(request, 'Missing authorization code from Google.')
         return redirect('login')
 
-    redirect_uri = request.session.pop(
-        'google_oauth_redirect_uri',
-        request.build_absolute_uri(reverse('google_login_callback'))
-    )
+    default_redirect = request.build_absolute_uri(reverse('google_login_callback'))
+    if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
+        default_redirect = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}" + reverse('google_login_callback')
+    redirect_uri = request.session.pop('google_oauth_redirect_uri', default_redirect)
 
     token_payload = {
         'code': code,
@@ -945,24 +1185,35 @@ def add_stock_page(request):
         'today': timezone.now().date(),
     }
     
-    # Handle QR token from scanned QR codes or direct product_id
+    # Determine context based on QR token/session vs normal deep-link
     qr_token = request.GET.get('qr_token')
-    product_id = request.GET.get('product_id')
-    
+    query_product_id = request.GET.get('product_id')
+
+    # Identify whether this request is part of an active QR scan flow
+    is_qr_session_active = bool(request.session.get('qr_scan_active'))
+
+    product_id_from_qr = None
     if qr_token:
         try:
             # Import the QR system's serializer to decode the token
             from itsdangerous import URLSafeSerializer
             s = URLSafeSerializer(settings.SECRET_KEY)
             data = s.loads(qr_token)
-            product_id = data.get('p')
+            product_id_from_qr = data.get('p')
         except Exception:
-            # If QR token is invalid, just ignore it
-            pass
-    
-    # Check if this is from a QR scan and if the session is still valid
+            product_id_from_qr = None
+    elif is_qr_session_active:
+        # Use product id stored in QR session if available
+        product_id_from_qr = request.session.get('qr_product_id')
+
+    # If a normal deep-link (query param) is provided without QR, remember for preselect
+    preselect_product_id = None
+    if query_product_id and not product_id_from_qr:
+        preselect_product_id = query_product_id
+
+    # Check QR session expiration only when a QR session is active
     qr_session_expired = False
-    if product_id and request.session.get('qr_scan_active'):
+    if is_qr_session_active:
         from datetime import datetime, timedelta
         qr_token_session = request.session.get('qr_token')
         if qr_token_session:
@@ -977,12 +1228,13 @@ def add_stock_page(request):
                     request.session.pop('qr_scan_active', None)
                     request.session.pop('qr_token', None)
                     request.session.pop('qr_product_id', None)
-    
+
     context['qr_session_expired'] = qr_session_expired
-    
-    if product_id and not qr_session_expired:
+
+    # Only set QR product context if truly in QR flow and not expired
+    if product_id_from_qr and not qr_session_expired:
         try:
-            product = Product.objects.get(product_id=product_id)
+            product = Product.objects.get(product_id=product_id_from_qr)
             context['qr_product'] = {
                 'product_id': product.product_id,
                 'name': product.name,
@@ -991,7 +1243,14 @@ def add_stock_page(request):
             }
         except Product.DoesNotExist:
             pass
-    
+
+    # Pass preselected product id for non-QR deep-links (no locking)
+    if preselect_product_id and 'qr_product' not in context:
+        try:
+            context['preselected_product_id'] = int(preselect_product_id)
+        except (TypeError, ValueError):
+            context['preselected_product_id'] = None
+
     return render(request, 'add_stock.html', context)
 
 
@@ -1014,7 +1273,8 @@ def product_add(request):
     json.loads(request.body)."""
     try:
         built_in_product_id = request.POST.get('built_in_product_id', '').strip()
-        name = request.POST.get('name', '').strip()
+        full_name = request.POST.get('full_name', '').strip()
+        name = sanitize_text(full_name, max_len=120)
         variant = request.POST.get('variant', '').strip()
         size = request.POST.get('quantity_unit', '').strip()
         # Always set new products to Active and date to today
@@ -1675,10 +1935,14 @@ def sales_view(request):
         key = row.transaction_number or f"SID{row.sale_id}"
         g = grouped.get(key)
         
-        # Format product display as "Name (Quantity/Unit)"
+        # Format product display as "Name (Variant) (Quantity/Unit)"
         product_display = row.product.name if row.product else ''
-        if row.product and row.product.quantity_unit:
-            product_display = f"{product_display} ({row.product.quantity_unit})"
+        variant = (row.product.variant.strip() if (row.product and row.product.variant) else '')
+        unit = (row.product.quantity_unit if row.product else '')
+        if variant:
+            product_display = f"{product_display} ({variant})"
+        if unit:
+            product_display = f"{product_display} ({unit})"
         
         item = {
             'product_name': product_display,
@@ -1758,7 +2022,7 @@ def sales_view(request):
             if sale.product:
                 items_data = [{
                     'product_id': sale.product.product_id,
-                    'product_name': sale.product.name,
+                    'product_name': f"{sale.product.name}{(' (' + sale.product.variant.strip() + ')') if (sale.product.variant or '').strip() else ''}{(' (' + sale.product.quantity_unit + ')') if sale.product.quantity_unit else ''}",
                     'quantity_unit': sale.product.quantity_unit,
                         'units_sold': sale.quantity,
                     'price': float(sale.price),
@@ -1781,7 +2045,7 @@ def sales_view(request):
                 'status': sale.status,
                 'product_count': len(items_data),
                 'total_boxes': sale.quantity,
-                'products': sale.product.name if sale.product else '',
+                'products': (f"{sale.product.name}{(' (' + sale.product.variant.strip() + ')') if (sale.product.variant or '').strip() else ''}{(' (' + sale.product.quantity_unit + ')') if sale.product.quantity_unit else ''}") if sale.product else '',
                 'days_until_deletion': days_until_deletion,
                 'recorded_by': sale.user.username if sale.user else 'N/A'
             })
@@ -1952,8 +2216,10 @@ def fetch_sales(request):
             key = row.transaction_number or f"SID{row.sale_id}"
             g = grouped.get(key)
             
-            # Format product display as "Name (Quantity/Unit)"
+            # Format product display as "Name [Variant] (Quantity/Unit)"
             product_display = row.product.name if row.product else ''
+            if row.product and (row.product.variant or '').strip():
+                product_display = f"{product_display} {row.product.variant.strip()}"
             if row.product and row.product.quantity_unit:
                 product_display = f"{product_display} ({row.product.quantity_unit})"
             
@@ -2586,6 +2852,8 @@ def fetch_reports(request):
 
             # Format product display as "Name (Variant) (Quantity/Unit)"
             product_display = s['product__name'] or ''
+            if s.get('product__variant'):
+                product_display = f"{product_display} ({s['product__variant']})"
             if s['product__quantity_unit']:
                 product_display = f"{product_display} ({s['product__quantity_unit']})"
             product_display = product_display.strip()
@@ -2651,6 +2919,8 @@ def fetch_reports(request):
 
             # Format product display as "Name (Variant) (Quantity/Unit)"
             product_display = t['product__name'] or ''
+            if t.get('product__variant'):
+                product_display = f"{product_display} ({t['product__variant']})"
             if t['product__quantity_unit']:
                 product_display = f"{product_display} ({t['product__quantity_unit']})"
             product_display = product_display.strip()
@@ -2949,16 +3219,16 @@ def fetch_reports(request):
 
 @require_app_login
 def export_report(request):
-    if request.method!='POST' or request.session.get('app_role')!='admin':
+    if request.method not in ('POST','GET') or request.session.get('app_role')!='admin':
         return JsonResponse({'success':False,'message':'Forbidden'},status=403)
-    # Force PDF-only export with real-time data (same filters as sales)
-    report_type = request.POST.get('report_type','transactions')
-    filter_type = request.POST.get('filter','Daily')
-    start_date = request.POST.get('start_date','')
-    end_date = request.POST.get('end_date','')
-    search = request.POST.get('search','')
-    user_filter = request.POST.get('user','all')
-    fruit_filter = request.POST.get('fruit','all')
+    getp = (lambda k, d=None: (request.POST.get(k) if request.method=='POST' else request.GET.get(k)) or d)
+    report_type = getp('report_type','transactions')
+    filter_type = getp('filter','Daily')
+    start_date = getp('start_date','')
+    end_date = getp('end_date','')
+    search = getp('search','')
+    user_filter = getp('user','all')
+    fruit_filter = getp('fruit','all')
 
     sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
     sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
@@ -3116,7 +3386,7 @@ def export_report(request):
     )
     
     # Title - professional style
-    title_text = "StockWise Sales Report"
+    title_text = "FruitMaster Marketing Sales Report"
     elems.append(Paragraph(title_text, title_style))
     
     # Report metadata - compact formatting
@@ -3136,7 +3406,8 @@ def export_report(request):
     
     meta_parts = [
         f"<b>Period:</b> {period_text}",
-        f"<b>Generated:</b> {generated_time}"
+        f"<b>Generated:</b> {generated_time}",
+        f"<b>Prepared by:</b> Francis Hernia"
     ]
     if filter_info:
         meta_parts.append(f"<b>Filters:</b> {', '.join(filter_info)}")
@@ -3914,7 +4185,11 @@ def export_report(request):
     )
     
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    inline_flag = (request.GET.get('inline') or request.POST.get('inline') or '').strip().lower()
+    disposition = 'inline' if inline_flag in ('1','true','yes') else 'attachment'
+    response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
+    if disposition == 'inline':
+        response['X-Frame-Options'] = 'SAMEORIGIN'
     response.write(pdf)
     return response
 
@@ -3936,8 +4211,9 @@ def profile_view(request):
 
     # Handle updates
     if request.method == 'POST':
-        # Tests post 'username' and 'phone_number'
-        name = (request.POST.get('username') or request.POST.get('name') or user_obj.username).strip()
+        # Read profile fields
+        full_name = (request.POST.get('full_name') or request.POST.get('name') or (user_obj.full_name or user_obj.username)).strip()
+        username_input = (request.POST.get('username') or '').strip()
         phone = request.POST.get('phone_number', '').strip()
         current_pw = request.POST.get('current_password', '')
         new_pw = request.POST.get('new_password', '')
@@ -3947,11 +4223,11 @@ def profile_view(request):
         success_msg = None
 
         # Basic validation
-        if not name:
+        if not full_name:
             errors.append('Name is required.')
         if new_pw or confirm_pw:
-            if len(new_pw) < 8:
-                errors.append('New password must be at least 8 characters.')
+            if not _is_strong_password(new_pw):
+                errors.append('New password must be at least 8 characters and include uppercase, lowercase, number, and symbol.')
             if new_pw != confirm_pw:
                 errors.append('Password confirmation does not match.')
             if not current_pw:
@@ -3977,45 +4253,50 @@ def profile_view(request):
                 if not current_password_valid:
                     errors.append('Current password is incorrect.')
 
-        google_email = (request.POST.get('google_email') or '').strip().lower()
         google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
 
-        if google_enabled and not google_email:
-            errors.append('Google account email is required when enabling Google sign-in.')
-        if google_email:
+        if google_enabled and not request.POST.get('email', '').strip():
+            errors.append('Email is required when enabling Google sign-in.')
+        email = request.POST.get('email', '').strip()
+        if email:
             try:
-                validate_email(google_email)
+                validate_email(email)
             except ValidationError:
-                errors.append('Enter a valid Google account email.')
-            else:
-                existing = AppUser.objects.filter(google_email__iexact=google_email).exclude(user_id=user_obj.user_id).first()
-                if existing:
-                    errors.append('This Google account is already linked to another user.')
+                errors.append('Enter a valid email address.')
+
+        # Username uniqueness check if changed
+        if username_input and username_input.lower() != (user_obj.username or '').lower():
+            existing_user = AppUser.objects.filter(username__iexact=username_input).exclude(user_id=user_obj.user_id).first()
+            if existing_user:
+                errors.append('Username is already taken.')
 
         if not errors:
             # Track changes before updating
             changes = []
-            old_name = user_obj.username
+            old_name = user_obj.full_name or ''
             old_email = user_obj.email or ''
+            old_username = user_obj.username or ''
             email = request.POST.get('email', '').strip()
             
-            if name and name != old_name:
+            if full_name and full_name != old_name:
                 changes.append('name')
+            if username_input and username_input != old_username:
+                changes.append('username')
             if new_pw:
                 changes.append('password')
             if picture_file:
                 changes.append('profile picture')
             if email and email != old_email:
                 changes.append('email')
-            if google_email != (user_obj.google_email or '') or google_enabled != user_obj.allow_google_login:
+            if google_enabled != user_obj.allow_google_login:
                 changes.append('Google login settings')
             
             # Update user
-            user_obj.username = name or user_obj.username
+            user_obj.full_name = full_name or user_obj.full_name
+            user_obj.username = username_input or user_obj.username
             user_obj.phone_number = phone or user_obj.phone_number
             user_obj.email = email if email else None
             user_obj.allow_google_login = google_enabled
-            user_obj.google_email = google_email if google_email else None
             if new_pw:
                 user_obj.password = bcrypt.hash(new_pw)
             # Save picture if provided
@@ -4039,9 +4320,20 @@ def profile_view(request):
             for e in errors:
                 messages.error(request, e)
 
-    # AppUser no longer stores created_at/last_login; provide placeholders
-    created_fmt = '-'
-    last_login_fmt = '-'
+    # Format created_at and last_login using stored fields and logs as fallback
+    try:
+        created_dt = getattr(user_obj, 'created_at', None)
+        created_fmt = timezone.localtime(created_dt).strftime('%b %d, %Y %I:%M %p') if created_dt else '-'
+    except Exception:
+        created_fmt = '-'
+    try:
+        last_dt = getattr(user_obj, 'last_login_at', None)
+        if not last_dt:
+            recent_login = ActionLog.objects.filter(user=user_obj, action__icontains='Login success').order_by('-created_at').first()
+            last_dt = recent_login.created_at if recent_login else None
+        last_login_fmt = timezone.localtime(last_dt).strftime('%b %d, %Y %I:%M %p') if last_dt else '-'
+    except Exception:
+        last_login_fmt = '-'
 
     # If admin, list secretary accounts
     all_users = []
@@ -4050,11 +4342,11 @@ def profile_view(request):
         all_users = [{
             'user_id': user.user_id,
             'username': user.username,
+            'full_name': getattr(user, 'full_name', '') or '',
             'phone_number': user.phone_number,
             'profile_picture': user.profile_picture,
             'is_active': user.is_active,
             'email': user.email if hasattr(user, 'email') else None,
-            'google_email': user.google_email or '',
             'allow_google_login': user.allow_google_login,
         } for user in secretary_users]
 
@@ -4255,7 +4547,6 @@ def toggle_user_status(request):
             'email': user.email or '',
             'profile_picture': user.profile_picture or '',
             'is_active': user.is_active,
-            'google_email': user.google_email or '',
             'allow_google_login': user.allow_google_login,
         }
         log_action(
@@ -4280,11 +4571,12 @@ def update_secretary_account(request):
             return JsonResponse({'success': False, 'message': 'Unauthorized. Admin access required.'}, status=403)
         
         user_id = request.POST.get('user_id')
+        name = request.POST.get('name', '').strip()
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
         phone_number = request.POST.get('phone_number', '').strip()
         email = request.POST.get('email', '').strip()
-        google_email = (request.POST.get('google_email') or '').strip().lower()
+        
         google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
         
         if not user_id:
@@ -4308,20 +4600,10 @@ def update_secretary_account(request):
         # Validate required fields
         if not username:
             return JsonResponse({'success': False, 'message': 'Username is required.'})
-        if not password:
-            return JsonResponse({'success': False, 'message': 'Password is required.'})
-        if len(password) < 6:
-            return JsonResponse({'success': False, 'message': 'Password must be at least 6 characters.'})
-        if google_enabled and not google_email:
-            return JsonResponse({'success': False, 'message': 'Google email is required when enabling Google sign-in.'})
-        if google_email:
-            try:
-                validate_email(google_email)
-            except ValidationError:
-                return JsonResponse({'success': False, 'message': 'Enter a valid Google account email.'})
-            existing_google = AppUser.objects.filter(google_email__iexact=google_email).exclude(user_id=user_id).first()
-            if existing_google:
-                return JsonResponse({'success': False, 'message': 'That Google account is already linked to another user.'})
+        if password and not _is_strong_password(password):
+            return JsonResponse({'success': False, 'message': 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.'})
+        if google_enabled and not email:
+            return JsonResponse({'success': False, 'message': 'Email is required when enabling Google sign-in.'})
         
         # Check if username is already taken by another user
         existing_user = AppUser.objects.filter(username=username).exclude(user_id=user_id).first()
@@ -4331,11 +4613,12 @@ def update_secretary_account(request):
         # Update user information
         from passlib.hash import bcrypt
         user.username = username
-        user.password = bcrypt.hash(password)
+        user.full_name = name or user.full_name
+        if password:
+            user.password = bcrypt.hash(password)
         user.phone_number = phone_number if phone_number else ''
         user.email = email if email else None
         user.allow_google_login = google_enabled
-        user.google_email = google_email if google_email else None
         
         # Handle profile picture if provided
         picture_file = request.FILES.get('profile_picture')
@@ -4360,11 +4643,11 @@ def update_secretary_account(request):
             'user': {
                 'user_id': user.user_id,
                 'username': user.username,
+                'full_name': getattr(user, 'full_name', '') or '',
                 'phone_number': user.phone_number,
                 'email': user.email,
                 'profile_picture': user.profile_picture,
                 'is_active': user.is_active,
-                'google_email': user.google_email or '',
                 'allow_google_login': user.allow_google_login,
             }
         })
@@ -5039,9 +5322,9 @@ def add_product(request):
             if stock_input:
                 stock = int(stock_input)
             else:
-            boxes = int(request.POST.get('boxes', 0))
-            units_per_box = int(request.POST.get('units_per_box', 1))
-            stock = boxes * units_per_box
+                boxes = int(request.POST.get('boxes', 0))
+                units_per_box = int(request.POST.get('units_per_box', 1))
+                stock = boxes * units_per_box
             # Force today's date for new products (ignore client-provided value)
             date_added = timezone.now().date()
             supplier = request.POST.get('supplier', '').strip()
@@ -5175,8 +5458,8 @@ def edit_product(request):
             if initial_stock:
                 stock = int(initial_stock)
             else:
-            boxes = int(request.POST.get('boxes', 0))
-            units_per_box = int(request.POST.get('units_per_box', 1))
+                boxes = int(request.POST.get('boxes', 0))
+                units_per_box = int(request.POST.get('units_per_box', 1))
                 stock = boxes * units_per_box if boxes > 0 else product.stock
             
             # Get date_added - use existing if not provided
@@ -5825,8 +6108,15 @@ def test_notification_type(request):
                         else:
                             reason = "Price optimization"
                         
+                        try:
+                            p = Product.objects.get(product_id=top_rec.get('product_id'))
+                            variant_part = f" ({p.variant})" if getattr(p, 'variant', None) else ""
+                            unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
+                            label = f"{p.name}{variant_part}{unit_part}"
+                        except Exception:
+                            label = top_rec.get('name')
                         message = "STOCKWISE Pricing\n\n"
-                        message += f"{top_rec['name']}\n"
+                        message += f"{label}\n"
                         message += f"PHP {top_rec['current_price']:.0f} -> {top_rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
                         message += f"Reason: {reason}\n\n"
                         message += "STOCKWISE"
@@ -6092,27 +6382,26 @@ def generate_and_store_pricing_recommendations():
     However, products that have been accepted/rejected in the last 3 days are excluded from
     new recommendations to respect the cooldown period.
     """
-        from core.pricing_ai import DemandPricingAI, PolicyConfig
+    from core.pricing_ai import DemandPricingAI, PolicyConfig
     from core.models import Sale, Product, PricingRecommendation
-        from datetime import datetime, timedelta
-        import pandas as pd
-        
-    # Get sales data from last 120 days (for better statistical analysis)
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=120)
-        
-        sales_data = Sale.objects.filter(
-            recorded_at__date__gte=start_date,
-            recorded_at__date__lte=end_date
-        ).values('recorded_at', 'product__product_id', 'quantity', 'price')
-        
-        if not sales_data.exists():
+    from datetime import datetime, timedelta
+    import pandas as pd
+    
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=30)
+    
+    sales_data = Sale.objects.filter(
+        recorded_at__date__gte=start_date,
+        recorded_at__date__lte=end_date
+    ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+    
+    if not sales_data.exists():
         return []
-        
-        # Convert to DataFrame
-        sales_df = pd.DataFrame(list(sales_data))
-        sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
-        
+    
+    # Convert to DataFrame
+    sales_df = pd.DataFrame(list(sales_data))
+    sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+    
     # Get product catalog - exclude products that were acted upon in the last 3 days
     from django.db import models as db_models
     cooldown_threshold = timezone.now() - timedelta(days=3)
@@ -6120,39 +6409,39 @@ def generate_and_store_pricing_recommendations():
         db_models.Q(last_pricing_action_at__isnull=True) | 
         db_models.Q(last_pricing_action_at__lt=cooldown_threshold)
     ).values('product_id', 'name', 'price', 'cost', 'last_pricing_action_at')
-        catalog_df = pd.DataFrame(list(products))
+    catalog_df = pd.DataFrame(list(products))
     catalog_df.columns = ['product_id', 'name', 'price', 'cost', 'last_change_date']
     # Convert last_pricing_action_at to last_change_date format for pricing AI
     catalog_df['last_change_date'] = catalog_df['last_change_date'].apply(
         lambda x: pd.to_datetime(x).date() if pd.notna(x) else None
     )
-        
-        # Configure pricing AI
-        cfg = PolicyConfig(
+    
+    # Configure pricing AI
+    cfg = PolicyConfig(
         min_margin_pct=0.10,
         max_move_pct=0.20,
         cooldown_days=3,
         planning_horizon_days=7,
-            min_obs_per_product=15,
-            default_elasticity=-1.0,
+        min_obs_per_product=3,
+        default_elasticity=-1.0,
         hold_band_pct=0.02,
-        )
-        
-        # Generate recommendations
-        engine = DemandPricingAI(cfg)
-        proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
-        
+    )
+    
+    # Generate recommendations
+    engine = DemandPricingAI(cfg)
+    proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
+    
     # Delete expired recommendations for products that will get new recommendations
     product_ids_to_update = proposals['product_id'].tolist()
     PricingRecommendation.objects.filter(product_id__in=product_ids_to_update).delete()
     
     # Store new recommendations with 3-day expiration
     expires_at = timezone.now() + timedelta(days=3)
-        recommendations = []
-        for _, row in proposals.iterrows():
+    recommendations = []
+    for _, row in proposals.iterrows():
         try:
             product = Product.objects.get(product_id=row['product_id'])
-            PricingRecommendation.objects.create(
+            created_rec = PricingRecommendation.objects.create(
                 product=product,
                 current_price=Decimal(str(row['current_price'])),
                 suggested_price=Decimal(str(row['suggested_price'])),
@@ -6165,8 +6454,11 @@ def generate_and_store_pricing_recommendations():
                 expires_at=expires_at
             )
             recommendations.append({
+                'recommendation_id': created_rec.recommendation_id,
                 'product_id': row['product_id'],
                 'name': row['name'],
+                'variant': product.variant or '',
+                'quantity_unit': product.quantity_unit,
                 'current_price': float(row['current_price']),
                 'suggested_price': float(row['suggested_price']),
                 'change_pct': float(row['change_pct']),
@@ -6201,8 +6493,11 @@ def get_pricing_recommendations(request):
             recommendations = []
             for rec in valid_recommendations:
                 recommendations.append({
+                    'recommendation_id': rec.recommendation_id,
                     'product_id': rec.product.product_id,
                     'name': rec.product.name,
+                    'variant': rec.product.variant or '',
+                    'quantity_unit': rec.product.quantity_unit,
                     'current_price': float(rec.current_price),
                     'suggested_price': float(rec.suggested_price),
                     'change_pct': float(rec.change_pct),
@@ -6214,11 +6509,11 @@ def get_pricing_recommendations(request):
                 })
             
             actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
-        
-        return JsonResponse({
-            'success': True, 
-            'recommendations': recommendations,
-            'total_products': len(recommendations),
+            
+            return JsonResponse({
+                'success': True, 
+                'recommendations': recommendations,
+                'total_products': len(recommendations),
                 'actionable_count': actionable_count
             })
         
@@ -6959,7 +7254,11 @@ def generate_inventory_pdf_report(request):
         buffer.close()
         
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="inventory_report_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
+        inline_flag = (request.GET.get('inline') or request.POST.get('inline') or '').strip().lower()
+        disposition = 'inline' if inline_flag in ('1','true','yes') else 'attachment'
+        response['Content-Disposition'] = f'{disposition}; filename="inventory_report_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
+        if disposition == 'inline':
+            response['X-Frame-Options'] = 'SAMEORIGIN'
         response.write(pdf)
         
         return response
@@ -7313,14 +7612,18 @@ def send_all_notifications_now(request):
         if oos.exists():
             stock_msg += "CRITICAL - OUT OF STOCK:\n"
             for p in oos:
-                stock_msg += f"- {p.name} ({p.quantity_unit})\n"
+                variant_part = f" ({p.variant})" if getattr(p, 'variant', None) else ""
+                unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
+                stock_msg += f"- {p.name}{variant_part}{unit_part}\n"
             stock_msg += "\n"
         
         if low_stock.exists():
             stock_msg += "WARNING - LOW STOCK:\n"
             for p in low_stock:
                 box_text = "box" if p.stock == 1 else "boxes"
-                stock_msg += f"- {p.name} ({p.quantity_unit}): {p.stock} {box_text} left\n"
+                variant_part = f" ({p.variant})" if getattr(p, 'variant', None) else ""
+                unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
+                stock_msg += f"- {p.name}{variant_part}{unit_part}: {p.stock} {box_text} left\n"
             stock_msg += "\n"
         
         if not low_stock.exists() and not oos.exists():
@@ -7407,7 +7710,15 @@ def send_all_notifications_now(request):
                         else:
                             reason = "Price optimization"
                         
-                        pricing_msg += f"{rec['name']}\n"
+                        try:
+                            p = Product.objects.get(product_id=rec.get('product_id'))
+                            variant_part = f" ({p.variant})" if getattr(p, 'variant', None) else ""
+                            unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
+                            label = f"{p.name}{variant_part}{unit_part}"
+                        except Exception:
+                            label = rec.get('name')
+                        
+                        pricing_msg += f"{label}\n"
                         pricing_msg += f"PHP {rec['current_price']:.0f} -> {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
                         pricing_msg += f"Reason: {reason}\n\n"
                     pricing_msg += "STOCKWISE"
@@ -8164,13 +8475,11 @@ def upload_and_restore_backup(request):
             # Test zip integrity
             test_zip.testzip()
             
-            # Get list of files in the zip
             file_list = test_zip.namelist()
-            
-            # Check for required StockWise backup structure
-            has_database = any(f.startswith('database/') for f in file_list)
-            has_media = any(f.startswith('media/') for f in file_list)
-            has_env = '.env' in file_list
+            from pathlib import PurePosixPath
+            has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
+            has_media = any(('media' in PurePosixPath(f).parts) for f in file_list)
+            has_env = any(PurePosixPath(f).name == '.env' for f in file_list)
             
             # At minimum, must have database folder (required for StockWise backup)
             if not has_database:
@@ -8185,8 +8494,7 @@ def upload_and_restore_backup(request):
                     'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing database folder.'
                 }, status=400)
             
-            # Check for database file inside database/ folder
-            database_files = [f for f in file_list if f.startswith('database/') and not f.endswith('/')]
+            database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
             if not database_files:
                 if test_zip:
                     test_zip.close()

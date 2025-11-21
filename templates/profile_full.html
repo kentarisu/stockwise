@@ -33,7 +33,7 @@
             --gray-900: #111827;
             --sidebar-width: 212px;
             --header-height: 72px;
-            --layout-max-width: 1120px;
+            --layout-max-width: 1440px;
             --radius-lg: 14px;
             --radius-md: 10px;
             --space-2xs: 0.25rem;
@@ -454,9 +454,9 @@
 
         /* Content Area */
         .content-area {
-            padding: var(--space-lg);
-            max-width: var(--layout-max-width);
-            margin: 0 auto;
+            padding: var(--space-lg) var(--space-xl);
+            max-width: none;
+            margin: 0;
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -466,10 +466,16 @@
         /* Profile Cards */
         .profile-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 100%;
+            margin: 0;
+        }
+
+        @media (min-width: 992px) {
+            .profile-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
 
         .profile-card {
@@ -539,10 +545,16 @@
             border-radius: 8px;
             background: var(--primary-light);
             color: var(--primary);
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             margin-right: 1rem;
+            flex-shrink: 0;
+        }
+
+        .profile-info-icon i {
+            font-size: 1.25rem;
+            line-height: 1;
         }
 
         .profile-info-content h6 {
@@ -591,6 +603,7 @@
             border: 1px solid var(--gray-100);
             margin-bottom: 1rem;
             transition: all 0.3s ease;
+            width: 100%;
         }
 
         .secretary-card:hover {
@@ -699,7 +712,8 @@
         .secretary-card-actions {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 0.75rem;
             margin-top: 1rem;
             padding-top: 1rem;
             border-top: 1px solid var(--gray-200);
@@ -724,6 +738,12 @@
 
         .secretary-card-actions .d-flex {
             gap: 0.5rem;
+        }
+
+        /* Make team management edit button match "My Profile" style without full width */
+        .secretary-card-actions .btn-modern {
+            width: auto;
+            padding: 0.5rem 1rem;
         }
 
         /* Modal Styling */
@@ -966,7 +986,7 @@
         :root {
             --sidebar-width: 212px;
             --header-height: 72px;
-            --layout-max-width: 1120px;
+            --layout-max-width: 1440px;
             --radius-lg: 14px;
             --radius-md: 10px;
             --space-2xs: 0.25rem;
@@ -1303,57 +1323,82 @@
                             <div class="profile-avatar-section">
                                 <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/120' }}" 
                                      alt="Profile Picture" class="profile-avatar-large">
-                                <h4 class="fw-bold text-gray-900">{{ user_obj.username }}</h4>
+                                <h4 class="fw-bold text-gray-900">{{ user_obj.full_name|default:user_obj.username }}</h4>
                                 <p class="text-muted">{% if user_obj.role == 'user' %}Secretary{% else %}{{ user_obj.role|capfirst }}{% endif %}</p>
                             </div>
 
-                            <div class="profile-info-item">
-                                <div class="profile-info-icon">
-                                    <i class="bi bi-person"></i>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-person-badge"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Name</h6>
+                                            <p>{{ user_obj.full_name|default:"Not provided" }}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="profile-info-content">
-                                    <h6>Username</h6>
-                                    <p>{{ user_obj.username }}</p>
-                                </div>
-                            </div>
-
-                            <div class="profile-info-item">
-                                <div class="profile-info-icon">
-                                    <i class="bi bi-telephone"></i>
-                                </div>
-                                <div class="profile-info-content">
-                                    <h6>Phone Number</h6>
-                                    <p>{{ user_obj.phone_number|default:"Not provided" }}</p>
-                                </div>
-                            </div>
-
-                            <div class="profile-info-item">
-                                <div class="profile-info-icon">
-                                    <i class="bi bi-envelope"></i>
-                                </div>
-                                <div class="profile-info-content">
-                                    <h6>Email</h6>
-                                    <p>{{ user_obj.email|default:"Not provided" }}</p>
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Username</h6>
+                                            <p>{{ user_obj.username }}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="profile-info-item">
-                                <div class="profile-info-icon">
-                                    <i class="bi bi-calendar-check"></i>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-telephone"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Phone Number</h6>
+                                            <p>{{ user_obj.phone_number|default:"Not provided" }}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="profile-info-content">
-                                    <h6>Account Created</h6>
-                                    <p>{{ created_at_formatted }}</p>
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-envelope"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Email</h6>
+                                            <p>{{ user_obj.email|default:"Not provided" }}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="profile-info-item">
-                                <div class="profile-info-icon">
-                                    <i class="bi bi-clock-history"></i>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-calendar-check"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Account Created</h6>
+                                            <p>{{ created_at_formatted }}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="profile-info-content">
-                                    <h6>Last Login</h6>
-                                    <p>{{ last_login_formatted }}</p>
+                                <div class="col-lg-6">
+                                    <div class="profile-info-item">
+                                        <div class="profile-info-icon">
+                                            <i class="bi bi-clock-history"></i>
+                                        </div>
+                                        <div class="profile-info-content">
+                                            <h6>Last Login</h6>
+                                            <p>{{ last_login_formatted }}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1381,36 +1426,22 @@
                                     <img src="{{ u.profile_picture|default:'https://via.placeholder.com/60' }}" 
                                          alt="Profile" class="secretary-avatar">
                                     <div class="secretary-info">
-                                            <h6>{{ u.username }}</h6>
+                                            <h6>{{ u.full_name|default:u.username }}</h6>
                                             <p>Secretary Account</p>
                                         <p class="small">Phone: <span class="secretary-phone">{{ u.phone_number|default:"Not provided" }}</span></p>
                                             <p class="small">Email: <span class="secretary-email">{% if u.email %}{{ u.email }}{% else %}Not provided{% endif %}</span></p>
-                                            <p class="small">Google Login: <span class="secretary-google-email">{% if u.allow_google_login and u.google_email %}{{ u.google_email }}{% else %}Disabled{% endif %}</span></p>
+                                            <p class="small">Google Login: <span class="secretary-google-email">{% if u.allow_google_login %}Enabled{% else %}Disabled{% endif %}</span></p>
                                     </div>
                                 </div>
                                     <div class="secretary-card-actions">
                                         <div class="secretary-status-control">
                                             <span class="status-label">Status:</span>
                                             {% if u.is_active %}
-                                <span class="status-badge enabled">Active</span>
-                                {% else %}
-                                <span class="status-badge disabled">Disabled</span>
-                                {% endif %}
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-outline-primary edit-secretary-btn" 
-                                                    data-user-id="{{ u.user_id }}"
-                                                    data-username="{{ u.username }}"
-                                                    data-phone="{{ u.phone_number|default:'' }}"
-                                                    data-email="{{ u.email|default:'' }}"
-                                                    data-profile-picture="{{ u.profile_picture|default:'' }}"
-                                                    data-google-email="{{ u.google_email|default:'' }}"
-                                                    data-google-enabled="{{ u.allow_google_login|yesno:'true,false' }}"
-                                                    data-is-active="{{ u.is_active|yesno:'true,false' }}">
-                                                <i class="bi bi-pencil"></i> Edit
-                                            </button>
-                                            <label class="toggle-switch">
+                                                <span class="status-badge enabled">Active</span>
+                                            {% else %}
+                                                <span class="status-badge disabled">Disabled</span>
+                                            {% endif %}
+                                            <label class="toggle-switch ms-2">
                                                 <input type="checkbox" 
                                                        class="user-status-toggle" 
                                                        data-user-id="{{ u.user_id }}"
@@ -1418,6 +1449,21 @@
                                                 <span class="toggle-slider"></span>
                                             </label>
                                         </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="button" 
+                                                class="btn-modern primary w-100 edit-secretary-btn" 
+                                                data-user-id="{{ u.user_id }}"
+                                                data-username="{{ u.username }}"
+                                                data-name="{{ u.full_name|default:u.username }}"
+                                                data-phone="{{ u.phone_number|default:'' }}"
+                                                data-email="{{ u.email|default:'' }}"
+                                                data-profile-picture="{{ u.profile_picture|default:'' }}"
+                                                    
+                                                data-google-enabled="{{ u.allow_google_login|yesno:'true,false' }}"
+                                                data-is-active="{{ u.is_active|yesno:'true,false' }}">
+                                            <i class="bi bi-pencil"></i> Edit Profile
+                                        </button>
                                     </div>
                             </div>
                             {% endfor %}
@@ -1448,27 +1494,41 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Name</label>
+                                    <input type="text" class="form-control" id="editSecretaryName" name="name" placeholder="Enter full name">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Username <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="editSecretaryUsername" name="username" required>
+                                </div>
+                            </div>
+                        </div>
                         <input type="hidden" id="editSecretaryUserId" name="user_id">
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Username <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editSecretaryUsername" name="username" required>
-                        </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Password <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control" id="editSecretaryPassword" name="password" required minlength="6" placeholder="Enter new password">
-                            <small class="text-muted">Minimum 6 characters</small>
+                            <label class="form-label">Password</label>
+                            <input type="text" class="form-control" id="editSecretaryPassword" name="password" minlength="6" placeholder="Enter new password">
+                            <small class="text-muted">Leave blank to keep current password</small>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Phone Number</label>
-                            <input type="text" class="form-control" id="editSecretaryPhone" name="phone_number" placeholder="Enter phone number">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" id="editSecretaryEmail" name="email" placeholder="Enter email address">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="text" class="form-control" id="editSecretaryPhone" name="phone_number" placeholder="Enter phone number">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="editSecretaryEmail" name="email" placeholder="Enter email address">
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-3 form-switch">
@@ -1478,11 +1538,7 @@
                             </label>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Google Account Email</label>
-                            <input type="email" class="form-control" id="editSecretaryGoogleEmail" name="google_email" placeholder="example@gmail.com">
-                            <small class="text-muted">This must match the secretary's Google account.</small>
-                        </div>
+                        <!-- Google Account Email removed: primary Email is used for Google sign-in when enabled -->
 
                         <div class="mb-3">
                             <label class="form-label">Profile Picture</label>
@@ -1555,19 +1611,35 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" class="form-control" name="name" value="{{ user_obj.username }}" required>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="profileFullName" name="full_name" value="{{ user_obj.full_name|default:user_obj.username }}" required>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="profileUsername" name="username" value="{{ user_obj.username }}" required>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Phone Number</label>
-                            <input type="text" class="form-control" name="phone_number" value="{{ user_obj.phone_number|default:'' }}">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Phone Number</label>
+                                    <input type="text" class="form-control" name="phone_number" value="{{ user_obj.phone_number|default:'' }}">
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
+                                    <small class="text-muted">Used for password login and Google sign-in when enabled.</small>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-3 form-switch">
@@ -1575,11 +1647,7 @@
                             <label class="form-check-label" for="profileGoogleEnabled">Allow Google sign-in for this account</label>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Google Account Email</label>
-                            <input type="email" class="form-control" id="profileGoogleEmail" name="google_email" value="{{ user_obj.google_email|default:'' }}" placeholder="example@gmail.com" {% if not user_obj.allow_google_login %}disabled{% endif %}>
-                            <small class="text-muted">Must match the Google account you use for login.</small>
-                        </div>
+                        <!-- Google Account Email removed: primary Email is used for Google sign-in when enabled -->
 
                         <div class="mb-3">
                             <label class="form-label">Current Password</label>
@@ -1589,6 +1657,15 @@
                         <div class="mb-3">
                             <label class="form-label">New Password</label>
                             <input type="password" class="form-control" name="new_password" placeholder="Leave blank to keep current">
+                            <div class="password-strength" id="profilePasswordStrength">
+                                <div class="criteria">
+                                    <div class="criterion-item" data-criterion="length"><i class="bi bi-x-circle"></i><span>At least 8 characters</span></div>
+                                    <div class="criterion-item" data-criterion="upper"><i class="bi bi-x-circle"></i><span>Uppercase letter</span></div>
+                                    <div class="criterion-item" data-criterion="lower"><i class="bi bi-x-circle"></i><span>Lowercase letter</span></div>
+                                    <div class="criterion-item" data-criterion="number"><i class="bi bi-x-circle"></i><span>Number</span></div>
+                                    <div class="criterion-item" data-criterion="symbol"><i class="bi bi-x-circle"></i><span>Symbol</span></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -1596,9 +1673,9 @@
                             <input type="password" class="form-control" name="confirm_password" placeholder="Confirm new password">
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn-modern primary">
+                        <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check"></i>
                             Save Changes
                         </button>
@@ -1636,6 +1713,17 @@
 
         // User status toggle functionality
         $(document).ready(function() {
+            // Force password update: open Edit Profile modal when flagged
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('force_password_update') === '1') {
+                    const modalEl = document.getElementById('editProfileModal');
+                    if (modalEl && typeof bootstrap !== 'undefined') {
+                        const modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    }
+                }
+            } catch (e) {}
             $('.user-status-toggle').on('change', function() {
                 const toggle = $(this);
                 const userId = toggle.data('user-id');
@@ -1667,23 +1755,11 @@
 
             // Edit secretary button
             function syncSecretaryGoogleField() {
-                const enabled = $('#editSecretaryGoogleEnabled').is(':checked');
-                $('#editSecretaryGoogleEmail').prop('disabled', !enabled);
-                if (!enabled) {
-                    $('#editSecretaryGoogleEmail').attr('placeholder', 'Disabled');
-                } else {
-                    $('#editSecretaryGoogleEmail').attr('placeholder', 'example@gmail.com');
-                }
+                // No secondary Google email field; primary email is used
             }
 
             function syncProfileGoogleField() {
                 const enabled = $('#profileGoogleEnabled').is(':checked');
-                $('#profileGoogleEmail').prop('disabled', !enabled);
-                if (!enabled) {
-                    $('#profileGoogleEmail').attr('placeholder', 'Disabled');
-                } else {
-                    $('#profileGoogleEmail').attr('placeholder', 'example@gmail.com');
-                }
             }
 
             $('#profileGoogleEnabled').on('change', syncProfileGoogleField);
@@ -1692,23 +1768,51 @@
             $('#editSecretaryGoogleEnabled').on('change', syncSecretaryGoogleField);
             syncSecretaryGoogleField();
 
+            const newPwInput = document.querySelector('input[name="new_password"]');
+            const strengthEl = document.getElementById('profilePasswordStrength');
+            function updateStrength(val) {
+                if (!strengthEl) return;
+                const hasLength = (val || '').length >= 8;
+                const hasUpper = /[A-Z]/.test(val || '');
+                const hasLower = /[a-z]/.test(val || '');
+                const hasNumber = /\d/.test(val || '');
+                const hasSymbol = /[^A-Za-z0-9]/.test(val || '');
+                const map = { length: hasLength, upper: hasUpper, lower: hasLower, number: hasNumber, symbol: hasSymbol };
+                Object.keys(map).forEach(key => {
+                    const item = strengthEl.querySelector(`[data-criterion="${key}"]`);
+                    if (!item) return;
+                    const icon = item.querySelector('i');
+                    if (map[key]) {
+                        item.classList.add('met');
+                        if (icon) icon.className = 'bi bi-check-circle-fill';
+                    } else {
+                        item.classList.remove('met');
+                        if (icon) icon.className = 'bi bi-x-circle';
+                    }
+                });
+            }
+            if (newPwInput) {
+                updateStrength(newPwInput.value || '');
+                newPwInput.addEventListener('input', e => updateStrength(e.target.value));
+            }
+
             $('.edit-secretary-btn').on('click', function() {
                 const btn = $(this);
                 const userId = btn.data('user-id');
                 const username = btn.data('username');
+                const fullName = btn.data('name') || username;
                 const phone = btn.data('phone') || '';
                 const email = btn.data('email') || '';
                 const profilePicture = btn.data('profile-picture') || '';
-                const googleEmail = btn.data('google-email') || '';
                 const googleEnabled = (btn.data('google-enabled') === true || btn.data('google-enabled') === 'true');
                 
                 // Populate modal
                 $('#editSecretaryUserId').val(userId);
+                $('#editSecretaryName').val(fullName);
                 $('#editSecretaryUsername').val(username);
-                $('#editSecretaryPassword').val('').attr('placeholder', 'Enter new password');
+                $('#editSecretaryPassword').val('').attr('placeholder', 'Enter new password').attr('type', 'text');
                 $('#editSecretaryPhone').val(phone);
                 $('#editSecretaryEmail').val(email);
-                $('#editSecretaryGoogleEmail').val(googleEmail);
                 $('#editSecretaryGoogleEnabled').prop('checked', googleEnabled);
                 syncSecretaryGoogleField();
                 $('#editSecretaryPicturePreview').html('');
@@ -1764,12 +1868,11 @@
                                 editBtn.data('phone', response.user.phone_number || '');
                                 editBtn.data('email', response.user.email || '');
                                 editBtn.data('profile-picture', response.user.profile_picture || '');
-                                editBtn.data('google-email', response.user.google_email || '');
                                 editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
-                                card.find('.secretary-info h6').text(response.user.username || 'Secretary');
+                                card.find('.secretary-info h6').text((response.user.full_name || response.user.username || 'Secretary'));
                                 card.find('.secretary-phone').text(response.user.phone_number || 'Not provided');
                                 card.find('.secretary-email').text(response.user.email || 'Not provided');
-                                card.find('.secretary-google-email').text(response.user.allow_google_login && response.user.google_email ? response.user.google_email : 'Disabled');
+                            card.find('.secretary-google-email').text(response.user.allow_google_login ? 'Enabled' : 'Disabled');
                             }
                             setTimeout(function() {
                                 submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
@@ -1827,7 +1930,6 @@
                             editBtn.data('phone', response.user.phone_number || '');
                             editBtn.data('email', response.user.email || '');
                             editBtn.data('profile-picture', response.user.profile_picture || '');
-                            editBtn.data('google-email', response.user.google_email || '');
                             editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
                         }
                         editBtn.data('is-active', isActive);
@@ -2033,4 +2135,4 @@
         </div>
     </div>
 </body>
-</html> 
+</html>

@@ -535,6 +535,27 @@ $(document).ready(function(){
   $('#stockDate').val(new Date().toISOString().split('T')[0]);
   loadProducts();
 
+  // Preselect product using query parameter (?product_id=123)
+  (function(){
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get('product_id');
+      if (pid) {
+        // Wait until products are loaded and selects are initialized
+        const attemptSelect = function(retries){
+          const $first = $('.stock-product-select').first();
+          if ($first.length && $first.find('option').length > 1) {
+            $first.val(pid).trigger('change');
+            $('#addStockFormAlert').html('<div class="alert alert-info alert-dismissible fade show" role="alert"><i class="bi bi-info-circle me-2"></i>Product pre-selected from Inventory. You can now enter boxes and supplier.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+            return;
+          }
+          if (retries > 0) setTimeout(()=>attemptSelect(retries-1), 300);
+        };
+        attemptSelect(10);
+      }
+    } catch(e) { /* no-op */ }
+  })();
+
   $(document).on('change','.stock-product-select', function(){ 
     updateCurrentStock(this); 
     validateStockItems(); 

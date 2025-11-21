@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0030_rename_size_to_quantity_unit'),
         ('core', '0031_rename_size_to_quantity_unit'),
     ]
 

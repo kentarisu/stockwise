@@ -49,6 +49,11 @@ ALLOWED_HOSTS = [
     '.ngrok.io',        # Legacy ngrok domains
 ]
 
+# Tell Django to trust reverse proxy headers from ngrok so scheme/host are correct
+# This ensures request.build_absolute_uri uses https when accessed via ngrok
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Additional CSRF settings for ngrok
 CSRF_COOKIE_SECURE = False  # Allow non-HTTPS cookies for development
 CSRF_COOKIE_SAMESITE = 'Lax'  # More permissive SameSite policy
@@ -223,6 +228,9 @@ AUTO_BACKUP_ENABLED = True  # Enable automatic backups before critical operation
 # Disable HTTPS redirect for ngrok
 SECURE_SSL_REDIRECT = False
 
+# Allow embedding application pages/PDF previews in same-origin iframes
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 # TC-043: Maintenance mode (set to True to enable)
 # Can also be controlled via MAINTENANCE_MODE environment variable
 MAINTENANCE_MODE = False
@@ -277,6 +285,7 @@ GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
 GOOGLE_AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
+GOOGLE_REDIRECT_BASE = os.getenv('GOOGLE_REDIRECT_BASE', '')  # e.g., 'http://127.0.0.1:8000'
 
 # Allow only the temporary admin+secretary Google accounts unless overridden
 GOOGLE_ALLOWED_ACCOUNTS = {
@@ -302,7 +311,7 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@stockwise.local')
 
-TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '10'))
+TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '2'))
 TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv('TWO_FACTOR_MAX_ATTEMPTS', '5'))
 
 # SSL Context for email (production-ready)

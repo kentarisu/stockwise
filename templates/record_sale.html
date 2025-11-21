@@ -505,7 +505,7 @@
       </div>
 
       <div class="sale-steps" id="saleStepsIndicator">
-        <div class="sale-step" id="stepIndicator1"><i class="bi bi-basket"></i><div class="sale-step-label">Select Items</div></div>
+        <div class="sale-step" id="stepIndicator1"><i class="bi bi-basket"></i><div class="sale-step-label">Select Products</div></div>
         <div class="sale-step" id="stepIndicator2"><i class="bi bi-credit-card"></i><div class="sale-step-label">Payment</div></div>
         <div class="sale-step" id="stepIndicator3"><i class="bi bi-receipt"></i><div class="sale-step-label">Receipt</div></div>
       </div>
@@ -540,10 +540,10 @@
               <div class="item-row">
                 <div class="row g-3 align-items-end">
                   <div class="col-md-6 col-lg-5">
-                    <label class="form-label">Fruit</label>
+                    <label class="form-label">Product</label>
                     <div style="position: relative;">
                     <select class="form-select product-select" required>
-                      <option value="">Select a fruit</option>
+                      <option value="">Select a product</option>
                     </select>
                     </div>
                     <div class="stock-info text-muted"></div>
@@ -645,7 +645,7 @@
 // @ts-nocheck
 // Configuration from Django template (linter will show false errors due to Django syntax)
 var SALE_PAGE_CONFIG = {
-  isQRMode: {% if preselected_product_id %}true{% else %}false{% endif %},
+  isQRMode: document.body.hasAttribute('data-preselected-product-id'),
   inventoryUrl: "{% url 'products_inventory' %}",
   salesUrl: "{% url 'sales' %}"
 };
@@ -782,14 +782,14 @@ function updateProductSelects(){
   $('.product-select').each(function(){
     const $this=$(this);
     const currentValue = $this.val(); // Store current selection
-    let options='<option value="">Select a fruit</option>';
+    let options='<option value="">Select a product</option>';
     
     // Create optgroups for each fruit category
     sortedFruits.forEach(fruitName => {
       options += `<optgroup label="${fruitName}">`;
       groupedProducts[fruitName].forEach(p => {
         const stock = p.stock || 0;
-        const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
+        const stockText = `[Stock: ${stock}]`;
         
         // Extract variant if name already contains it in parentheses, otherwise use p.variant
         // e.g., "Apple (Fuji)" -> name already has variant, don't add again
@@ -800,8 +800,7 @@ function updateProductSelects(){
         
         // Format: "Product Name (Qty) - Price [Stock: X]"
         displayName = `${displayName}${size} - ₱${formatCurrency(p.price)} ${stockText}`;
-        
-        options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.quantity_unit||''}" data-stock="${stock}">${displayName}</option>`;
+        options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.quantity_unit||''}" data-stock="${stock}" ${stock<=0 ? 'disabled' : ''}>${displayName}</option>`;
       });
       options += '</optgroup>';
     });
@@ -811,7 +810,7 @@ function updateProductSelects(){
       $this.val(currentValue); // Restore previous selection
     }
     if(!$this.hasClass('select2-hidden-accessible')){
-      $this.select2({placeholder:'Search and select a fruit...',allowClear:true,width:'100%',dropdownParent:$this.closest('.card-modern')});
+      $this.select2({placeholder:'Search and select a product...',allowClear:true,width:'100%',dropdownParent:$this.closest('.card-modern')});
     } else { $this.trigger('change.select2'); }
   });
 }
@@ -824,7 +823,7 @@ async function updateBatchesToSell(itemRow) {
   const $batchDisplay = $row.find('.batches-display');
   
   if (!productId || quantity <= 0) {
-    $batchDisplay.text('Select fruit and enter quantity to see which batches will be sold');
+    $batchDisplay.text('Select product and enter quantity to see which batches will be sold');
     $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
     return;
   }
@@ -1120,13 +1119,45 @@ function showPrinterErrorModal(message){
 $(document).ready(function(){
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   loadActiveProducts();
-  $(document).on('change','.product-select',function(){ const $this=$(this); const pid=$this.val(); const $row=$this.closest('.item-row'); const $qty=$row.find('.quantity-input'); const $info=$row.find('.stock-info'); if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ $this.data('price',p.price); $this.data('name',p.name); $this.data('variant',p.variant); $this.data('quantity_unit',p.quantity_unit); $info.text(`Stock: ${p.stock||0} boxes`); $qty.attr('max',p.stock||999); } } else { $info.text(''); $qty.removeAttr('max'); } updateTotal(); updateBatchesToSell($row); });
+  showStep(1);
+  $(document).on('change','.product-select',function(){
+    const $this=$(this);
+    const pid=$this.val();
+    const $row=$this.closest('.item-row');
+    const $qty=$row.find('.quantity-input');
+    const $info=$row.find('.stock-info');
+    if(pid){
+      const p=products.find(pp=>pp.product_id==pid);
+      if(p){
+        if((p.stock||0) <= 0){
+          $('#buyFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">This product is out of stock and cannot be selected.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+          $this.val('');
+          $info.text('');
+          $qty.val('');
+          $qty.removeAttr('max');
+          if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); }
+          return;
+        }
+        $this.data('price',p.price);
+        $this.data('name',p.name);
+        $this.data('variant',p.variant);
+        $this.data('quantity_unit',p.quantity_unit);
+        $info.text(`Stock: ${p.stock||0} boxes`);
+        $qty.attr('max',p.stock||999);
+      }
+    } else {
+      $info.text('');
+      $qty.removeAttr('max');
+    }
+    updateTotal();
+    updateBatchesToSell($row);
+  });
   $(document).on('input','.quantity-input',function(){
     updateTotal();
     updateBatchesToSell($(this).closest('.item-row'));
   });
   $('#addItemBtn').on('click',function(){ 
-    const row=`<div class="item-row"><div class="row g-3 align-items-end"><div class="col-md-6 col-lg-5"><label class="form-label">Fruit</label><select class="form-select product-select" required><option value="">Select a fruit</option></select><div class="stock-info text-muted"></div></div><div class="col-md-5 col-lg-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-1 col-lg-3 text-end"><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batches to Sell (FIFO)</label><div class="batches-to-sell"><span class="batches-display text-muted">Select fruit and enter quantity to see which batches will be sold</span></div></div></div></div>`; 
+    const row=`<div class="item-row"><div class="row g-3 align-items-end"><div class="col-md-6 col-lg-5"><label class="form-label">Product</label><select class="form-select product-select" required><option value="">Select a product</option></select><div class="stock-info text-muted"></div></div><div class="col-md-5 col-lg-4"><label class="form-label">Boxes</label><input type="number" class="form-control quantity-input stock-quantity" min="1" required></div><div class="col-md-1 col-lg-3 text-end"><button type="button" class="btn btn-outline-danger btn-sm remove-item"><i class="bi bi-trash"></i></button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batches to Sell (FIFO)</label><div class="batches-to-sell"><span class="batches-display text-muted">Select product and enter quantity to see which batches will be sold</span></div></div></div></div>`; 
     $('#itemsContainer').append(row); 
     // Show remove buttons for all rows
     $('.remove-item').show();

@@ -84,33 +84,46 @@ def send_low_stock_alert(product):
         if product.stock == 0:
             message = f"STOCKWISE Stock Alert\n\n"
             message += f"CRITICAL - OUT OF STOCK:\n"
-            message += f"- {product.name}{quantity_info}\n\n"
+            variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+            message += f"- {product.name}{variant_info}{quantity_info}\n\n"
             message += f"- STOCKWISE"
         else:
             box_text = "box" if product.stock == 1 else "boxes"
             message = f"STOCKWISE Stock Alert\n\n"
             message += f"WARNING - LOW STOCK:\n"
-            message += f"- {product.name}{quantity_info}: {product.stock} {box_text} left\n\n"
+            variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+            message += f"- {product.name}{variant_info}{quantity_info}: {product.stock} {box_text} left\n\n"
             message += f"- STOCKWISE"
         
         # Send SMS to all admins IMMEDIATELY (REAL-TIME)
         recipients = []
+        message_codes = []
         for admin in admins:
-            result = sms_service.send_sms(admin.phone_number, message)
-            if result['success']:
+            result = sms_service.send_sms(admin.phone_number, message, allow_multipart=True)
+            if result.get('success'):
                 logger.info(f"REAL-TIME low stock alert sent to {admin.username} at {admin.phone_number}")
                 recipients.append(admin.username)
+                code = result.get('message_code')
+                if code:
+                    message_codes.append(code)
             else:
-                logger.error(f"Failed to send low stock alert to {admin.username}: {result['message']}")
+                logger.error(f"Failed to send low stock alert to {admin.username}: {result.get('message')}")
         
         # Log to audit trail
         if recipients:
             from core.views import log_system_action
             quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
             alert_type = "OUT OF STOCK" if product.stock == 0 else "LOW STOCK"
+            details = (
+                f'Product: {product.name}{quantity_info}\n'
+                f'Stock: {product.stock} boxes\n'
+                f'Recipients: {", ".join(recipients)}'
+            )
+            if message_codes:
+                details += f'\nMessage Codes: {", ".join(message_codes)}'
             log_system_action(
                 action=f'Automatic SMS: {alert_type} Alert',
-                details=f'Product: {product.name}{quantity_info}\nStock: {product.stock} boxes\nRecipients: {", ".join(recipients)}'
+                details=details
             )
         
         # Record that we've sent an alert for this product

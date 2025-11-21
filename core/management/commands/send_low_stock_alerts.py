@@ -79,13 +79,19 @@ class Command(BaseCommand):
         # Send SMS to all admins
         success_count = 0
         recipients = []
+        message_codes = []
+        from core.sms_service import sms_service
         for u in admins:
-            if self.send_sms(u.phone_number, message):
+            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
+            if result.get('success'):
                 success_count += 1
                 recipients.append(u.username)
+                code = result.get('message_code')
+                if code:
+                    message_codes.append(code)
                 self.stdout.write(self.style.SUCCESS(f'Low stock alert sent to {u.username} at {u.phone_number}'))
             else:
-                self.stdout.write(self.style.ERROR(f'Failed to send low stock alert to {u.username} at {u.phone_number}'))
+                self.stdout.write(self.style.ERROR(f'Failed to send low stock alert to {u.username} at {u.phone_number}: {result.get('message')}'))
         
         self.stdout.write(
             self.style.SUCCESS(f'Low stock alerts sent to {success_count} admin(s)')
@@ -100,7 +106,9 @@ class Command(BaseCommand):
                 details = f'Threshold: {threshold} boxes\n'
                 details += f'Low Stock Items: {total_low_stock}\n'
                 details += f'Out of Stock Items: {total_out_of_stock}\n'
-                details += f'Recipients: {", ".join(recipients)}'
+                details += f'Recipients: {", ".join(recipients)}\n'
+                if message_codes:
+                    details += f'Message Codes: {", ".join(message_codes)}'
                 log_system_action(
                     action='Automatic SMS: Low Stock Alert (Scheduled)',
                     details=details
@@ -109,32 +117,33 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products, threshold):
-        """Format the low stock alert message"""
-        message = "⚠️ StockWise Low Stock Alert\n\n"
+        """Format the low stock alert message (ASCII, professional, matches dashboard/signals style)"""
+        message = "STOCKWISE Stock Alert\n\n"
         
-        # Add out of stock items first
+        # Out of stock (critical)
         if out_of_stock_products.exists():
-            message += "🚨 OUT OF STOCK:\n"
+            message += "CRITICAL - OUT OF STOCK:\n"
             for product in out_of_stock_products[:5]:  # Limit to 5 items
                 quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
-                message += f"• {product.name}{quantity_info}\n"
+                variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+                message += f"- {product.name}{variant_info}{quantity_info}\n"
             message += "\n"
         
-        # Add low stock items
+        # Low stock (warning)
         if low_stock_products.exists():
-            message += f"📉 LOW STOCK (≤{threshold}):\n"
+            message += "WARNING - LOW STOCK:\n"
             for product in low_stock_products[:5]:  # Limit to 5 items
                 quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
-                message += f"• {product.name}{quantity_info}: {product.stock} boxes\n"
+                variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+                box_text = "box" if product.stock == 1 else "boxes"
+                message += f"- {product.name}{variant_info}{quantity_info}: {product.stock} {box_text} left\n"
             message += "\n"
         
-        # Add action recommendation
-        if out_of_stock_products.exists():
-            message += "🔴 Action: Restock immediately!\n"
-        elif low_stock_products.exists():
-            message += "🟡 Action: Consider restocking soon.\n"
+        # If no alerts
+        if not out_of_stock_products.exists() and not low_stock_products.exists():
+            message += "All products have sufficient stock.\n\n"
         
-        message += "\n📱 Sent by StockWise System"
+        message += "- STOCKWISE"
         
         return message
 
@@ -143,7 +152,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

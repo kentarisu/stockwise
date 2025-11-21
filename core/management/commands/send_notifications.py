@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Expose a simple wrapper for SMS sending so tests can patch it easily
 def send_sms_notification(phone_number, message):
-    return sms_service.send_sms(phone_number, message)
+    return sms_service.send_sms(phone_number, message, allow_multipart=True)
 
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'
@@ -202,61 +202,58 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error sending pricing recommendations: {str(e)}'))
 
     def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products):
-        """Format the sales summary message"""
+        """Format the sales summary message (ASCII, professional, matches dashboard style)"""
         date_str = date.strftime('%B %d, %Y')
         
-        message = f"STOCKWISE Daily Sales Report\n"
+        message = "STOCKWISE Daily Sales Report\n"
         message += f"Date: {date_str}\n\n"
-        message += f"==== OVERALL SUMMARY ====\n"
+        message += "==== OVERALL SUMMARY ====\n"
         message += f"Total Revenue: PHP {total_revenue:,.2f}\n"
         message += f"Total Boxes Sold: {total_boxes}\n"
         message += f"Total Transactions: {total_sales}\n\n"
         
         if top_products:
-            message += f"==== TOP PRODUCTS TODAY ====\n"
+            message += "==== TOP PRODUCTS TODAY ====\n"
             for i, product in enumerate(top_products, 1):
-                product_name = f"{product['product__name']} ({product['product__size']})"
-                boxes_sold = product['quantity']
-                revenue = product.get('revenue', 0) or 0
-                remaining = product.get('product__stock', 0) or 0
-                message += f"{i}. {product_name}\n"
-                message += f"   Sold: {boxes_sold} boxes\n"
-                message += f"   Revenue: PHP {revenue:,.2f}\n"
-                message += f"   Remaining: {remaining} boxes\n\n"
+                message += f"{i}. {product['product__name']}\n"
+                message += f"   Sold: {product['quantity']} boxes\n\n"
+        else:
+            message += "No sales recorded today.\n\n"
         
         message += "- STOCKWISE"
         
         return message
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products):
-        """Format the low stock alert message"""
+        """Format the low stock alert message (ASCII, professional, matches dashboard/signals style)"""
         message = "STOCKWISE Stock Alert\n\n"
         
-        # Add out of stock items first
         if out_of_stock_products.exists():
             message += "CRITICAL - OUT OF STOCK:\n"
-            for product in out_of_stock_products[:5]:  # Limit to 5 items
-                message += f"- {product.name} ({product.size})\n"
+            for product in out_of_stock_products[:5]:
+                variant_part = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+                unit_part = f" ({product.quantity_unit})" if getattr(product, 'quantity_unit', None) else ""
+                message += f"- {product.name}{variant_part}{unit_part}\n"
             message += "\n"
         
-        # Add low stock items
         if low_stock_products.exists():
             message += "WARNING - LOW STOCK:\n"
-            for product in low_stock_products[:5]:  # Limit to 5 items
+            for product in low_stock_products[:5]:
                 box_text = "box" if product.stock == 1 else "boxes"
-                message += f"- {product.name} ({product.size}): {product.stock} {box_text} left\n"
+                variant_part = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+                unit_part = f" ({product.quantity_unit})" if getattr(product, 'quantity_unit', None) else ""
+                message += f"- {product.name}{variant_part}{unit_part}: {product.stock} {box_text} left\n"
             message += "\n"
         
-        # If no alerts, show all products OK
         if not out_of_stock_products.exists() and not low_stock_products.exists():
             message += "All products have sufficient stock.\n\n"
         
-        message += "- STOCKWISE System"
+        message += "- STOCKWISE"
         
         return message
 
     def generate_pricing_recommendations(self, sales):
-        """Generate pricing recommendations message from stored recommendations (same as dashboard)"""
+        """Generate pricing recommendations message from stored recommendations (ASCII, matches dashboard style)"""
         try:
             from core.models import PricingRecommendation
             from django.utils import timezone
@@ -276,42 +273,28 @@ class Command(BaseCommand):
                 return message
             
             # Format recommendations
-            message = "STOCKWISE Pricing Recommendation\n"
-            message += "Based on sales data analysis\n\n"
+            message = "STOCKWISE Pricing\n\n"
             
-            # Add top recommendations (limit to 3)
-            for i, rec in enumerate(valid_recommendations, 1):
-                action_text = rec.action
+            for rec in valid_recommendations[:3]:
+                action_symbol = "+" if rec.action == 'INCREASE' else "-"
                 change_pct = abs(float(rec.change_pct))
-                
-                # Extract clean reason (without technical details)
-                reason = rec.reason
+                reason = rec.reason or ''
                 if '[Data:' in reason:
                     reason = reason.split('[Data:')[0].strip()
+                variant_part = f" ({rec.product.variant})" if getattr(rec.product, 'variant', None) else ""
+                unit_part = f" ({rec.product.quantity_unit})" if getattr(rec.product, 'quantity_unit', None) else ""
+                label = f"{rec.product.name}{variant_part}{unit_part}"
                 
-                message += f"==== RECOMMENDATION {i} ====\n"
-                message += f"Product: {rec.product.name}\n\n"
-                message += f"Current: PHP {float(rec.current_price):.2f}\n"
-                message += f"Suggested: PHP {float(rec.suggested_price):.2f}\n"
-                message += f"Action: {action_text} by {change_pct:.1f}%\n\n"
-                message += f"Why: {reason}\n\n"
+                message += f"{label}\n"
+                message += f"PHP {float(rec.current_price):.0f} -> PHP {float(rec.suggested_price):.0f} ({action_symbol}{change_pct:.0f}%)\n"
+                message += f"Reason: {reason}\n\n"
             
-            # Add summary
-            all_actionable = PricingRecommendation.objects.filter(
-                expires_at__gt=now,
-                action__in=['INCREASE', 'DECREASE']
-            )
-            increase_count = all_actionable.filter(action='INCREASE').count()
-            decrease_count = all_actionable.filter(action='DECREASE').count()
-            
-            message += f"Summary: {increase_count} increases, {decrease_count} decreases\n"
-            message += f"Total recommendations: {all_actionable.count()}\n\n"
-            message += "- STOCKWISE AI Analytics"
+            message += "STOCKWISE"
             
             return message
             
         except Exception as e:
-            message = "STOCKWISE Pricing Recommendation Alert\n\n"
+            message = "STOCKWISE Pricing Report\n\n"
             message += f"Error generating recommendations: {str(e)}\n\n"
             message += "- STOCKWISE System"
             return message

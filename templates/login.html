@@ -339,10 +339,10 @@
             <form method="post" id="loginForm">
                 {% csrf_token %}
                 <div class="form-group">
-                    <label class="form-label" for="username">Username</label>
+                    <label class="form-label" for="email">Email</label>
                     <div class="input-group">
-                        <i class="bi bi-person input-group-icon"></i>
-                        <input type="text" class="form-control" id="username" name="username" required autocomplete="username" placeholder="Enter your username">
+                        <i class="bi bi-envelope input-group-icon"></i>
+                        <input type="email" class="form-control" id="email" name="email" required autocomplete="email" placeholder="Enter your email">
                     </div>
                 </div>
 
@@ -377,10 +377,10 @@
         // Enhanced login form handling
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             const loginBtn = document.getElementById('loginBtn');
-            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
 
-            if (!username || !password) {
+            if (!email || !password) {
                 e.preventDefault();
                 return;
             }
@@ -391,8 +391,8 @@
             loginBtn.disabled = true;
         });
 
-        // Auto-focus on username field
-        document.getElementById('username').focus();
+        // Auto-focus on email field
+        document.getElementById('email').focus();
 
         // Add enter key support
         document.getElementById('password').addEventListener('keypress', function(e) {
@@ -402,4 +402,4 @@
         });
     </script>
 </body>
-</html> 
+</html>

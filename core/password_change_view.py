@@ -7,6 +7,20 @@ from django.views.decorators.http import require_http_methods
 from core.models import AppUser
 from passlib.hash import bcrypt
 from core.views import require_app_login
+import re
+
+def _is_strong_password(p: str) -> bool:
+    if not p or len(p) < 8:
+        return False
+    if not re.search(r"[A-Z]", p):
+        return False
+    if not re.search(r"[a-z]", p):
+        return False
+    if not re.search(r"\d", p):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", p):
+        return False
+    return True
 
 
 @require_app_login
@@ -30,8 +44,8 @@ def change_password(request):
             return JsonResponse({'success': False, 'message': 'Current password is required.'})
         if not new_password:
             return JsonResponse({'success': False, 'message': 'New password is required.'})
-        if len(new_password) < 6:
-            return JsonResponse({'success': False, 'message': 'New password must be at least 6 characters.'})
+        if not _is_strong_password(new_password):
+            return JsonResponse({'success': False, 'message': 'New password must be at least 8 characters and include uppercase, lowercase, number, and symbol.'})
         if new_password != confirm_password:
             return JsonResponse({'success': False, 'message': 'New passwords do not match.'})
         

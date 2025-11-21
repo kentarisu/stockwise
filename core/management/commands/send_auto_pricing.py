@@ -64,6 +64,7 @@ class Command(BaseCommand):
                         'product_id': sale.product.product_id,
                         'date': sale.recorded_at.date(),
                         'quantity': sale.quantity,
+                        'units_sold': sale.quantity,
                         'price': sale.product.price,
                         'revenue': sale.total
                     })
@@ -93,6 +94,35 @@ class Command(BaseCommand):
                 
                 # Get actionable recommendations
                 actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
+
+                # Persist recommendations for dashboard/offcanvas consistency
+                try:
+                    from core.models import PricingRecommendation
+                    from decimal import Decimal
+                    from datetime import timedelta
+                    # Replace existing for affected products
+                    affected_ids = proposals['product_id'].tolist()
+                    PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
+                    expires_at = timezone.now() + timezone.timedelta(days=3)
+                    for _, rec in proposals.iterrows():
+                        try:
+                            product = Product.objects.get(product_id=rec['product_id'])
+                        except Exception:
+                            continue
+                        PricingRecommendation.objects.create(
+                            product=product,
+                            current_price=Decimal(str(rec['current_price'])),
+                            suggested_price=Decimal(str(rec['suggested_price'])),
+                            change_pct=Decimal(str(rec['change_pct'])),
+                            action=rec['action'],
+                            reason=rec.get('reason', ''),
+                            elasticity=Decimal(str(rec['elasticity'])) if rec.get('elasticity') is not None else None,
+                            r2=Decimal(str(rec['r2'])) if rec.get('r2') is not None else None,
+                            confidence=rec.get('confidence', 'MED'),
+                            expires_at=expires_at
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to persist pricing recommendations: {e}")
                 
                 if actionable.empty and not force:
                     self.stdout.write(self.style.SUCCESS('No pricing changes needed - all products optimally priced'))
@@ -145,14 +175,21 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
     
     def _format_pricing_message(self, recommendations, total_count):
-        """Format pricing recommendations into SMS message (ultra-simplified for delivery)"""
+        """Format pricing recommendations into SMS message (ASCII, includes variant and unit)"""
         message = "STOCKWISE Pricing\n\n"
-        
+
         for idx, (_, rec) in enumerate(recommendations.iterrows(), 1):
             action_symbol = "+" if rec['action'] == 'INCREASE' else "-"
             change_pct = abs(rec['change_pct'])
-            
-            # Create user-friendly reason
+
+            try:
+                product = Product.objects.get(product_id=rec.get('product_id'))
+                variant_part = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+                unit_part = f" ({product.quantity_unit})" if getattr(product, 'quantity_unit', None) else ""
+                label = f"{product.name}{variant_part}{unit_part}"
+            except Exception:
+                label = rec.get('name') or "Product"
+
             sales_count = rec.get('sales_count', 0)
             if sales_count > 0:
                 if rec['action'] == 'INCREASE':
@@ -161,11 +198,11 @@ class Command(BaseCommand):
                     reason = "Low sales activity"
             else:
                 reason = "Price optimization"
-            
-            message += f"{rec['name']}\n"
+
+            message += f"{label}\n"
             message += f"PHP {rec['current_price']:.0f} -> {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
             message += f"Reason: {reason}\n\n"
-        
+
         message += "STOCKWISE"
         return message
     

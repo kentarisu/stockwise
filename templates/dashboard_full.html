@@ -2125,8 +2125,8 @@
                                 if (!isReadTab) {
                                     // Remove from allUnreadItems array
                                     allUnreadItems = allUnreadItems.filter(item => {
-                                        const itemKey = `${item.product_id}_${item.suggested_price}`;
-                                        const removeKey = `${productId}_${suggestedPrice}`;
+                                        const itemKey = item.recommendation_id ? `id_${item.recommendation_id}` : `${item.product_id}_${item.suggested_price}`;
+                                        const removeKey = listItem.dataset.recommendationId ? `id_${listItem.dataset.recommendationId}` : `${productId}_${suggestedPrice}`;
                                         return itemKey !== removeKey;
                                     });
                                     
@@ -2206,8 +2206,8 @@
                                 if (!isReadTab) {
                                     // Remove from allUnreadItems array
                                     allUnreadItems = allUnreadItems.filter(item => {
-                                        const itemKey = `${item.product_id}_${item.suggested_price}`;
-                                        const removeKey = `${productId}_${suggestedPrice}`;
+                                        const itemKey = item.recommendation_id ? `id_${item.recommendation_id}` : `${item.product_id}_${item.suggested_price}`;
+                                        const removeKey = listItem.dataset.recommendationId ? `id_${listItem.dataset.recommendationId}` : `${productId}_${suggestedPrice}`;
                                         return itemKey !== removeKey;
                                     });
                                     
@@ -2313,11 +2313,14 @@
                         data-suggested-price="${item.suggested_price}"
                         data-action="${originalAction}"
                         data-change-pct="${item.change_pct || 0}"
-                        data-reason="${(item.reason || '').replace(/"/g, '&quot;')}">
+                        data-reason="${(item.reason || '').replace(/"/g, '&quot;')}"
+                        data-variant="${(item.variant || '').replace(/"/g, '&quot;')}"
+                        data-quantity-unit="${(item.quantity_unit || '').replace(/"/g, '&quot;')}"
+                        ${item.recommendation_id ? `data-recommendation-id="${item.recommendation_id}"` : ''}>
                         <div style="flex: 1; width: 100%;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                                 <div style="flex: 1;">
-                                    <h6>${item.name}${statusBadge}</h6>
+                                    <h6>${item.name}${item.variant ? ' (' + item.variant + ')' : ''}${item.quantity_unit ? ' (' + item.quantity_unit + ')' : ''}${statusBadge}</h6>
                                     <p style="margin: 0.25rem 0;">${formatCurrency(item.current_price)} → ${formatCurrency(item.suggested_price)} · ${reasonText}</p>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0;">
@@ -2329,19 +2332,19 @@
                                 <small style="color: var(--gray-500); font-size: 0.7rem;">
                                     <i class="bi bi-calendar3"></i> Suggested on ${displayDate}
                                 </small>
-                                ${!isReadTab ? `
+                                ${(!isReadTab && originalAction !== 'HOLD') ? `
                                 <div style="display: flex; gap: 0.4rem;">
                                     <button type="button" class="btn btn-success btn-sm accept-recommendation-btn" 
                                             data-product-id="${item.product_id}" 
                                             data-suggested-price="${item.suggested_price}"
                                             style="font-size: 0.7rem; padding: 0.25rem 0.6rem;">
-                                        <i class="bi bi-check-circle"></i> Accept
+                                            <i class="bi bi-check-circle"></i> Accept
                                     </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm reject-recommendation-btn" 
                                             data-product-id="${item.product_id}"
                                             data-suggested-price="${item.suggested_price}"
                                             style="font-size: 0.7rem; padding: 0.25rem 0.6rem;">
-                                        <i class="bi bi-x-circle"></i> Reject
+                                            <i class="bi bi-x-circle"></i> Reject
                                     </button>
                                 </div>
                                 ` : ''}
@@ -2584,8 +2587,8 @@
 
                 // Filter out read recommendations
                 const readItems = getReadRecommendations();
-                const readProductIds = new Set(readItems.map(item => 
-                    `${item.product_id}_${item.suggested_price}`
+                const readKeys = new Set(readItems.map(item => 
+                    item.recommendation_id ? `id_${item.recommendation_id}` : `${item.product_id}_${item.suggested_price}`
                 ));
                 
                 // Add date to each item and filter out read ones
@@ -2596,14 +2599,10 @@
                         date: today
                     }))
                     .filter(item => {
-                        // Check if this recommendation has been accepted/rejected
-                        const key = `${item.product_id}_${item.suggested_price}`;
-                        const isRead = readProductIds.has(key);
-                        
-                        // Also check if current price already matches suggested price (already accepted)
-                        // This handles cases where price was updated but item wasn't marked as read
-                        const alreadyApplied = Math.abs(item.current_price - item.suggested_price) < 0.01;
-                        
+                        const key = item.recommendation_id ? `id_${item.recommendation_id}` : `${item.product_id}_${item.suggested_price}`;
+                        const isRead = readKeys.has(key);
+                        const isActionable = item.action === 'INCREASE' || item.action === 'DECREASE';
+                        const alreadyApplied = isActionable && Math.abs(item.current_price - item.suggested_price) < 0.01;
                         return !isRead && !alreadyApplied;
                     });
                 
@@ -2645,7 +2644,7 @@
                         console.log('Total recommendations:', data.recommendations.length);
                         const actionable = data.recommendations.filter(item => item.action === 'INCREASE' || item.action === 'DECREASE');
                         console.log('Actionable recommendations:', actionable.length);
-                        const displayItems = actionable.length ? actionable : data.recommendations;
+                        const displayItems = actionable;
                         console.log('Display items:', displayItems.length, displayItems);
                         renderRecommendations(displayItems);
                     })
@@ -2667,6 +2666,9 @@
                 pricingOffcanvas.addEventListener('shown.bs.offcanvas', function() {
                     loadPricingRecommendations();
                 });
+                pricingOffcanvas.addEventListener('hidden.bs.offcanvas', function() {
+                    recommendationsLoaded = false;
+                });
             }
             
             // Tab event handlers
@@ -2681,8 +2683,8 @@
             
             
             // Reset pagination when switching tabs
-            const unreadTabEl = document.getElementById('unreadRecommendations-tab');
-            const readTabEl = document.getElementById('readRecommendations-tab');
+            const unreadTabEl = document.getElementById('unreadTab');
+            const readTabEl = document.getElementById('readTab');
             
             if (unreadTabEl) {
                 unreadTabEl.addEventListener('shown.bs.tab', function() {

@@ -81,19 +81,19 @@ class SMSScheduler:
         if self.last_pricing_date == today:
             return False
         
-        # Send at 10:00 AM every 3 days
-        if self.last_pricing_date is None:
-            # First run
-            current_time = now.time()
-            if current_time.hour == 10 and current_time.minute <= 1:
-                return True
-        else:
-            # Check if 3 days have passed
-            days_since_last = (today - self.last_pricing_date).days
-            if days_since_last >= 3:
-                current_time = now.time()
-                if current_time.hour == 10 and current_time.minute <= 1:
-                    return True
+        local_now = now  # naive fallback
+        try:
+            from django.utils import timezone as dj_tz
+            local_now = dj_tz.localtime(dj_tz.now())
+        except Exception:
+            pass
+        scheduled_hour, scheduled_minute = 8, 0
+        current_time = local_now.time()
+        is_after_scheduled = (current_time.hour * 60 + current_time.minute) >= (scheduled_hour * 60 + scheduled_minute)
+
+        is_eligible_day = (self.last_pricing_date is None) or ((today - self.last_pricing_date).days >= 3)
+        if is_eligible_day and is_after_scheduled:
+            return True
         
         return False
     
@@ -114,7 +114,11 @@ class SMSScheduler:
         try:
             logger.info("Sending pricing recommendations...")
             call_command('send_auto_pricing')
-            self.last_pricing_date = datetime.now().date()
+            try:
+                from django.utils import timezone as dj_tz
+                self.last_pricing_date = dj_tz.localtime(dj_tz.now()).date()
+            except Exception:
+                self.last_pricing_date = datetime.now().date()
             logger.info("Pricing recommendations sent successfully")
         except Exception as e:
             logger.error(f"Error sending pricing recommendations: {e}")

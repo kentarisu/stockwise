@@ -71,6 +71,7 @@ class Command(BaseCommand):
                     'product_id': sale.product.product_id,
                     'date': sale.recorded_at.date(),
                     'quantity': sale.quantity,
+                    'units_sold': sale.quantity,
                     'price': sale.product.price,
                     'revenue': sale.total
                 })
@@ -128,30 +129,24 @@ class Command(BaseCommand):
             )
 
     def format_pricing_recommendation(self, actionable_recommendations, days):
-        """Format the pricing recommendation message"""
-        message = f"💰 StockWise Pricing Recommendation\n"
-        message += f"📊 Based on {days} days of sales data\n\n"
+        """Format pricing recommendations (ASCII, professional, matches dashboard style)"""
+        message = "STOCKWISE Pricing\n\n"
         
-        # Add top recommendations (limit to 3)
         top_recommendations = actionable_recommendations.head(3)
-        
-        for i, (_, rec) in enumerate(top_recommendations.iterrows(), 1):
-            action_emoji = "📈" if rec['action'] == 'INCREASE' else "📉"
+        for _, rec in top_recommendations.iterrows():
+            action_symbol = "+" if rec['action'] == 'INCREASE' else "-"
             change_pct = abs(rec['change_pct'])
             
-            message += f"{i}. {action_emoji} {rec['name']}\n"
-            message += f"   Current: ₱{rec['current_price']:.2f}\n"
-            message += f"   Suggested: ₱{rec['suggested_price']:.2f} ({change_pct:.1f}% {rec['action'].lower()})\n"
-            message += f"   Reason: {rec['reason']}\n\n"
+            # Clean reason (remove technical bracketed data)
+            reason = str(rec.get('reason', '') or '')
+            if '[Data:' in reason:
+                reason = reason.split('[Data:')[0].strip()
+            
+            message += f"{rec['name']}\n"
+            message += f"PHP {rec['current_price']:.0f} -> PHP {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
+            message += f"Reason: {reason}\n\n"
         
-        # Add summary
-        increase_count = len(actionable_recommendations[actionable_recommendations['action'] == 'INCREASE'])
-        decrease_count = len(actionable_recommendations[actionable_recommendations['action'] == 'DECREASE'])
-        
-        message += f"📋 Summary: {increase_count} increases, {decrease_count} decreases\n"
-        message += f"💡 Total actionable recommendations: {len(actionable_recommendations)}\n\n"
-        message += "📱 Sent by StockWise System"
-        
+        message += "STOCKWISE"
         return message
 
     def send_sms(self, phone_number, message):
@@ -159,7 +154,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

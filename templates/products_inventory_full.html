@@ -358,7 +358,34 @@
             transform: scale(1.05);
         }
 
-        /* Burger Menu Button - Now in sidebar header, styled above */
+        .burger-menu-btn {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .burger-menu-btn span {
+            width: 100%;
+            height: 1.5px;
+            background: var(--gray-700);
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .burger-menu-btn:hover span { background: var(--primary); }
+        .burger-menu-btn.active span:nth-child(1) { transform: rotate(45deg) translate(2.5px, 2.5px); }
+        .burger-menu-btn.active span:nth-child(2) { opacity: 0; }
+        .burger-menu-btn.active span:nth-child(3) { transform: rotate(-45deg) translate(2.5px, -2.5px); }
 
         /* Content Area */
         .content-area {
@@ -1782,14 +1809,14 @@
 <body>
     <div class="app-container">
         <!-- Unified Header -->
-        <header class="header">
+        <header class="header" role="banner">
             <div class="header-left">
                 <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
                     <span></span>
                     <span></span>
                     <span></span>
                 </button>
-                <a href="{% url 'dashboard' %}" class="header-brand">
+                <a href="{% url 'dashboard' %}" class="header-brand" aria-label="StockWise - Go to Dashboard">
                     <i class="bi bi-basket-fill"></i>
                     <span>StockWise</span>
                 </a>
@@ -1948,7 +1975,7 @@
                         </a>
                         <a href="{% url 'add_stock_page' %}" class="btn-modern warning">
                             <i class="bi bi-box-arrow-in-down"></i>
-                            Add Stock
+                            Update Stock
                         </a>
                     </div>
                     <button type="button" class="btn-filter-action" id="refreshTable" aria-label="Refresh table" style="width: 150px; justify-content: center;">
@@ -2052,12 +2079,13 @@
                                             <th>Stock</th>
                                             <th>Status</th>
                                             <th style="width: 150px">Options</th>
+                                            <th style="width: 160px">Update Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <!-- Low stock products will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">Loading low stock products...</td>
+                                            <td colspan="10" class="text-center text-muted py-4">Loading low stock products...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2079,12 +2107,13 @@
                                             <th>Stock</th>
                                             <th>Status</th>
                                             <th style="width: 150px">Options</th>
+                                            <th style="width: 160px">Update Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <!-- Out of stock products will be loaded dynamically -->
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">Loading out of stock products...</td>
+                                            <td colspan="10" class="text-center text-muted py-4">Loading out of stock products...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2119,7 +2148,7 @@
                                     <span class="badge bg-success" style="font-size: 0.75rem;">Available</span> = In stock and ready to sell, 
                                     <span class="badge bg-danger" style="font-size: 0.75rem;">Discontinued</span> = No longer stocked
                                 </li>
-                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Add stock, Change price, or Discontinue product.</li>
+                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Update stock, Change price, or Discontinue product.</li>
                             </ul>
                         </div>
                     </div>
@@ -2169,7 +2198,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="generateStockQRModalLabel">Scan to Add Stock</h5>
+                    <h5 class="modal-title" id="generateStockQRModalLabel">Scan to Update Stock</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -2347,7 +2376,7 @@
         </div>
     </div>
 
-    <!-- Add Stock modal removed in favor of dedicated page -->
+    <!-- Update Stock modal removed in favor of dedicated page -->
 
     <!-- Record Sale modal removed in favor of dedicated page -->
 
@@ -2899,7 +2928,7 @@
                 });
             });
 
-            // Add Stock Modal functionality
+            // Update Stock Modal functionality
             let stockItems = [];
 
             // Function to validate stock items
@@ -4287,8 +4316,10 @@
     <script>
         function renderProductsTableForPage(data, tableId){
             const $tbody = $(`#${tableId} tbody`).empty();
+            const showAddStock = tableId === 'lowStockTable' || tableId === 'outOfStockTable';
+            const emptyColspan = showAddStock ? 10 : 9;
             if(!data || !data.length){
-                $tbody.append('<tr><td colspan="9" class="text-center text-muted py-4">No product yet</td></tr>');
+                $tbody.append(`<tr><td colspan="${emptyColspan}" class="text-center text-muted py-4">No product yet</td></tr>`);
                 invUpdateControls(0, tableId);
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 return;
@@ -4331,6 +4362,11 @@
                         </ul>
                     </div>`;
                 row.append(`<td>${optionsHtml}</td>`);
+                if (showAddStock) {
+                    const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
+                    const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm" title="Update stock for this product"><i class="bi bi-plus-circle me-1"></i>Update Stock</a>`;
+                    row.append(`<td>${addBtn}</td>`);
+                }
                 $tbody.append(row);
             });
             invUpdateControls(data.length, tableId);

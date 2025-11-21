@@ -47,7 +47,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('Sales SMS notifications are disabled in settings.'))
             return
         
-        admins = AppUser.objects.filter(role='Admin').exclude(phone_number='')
+        admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
             return
@@ -70,7 +70,7 @@ class Command(BaseCommand):
         
         # Get top selling products
         top_products = (sales_query
-            .values('product__name')
+            .values('product__name', 'product__variant', 'product__quantity_unit')
             .annotate(quantity=Sum('quantity'))
             .order_by('-quantity')[:3])
         
@@ -82,20 +82,35 @@ class Command(BaseCommand):
         # Send SMS to all active notifications
         success_count = 0
         recipients = []
+        message_codes = []
+        from core.sms_service import sms_service
         for u in admins:
-            if self.send_sms(u.phone_number, message):
+            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
+            if result.get('success'):
                 success_count += 1
                 recipients.append(u.username)
+                code = result.get('message_code')
+                if code:
+                    message_codes.append(code)
                 self.stdout.write(self.style.SUCCESS(f'Daily summary sent to {u.username} at {u.phone_number}'))
             else:
-                self.stdout.write(self.style.ERROR(f'Failed to send daily summary to {u.username} at {u.phone_number}'))
+                self.stdout.write(self.style.ERROR(f'Failed to send daily summary to {u.username} at {u.phone_number}: {result.get('message')}'))
         
-        # Log to audit trail
         if recipients:
             from core.views import log_system_action
+            date_str = target_date.strftime('%B %d, %Y')
+            details = (
+                f'Date: {date_str}\n'
+                f'Revenue: ₱{total_revenue:,.2f}\n'
+                f'Transactions: {total_sales}\n'
+                f'Boxes Sold: {total_boxes}\n'
+                f'Recipients: {", ".join(recipients)}'
+            )
+            if message_codes:
+                details += f'\nMessage Codes: {", ".join(message_codes)}'
             log_system_action(
                 action='Automatic SMS: Daily Sales Summary',
-                details=f'Date: {date_str}\nRevenue: ₱{total_revenue:,.2f}\nTransactions: {total_sales}\nBoxes Sold: {total_boxes}\nRecipients: {", ".join(recipients)}'
+                details=details
             )
         
         self.stdout.write(
@@ -103,21 +118,30 @@ class Command(BaseCommand):
         )
 
     def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products, date_label="Yesterday"):
-        """Format the sales summary message"""
+        """Format the sales summary message (ASCII, professional, matches dashboard style)"""
         date_str = date.strftime('%B %d, %Y')
         
-        message = f"📊 StockWise {date_label} Sales Summary\n"
-        message += f"📅 Date: {date_str}\n\n"
-        message += f"💰 Total Revenue: ₱{total_revenue:,.2f}\n"
-        message += f"📦 Total Boxes Sold: {total_boxes}\n"
-        message += f"🛒 Total Transactions: {total_sales}\n\n"
+        message = "STOCKWISE Daily Sales Report\n"
+        message += f"Date: {date_str}\n\n"
+        message += "==== OVERALL SUMMARY ====\n"
+        message += f"Total Revenue: PHP {total_revenue:,.2f}\n"
+        message += f"Total Boxes Sold: {total_boxes}\n"
+        message += f"Total Transactions: {total_sales}\n\n"
         
         if top_products:
-            message += "🏆 Top Selling Products:\n"
+            message += "==== TOP PRODUCTS TODAY ====\n"
             for i, product in enumerate(top_products, 1):
-                message += f"{i}. {product['product__name']}: {product['quantity']} boxes\n"
+                name = product.get('product__name') or ''
+                variant = product.get('product__variant') or ''
+                unit = product.get('product__quantity_unit') or ''
+                variant_part = f" ({variant})" if variant else ""
+                unit_part = f" ({unit})" if unit else ""
+                message += f"{i}. {name}{variant_part}{unit_part}\n"
+                message += f"   Sold: {product['quantity']} boxes\n\n"
+        else:
+            message += "No sales recorded today.\n\n"
         
-        message += "\n📱 Sent by StockWise System"
+        message += "- STOCKWISE"
         
         return message
 
@@ -126,7 +150,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

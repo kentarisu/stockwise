@@ -625,7 +625,7 @@
                         Sign in with Google
                     </a>
                 </div>
-                <div class="social-divider">Or continue with username</div>
+                <div class="social-divider">Or continue with email</div>
             {% endif %}
             
             {% if messages %}
@@ -642,8 +642,8 @@
                 {% csrf_token %}
                 
                 <div class="form-floating">
-                    <input type="text" class="form-control" id="username" name="username" placeholder=" " required autocomplete="username">
-                    <label for="username">Email address or username</label>
+                    <input type="text" class="form-control" id="email" name="email" placeholder=" " required autocomplete="username">
+                    <label for="email">Email or Username</label>
                 </div>
                 
                 <div class="form-floating">
@@ -661,7 +661,7 @@
                         Remember me
                     </label>
                     </div>
-                    <a href="#" aria-disabled="true" title="Contact the administrator to reset your password.">Forgot password?</a>
+                    <a href="{% url 'forgot_password' %}" title="Request password assistance">Forgot password?</a>
                 </div>
                 
                 <button type="submit" class="btn btn-login" id="loginBtn">
@@ -704,10 +704,10 @@
             if (loginForm && loginBtn) {
                 loginForm.addEventListener('submit', function(e) {
                     // Validate form before showing loading state
-                    const username = document.getElementById('username').value.trim();
+                    const email = document.getElementById('email').value.trim();
                     const password = document.getElementById('password').value.trim();
                     
-                    if (!username || !password) {
+                    if (!email || !password) {
                         e.preventDefault();
                         return false;
                     }
@@ -737,6 +737,7 @@
                     }
                 });
             });
+            
             
             // Auto-focus username field
             const usernameField = document.getElementById('username');

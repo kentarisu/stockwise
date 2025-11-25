@@ -38,7 +38,7 @@ class Command(BaseCommand):
                         'date_added': fields.get('date_added') or timezone.now().date(),
                         'price': fields.get('price') or 0,
                         'cost': fields.get('cost') or 0,
-                        'size': fields.get('size') or '',
+                        'quantity_unit': fields.get('size') or '',
                         'low_stock_threshold': 10,
                         'stock': 0,
                         'qr_code': b''

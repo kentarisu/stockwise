@@ -406,6 +406,12 @@
             color: var(--gray-700);
         }
 
+        .edit-stock-btn {
+            padding: 2px 8px;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
         /* Loading states */
         .loading-container {
             display: flex;
@@ -740,7 +746,11 @@
                     if (resp.success && resp.data) {
                         const product = resp.data.find(p => p.product_id == productId);
                         if (product) {
-                            document.getElementById('productName').textContent = product.name;
+                            const baseName = product.name || '';
+                            const variant = (product.variant || '').trim();
+                            const hasVariantInName = variant && baseName.toLowerCase().includes(`(${variant.toLowerCase()})`);
+                            const displayName = variant && !hasVariantInName ? `${baseName} (${variant})` : baseName;
+                            document.getElementById('productName').textContent = displayName;
                             document.getElementById('productDetails').textContent = `Quantity: ${product.quantity_unit} • Price: ₱${parseFloat(product.price).toFixed(2)}`;
                         }
                     }
@@ -840,6 +850,15 @@
                 return;
             }
 
+            const sortedGroups = [...groups].sort(function(a,b){
+                const da = new Date(a.date_added);
+                const db = new Date(b.date_added);
+                if (isNaN(da) && isNaN(db)) return 0;
+                if (isNaN(da)) return 1;
+                if (isNaN(db)) return -1;
+                return db - da;
+            });
+
             const paginationInfo = pagination || {};
             const currentPage = paginationInfo.page || 1;
             const totalPages = paginationInfo.total_pages || 1;
@@ -862,10 +881,11 @@
                             <th>Supplier</th>
                             <th>Status</th>
                             <th>Batch IDs</th>
+                            <th>Options</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${groups.map((group, index) => {
+                        ${sortedGroups.map((group, index) => {
                             const additionNumber = startNumber + index;
                             const date = new Date(group.date_added);
                             const dateText = isNaN(date) ? group.date_added : date.toLocaleDateString('en-US', { 
@@ -904,6 +924,9 @@
                                         <div class="batch-ids-container">
                                             ${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}
                                         </div>
+                                    </td>
+                                    <td>
+                                        ${group.available_total > 0 ? `<button class="btn btn-outline-secondary btn-sm edit-stock-btn" data-addition-id="${group.addition_id}" data-available="${group.available_total}" data-added="${group.added_total}" data-batch="${(group.batch_ids||[]).join(',')}"><i class="bi bi-pencil"></i> Edit Stock</button>` : `<span class="text-muted small">No actions</span>`}
                                     </td>
                                 </tr>
                             `;
@@ -980,6 +1003,17 @@
                     });
                 });
             }
+
+            document.querySelectorAll('.edit-stock-btn').forEach(btn => {
+                btn.addEventListener('click', function(){
+                    const id = parseInt(this.getAttribute('data-addition-id'));
+                    const avail = parseInt(this.getAttribute('data-available'));
+                    const added = parseInt(this.getAttribute('data-added'));
+                    const batchStr = this.getAttribute('data-batch') || '';
+                    const batchList = batchStr ? batchStr.split(',').filter(Boolean) : [];
+                    showDecreaseModal(id, avail, added, batchList);
+                });
+            });
         }
 
         function showEmptyState() {
@@ -1001,6 +1035,112 @@
                 </div>
             `;
         }
+    </script>
+    <div class="modal fade" id="decreaseStockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Stock</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="decreaseAlert"></div>
+                    <div class="mb-3">
+                        <div class="small text-muted">Batch info</div>
+                        <div><span class="badge bg-light text-dark">Added: <span id="modalBatchAdded">0</span></span> <span class="badge bg-light text-dark">Available: <span id="modalBatchAvailable">0</span></span></div>
+                        <div class="mt-2" id="modalBatchRange" class="text-muted small"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Decrease by</label>
+                        <input type="number" class="form-control" id="decreaseAmount" min="1" step="1">
+                        <div class="form-text" id="decreaseHelper"></div>
+                    </div>
+                    <div class="mb-2" id="removalPreview"></div>
+                    <div class="alert alert-warning" id="decreaseWarning">This will permanently deduct boxes from this batch and remove the earliest batch IDs listed. This action cannot be undone.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDecreaseBtn">Decrease</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentDecreaseAdditionId = null;
+        let decreaseModal = null;
+        let currentBatchIds = [];
+        let currentBatchAdded = 0;
+        let currentBatchAvailable = 0;
+        function showDecreaseModal(additionId, available, added, batchList){
+            currentDecreaseAdditionId = additionId;
+            currentBatchAvailable = parseInt(available||0);
+            currentBatchAdded = parseInt(added||0);
+            currentBatchIds = Array.isArray(batchList) ? batchList.slice() : [];
+            const input = document.getElementById('decreaseAmount');
+            input.value = 1;
+            input.max = currentBatchAvailable;
+            document.getElementById('modalBatchAdded').textContent = currentBatchAdded;
+            document.getElementById('modalBatchAvailable').textContent = currentBatchAvailable;
+            const rangeEl = document.getElementById('modalBatchRange');
+            const rangeText = formatBatchIdRange(currentBatchIds).join(', ');
+            rangeEl.textContent = rangeText ? `Remaining batch IDs: ${rangeText}` : '';
+            const helper = document.getElementById('decreaseHelper');
+            const stockWord = currentBatchAvailable === 1 ? 'stock' : 'stocks';
+            helper.textContent = `Available: ${currentBatchAvailable} ${stockWord}.`;
+            const alertBox = document.getElementById('decreaseAlert');
+            alertBox.innerHTML = '';
+            renderRemovalPreview(parseInt(input.value||'1'));
+            if (!decreaseModal){
+                decreaseModal = new bootstrap.Modal(document.getElementById('decreaseStockModal'));
+            }
+            decreaseModal.show();
+        }
+        function renderRemovalPreview(amount){
+            const amt = Math.max(1, Math.min(parseInt(amount||'1'), currentBatchAvailable||0));
+            const ids = currentBatchIds.slice(0, amt);
+            const html = ids.length ? `<div class="small text-muted mb-1">Will remove ${ids.length} box(es):</div>` + ids.map(id=>`<span class="batch-id-badge" style="background:#fde68a;border-color:#f59e0b;color:#a16207;">${id}</span>`).join('') : '';
+            document.getElementById('removalPreview').innerHTML = html;
+        }
+        document.getElementById('decreaseAmount').addEventListener('input', function(){
+            let v = parseInt(this.value || '0');
+            if (isNaN(v) || v < 1) v = 1;
+            const maxV = parseInt(this.max || currentBatchAvailable || 1);
+            if (v > maxV) v = maxV;
+            this.value = v;
+            renderRemovalPreview(v);
+        });
+        document.getElementById('confirmDecreaseBtn').addEventListener('click', function(){
+            const inputEl = document.getElementById('decreaseAmount');
+            let amt = parseInt(inputEl.value || '0');
+            if (amt > currentBatchAvailable) {
+                amt = currentBatchAvailable;
+                inputEl.value = currentBatchAvailable;
+            }
+            if (!currentDecreaseAdditionId || !amt || amt < 1){
+                const alertBox = document.getElementById('decreaseAlert');
+                alertBox.innerHTML = `<div class="alert alert-warning">Enter a valid amount (1 to ${currentBatchAvailable}).</div>`;
+                return;
+            }
+            this.disabled = true;
+            fetch(`/api/products/${productId}/stock/decrease/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ addition_id: currentDecreaseAdditionId, amount: amt })
+            }).then(r=>r.json()).then(resp=>{
+                this.disabled = false;
+                if (!resp.success){
+                    const alertBox = document.getElementById('decreaseAlert');
+                    alertBox.innerHTML = `<div class="alert alert-danger">${resp.message||'Failed to update stock.'}</div>`;
+                    return;
+                }
+                decreaseModal.hide();
+                loadStockDetails(productId, currentPage);
+            }).catch(()=>{
+                this.disabled = false;
+                const alertBox = document.getElementById('decreaseAlert');
+                alertBox.innerHTML = `<div class="alert alert-danger">Failed to update stock.</div>`;
+            });
+        });
     </script>
 </body>
 </html>

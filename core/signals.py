@@ -19,17 +19,17 @@ def check_low_stock_after_sale(sender, instance, created, **kwargs):
     """
     if instance.status == 'completed':
         try:
-            # Reload the product from database to get updated stock
-            product = Product.objects.get(product_id=instance.product_id)
-            logger.info(f"Sale completed for product: {product.name}, Stock after: {product.stock}")
-            if product.stock <= 10 and product.status.lower() == 'active':
-                logger.info(f"Triggering low stock alert for {product.name} after sale")
-                # Send low stock alert (with 24-hour cooldown to prevent spam)
-                send_low_stock_alert(product)
-            else:
-                logger.info(f"Not triggering alert: stock={product.stock} > 10")
+            from django.db import transaction
+            def _notify():
+                try:
+                    product = Product.objects.get(product_id=instance.product_id)
+                    if product.stock <= 10 and product.status.lower() == 'active':
+                        send_low_stock_alert(product)
+                except Exception:
+                    pass
+            transaction.on_commit(_notify)
         except Exception as e:
-            logger.error(f"Error checking low stock after sale: {str(e)}")
+            logger.error(f"Error scheduling low stock check after sale: {str(e)}")
 
 
 @receiver(post_save, sender=Product)
@@ -78,28 +78,43 @@ def send_low_stock_alert(product):
         if not admins.exists():
             return
         
-        # Format the alert message with proper spacing
-        quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
-        
+        # Build multi-line SMS in the requested style
+        def _label(name, variant, quantity_unit):
+            n = (name or "")
+            v = (variant or "").strip()
+            u = (quantity_unit or "").strip()
+            ln = n.lower()
+            def has(t):
+                return t and f"({t.lower()})" in ln
+            parts = [n]
+            if v and not has(v) and v != u:
+                parts.append(f" ({v})")
+            if u and not has(u) and u != v:
+                parts.append(f" ({u})")
+            return "".join(parts)
+
+        label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
         if product.stock == 0:
-            message = f"STOCKWISE Stock Alert\n\n"
-            message += f"CRITICAL - OUT OF STOCK:\n"
-            variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
-            message += f"- {product.name}{variant_info}{quantity_info}\n\n"
-            message += f"- STOCKWISE"
+            message = (
+                "STOCKWISE Stock Alert\n\n"
+                "CRITICAL - OUT OF STOCK:\n"
+                f"- {label}\n\n"
+                "- STOCKWISE"
+            )
         else:
-            box_text = "box" if product.stock == 1 else "boxes"
-            message = f"STOCKWISE Stock Alert\n\n"
-            message += f"WARNING - LOW STOCK:\n"
-            variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
-            message += f"- {product.name}{variant_info}{quantity_info}: {product.stock} {box_text} left\n\n"
-            message += f"- STOCKWISE"
+            box_text = "box" if int(product.stock) == 1 else "boxes"
+            message = (
+                "STOCKWISE Stock Alert\n\n"
+                "WARNING - LOW STOCK:\n"
+                f"- {label}: {int(product.stock)} {box_text} left\n\n"
+                "- STOCKWISE"
+            )
         
         # Send SMS to all admins IMMEDIATELY (REAL-TIME)
         recipients = []
         message_codes = []
         for admin in admins:
-            result = sms_service.send_sms(admin.phone_number, message, allow_multipart=True)
+            result = sms_service.send_sms(admin.phone_number, message, allow_multipart=False)
             if result.get('success'):
                 logger.info(f"REAL-TIME low stock alert sent to {admin.username} at {admin.phone_number}")
                 recipients.append(admin.username)

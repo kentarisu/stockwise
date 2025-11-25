@@ -109,13 +109,24 @@ class Command(BaseCommand):
                             product = Product.objects.get(product_id=rec['product_id'])
                         except Exception:
                             continue
+                        # Normalize reason for parity (friendly, short)
+                        sales_count = rec.get('sales_count', 0)
+                        if sales_count > 0:
+                            if rec['action'] == 'INCREASE':
+                                friendly = 'Good sales trend'
+                            elif rec['action'] == 'DECREASE':
+                                friendly = 'Low sales activity'
+                            else:
+                                friendly = 'Price optimization'
+                        else:
+                            friendly = 'Price optimization'
                         PricingRecommendation.objects.create(
                             product=product,
                             current_price=Decimal(str(rec['current_price'])),
                             suggested_price=Decimal(str(rec['suggested_price'])),
                             change_pct=Decimal(str(rec['change_pct'])),
                             action=rec['action'],
-                            reason=rec.get('reason', ''),
+                            reason=friendly,
                             elasticity=Decimal(str(rec['elasticity'])) if rec.get('elasticity') is not None else None,
                             r2=Decimal(str(rec['r2'])) if rec.get('r2') is not None else None,
                             confidence=rec.get('confidence', 'MED'),
@@ -128,18 +139,24 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.SUCCESS('No pricing changes needed - all products optimally priced'))
                     return
                 
-                # Send SMS to each admin
+                # Build SMS from persisted actionable recommendations to match offcanvas exactly
                 sent_count = 0
                 recipients = []
+                from core.models import PricingRecommendation
+                from core.pricing_ai import format_pricing_sms_from_queryset, validate_pricing_sms_parity
+                qs = PricingRecommendation.objects.filter(
+                    expires_at__gt=timezone.now()
+                ).select_related('product')
+                actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
+                if not actionable_qs.exists() and not force:
+                    message = self._format_no_recommendations_message()
+                else:
+                    message = format_pricing_sms_from_queryset(actionable_qs)
+                # Validation parity check
+                if actionable_qs.exists() and not validate_pricing_sms_parity(actionable_qs, message):
+                    logger.warning('Parity validation failed: SMS content does not match persisted recommendations')
                 for admin in admins:
-                    if actionable.empty:
-                        message = self._format_no_recommendations_message()
-                    else:
-                        # Get top 3 recommendations
-                        top_recs = actionable.head(3)
-                        message = self._format_pricing_message(top_recs, len(actionable))
-                    
-                    result = sms_service.send_sms(admin.phone_number, message, allow_multipart=True)
+                    result = sms_service.send_sms(admin.phone_number, message, allow_multipart=False)
                     if result['success']:
                         sent_count += 1
                         recipients.append(admin.username)
@@ -154,9 +171,9 @@ class Command(BaseCommand):
                         details = 'Status: No changes recommended - all products optimally priced'
                     else:
                         details = f'Recommendations: {len(actionable)} products\n'
-                        for idx, (_, rec) in enumerate(actionable.head(3).iterrows(), 1):
-                            action_symbol = "↑" if rec['action'] == 'INCREASE' else "↓"
-                            details += f'{idx}. {rec["name"]}: ₱{rec["current_price"]:.0f} → ₱{rec["suggested_price"]:.0f} ({action_symbol}{abs(rec["change_pct"]):.0f}%)\n'
+                        for idx, r in enumerate(actionable_qs[:10], 1):
+                            action_symbol = "↑" if r.action == 'INCREASE' else "↓"
+                            details += f'{idx}. {r.product.name}: ₱{float(r.current_price):.0f} → ₱{float(r.suggested_price):.0f} ({action_symbol}{abs(float(r.change_pct)):.0f}%)\n'
                     details += f'Recipients: {", ".join(recipients)}'
                     
                     log_system_action(
@@ -216,4 +233,3 @@ class Command(BaseCommand):
         message += "Your current prices are well-balanced.\n\n"
         message += "- STOCKWISE"
         return message
-

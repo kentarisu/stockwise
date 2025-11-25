@@ -1037,6 +1037,25 @@
             color: var(--primary-dark);
         }
 
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
+        }
+
         /* Professional Tab Styling */
         .nav-tabs {
             border-bottom: 2px solid var(--gray-200);
@@ -1441,10 +1460,7 @@
             color: #d1fae5;
         }
 
-        .status-pending {
-            background: rgba(251, 191, 36, 0.25);
-            color: #fef3c7;
-        }
+        
 
         .status-cancelled,
         .status-voided {
@@ -1728,10 +1744,7 @@
             color: white;
         }
 
-        .status-pending {
-            background: var(--warning);
-            color: white;
-        }
+        
 
         .status-cancelled {
             background: var(--danger);
@@ -2526,6 +2539,41 @@
             }
         }
 
+        /* Keep report tabs in a single row without wrapping */
+        #reportsTab {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 0.2rem;
+            width: 100%;
+            overflow: hidden;
+        }
+        #reportsTab .nav-item { flex: 1 1 0; min-width: 0; }
+        #reportsTab .nav-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.45rem;
+            font-size: 0.82rem;
+            min-width: 0;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.1;
+            box-sizing: border-box;
+        }
+        #reportsTab .nav-link i { font-size: 0.95em; }
+        #reportsTab .nav-link .me-2 { margin-right: 0.15rem !important; }
+        #reportsTab .nav-link.active { position: relative; z-index: 1; }
+        @media (max-width: 768px) {
+            #reportsTab .nav-link { padding: 0.28rem 0.38rem; font-size: 0.8rem; }
+        }
+        @media (max-width: 480px) {
+            #reportsTab .nav-link { padding: 0.26rem 0.32rem; font-size: 0.76rem; }
+        }
+
         /* Print Styles */
         @media print {
             /* Hide sidebar, header, filters, buttons, tabs */
@@ -2610,6 +2658,44 @@
             table.table-mobile-card td:last-child { border-bottom: none !important; }
             table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
         }
+        .tab-pane#transactions .cashbook-table { min-width: 100% !important; table-layout: fixed; }
+        .tab-pane#transactions .cashbook-table thead th,
+        .tab-pane#transactions .cashbook-table tbody td { max-width: none; }
+        .tab-pane#transactions .cashbook-table th:nth-child(1),
+        .tab-pane#transactions .cashbook-table td:nth-child(1) { width: 6%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(2),
+        .tab-pane#transactions .cashbook-table td:nth-child(2) { width: 12%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(3),
+        .tab-pane#transactions .cashbook-table td:nth-child(3) { width: 9%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(4),
+        .tab-pane#transactions .cashbook-table td:nth-child(4) { width: 22%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(5),
+        .tab-pane#transactions .cashbook-table td:nth-child(5) { width: 6%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(6),
+        .tab-pane#transactions .cashbook-table td:nth-child(6) { width: 6%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(7),
+        .tab-pane#transactions .cashbook-table td:nth-child(7) { width: 9%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(8),
+        .tab-pane#transactions .cashbook-table td:nth-child(8) { width: 9%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(9),
+        .tab-pane#transactions .cashbook-table td:nth-child(9) { width: 8%; }
+        .tab-pane#transactions .cashbook-table th:nth-child(10),
+        .tab-pane#transactions .cashbook-table td:nth-child(10) { width: 6%; }
+        .tab-pane#transactions .cashbook-table .product-name { white-space: normal; word-break: break-word; }
+        .tab-pane#transactions .cashbook-table .amount-col,
+        .tab-pane#transactions .cashbook-table .date-col,
+        .tab-pane#transactions .cashbook-table .reference-col { white-space: nowrap; font-size: 0.75rem; }
+
+        .report-error-banner { display: none; margin: 0.5rem 0 0.5rem; padding: 0.5rem 0.75rem; }
+        .report-error-banner.active { display: block; }
+        .report-error-banner .small { opacity: 0.75; }
+        .report-error-actions { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem; }
+        .tab-pane#transactions .cashbook-table td .badge { font-size: 0.6rem; padding: 0.1rem 0.35rem; border-radius: 8px; font-weight: 600; }
+        .tab-pane#transactions .cashbook-table tbody td:first-child,
+        .tab-pane#transactions .cashbook-table thead th:first-child { position: static; left: auto; }
+        .tab-pane#transactions .cashbook-table .customer-info,
+        .tab-pane#transactions .cashbook-table .product-name { white-space: normal; word-break: break-word; }
+        .tab-pane#transactions .cashbook-table-container { overflow-x: auto; }
     </style>
 </head>
 <body>
@@ -2831,9 +2917,13 @@
                         <button type="button" class="btn-modern secondary" id="printReportBtn" onclick="printReport()">
                             <i class="bi bi-printer"></i> Print Report
                         </button>
+                        <button type="button" class="btn-modern outline" id="viewAllMetricsBtn" data-bs-toggle="modal" data-bs-target="#allMetricsModal">
+                            <i class="bi bi-graph-up-arrow"></i> View All Metrics
+                        </button>
                     </div>
-                    <button type="button" class="btn-modern outline" id="viewAllMetricsBtn" data-bs-toggle="modal" data-bs-target="#allMetricsModal">
-                        <i class="bi bi-graph-up-arrow"></i> View All Metrics
+                    <button type="button" class="btn-filter-action" id="reportsRefreshBtn" aria-label="Refresh reports" style="width: 150px; justify-content: center;">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="reportsRefreshSpinner"></span>
+                        <span class="refresh-text">Refresh</span>
                     </button>
                 </div>
 
@@ -2845,7 +2935,7 @@
                                     <option value="today">Today</option>
                                     <option value="week">This Week</option>
                                     <option value="month">This Month</option>
-                                    <option value="custom">Custom Range</option>
+                                    <option value="custom">Custom</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -2859,7 +2949,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Product</label>
-                                <select class="form-select" id="fruitFilter">
+                                <select class="form-select" id="productFilter">
                                     <option value="all">All Products</option>
                                     {% for fruit in fruits %}
                                     <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
@@ -2899,6 +2989,12 @@
                                         <i class="bi bi-x-octagon me-2"></i>Voided Transactions
                                     </button>
                                 </li>
+
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="pricing-tab" data-bs-toggle="tab" data-bs-target="#pricing" type="button" role="tab" aria-controls="pricing" aria-selected="false">
+                                        <i class="bi bi-lightbulb me-2"></i>Accepted Pricing
+                                    </button>
+                                </li>
                                 {% endif %}
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab" aria-controls="analytics" aria-selected="false">
@@ -2906,6 +3002,17 @@
                                     </button>
                                 </li>
                             </ul>
+                        </div>
+                        <!-- Error Banner -->
+                        <div id="reportErrorBanner" class="alert alert-danger report-error-banner" role="alert">
+                            <div>
+                                <strong>Unable to load reports.</strong>
+                                <span id="reportErrorMsg">Please try again.</span>
+                            </div>
+                            <div id="reportErrorDetails" class="small mt-1"></div>
+                            <div class="report-error-actions">
+                                <button id="reportErrorRetry" type="button" class="btn btn-sm btn-outline-dark">Retry</button>
+                            </div>
                         </div>
                         <!-- Tab Content -->
                         <div class="tab-content p-2 pt-0" id="reportsTabContent">
@@ -2936,6 +3043,105 @@
                                             <li><strong>Profit:</strong> Actual money you keep after subtracting the cost of the product.</li>
                                             <li>Click "Details" to see more information about any item.</li>
                                         </ul>
+                                    </div>
+                                </div>
+
+                                <!-- Accepted Pricing Tab -->
+                                <div class="tab-pane fade" id="pricing" role="tabpanel" aria-labelledby="pricing-tab">
+                                    <div class="cashbook-table-container table-responsive-wrapper mt-2">
+                                        <table class="cashbook-table table-mobile-card">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Product</th>
+                                                    <th>Previous Price</th>
+                                                    <th>New Price</th>
+                                                    <th>Change %</th>
+                                                    <th>Action</th>
+                                                    <th>Reason</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="acceptedPricingBody"></tbody>
+                                        </table>
+                                        <div id="pagination-pricing" class="mt-2"></div>
+                                    </div>
+                                    <div class="modal fade" id="pricingDetailsModal" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Accepted Pricing Change</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="transaction-report">
+                                                        <div class="report-banner">
+                                                            <div class="banner-title">
+                                                                <div class="banner-icon"><i class="bi bi-lightbulb"></i></div>
+                                                                <div>
+                                                                    <h6 id="prBannerTitle">Pricing Update</h6>
+                                                                    <p id="prBannerDate">Generated -</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="report-meta">
+                                                            <div class="meta-item">
+                                                                <span class="meta-label">Product</span>
+                                                                <span class="meta-value" id="prDetProduct">-</span>
+                                                            </div>
+                                                            <div class="meta-item">
+                                                                <span class="meta-label">Variant</span>
+                                                                <span class="meta-value" id="prDetVariant">-</span>
+                                                            </div>
+                                                            <div class="meta-item">
+                                                                <span class="meta-label">Quantity Unit</span>
+                                                                <span class="meta-value" id="prDetUnit">-</span>
+                                                            </div>
+                                                            <div class="meta-item">
+                                                                <span class="meta-label">Action</span>
+                                                                <span class="meta-value" id="prDetAction">-</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="report-cards">
+                                                            <div class="report-card">
+                                                                <span>Previous Price</span>
+                                                                <strong id="prDetPrevPrice">₱0.00</strong>
+                                                            </div>
+                                                            <div class="report-card">
+                                                                <span>New Price</span>
+                                                                <strong id="prDetNewPrice">₱0.00</strong>
+                                                            </div>
+                                                            <div class="report-card">
+                                                                <span>Change %</span>
+                                                                <strong id="prDetChange">0%</strong>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="report-table-section">
+                                                            <h6>Reason</h6>
+                                                            <div id="prDetReason" class="customer-info">-</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="report-description">
+                                        <h6>What does this show?</h6>
+                                        <p>This section lists all price changes you accepted, helping you review decisions and their impact.</p>
+                                        <ul>
+                                            <li><strong>Previous/New Price:</strong> The price before and after acceptance.</li>
+                                            <li><strong>Change %:</strong> Percentage difference between previous and new price.</li>
+                                            <li><strong>Action:</strong> Whether you increased, decreased, or held price.</li>
+                                        </ul>
+                                        <p style="font-size: 0.875rem; color: var(--gray-600); margin-top: 0.5rem;">
+                                            The tab shows generated pricing recommendations with actions and reasons. If you want a true accepted changes history (i.e., confirmed price updates with previous/new price), we can add a small price-change history model and record updates when prices are changed.
+                                        </p>
                                     </div>
                                 </div>
 
@@ -2983,17 +3189,17 @@
                                 <!-- Low Stock Tab -->
                                 <div class="tab-pane fade" id="inventory" role="tabpanel" aria-labelledby="inventory-tab">
                                     <div class="cashbook-table-container table-responsive-wrapper mt-2">
-                                        <table class="cashbook-table table-mobile-card" style="table-layout: fixed;">
+                                        <table class="cashbook-table table-mobile-card">
                                             <thead>
                                                 <tr>
-                                                    <th style="width: 25%;">Product</th>
-                                                    <th style="width: 10%;">Stock</th>
-                                                    <th style="width: 10%;">Days Left</th>
-                                                    <th style="width: 10%;">Reorder</th>
-                                                    <th style="width: 10%;">Order Qty</th>
-                                                    <th style="width: 15%;">Last Sale</th>
-                                                    <th style="width: 12%;">Status</th>
-                                                    <th style="width: 8%;"></th>
+                                                    <th>Product</th>
+                                                    <th>Stock</th>
+                                                    <th>Days Left</th>
+                                                    <th>Reorder</th>
+                                                    <th>Order Qty</th>
+                                                    <th>Last Sale</th>
+                                                    <th>Status</th>
+                                                    <th></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="lowBody"></tbody>
@@ -3024,14 +3230,13 @@
                                             <thead>
                                                 <tr>
                                                     <th>Sale No.</th>
-                                                    <th>OR No.</th>
                                                     <th>Date & Time</th>
                                                     <th>Customer</th>
                                                     <th>Products</th>
-                                                    <th>Boxes Sold</th>
-                                                    <th>Subtotal</th>
-                                                    <th>VAT</th>
+                                                    <th>Items</th>
+                                                    <th>Boxes</th>
                                                     <th>Total</th>
+                                                    <th>Recorded By</th>
                                                     <th>Status</th>
                                                     <th></th>
                                                 </tr>
@@ -3046,13 +3251,13 @@
                                         <p>View a complete list of all sales made during the selected dates—just like the receipts your customers received.</p>
                                         <ul>
                                             <li><strong>Sale No.:</strong> Unique number for this sale in your system.</li>
-                                            <li><strong>OR No.:</strong> Official receipt number given to the customer.</li>
-                                            <li><strong>Products:</strong> List of all items included in this sale, shown as "Product Name (Variant) (Size)" (e.g., "Apple (Fuji) (125-138)").</li>
-                                            <li><strong>Boxes Sold:</strong> Total number of boxes sold in this transaction.</li>
-                                            <li><strong>Subtotal:</strong> Total before adding tax.</li>
-                                            <li><strong>VAT:</strong> 12% tax added to the sale.</li>
-                                            <li><strong>Total:</strong> Final amount the customer paid (Subtotal + VAT).</li>
-                                            <li><strong>Status:</strong> Completed (finished sale), or Voided (cancelled).</li>
+                                            <li><strong>Date & Time:</strong> When the sale was recorded.</li>
+                                            <li><strong>Products:</strong> List of items included in the sale, shown as "Product Name (Variant) (Unit)".</li>
+                                            <li><strong>Items:</strong> Count of line items in the sale.</li>
+                                            <li><strong>Boxes:</strong> Total boxes across all items.</li>
+                                            <li><strong>Total:</strong> Amount due including VAT (discount already applied to item prices).</li>
+                                            <li><strong>Recorded By:</strong> User who recorded the sale.</li>
+                                            <li><strong>Status:</strong> Completed or Voided.</li>
                                             <li>Click "Details" to see full payment information and notes.</li>
                                         </ul>
                                     </div>
@@ -3264,7 +3469,7 @@
                 console.log('Updating custom option with:', customStart, customEnd);
                 $('#dateRange option[value="custom"]').text(`Custom (${formatOptionRange(new Date(customStart), new Date(customEnd))})`);
             } else {
-                $('#dateRange option[value="custom"]').text('Custom Range');
+                $('#dateRange option[value="custom"]').text('Custom');
             }
             
             if (selectedValue === 'today') {
@@ -3302,12 +3507,13 @@
         async function loadReports() {
             console.log('loadReports called with:', { startDate, endDate, currentReportType });
             $('#generateReport').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...');
+            clearReportErrorBanner();
 
             try {
                 // Determine filter_type based on whether custom dates are provided
                 const filterType = (startDate && endDate) ? 'custom' : 'today';
                 const userFilter = $('#userFilter').val() || 'all';
-                const fruitFilter = $('#fruitFilter').val() || 'all';
+                const fruitFilter = $('#productFilter').val() || 'all';
                 
                 const response = await $.ajax({
                     url: '/api/reports/fetch/', // Corrected URL
@@ -3318,11 +3524,15 @@
                         end_date: endDate,
                         report_type: currentReportType,
                         user: userFilter,
-                        fruit: fruitFilter
+                        product: fruitFilter
                     },
                     dataType: 'json'
                 });
 
+                if (!response || response.success !== true) {
+                    throw { responseJSON: response || { message: 'Failed to load reports.' }, statusText: 'Invalid response', status: 200 };
+                }
+                clearReportErrorBanner();
                 updateSummaryCards(response.data.sales_summary);
                 populateSalesSummaryTable(response.data.sales_summary_data); // Use sales_summary_data from backend
                 populateTopProductsTable(response.data.top_products);
@@ -3332,18 +3542,80 @@
                 renderABCAnalysis(response.data.abc_analysis || []);
                 renderSlowMovers(response.data.slow_movers || []);
                 renderDeadStock(response.data.dead_stock || []);
+                populateAcceptedPricingTable(response.data.accepted_pricing || []);
 
             } catch (error) {
                 console.error('Error loading reports:', error);
-                alert('Failed to load reports. Please try again.');
+                const msg = (error && error.responseJSON && error.responseJSON.message) || (error && error.statusText) || 'Failed to load reports.';
+                const details = [];
+                if (error && typeof error.status !== 'undefined') details.push(`Status: ${error.status}`);
+                if (error && error.responseText) {
+                    try {
+                        const rt = String(error.responseText).slice(0, 300);
+                        details.push(rt);
+                    } catch (e) {}
+                }
+                const banner = document.getElementById('reportErrorBanner');
+                const mEl = document.getElementById('reportErrorMsg');
+                const dEl = document.getElementById('reportErrorDetails');
+                const retryBtn = document.getElementById('reportErrorRetry');
+                if (banner && mEl && dEl) {
+                    mEl.textContent = msg;
+                    dEl.textContent = details.join(' · ');
+                    banner.classList.add('active');
+                    if (retryBtn) {
+                        retryBtn.disabled = false;
+                        retryBtn.onclick = () => {
+                            retryBtn.disabled = true;
+                            banner.classList.remove('active');
+                            try { clearTimeout(window._reportErrorTimer); } catch (e) {}
+                            setTimeout(() => { try { retryBtn.disabled = false; } catch (e) {} }, 1200);
+                            loadReports();
+                        };
+                    }
+                    try { clearTimeout(window._reportErrorTimer); } catch (e) {}
+                    window._reportErrorTimer = setTimeout(() => {
+                        try {
+                            banner.classList.remove('active');
+                        } catch (e) {}
+                    }, 4000);
+                }
             } finally {
                 $('#generateReport').prop('disabled', false).html('<i class="bi bi-bar-chart"></i> Generate Report');
             }
         }
 
+        function clearReportErrorBanner() {
+            const banner = document.getElementById('reportErrorBanner');
+            const mEl = document.getElementById('reportErrorMsg');
+            const dEl = document.getElementById('reportErrorDetails');
+            if (banner) banner.classList.remove('active');
+            if (mEl) mEl.textContent = '';
+            if (dEl) dEl.textContent = '';
+            try { clearTimeout(window._reportErrorTimer); } catch (e) {}
+        }
+
+        function showReportErrorBanner(message, details) {
+            const banner = document.getElementById('reportErrorBanner');
+            const mEl = document.getElementById('reportErrorMsg');
+            const dEl = document.getElementById('reportErrorDetails');
+            const retryBtn = document.getElementById('reportErrorRetry');
+            if (!banner || !mEl || !dEl) return;
+            mEl.textContent = message || 'An error occurred.';
+            dEl.textContent = details || '';
+            banner.classList.add('active');
+            if (retryBtn) {
+                retryBtn.disabled = false;
+            }
+            try { clearTimeout(window._reportErrorTimer); } catch (e) {}
+            window._reportErrorTimer = setTimeout(() => {
+                try { banner.classList.remove('active'); } catch (e) {}
+            }, 4000);
+        }
+
         // Pagination helpers for reports tables
         const reportsPagination = { currentPage: {}, perPage: 10, totalPages: {} };
-        const repData = { summary: [], top: [], low: [], transactions: [], voidedReports: [], itemized: [] };
+        const repData = { summary: [], top: [], low: [], transactions: [], voidedReports: [], itemized: [], pricing: [] };
         function repSlice(arr, page){ const s=(page-1)*reportsPagination.perPage; return arr.slice(s, s+reportsPagination.perPage); }
         function updateRepControls(sectionKey, totalItems){
             const container = document.getElementById(`pagination-${sectionKey}`);
@@ -3361,6 +3633,7 @@
                 : sectionKey === 'transactions' ? 'transactions'
                 : sectionKey === 'voidedReports' ? 'voided sales'
                 : sectionKey === 'itemized' ? 'items'
+                : sectionKey === 'pricing' ? 'changes'
                 : 'items';
             
             let html = '';
@@ -3433,6 +3706,7 @@
                         case 'transactions': renderTransactionsPage(); break;
                         case 'voidedReports': renderVoidedReportsPage(); break;
                         case 'itemized': renderItemizedPage(); break;
+                        case 'pricing': renderAcceptedPricingPage(); break;
                     }
                 });
             });
@@ -3518,6 +3792,111 @@
                 `);
             });
         }
+
+        function populateAcceptedPricingTable(items = []) {
+            const raw = Array.isArray(items) ? items : [];
+            const fruitFilter = $('#productFilter').val() || 'all';
+            const s = startDate;
+            const e = endDate;
+            const parseDate = (txt) => {
+                if (!txt) return null;
+                const str = String(txt);
+                const d = new Date(str.replace(' ', 'T'));
+                return isNaN(d.getTime()) ? null : d;
+            };
+            const inRange = (d) => {
+                const sd = s ? new Date(s) : null;
+                const ed = e ? new Date(e) : null;
+                if (!sd || !ed || !d) return true;
+                // normalize to date-only
+                const dn = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const sn = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate());
+                const en = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
+                return dn >= sn && dn <= en;
+            };
+
+            function formatLocal(ts) {
+                if (!ts) return 'N/A';
+                try {
+                    const s = String(ts).replace(' ', 'T');
+                    const d = new Date(s);
+                    if (isNaN(d.getTime())) return String(ts);
+                    return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                } catch (e) {
+                    return String(ts);
+                }
+            }
+
+            const filtered = raw.filter(row => {
+                const when = parseDate(row.timestamp || row.date);
+                if (!inRange(when)) return false;
+                if (fruitFilter && fruitFilter !== 'all') {
+                    const base = String(row.name || '').toLowerCase();
+                    const label = String(row.product_name || '').toLowerCase();
+                    const ff = String(fruitFilter).toLowerCase();
+                    const match = base === ff || label.startsWith(ff + ' ') || label.startsWith(ff + '(') || label === ff;
+                    if (!match) return false;
+                }
+                return true;
+            });
+
+            repData.pricing = filtered;
+            reportsPagination.currentPage.pricing = 1;
+            renderAcceptedPricingPage();
+        }
+
+        function renderAcceptedPricingPage() {
+            const body = $('#acceptedPricingBody');
+            body.empty();
+            const page = reportsPagination.currentPage.pricing || 1;
+            const rows = repSlice(repData.pricing, page);
+            if (!rows.length) {
+                body.append('<tr><td colspan="7" class="text-muted text-center py-3">No accepted pricing changes</td></tr>');
+                updateRepControls('pricing', 0);
+                return;
+            }
+            rows.forEach(row => {
+                const when = row.timestamp || row.date || '';
+                body.append(`
+                    <tr>
+                        <td class="date-col">${formatLocal(when)}</td>
+                        <td>${row.product_name || 'N/A'}</td>
+                        <td class="currency">${formatCurrency(row.current_price || 0)}</td>
+                        <td class="currency">${formatCurrency(row.suggested_price || 0)}</td>
+                        <td>${formatPercent(row.change_pct || 0)}</td>
+                        <td><span class="badge ${String(row.action).toLowerCase()==='decrease'?'bg-warning text-dark':'bg-primary'}">${row.action || '—'}</span></td>
+                        <td>${row.reason || ''}</td>
+                        <td><button class="btn btn-sm btn-outline-primary pricing-details-btn" data-name="${row.name || ''}" data-variant="${row.variant || ''}" data-unit="${row.quantity_unit || ''}" data-current="${row.current_price || 0}" data-new="${row.suggested_price || 0}" data-change="${row.change_pct || 0}" data-action="${row.action || ''}" data-reason="${row.reason || ''}" data-when="${when}">Details</button></td>
+                </tr>
+                `);
+            });
+            updateRepControls('pricing', repData.pricing.length);
+        }
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.pricing-details-btn');
+            if (!btn) return;
+            const modalEl = document.getElementById('pricingDetailsModal');
+            if (!modalEl) return;
+            modalEl.querySelector('#prBannerTitle').textContent = 'Pricing Update';
+            const when = btn.dataset.when || '';
+            try {
+                const s = String(when).replace(' ', 'T');
+                const d = new Date(s);
+                modalEl.querySelector('#prBannerDate').textContent = isNaN(d.getTime()) ? when : formatLocal(when);
+            } catch (e) {
+                modalEl.querySelector('#prBannerDate').textContent = when;
+            }
+            modalEl.querySelector('#prDetProduct').textContent = btn.dataset.name || '';
+            modalEl.querySelector('#prDetVariant').textContent = btn.dataset.variant || '';
+            modalEl.querySelector('#prDetUnit').textContent = btn.dataset.unit || '';
+            modalEl.querySelector('#prDetAction').textContent = btn.dataset.action || '';
+            modalEl.querySelector('#prDetPrevPrice').textContent = `₱${formatCurrency(btn.dataset.current || 0)}`;
+            modalEl.querySelector('#prDetNewPrice').textContent = `₱${formatCurrency(btn.dataset.new || 0)}`;
+            modalEl.querySelector('#prDetChange').textContent = formatPercent(btn.dataset.change || 0);
+            modalEl.querySelector('#prDetReason').textContent = btn.dataset.reason || '';
+            new bootstrap.Modal(modalEl).show();
+        });
         function renderSalesSummaryPage(){
             const tbody = $('#summaryBody');
             tbody.empty();
@@ -3595,17 +3974,18 @@
                 const daysSupply = item.days_of_supply !== null && item.days_of_supply !== undefined
                     ? Number(item.days_of_supply).toFixed(1)
                     : '∞';
-                const statusClass = item.status === 'Critical' ? 'badge bg-danger' : 
-                                   item.status === 'Low' ? 'badge bg-warning text-dark' : 
-                                   'badge bg-success';
+                const statusVal = String(item.status || '').toLowerCase();
+                const statusClass = statusVal === 'critical' ? 'badge bg-danger text-white' :
+                                   statusVal === 'low' ? 'badge bg-warning text-dark' :
+                                   'badge bg-success text-white';
                 const row = `
                     <tr>
                         <td style="white-space: normal;">${item.product_name}</td>
-                        <td>${(item.current_stock ?? 0).toLocaleString()}</td>
-                        <td>${daysSupply}</td>
-                        <td>${item.reorder_point ?? 0}</td>
-                        <td>${item.reorder_quantity ?? 0}</td>
-                        <td>${item.last_sale_date || 'N/A'}</td>
+                        <td class="amount-col">${(item.current_stock ?? 0).toLocaleString()}</td>
+                        <td class="amount-col">${daysSupply}</td>
+                        <td class="amount-col">${item.reorder_point ?? 0}</td>
+                        <td class="amount-col">${item.reorder_quantity ?? 0}</td>
+                        <td class="date-col">${item.last_sale_date || 'N/A'}</td>
                         <td><span class="${statusClass}">${item.status}</span></td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary view-low-details" data-index="${idx}" type="button">
@@ -3633,24 +4013,25 @@
                 rows.forEach(item => {
                     const status = (item.status || '').toLowerCase();
                     const statusClass = status === 'completed' ? 'badge bg-success text-white' :
-                                        status === 'pending' ? 'badge bg-warning text-dark' :
                                         (status === 'cancelled' || status === 'voided') ? 'badge bg-danger text-white' :
                                         'badge bg-secondary text-white';
+                    const statusLabel = status === 'completed' ? 'COMPLETED' :
+                                        (status === 'cancelled' || status === 'voided') ? 'VOIDED' :
+                                        'N/A';
                     const productsText = Array.isArray(item.fruits) && item.fruits.length
                         ? item.fruits.join(', ')
                         : (item.product_name || 'N/A');
                     const row = `
                         <tr class="clickable" data-sale-id="${item.sale_id || ''}">
                             <td>${item.sale_id || 'N/A'}</td>
-                            <td>${item.receipt_number || 'N/A'}</td>
                             <td class="date-col">${item.date_time || 'N/A'}</td>
                             <td class="customer-info">${item.customer_name || 'N/A'}</td>
-                            <td>${productsText}</td>
+                            <td class="product-name">${productsText}</td>
+                            <td>${item.items_count ?? 'N/A'}</td>
                             <td>${item.boxes_count ?? 'N/A'}</td>
-                            <td class="amount-col currency">${formatCurrency(item.subtotal || 0)}</td>
-                            <td class="amount-col currency">${formatCurrency(item.vat_amount || 0)}</td>
                             <td class="amount-col currency">${formatCurrency(item.total_amount || 0)}</td>
-                            <td><span class="${statusClass}">${item.status || 'N/A'}</span></td>
+                            <td>${item.processed_by || 'N/A'}</td>
+                            <td><span class="${statusClass}">${statusLabel}</span></td>
                             <td class="text-end">
                                 <button class="btn btn-sm btn-outline-primary view-details-btn" data-sale-id="${item.sale_id ?? ''}" type="button">
                                     Details
@@ -3674,7 +4055,7 @@
                 });
 
             } else {
-                tbody.append('<tr><td colspan="11" class="text-center">No transactions found for this range.</td></tr>');
+                tbody.append('<tr><td colspan="10" class="text-center">No transactions found for this range.</td></tr>');
                 updateRepControls('transactions', 0);
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
             }
@@ -3795,10 +4176,9 @@
                 $('#reportDetailRestocked').text(transaction.restocked || 'No');
 
                 const statusBadge = $('#reportDetailStatus');
-                statusBadge.removeClass('status-completed status-pending status-cancelled status-voided status-default');
+                statusBadge.removeClass('status-completed status-cancelled status-voided status-default');
                 const status = (transaction.status || '').toLowerCase();
                 if (status === 'completed') statusBadge.addClass('status-completed');
-                else if (status === 'pending') statusBadge.addClass('status-pending');
                 else if (status === 'cancelled' || status === 'voided') statusBadge.addClass('status-cancelled');
                 else statusBadge.addClass('status-default');
                 statusBadge.text((transaction.status || 'N/A').toUpperCase());
@@ -3822,6 +4202,7 @@
 
                 $('#reportDetailSubtotal').text(`₱${formatCurrency(transaction.subtotal || 0)}`);
                 $('#reportDetailVat').text(`₱${formatCurrency(transaction.vat_amount || 0)}`);
+                $('#reportDetailDiscount').text(`₱${formatCurrency(transaction.discount_amount || transaction.discount || 0)}`);
                 $('#reportDetailTotal').text(`₱${formatCurrency(transaction.total_amount || 0)}`);
                 $('#reportDetailAmountPaid').text(`₱${formatCurrency(transaction.amount_paid || 0)}`);
                 $('#reportDetailChange').text(`₱${formatCurrency(transaction.change_amount || 0)}`);
@@ -3978,7 +4359,7 @@
                 // Get current filter values
                 const filterType = $('#dateRange').val() || 'today';
                 const userFilter = $('#userFilter').val() || 'all';
-                const fruitFilter = $('#fruitFilter').val() || 'all';
+                const fruitFilter = $('#productFilter').val() || 'all';
                 
                 // Determine start and end dates based on filter
                 let startDate = '';
@@ -4010,7 +4391,12 @@
                 formData.append('end_date', endDate);
                 formData.append('search', '');
                 formData.append('user', userFilter);
-                formData.append('fruit', fruitFilter);
+                formData.append('product', fruitFilter);
+                const acceptedPrices = {};
+                document.querySelectorAll('.accepted-price-input').forEach(input => {
+                    acceptedPrices[input.dataset.productId] = input.value;
+                });
+                formData.append('accepted_prices', JSON.stringify(acceptedPrices));
                 
                 // Show loading indicator
                 const printBtn = $('#printReportBtn');
@@ -4048,7 +4434,7 @@
                 
             } catch (error) {
                 console.error('Print error:', error);
-                alert('Failed to generate print report. Please try again.');
+                showReportErrorBanner('Failed to generate print report. Please try again.', String(error && error.message || ''));
                 
                 // Restore button on error
                 const printBtn = $('#printReportBtn');
@@ -4082,7 +4468,7 @@
             const filters = {
                 dateRange: $('#dateRange').val() || 'today',
                 userFilter: $('#userFilter').val() || 'all',
-                fruitFilter: $('#fruitFilter').val() || 'all',
+                fruitFilter: $('#productFilter').val() || 'all',
                 currentReportType: currentReportType || 'sales',
                 startDate: startDate || '',
                 endDate: endDate || ''
@@ -4119,7 +4505,7 @@
             
             if (saved.dateRange) $('#dateRange').val(saved.dateRange);
             if (saved.userFilter) $('#userFilter').val(saved.userFilter);
-            if (saved.fruitFilter) $('#fruitFilter').val(saved.fruitFilter);
+            if (saved.fruitFilter) $('#productFilter').val(saved.fruitFilter);
             if (saved.currentReportType) {
                 currentReportType = saved.currentReportType;
                 const tabButton = $(`#reportsTab button[data-bs-target="#${saved.currentReportType}"]`);
@@ -4159,7 +4545,7 @@
                 loadReports();
             });
 
-            $('#fruitFilter').on('change', function() {
+            $('#productFilter').on('change', function() {
                 console.log('fruitFilter changed to:', $(this).val());
                 saveReportsFilters();
                 loadReports();
@@ -4179,7 +4565,7 @@
                     $('#customRangeModal').modal('hide');
                     loadReports();
                 } else {
-                    alert('Please select both start and end dates.');
+                    showReportErrorBanner('Please select both start and end dates.', 'Choose a valid custom range.');
                 }
             });
 
@@ -4187,7 +4573,7 @@
                 saveReportsFilters();
                 const filterType = $('#dateRange').val() || 'today';
                 const userFilter = $('#userFilter').val() || 'all';
-                const fruitFilter = $('#fruitFilter').val() || 'all';
+                const fruitFilter = $('#productFilter').val() || 'all';
                 let s = '', e = '';
                 const now = new Date();
                 if (filterType === 'custom' && typeof customStart !== 'undefined' && typeof customEnd !== 'undefined' && customStart && customEnd) {
@@ -4199,14 +4585,33 @@
                 } else if (filterType === 'month') {
                     const m = new Date(now); m.setDate(now.getDate()-29); s = m.toISOString().slice(0,10); e = now.toISOString().slice(0,10);
                 }
-                const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, fruit:fruitFilter, inline:'1' });
+                const acceptedPrices = {};
+                document.querySelectorAll('.accepted-price-input').forEach(input => {
+                    acceptedPrices[input.dataset.productId] = input.value;
+                });
+                const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, inline:'1', accepted_prices: JSON.stringify(acceptedPrices) });
                 const frame = document.getElementById('reportPreviewFrame');
                 frame.src = '/api/reports/export/?' + q.toString();
                 new bootstrap.Modal(document.getElementById('reportPreviewModal')).show();
                 document.getElementById('exportPdfBtn').onclick = function(){
-                    const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, fruit:fruitFilter });
+                    const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
                     window.open('/api/reports/export/?'+dl.toString(), '_blank');
                 };
+            });
+
+            const reportsRefreshBtn = document.getElementById('reportsRefreshBtn');
+            const reportsRefreshSpinner = document.getElementById('reportsRefreshSpinner');
+            reportsRefreshBtn?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (reportsRefreshSpinner) reportsRefreshSpinner.classList.remove('d-none');
+                reportsRefreshBtn.disabled = true;
+                saveReportsFilters();
+                Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
+                    reportsRefreshBtn.disabled = false;
+                    reportsRefreshSpinner?.classList.add('d-none');
+                });
+                loadReports();
             });
 
             // Tab navigation logic
@@ -4286,6 +4691,10 @@
                                 <strong id="reportDetailVat">₱0.00</strong>
                             </div>
                             <div class="report-card">
+                                <span>Discount</span>
+                                <strong id="reportDetailDiscount">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
                                 <span>Total Amount</span>
                                 <strong id="reportDetailTotal">₱0.00</strong>
                             </div>
@@ -4360,8 +4769,9 @@
                                 <li><strong>Sale ID:</strong> Internal system number for this sale.</li>
                                 <li><strong>Transaction No.:</strong> Transaction reference number.</li>
                                 <li><strong>OR No. (Official Receipt):</strong> Official receipt number given to the customer for tax purposes.</li>
-                                <li><strong>Subtotal:</strong> Total cost of all items before adding tax.</li>
+                                <li><strong>Subtotal:</strong> Total cost of all items after any discount.</li>
                                 <li><strong>Plus 12% VAT:</strong> The 12% Value Added Tax charged to the customer.</li>
+                                <li><strong>Discount:</strong> Discount applied to the transaction. Item prices shown already reflect discount.</li>
                                 <li><strong>Total Amount:</strong> Final amount the customer needs to pay (Subtotal + VAT).</li>
                                 <li><strong>Amount Paid:</strong> How much money the customer gave.</li>
                                 <li><strong>Change:</strong> Money returned to the customer (Amount Paid - Total Amount).</li>
@@ -4391,6 +4801,25 @@
             .appendTo('head');
 
         // Sidebar toggle functionality (works on both desktop and mobile)
+
+        function formatLocal(ts) {
+            if (!ts) return 'N/A';
+            try {
+                const raw = String(ts).trim();
+                let d;
+                if (/^\d+$/.test(raw)) {
+                    d = new Date(Number(raw));
+                } else if (raw.includes('Z') || /[+-]\d{2}:?\d{2}$/.test(raw)) {
+                    d = new Date(raw.replace(' ', 'T'));
+                } else {
+                    d = new Date(raw.replace(' ', 'T') + 'Z');
+                }
+                if (isNaN(d.getTime())) return String(ts);
+                return new Intl.DateTimeFormat('en-PH', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(d);
+            } catch (e) {
+                return String(ts);
+            }
+        }
         const sidebar = document.querySelector('.sidebar');
         const burgerMenuBtn = document.getElementById('burgerMenuBtn');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -4610,6 +5039,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+                <input type="hidden" name="accepted_prices" id="accepted-prices-input">
             </div>
         </div>
     </div>

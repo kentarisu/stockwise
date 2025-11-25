@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from core.models import FruitMaster
 
 class Command(BaseCommand):
-    help = "Load (or reload) the FruitMaster table from a CSV file. Clears the table first.\n\nCSV format: name,variant,size  (header row optional)."
+    help = "Load (or reload) the FruitMaster table from a CSV file. Clears the table first.\n\nCSV format: name,variant,quantity_unit  (header row optional)."
 
     def add_arguments(self, parser):
         parser.add_argument('csv_path', type=str, help='Path to CSV file.')
@@ -23,7 +23,7 @@ class Command(BaseCommand):
             reader = csv.reader(fh)
             # detect header if first row contains non-numeric size strings
             first = next(reader)
-            has_header = any(h.lower() in ('name', 'variant', 'size') for h in first)
+            has_header = any(h.lower() in ('name', 'variant', 'quantity_unit', 'size') for h in first)
             if not has_header:
                 # rewind
                 fh.seek(0)
@@ -37,10 +37,10 @@ class Command(BaseCommand):
                     continue
                 name    = row[0].strip()
                 variant = row[1].strip() if len(row) >= 2 else ''
-                size    = row[2].strip() if len(row) >= 3 else ''
+                quantity_unit = row[2].strip() if len(row) >= 3 else ''
                 if not name:
                     continue
-                _, is_created = FruitMaster.objects.get_or_create(name=name, variant=variant, size=size)
+                _, is_created = FruitMaster.objects.get_or_create(name=name, variant=variant, size=quantity_unit)
                 if is_created:
                     created += 1
 

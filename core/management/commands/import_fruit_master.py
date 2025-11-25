@@ -24,8 +24,8 @@ class Command(BaseCommand):
             if m:
                 variant = m.group(1).strip()
                 name = re.sub(r"\s*\([^)]*\)", "", name).strip()
-            size = p.size.strip() if p.size else ''
-            obj, is_created = FruitMaster.objects.get_or_create(name=name, variant=variant, size=size)
+            quantity_unit = (p.quantity_unit or '').strip()
+            obj, is_created = FruitMaster.objects.get_or_create(name=name, variant=variant, size=quantity_unit)
             if is_created:
                 created += 1
 

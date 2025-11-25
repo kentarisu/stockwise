@@ -176,6 +176,6 @@ class Command(BaseCommand):
                 first_sale_at=first_sale_at,
                 last_sale_at=last_sale_at
             )
-            self.stdout.write(self.style.SUCCESS(f'Successfully generated report for product {product.name} ({product.size}) for {period_type} period.'))
+            self.stdout.write(self.style.SUCCESS(f'Successfully generated report for product {product.name} ({getattr(product, "quantity_unit", "")}) for {period_type} period.'))
 
         self.stdout.write(self.style.SUCCESS('Product performance reports generation complete.'))

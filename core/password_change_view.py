@@ -53,6 +53,8 @@ def change_password(request):
         user = AppUser.objects.filter(user_id=user_id).first()
         if not user:
             return JsonResponse({'success': False, 'message': 'User not found.'})
+        if (user.role or '').lower() == 'secretary':
+            return JsonResponse({'success': False, 'message': 'Unauthorized. Please contact an admin to change password.'}, status=403)
         
         # Verify old password
         stored_password = user.password

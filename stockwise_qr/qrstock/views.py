@@ -95,7 +95,7 @@ def qr_scan_view(request):
                             'product': {
                                 'id': product.product_id,
                                 'name': product.name,
-                                'size': product.quantity_unit,
+                            'quantity_unit': product.quantity_unit,
                                 'price': float(product.price),
                                 'stock': product.stock,
                                 'variant': product.variant
@@ -130,7 +130,7 @@ def qr_test_view(request, product_id):
             'qr_data': qr_data,
             'product_info': {
                 'name': product.name,
-                'size': product.quantity_unit,
+                'quantity_unit': product.quantity_unit,
                 'price': float(product.price),
                 'stock': product.stock,
                 'variant': product.variant

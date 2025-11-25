@@ -248,6 +248,7 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
+        .email-valid-icon{position:absolute;right:1rem;top:50%;transform:translateY(-50%);color:inherit;z-index:10;display:none;pointer-events:none}
 
         .btn-login.loading {
             pointer-events: none;
@@ -625,7 +626,7 @@
                         Sign in with Google
                     </a>
                 </div>
-                <div class="social-divider">Or continue with email</div>
+                <div class="social-divider">Or continue with email or username</div>
             {% endif %}
             
             {% if messages %}
@@ -644,6 +645,7 @@
                 <div class="form-floating">
                     <input type="text" class="form-control" id="email" name="email" placeholder=" " required autocomplete="username">
                     <label for="email">Email or Username</label>
+                    <span id="emailValidIcon" class="email-valid-icon"><i class="bi bi-check-circle-fill"></i></span>
                 </div>
                 
                 <div class="form-floating">
@@ -700,6 +702,22 @@
             const loginForm = document.getElementById('loginForm');
             const loginBtn = document.getElementById('loginBtn');
             const btnText = loginBtn ? loginBtn.querySelector('.btn-text') : null;
+            const emailInputEl=document.getElementById('email');
+            const emailValidIcon=document.getElementById('emailValidIcon');
+            function isValidEmail(v){return /^\S+@\S+\.\S+$/.test(v)}
+            if(emailInputEl&&emailValidIcon){
+                const updateIcon=function(){
+                    const v=(emailInputEl.value||'').trim();
+                    const looksEmail=v.includes('@')||v.includes('.');
+                    if(!v||!looksEmail){emailValidIcon.style.display='none';return}
+                    emailValidIcon.style.display='';
+                    const i=emailValidIcon.querySelector('i');
+                    if(i){i.className=isValidEmail(v)?'bi bi-check-circle-fill text-success':'bi bi-x-circle-fill text-danger'}
+                };
+                emailInputEl.addEventListener('input',updateIcon);
+                emailInputEl.addEventListener('blur',updateIcon);
+                updateIcon();
+            }
             
             if (loginForm && loginBtn) {
                 loginForm.addEventListener('submit', function(e) {

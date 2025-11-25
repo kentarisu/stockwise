@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, StockAddition, AppUser, Sale, SMS, ReportProductSummary, ActionLog, Backup, SMSNotificationSettings
+from .models import Product, StockAddition, AppUser, Sale, SMS, ReportProductSummary, ActionLog, Backup, SMSNotificationSettings, PricingRecommendation
 
 
 @admin.register(Product)
@@ -79,3 +79,11 @@ class SMSNotificationSettingsAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(PricingRecommendation)
+class PricingRecommendationAdmin(admin.ModelAdmin):
+    list_display = ("recommendation_id", "product", "current_price", "suggested_price", "change_pct", "action", "created_at", "expires_at")
+    list_filter = ("action", "created_at", "expires_at")
+    search_fields = ("product__name", "reason")
+    ordering = ("-created_at",)

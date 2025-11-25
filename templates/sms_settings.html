@@ -650,6 +650,25 @@
             border: 1px solid var(--gray-100);
         }
 
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
+        }
+
         .page-title {
             font-size: 2rem;
             font-weight: 700;
@@ -1435,6 +1454,10 @@
                     <i class="bi bi-telephone me-2"></i>
                     Phone Number Configuration
                 </h5>
+                <button type="button" class="btn-filter-action" id="smsRefreshBtn" aria-label="Refresh SMS settings" style="width: 150px; justify-content: center;">
+                    <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="smsRefreshSpinner"></span>
+                    <span class="refresh-text">Refresh</span>
+                </button>
             </div>
 
             <form method="post" id="phoneForm">
@@ -1616,16 +1639,23 @@
                         </div>
                         <strong>Stock Alert:</strong><br>
                         STOCKWISE Stock Alert<br><br>
+                        {% if out_of_stock_products %}
+                        CRITICAL - OUT OF STOCK:<br>
+                        {% for product in out_of_stock_products %}
+                        - {{ product.name }}{% if product.variant %} ({{ product.variant }}){% endif %}{% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif %}<br>
+                        {% endfor %}
+                        <br>
+                        {% endif %}
                         {% if low_stock_products %}
                         WARNING - LOW STOCK:<br>
                         {% for product in low_stock_products %}
-                        - {{ product.name }} ({{ product.quantity_unit }}): {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
+                        - {{ product.name }}{% if product.variant %} ({{ product.variant }}){% endif %}{% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif %}: {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
                         {% endfor %}
                         <br>
-                        {% else %}
+                        {% elif not out_of_stock_products %}
                         All products have sufficient stock.<br><br>
                         {% endif %}
-                        - STOCKWISE System
+                        - STOCKWISE
                     </div>
                     
                     <div class="card-actions">
@@ -1681,7 +1711,8 @@
                         <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
                             <small><strong>From:</strong> STOCKWISE</small>
                         </div>
-                        <strong>Pricing Recommendation:</strong><br>
+                        <strong>Pricing Recommendation:</strong>
+                        <small class="ms-2 badge bg-secondary">Example Preview</small><br>
                         STOCKWISE Pricing<br><br>
                         <div id="pricingRecommendationsContent">
                             <div class="text-center text-muted">
@@ -1831,12 +1862,45 @@
                     success: function(response) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
+                        const results = response.results || {};
+                        const details = response.details || {};
+                        const keys = Object.keys(results);
+                        const skipped = keys.filter(function(k){ return results[k] === false; });
                         if (response.success) {
-                            bodyEl.textContent = response.message || 'All notifications sent successfully.';
-                            // Reload stats after successful send
+                            var html = '';
+                            if (skipped.length > 0) {
+                                html += '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Some notifications were skipped.</div>';
+                                html += '<ul class="list-group mb-3">';
+                                skipped.forEach(function(k){
+                                    var title = k === 'sales' ? 'Daily Sales' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Alerts' : k));
+                                    var reason = details[k] || 'Already sent recently';
+                                    html += '<li class="list-group-item d-flex justify-content-between align-items-center">' + title + '<span class="badge bg-secondary">' + reason + '</span></li>';
+                                });
+                                html += '</ul>';
+                            }
+                            html += '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>' + (response.message || 'Notifications processed.') + '</div>';
+                            bodyEl.innerHTML = html;
                             loadNotificationStats();
                         } else {
-                            bodyEl.textContent = 'Failed to send notifications: ' + (response.message || 'Unknown error');
+                            const results = response.results || {};
+                            const details = response.details || {};
+                            const nextAllowed = response.next_allowed || {};
+                            const keys = Object.keys(results);
+                            const failed = keys.filter(function(k){ return results[k] === false; });
+                            var html = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>' + (response.message || 'Failed to send notifications.') + '</div>';
+                            if (failed.length > 0) {
+                                html += '<div class="mb-2"><strong>Why it didn\'t send</strong></div>';
+                                html += '<ul class="list-group mb-3">';
+                                failed.forEach(function(k){
+                                    var title = k === 'sales' ? 'Daily Sales' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Alerts' : k));
+                                    var reason = details[k] || 'Unavailable';
+                                    var next = nextAllowed[k] ? ('<small class="text-muted ms-2">Next allowed: ' + nextAllowed[k] + '</small>') : '';
+                                    html += '<li class="list-group-item d-flex justify-content-between align-items-center">' + title + '<span class="badge bg-secondary">' + reason + '</span>' + next + '</li>';
+                                });
+                                html += '</ul>';
+                                html += '<div class="text-muted">If all items are on cooldown, please try again later.</div>';
+                            }
+                            bodyEl.innerHTML = html;
                         }
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
@@ -1899,6 +1963,31 @@
                 // Auto-save settings when toggle changes
                 saveNotificationSettings();
             });
+
+            const smsRefreshBtn = document.getElementById('smsRefreshBtn');
+            const smsRefreshSpinner = document.getElementById('smsRefreshSpinner');
+            smsRefreshBtn?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (smsRefreshSpinner) smsRefreshSpinner.classList.remove('d-none');
+                smsRefreshBtn.disabled = true;
+                try { saveNotificationSettings(); } catch (_) {}
+                loadNotificationStats();
+                try {
+                    const pricingCard = document.getElementById('pricingRecommendations');
+                    const pricingVisible = pricingCard && pricingCard.style.display !== 'none';
+                    const previewVisible = $('#pricingPreview').is(':visible');
+                    if (pricingVisible) {
+                        loadPricingRecommendations();
+                    } else if (previewVisible) {
+                        getPricingRecommendations();
+                    }
+                } catch (_) {}
+                Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
+                    smsRefreshBtn.disabled = false;
+                    smsRefreshSpinner?.classList.add('d-none');
+                });
+            });
         });
 
         // Preview toggle function
@@ -1926,7 +2015,7 @@
             // Use different endpoints for different notification types
             let url, data;
             if (type === 'pricing') {
-                url = "{% url 'test_pricing_notification' %}";
+                url = "{% url 'send_pricing_notification' %}";
                 data = {
                     csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
                 };
@@ -1946,14 +2035,32 @@
                 success: function(response) {
                     const modalEl = document.getElementById('feedbackModal');
                     const bodyEl = document.getElementById('feedbackModalBody');
-                    bodyEl.textContent = response.success ? response.message : ('Failed: ' + response.message);
+                    if (response.cooldown_active) {
+                        bodyEl.innerHTML = `<i class="bi bi-hourglass-split me-2"></i> ${response.message}<br><small class="text-muted">Next allowed: ${response.next_allowed_at}</small>`;
+                        const cls = type === 'sales' ? '.sales-action-btn' : (type === 'stock' ? '.stock-action-btn' : '.pricing-action-btn');
+                        $(cls).prop('disabled', true);
+                    } else {
+                        bodyEl.textContent = response.success ? response.message : ('Failed: ' + response.message);
+                        try {
+                            if (type === 'pricing' && response.success) {
+                                localStorage.setItem('pricing_recs_updated', String(Date.now()));
+                            }
+                        } catch (e) {}
+                    }
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                 },
-                error: function() {
+                error: function(xhr) {
                     const modalEl = document.getElementById('feedbackModal');
                     const bodyEl = document.getElementById('feedbackModalBody');
-                    bodyEl.textContent = 'Error sending notification. Please try again.';
+                    const resp = xhr.responseJSON || {};
+                    if (resp.cooldown_active) {
+                        bodyEl.innerHTML = `<i class="bi bi-hourglass-split me-2"></i> ${resp.message}<br><small class="text-muted">Next allowed: ${resp.next_allowed_at}</small>`;
+                        const cls = type === 'sales' ? '.sales-action-btn' : (type === 'stock' ? '.stock-action-btn' : '.pricing-action-btn');
+                        $(cls).prop('disabled', true);
+                    } else {
+                        bodyEl.textContent = 'Error sending notification. Please try again.';
+                    }
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                 },
@@ -1970,10 +2077,13 @@
             $content.html('<div class="text-center text-muted"><i class="bi bi-hourglass-split"></i> Generating recommendations...</div>');
             
             $.ajax({
-                url: "{% url 'get_pricing_recommendations' %}",
+                url: "{% url 'get_pricing_recommendations' %}?bypass_cooldown=true",
                 method: 'GET',
                 success: function(response) {
-                    if (response.success && response.recommendations.length > 0) {
+                    if (response.cooldown_active) {
+                        $content.html(`<div class="alert alert-warning"><i class="bi bi-hourglass-split me-2"></i>${response.message}<br><small class="text-muted">Next allowed: ${response.next_allowed_at}</small></div>`);
+                        $('.pricing-action-btn').prop('disabled', true);
+                    } else if (response.success && response.recommendations.length > 0) {
                         let html = '';
                         const actionable = response.recommendations.filter(r => r.action === 'INCREASE' || r.action === 'DECREASE');
                         
@@ -1994,8 +2104,14 @@
                         $content.html('Insufficient sales data.<br>Need more sales history.');
                     }
                 },
-                error: function() {
-                    $content.html('Error generating recommendations.<br>Please try again later.');
+                error: function(xhr) {
+                    const resp = xhr.responseJSON || {};
+                    if (resp.cooldown_active) {
+                        $content.html(`<div class="alert alert-warning"><i class="bi bi-hourglass-split me-2"></i>${resp.message}<br><small class="text-muted">Next allowed: ${resp.next_allowed_at}</small></div>`);
+                        $('.pricing-action-btn').prop('disabled', true);
+                    } else {
+                        $content.html('Error generating recommendations.<br>Please try again later.');
+                    }
                 }
             });
         }

@@ -375,7 +375,26 @@
         .header-right {
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 0.75rem;
+        }
+
+        .btn-filter-action {
+            border-radius: 999px;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(120deg, #6366f1 0%, #4f46e5 45%, #8b5cf6 100%);
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-filter-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            color: #fff;
         }
 
         .user-avatar {
@@ -475,6 +494,9 @@
         @media (min-width: 992px) {
             .profile-grid {
                 grid-template-columns: 1fr 1fr;
+            }
+            .profile-actions-right {
+                grid-column: 2 / 3;
             }
         }
 
@@ -1311,6 +1333,14 @@
                 {% endfor %}
 
                 <div class="profile-grid">
+                    {% if app_role == 'admin' %}
+                    <div class="profile-actions-right" style="display: flex; justify-content: flex-end;">
+                        <button type="button" class="btn-filter-action" id="profileRefreshBtn" aria-label="Refresh profile" style="width: 150px; justify-content: center;">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="profileRefreshSpinner"></span>
+                            <span class="refresh-text">Refresh</span>
+                        </button>
+                    </div>
+                    {% endif %}
                     <!-- Main Profile Card -->
                     <div class="profile-card">
                         <div class="profile-card-header">
@@ -1430,7 +1460,7 @@
                                             <p>Secretary Account</p>
                                         <p class="small">Phone: <span class="secretary-phone">{{ u.phone_number|default:"Not provided" }}</span></p>
                                             <p class="small">Email: <span class="secretary-email">{% if u.email %}{{ u.email }}{% else %}Not provided{% endif %}</span></p>
-                                            <p class="small">Google Login: <span class="secretary-google-email">{% if u.allow_google_login %}Enabled{% else %}Disabled{% endif %}</span></p>
+                                            
                                     </div>
                                 </div>
                                     <div class="secretary-card-actions">
@@ -1460,7 +1490,7 @@
                                                 data-email="{{ u.email|default:'' }}"
                                                 data-profile-picture="{{ u.profile_picture|default:'' }}"
                                                     
-                                                data-google-enabled="{{ u.allow_google_login|yesno:'true,false' }}"
+                                                
                                                 data-is-active="{{ u.is_active|yesno:'true,false' }}">
                                             <i class="bi bi-pencil"></i> Edit Profile
                                         </button>
@@ -1509,6 +1539,8 @@
                             </div>
                         </div>
                         <input type="hidden" id="editSecretaryUserId" name="user_id">
+                        <input type="hidden" id="editSecretaryOriginalEmail" name="original_email">
+                        <input type="hidden" id="secEmailChangeVerified" name="sec_email_change_verified" value="0">
 
                         <div class="mb-3">
                             <label class="form-label">Password</label>
@@ -1531,12 +1563,7 @@
                             </div>
                         </div>
 
-                        <div class="mb-3 form-switch">
-                            <input class="form-check-input" type="checkbox" id="editSecretaryGoogleEnabled" name="google_oauth_enabled">
-                            <label class="form-check-label" for="editSecretaryGoogleEnabled">
-                                Allow Google sign-in for this secretary
-                            </label>
-                        </div>
+                        
 
                         <!-- Google Account Email removed: primary Email is used for Google sign-in when enabled -->
 
@@ -1633,28 +1660,30 @@
                                     <input type="text" class="form-control" name="phone_number" value="{{ user_obj.phone_number|default:'' }}">
                                 </div>
                             </div>
+                            {% if app_role|default:''|lower != 'secretary' %}
                             <div class="col-lg-6">
                                 <div class="mb-3">
                                     <label class="form-label">Email</label>
                                     <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
-                                    <small class="text-muted">Used for password login and Google sign-in when enabled.</small>
+                                    <div class="invalid-feedback" id="emailError"></div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
 
-                        <div class="mb-3 form-switch">
-                            <input class="form-check-input" type="checkbox" id="profileGoogleEnabled" name="google_oauth_enabled" {% if user_obj.allow_google_login %}checked{% endif %}>
-                            <label class="form-check-label" for="profileGoogleEnabled">Allow Google sign-in for this account</label>
-                        </div>
+                        
 
                         <!-- Google Account Email removed: primary Email is used for Google sign-in when enabled -->
 
+                        {% if app_role|default:''|lower != 'secretary' %}
                         <div class="mb-3">
                             <label class="form-label">Current Password</label>
                             <input type="password" class="form-control" name="current_password" placeholder="Enter current password to change">
+                            <div class="invalid-feedback" id="currentPwError"></div>
                         </div>
 
                         <div class="mb-3">
+                            {% if app_role|default:''|lower != 'secretary' %}
                             <label class="form-label">New Password</label>
                             <input type="password" class="form-control" name="new_password" placeholder="Leave blank to keep current">
                             <div class="password-strength" id="profilePasswordStrength">
@@ -1666,21 +1695,78 @@
                                     <div class="criterion-item" data-criterion="symbol"><i class="bi bi-x-circle"></i><span>Symbol</span></div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
 
+                        {% if app_role|default:''|lower != 'secretary' %}
                         <div class="mb-3">
                             <label class="form-label">Confirm New Password</label>
                             <input type="password" class="form-control" name="confirm_password" placeholder="Confirm new password">
                         </div>
+                        {% endif %}
+                        {% endif %}
+                        <input type="hidden" name="email_verified" value="false">
                     </div>
                     <div class="modal-footer d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="saveProfileBtn">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" id="saveProfileSpinner"></span>
                             <i class="bi bi-check"></i>
                             Save Changes
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="emailVerifyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Confirm Email Change</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="emailVerifyAlert"></div>
+                    <p class="mb-2">Enter the verification code sent to your current email <strong id="pendingOldEmailLabel"></strong>.</p>
+                    <input type="text" class="form-control" id="emailChangeCode" placeholder="Enter 6-digit code" inputmode="numeric" autocomplete="one-time-code">
+                    <div class="invalid-feedback d-block" id="emailCodeError" style="display:none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="#" class="me-auto" id="resendEmailCodeLink">Resend code</a>
+                    <button type="button" class="btn btn-primary" id="confirmEmailChangeBtn">
+                        <span class="spinner-border spinner-border-sm me-1 d-none"></span>
+                        <i class="bi bi-check"></i>
+                        Verify & Update Email
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="secEmailVerifyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Confirm Secretary Email Change</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="secEmailVerifyAlert"></div>
+                    <p class="mb-2">Enter the verification code sent to <strong id="pendingSecretaryNewEmailLabel"></strong>.</p>
+                    <input type="text" class="form-control" id="secEmailChangeCode" placeholder="Enter 6-digit code" inputmode="numeric" autocomplete="one-time-code">
+                    <div class="invalid-feedback d-block" id="secEmailCodeError" style="display:none"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="#" class="me-auto" id="resendSecEmailCodeLink">Resend code</a>
+                    <button type="button" class="btn btn-primary" id="confirmSecEmailChangeBtn">
+                        <span class="spinner-border spinner-border-sm me-1 d-none"></span>
+                        <i class="bi bi-check"></i>
+                        Verify & Update Email
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1754,19 +1840,7 @@
             });
 
             // Edit secretary button
-            function syncSecretaryGoogleField() {
-                // No secondary Google email field; primary email is used
-            }
-
-            function syncProfileGoogleField() {
-                const enabled = $('#profileGoogleEnabled').is(':checked');
-            }
-
-            $('#profileGoogleEnabled').on('change', syncProfileGoogleField);
-            syncProfileGoogleField();
-
-            $('#editSecretaryGoogleEnabled').on('change', syncSecretaryGoogleField);
-            syncSecretaryGoogleField();
+            
 
             const newPwInput = document.querySelector('input[name="new_password"]');
             const strengthEl = document.getElementById('profilePasswordStrength');
@@ -1804,7 +1878,7 @@
                 const phone = btn.data('phone') || '';
                 const email = btn.data('email') || '';
                 const profilePicture = btn.data('profile-picture') || '';
-                const googleEnabled = (btn.data('google-enabled') === true || btn.data('google-enabled') === 'true');
+                
                 
                 // Populate modal
                 $('#editSecretaryUserId').val(userId);
@@ -1813,8 +1887,8 @@
                 $('#editSecretaryPassword').val('').attr('placeholder', 'Enter new password').attr('type', 'text');
                 $('#editSecretaryPhone').val(phone);
                 $('#editSecretaryEmail').val(email);
-                $('#editSecretaryGoogleEnabled').prop('checked', googleEnabled);
-                syncSecretaryGoogleField();
+                $('#editSecretaryOriginalEmail').val(email);
+                
                 $('#editSecretaryPicturePreview').html('');
                 
                 // Show profile picture if exists
@@ -1843,14 +1917,40 @@
             });
 
             // Handle edit secretary form submission
+            let pendingSecUserId = null;
+            let pendingSecNewEmail = '';
             $('#editSecretaryForm').on('submit', function(e) {
                 e.preventDefault();
-                const formData = new FormData(this);
-                const submitBtn = $(this).find('button[type="submit"]');
-                
-                // Disable submit button
+                const formEl = this;
+                const formData = new FormData(formEl);
+                const submitBtn = $(formEl).find('button[type="submit"]');
+                const userId = $('#editSecretaryUserId').val();
+                const newEmail = ($('#editSecretaryEmail').val() || '').trim();
+                const originalEmail = ($('#editSecretaryOriginalEmail').val() || '').trim();
+                if (newEmail && originalEmail && newEmail.toLowerCase() !== originalEmail.toLowerCase()) {
+                    submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Sending code...');
+                    $.post("{% url 'admin_start_secretary_email_change' %}", { user_id: userId, new_email: newEmail })
+                     .done(function(resp){
+                        if(resp && resp.success){
+                            pendingSecUserId = userId;
+                            pendingSecNewEmail = newEmail;
+                            const label = document.getElementById('pendingSecretaryNewEmailLabel');
+                            if(label) label.textContent = newEmail;
+                            const m = new bootstrap.Modal(document.getElementById('secEmailVerifyModal'));
+                            m.show();
+                        } else {
+                            showAlert((resp && resp.message) || 'Unable to start email change.', 'danger');
+                        }
+                     })
+                     .fail(function(){
+                        showAlert('Network error starting email change.', 'danger');
+                     })
+                     .always(function(){
+                        submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                     });
+                    return;
+                }
                 submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Updating...');
-                
                 $.ajax({
                     url: "{% url 'update_secretary_account' %}",
                     method: 'POST',
@@ -1868,30 +1968,125 @@
                                 editBtn.data('phone', response.user.phone_number || '');
                                 editBtn.data('email', response.user.email || '');
                                 editBtn.data('profile-picture', response.user.profile_picture || '');
-                                editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
                                 card.find('.secretary-info h6').text((response.user.full_name || response.user.username || 'Secretary'));
                                 card.find('.secretary-phone').text(response.user.phone_number || 'Not provided');
                                 card.find('.secretary-email').text(response.user.email || 'Not provided');
-                            card.find('.secretary-google-email').text(response.user.allow_google_login ? 'Enabled' : 'Disabled');
                             }
-                            setTimeout(function() {
-                                submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
-                            }, 500);
-                } else {
+                            setTimeout(function() { submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account'); }, 500);
+                        } else {
                             showAlert(response.message || 'Failed to update account', 'danger');
                             submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
-                }
+                        }
                     },
                     error: function(xhr) {
                         let errorMsg = 'An error occurred while updating account';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMsg = xhr.responseJSON.message;
-                        }
+                        if (xhr.responseJSON && xhr.responseJSON.message) { errorMsg = xhr.responseJSON.message; }
                         showAlert(errorMsg, 'danger');
                         submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
                     }
                 });
             });
+
+            // Secretary email change verification
+            const secConfirmBtn = document.getElementById('confirmSecEmailChangeBtn');
+            const secCodeInput = document.getElementById('secEmailChangeCode');
+            const secAlert = document.getElementById('secEmailVerifyAlert');
+            const secResendLink = document.getElementById('resendSecEmailCodeLink');
+            if(secConfirmBtn){
+                secConfirmBtn.addEventListener('click', function(){
+                    const code = (secCodeInput && secCodeInput.value || '').trim();
+                    document.getElementById('secEmailCodeError').style.display = 'none';
+                    if(secAlert){ secAlert.classList.add('d-none'); secAlert.textContent=''; }
+                    if(!code){
+                        const fb = document.getElementById('secEmailCodeError');
+                        if(fb){ fb.textContent = 'Enter the verification code'; fb.style.display = 'block'; }
+                        return;
+                    }
+                    const spinner = secConfirmBtn.querySelector('.spinner-border');
+                    secConfirmBtn.disabled = true;
+                    if(spinner){ spinner.classList.remove('d-none'); }
+                    $.post("{% url 'admin_verify_secretary_email_change' %}", { user_id: pendingSecUserId, code: code })
+                     .done(function(resp){
+                        if(resp && resp.success){
+                            $('#secEmailChangeVerified').val('1');
+                            const modalEl = document.getElementById('secEmailVerifyModal');
+                            if(modalEl){ try { bootstrap.Modal.getInstance(modalEl)?.hide(); } catch(e){} }
+                            const formEl = document.getElementById('editSecretaryForm');
+                            const submitBtn = $(formEl).find('button[type="submit"]');
+                            const fd = new FormData(formEl);
+                            submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Updating...');
+                            $.ajax({
+                                url: "{% url 'update_secretary_account' %}",
+                                method: 'POST',
+                                data: fd,
+                                processData: false,
+                                contentType: false,
+                                success: function(response) {
+                                    if (response.success) {
+                                        showAlert(response.message, 'success');
+                                        $('#editSecretaryModal').modal('hide');
+                                        if (response.user) {
+                                            const card = $('.secretary-card[data-user-id="' + response.user.user_id + '"]');
+                                            const editBtn = card.find('.edit-secretary-btn');
+                                            editBtn.data('username', response.user.username || '');
+                                            editBtn.data('phone', response.user.phone_number || '');
+                                            editBtn.data('email', response.user.email || '');
+                                            editBtn.data('profile-picture', response.user.profile_picture || '');
+                                            card.find('.secretary-info h6').text((response.user.full_name || response.user.username || 'Secretary'));
+                                            card.find('.secretary-phone').text(response.user.phone_number || 'Not provided');
+                                            card.find('.secretary-email').text(response.user.email || 'Not provided');
+                                        }
+                                        setTimeout(function() { submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account'); }, 500);
+                                    } else {
+                                        showAlert(response.message || 'Failed to update account', 'danger');
+                                        submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                                    }
+                                },
+                                error: function(xhr) {
+                                    let errorMsg = 'An error occurred while updating account';
+                                    if (xhr.responseJSON && xhr.responseJSON.message) { errorMsg = xhr.responseJSON.message; }
+                                    showAlert(errorMsg, 'danger');
+                                    submitBtn.prop('disabled', false).html('<i class="bi bi-check"></i> Update Account');
+                                }
+                            });
+                        } else {
+                            const msg = (resp && resp.message) || 'Invalid verification code.';
+                            const fb = document.getElementById('secEmailCodeError');
+                            if(fb){ fb.textContent = msg; fb.style.display = 'block'; }
+                        }
+                     })
+                     .fail(function(){
+                        if(secAlert){ secAlert.textContent = 'Network error verifying code.'; secAlert.classList.remove('d-none'); }
+                     })
+                     .always(function(){
+                        secConfirmBtn.disabled = false;
+                        if(spinner){ spinner.classList.add('d-none'); }
+                     });
+                });
+            }
+            if(secResendLink){
+                secResendLink.addEventListener('click', function(e){
+                    e.preventDefault();
+                    if(!pendingSecUserId || !pendingSecNewEmail){ return; }
+                    secResendLink.classList.add('disabled');
+                    $.post("{% url 'admin_start_secretary_email_change' %}", { user_id: pendingSecUserId, new_email: pendingSecNewEmail })
+                     .done(function(resp){
+                        if(resp && resp.success){
+                            showAlert('A new verification code was sent.', 'success');
+                            setTimeout(function(){ secResendLink.classList.remove('disabled'); }, 120000);
+                        } else {
+                            var msg = (resp && resp.message) || 'Unable to resend code.';
+                            var seconds = (resp && resp.seconds_remaining) || 120;
+                            showAlert(msg + ' Wait ' + seconds + 's.', 'danger');
+                            setTimeout(function(){ secResendLink.classList.remove('disabled'); }, seconds * 1000);
+                        }
+                     })
+                     .fail(function(){
+                        showAlert('Network error resending code.', 'danger');
+                        setTimeout(function(){ secResendLink.classList.remove('disabled'); }, 120000);
+                     });
+                });
+            }
         });
 
         // Function to perform toggle
@@ -1930,7 +2125,7 @@
                             editBtn.data('phone', response.user.phone_number || '');
                             editBtn.data('email', response.user.email || '');
                             editBtn.data('profile-picture', response.user.profile_picture || '');
-                            editBtn.data('google-enabled', response.user.allow_google_login ? 'true' : 'false');
+                            
                         }
                         editBtn.data('is-active', isActive);
                         
@@ -2107,6 +2302,149 @@
                 }
             });
         });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const profileRefreshBtn = document.getElementById('profileRefreshBtn');
+            const profileRefreshSpinner = document.getElementById('profileRefreshSpinner');
+            if (profileRefreshBtn) {
+                profileRefreshBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (profileRefreshSpinner) profileRefreshSpinner.classList.remove('d-none');
+                    profileRefreshBtn.disabled = true;
+                    setTimeout(() => { window.location.reload(); }, 200);
+                });
+            }
+        });
+
+        (function(){
+            const form = document.querySelector('#editProfileModal form');
+            const emailInput = form ? form.querySelector('input[name="email"]') : null;
+            const currentPwInput = form ? form.querySelector('input[name="current_password"]') : null;
+            const emailVerifiedInput = form ? form.querySelector('input[name="email_verified"]') : null;
+            const saveBtn = form ? form.querySelector('#saveProfileBtn') : null;
+            const saveSpinner = document.getElementById('saveProfileSpinner');
+            const originalEmail = '{{ user_obj.email|default:"" }}';
+            let pendingNewEmail = '';
+            let pendingCurrentPw = '';
+            function showFieldError(input, message, feedbackId){
+                if(!input) return;
+                input.classList.add('is-invalid');
+                const fb = feedbackId ? document.getElementById(feedbackId) : null;
+                if(fb){ fb.textContent = message; fb.style.display = 'block'; }
+            }
+            function clearFieldError(input, feedbackId){
+                if(!input) return;
+                input.classList.remove('is-invalid');
+                const fb = feedbackId ? document.getElementById(feedbackId) : null;
+                if(fb){ fb.textContent = ''; fb.style.display = 'none'; }
+            }
+            if(form){
+                form.addEventListener('submit', function(e){
+                    const newEmail = (emailInput && emailInput.value || '').trim();
+                    if(!emailInput || !currentPwInput) return;
+                    if(newEmail && newEmail.toLowerCase() !== (originalEmail || '').toLowerCase()){
+                        e.preventDefault();
+                        clearFieldError(emailInput, 'emailError');
+                        clearFieldError(currentPwInput, 'currentPwError');
+                        const currentPw = (currentPwInput && currentPwInput.value) || '';
+                        if(!currentPw){
+                            showFieldError(currentPwInput, 'Enter current password to change', 'currentPwError');
+                            return;
+                        }
+                        pendingCurrentPw = currentPw;
+                        if(saveBtn){ saveBtn.disabled = true; }
+                        if(saveSpinner){ saveSpinner.classList.remove('d-none'); }
+                        $.post("{% url 'start_email_change' %}", { new_email: newEmail, current_password: currentPw })
+                         .done(function(resp){
+                            if(resp && resp.success){
+                                pendingNewEmail = newEmail;
+                                const label = document.getElementById('pendingOldEmailLabel');
+                                if(label) label.textContent = (originalEmail || '').trim();
+                                const m = new bootstrap.Modal(document.getElementById('emailVerifyModal'));
+                                m.show();
+                            } else {
+                                const msg = (resp && resp.message) || 'Unable to start email change.';
+                                if(/password/i.test(msg)){
+                                    showFieldError(currentPwInput, msg, 'currentPwError');
+                                } else if(/email/i.test(msg)){
+                                    showFieldError(emailInput, msg, 'emailError');
+                                }
+                                showAlert(msg, 'danger');
+                            }
+                         })
+                         .fail(function(){
+                            showAlert('Network error starting email change.', 'danger');
+                         })
+                         .always(function(){
+                            if(saveBtn){ saveBtn.disabled = false; }
+                            if(saveSpinner){ saveSpinner.classList.add('d-none'); }
+                         });
+                    }
+                });
+            }
+            const confirmBtn = document.getElementById('confirmEmailChangeBtn');
+            const emailCodeInput = document.getElementById('emailChangeCode');
+            const emailVerifyAlert = document.getElementById('emailVerifyAlert');
+            const resendLink = document.getElementById('resendEmailCodeLink');
+            if(confirmBtn){
+                confirmBtn.addEventListener('click', function(){
+                    const code = (emailCodeInput && emailCodeInput.value || '').trim();
+                    document.getElementById('emailCodeError').style.display = 'none';
+                    if(emailVerifyAlert){ emailVerifyAlert.classList.add('d-none'); emailVerifyAlert.textContent=''; }
+                    if(!code){
+                        showFieldError(emailCodeInput, 'Enter the verification code', 'emailCodeError');
+                        return;
+                    }
+                    const spinner = confirmBtn.querySelector('.spinner-border');
+                    confirmBtn.disabled = true;
+                    if(spinner){ spinner.classList.remove('d-none'); }
+                    $.post("{% url 'verify_email_change' %}", { code: code })
+                     .done(function(resp){
+                        if(resp && resp.success){
+                            if(emailVerifiedInput) emailVerifiedInput.value = 'true';
+                            const modalEl = document.getElementById('emailVerifyModal');
+                            if(modalEl){ try { bootstrap.Modal.getInstance(modalEl)?.hide(); } catch(e){} }
+                            setTimeout(function(){ form.submit(); }, 100);
+                        } else {
+                            const msg = (resp && resp.message) || 'Invalid verification code.';
+                            showFieldError(emailCodeInput, msg, 'emailCodeError');
+                        }
+                     })
+                     .fail(function(){
+                        if(emailVerifyAlert){ emailVerifyAlert.textContent = 'Network error verifying code.'; emailVerifyAlert.classList.remove('d-none'); }
+                     })
+                     .always(function(){
+                        confirmBtn.disabled = false;
+                        if(spinner){ spinner.classList.add('d-none'); }
+                     });
+                });
+            }
+            if(resendLink){
+                resendLink.addEventListener('click', function(e){
+                    e.preventDefault();
+                    if(!pendingNewEmail || !pendingCurrentPw){ return; }
+                    resendLink.classList.add('disabled');
+                    $.post("{% url 'start_email_change' %}", { new_email: pendingNewEmail, current_password: pendingCurrentPw })
+                     .done(function(resp){
+                        if(resp && resp.success){
+                            showAlert('A new verification code was sent.', 'success');
+                            // Lock resend for TWO_FACTOR_CODE_EXPIRY_MINUTES (server enforces 2 min); client cooldown mirrors
+                            setTimeout(function(){ resendLink.classList.remove('disabled'); }, 120000);
+                        } else {
+                            var msg = (resp && resp.message) || 'Unable to resend code.';
+                            var seconds = (resp && resp.seconds_remaining) || 120;
+                            showAlert(msg + ' Wait ' + seconds + 's.', 'danger');
+                            setTimeout(function(){ resendLink.classList.remove('disabled'); }, seconds * 1000);
+                        }
+                     })
+                     .fail(function(){
+                        showAlert('Network error resending code.', 'danger');
+                        setTimeout(function(){ resendLink.classList.remove('disabled'); }, 120000);
+                     });
+                });
+            }
+        })();
     </script>
 
     <!-- Logout Confirmation Modal -->

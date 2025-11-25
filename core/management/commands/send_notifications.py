@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 # Expose a simple wrapper for SMS sending so tests can patch it easily
-def send_sms_notification(phone_number, message):
-    return sms_service.send_sms(phone_number, message, allow_multipart=True)
+def send_sms(phone_number, message):
+    return sms_service.send_sms(phone_number, message, allow_multipart=False)
 
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'
@@ -85,7 +85,11 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
+            from core.models import SMS
+            today = timezone.localtime().date()
             for admin in admins:
+                if SMS.objects.filter(user=admin, message_type='sales_summary_daily', sent_at__date=today).exists():
+                    continue
                 result = send_sms_notification(admin.phone_number, message)
                 if result['success']:
                     success_count += 1
@@ -137,7 +141,11 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
+            from core.models import SMS
+            now = timezone.localtime()
             for admin in admins:
+                if SMS.objects.filter(user=admin, message_type='stock_alert', sent_at__gte=now - timezone.timedelta(minutes=30)).exists():
+                    continue
                 result = send_sms_notification(admin.phone_number, message)
                 if result['success']:
                     success_count += 1
@@ -188,7 +196,11 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
+            from core.models import SMS
+            now = timezone.localtime()
             for admin in admins:
+                if SMS.objects.filter(user=admin, message_type='pricing_alert', sent_at__gte=now - timezone.timedelta(hours=6)).exists():
+                    continue
                 result = send_sms_notification(admin.phone_number, message)
                 if result['success']:
                     success_count += 1
@@ -228,21 +240,33 @@ class Command(BaseCommand):
         """Format the low stock alert message (ASCII, professional, matches dashboard/signals style)"""
         message = "STOCKWISE Stock Alert\n\n"
         
+        def _label(name, variant, quantity_unit):
+            n = (name or "")
+            v = (variant or "").strip()
+            u = (quantity_unit or "").strip()
+            ln = n.lower()
+            def has(t):
+                return t and f"({t.lower()})" in ln
+            parts = [n]
+            if v and not has(v) and v != u:
+                parts.append(f" ({v})")
+            if u and not has(u) and u != v:
+                parts.append(f" ({u})")
+            return "".join(parts)
+
         if out_of_stock_products.exists():
             message += "CRITICAL - OUT OF STOCK:\n"
-            for product in out_of_stock_products[:5]:
-                variant_part = f" ({product.variant})" if getattr(product, 'variant', None) else ""
-                unit_part = f" ({product.quantity_unit})" if getattr(product, 'quantity_unit', None) else ""
-                message += f"- {product.name}{variant_part}{unit_part}\n"
+            for product in out_of_stock_products:
+                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
+                message += f"- {label}\n"
             message += "\n"
         
         if low_stock_products.exists():
             message += "WARNING - LOW STOCK:\n"
-            for product in low_stock_products[:5]:
+            for product in low_stock_products:
                 box_text = "box" if product.stock == 1 else "boxes"
-                variant_part = f" ({product.variant})" if getattr(product, 'variant', None) else ""
-                unit_part = f" ({product.quantity_unit})" if getattr(product, 'quantity_unit', None) else ""
-                message += f"- {product.name}{variant_part}{unit_part}: {product.stock} {box_text} left\n"
+                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
+                message += f"- {label}: {product.stock} {box_text} left\n"
             message += "\n"
         
         if not out_of_stock_products.exists() and not low_stock_products.exists():
@@ -274,16 +298,27 @@ class Command(BaseCommand):
             
             # Format recommendations
             message = "STOCKWISE Pricing\n\n"
-            
+
             for rec in valid_recommendations[:3]:
                 action_symbol = "+" if rec.action == 'INCREASE' else "-"
                 change_pct = abs(float(rec.change_pct))
                 reason = rec.reason or ''
                 if '[Data:' in reason:
                     reason = reason.split('[Data:')[0].strip()
-                variant_part = f" ({rec.product.variant})" if getattr(rec.product, 'variant', None) else ""
-                unit_part = f" ({rec.product.quantity_unit})" if getattr(rec.product, 'quantity_unit', None) else ""
-                label = f"{rec.product.name}{variant_part}{unit_part}"
+                def _label(name, variant, quantity_unit):
+                    n = (name or "")
+                    v = (variant or "").strip()
+                    u = (quantity_unit or "").strip()
+                    ln = n.lower()
+                    def has(t):
+                        return t and f"({t.lower()})" in ln
+                    parts = [n]
+                    if v and not has(v) and v != u:
+                        parts.append(f" ({v})")
+                    if u and not has(u) and u != v:
+                        parts.append(f" ({u})")
+                    return "".join(parts)
+                label = _label(rec.product.name, getattr(rec.product, 'variant', None), getattr(rec.product, 'quantity_unit', None))
                 
                 message += f"{label}\n"
                 message += f"PHP {float(rec.current_price):.0f} -> PHP {float(rec.suggested_price):.0f} ({action_symbol}{change_pct:.0f}%)\n"
@@ -294,7 +329,5 @@ class Command(BaseCommand):
             return message
             
         except Exception as e:
-            message = "STOCKWISE Pricing Report\n\n"
-            message += f"Error generating recommendations: {str(e)}\n\n"
-            message += "- STOCKWISE System"
-            return message
+            logger.error(f"Pricing recommendations error: {str(e)}")
+            return "STOCKWISE Pricing\n\nRecommendations unavailable at the moment.\n\n- STOCKWISE"

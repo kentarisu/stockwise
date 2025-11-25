@@ -142,7 +142,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=False)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

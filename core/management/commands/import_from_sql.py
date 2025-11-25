@@ -61,7 +61,7 @@ class Command(BaseCommand):
 					product_id=row.get('product_id'),
 					defaults=dict(
 						name=row.get('name', ''),
-						size=row.get('size') or '',
+                        quantity_unit=row.get('quantity_unit') or '',
 						status=row.get('status', 'Active'),
 						image=row.get('image'),
 						date_added=row.get('date_added') or '2000-01-01',
@@ -137,4 +137,4 @@ class Command(BaseCommand):
 						user_id=row.get('user_id'),
 					)
 				)
-		self.stdout.write(self.style.SUCCESS('Import completed.')) 
+		self.stdout.write(self.style.SUCCESS('Import completed.'))

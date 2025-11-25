@@ -606,17 +606,31 @@
             width: 100%;
         }
 
-        .filter-search-wrapper i {
+        .filter-search-icon-btn {
             position: absolute;
-            left: 0.85rem;
+            right: 0.4rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--gray-400);
-            font-size: 1rem;
+            border: none;
+            background: transparent;
+            color: var(--gray-500);
+            padding: 0.25rem;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .filter-search-icon-btn:hover,
+        .filter-search-icon-btn:focus {
+            color: var(--primary);
+            background: rgba(99,102,241,0.08);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
         }
 
         .filter-search-input {
-            padding-left: 2.25rem;
+            padding-right: 2.25rem;
         }
 
         .btn-filter-action {
@@ -956,19 +970,7 @@
             padding: 1.5rem;
         }
         
-        #stockQRScanner {
-            min-height: 300px;
-            border: 2px dashed #dee2e6;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #f8f9fa;
-        }
         
-        #stockQRScanner video {
-            border-radius: 8px;
-        }
 
         .modal-footer {
             border-top: 1px solid var(--gray-200);
@@ -1975,10 +1977,10 @@
                         </a>
                         <a href="{% url 'add_stock_page' %}" class="btn-modern warning">
                             <i class="bi bi-box-arrow-in-down"></i>
-                            Update Stock
+                            Add Stock
                         </a>
                     </div>
-                    <button type="button" class="btn-filter-action" id="refreshTable" aria-label="Refresh table" style="width: 150px; justify-content: center;">
+                    <button type="button" class="btn-filter-action" id="inventoryRefreshBtn" aria-label="Refresh table" style="width: 150px; justify-content: center;">
                         <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="inventoryRefreshSpinner"></span>
                         <span class="refresh-text">Refresh</span>
                     </button>
@@ -1990,8 +1992,10 @@
                         <div class="form-group flex-grow-1">
                             <label class="form-label">Search</label>
                             <div class="filter-search-wrapper">
-                                <i class="bi bi-search"></i>
                                 <input type="text" class="form-control filter-search-input" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                                <button type="button" id="searchIconBtn" class="filter-search-icon-btn" aria-label="Search products" title="Search" aria-controls="searchInput">
+                                    <i class="bi bi-search" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
                         <div class="form-group">
@@ -2004,7 +2008,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Products</label>
-                            <select class="form-select" id="fruitFilter">
+                            <select class="form-select" id="productFilter">
                                 <option value="all">All Products</option>
                                 {% for fruit in fruits %}
                                 <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
@@ -2012,12 +2016,11 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Supplier</label>
-                            <select class="form-select" id="supplierFilter">
-                                <option value="all">All Suppliers</option>
-                                {% for supplier in suppliers %}
-                                <option value="{{ supplier }}" {% if supplier_filter == supplier %}selected{% endif %}>{{ supplier }}</option>
-                                {% endfor %}
+                            <label class="form-label">Quantity</label>
+                            <select class="form-select" id="unitFilter">
+                                <option value="all">All Units</option>
+                                <option value="box">Boxes</option>
+                                <option value="kilo">Kilo</option>
                             </select>
                         </div>
                         
@@ -2038,6 +2041,7 @@
                                 <button class="nav-link" id="out-of-stock-tab" data-bs-toggle="tab" data-bs-target="#out-of-stock" type="button" role="tab" aria-controls="out-of-stock" aria-selected="false">Out of Stock</button>
                             </li>
                         </ul>
+                        <div class="table-count" id="itemsCountContainer"><span id="itemsCountHeader" class="text-muted"></span></div>
                     </div>
                     <div class="tab-content p-3 pt-0">
                         <div class="tab-pane fade show active" id="all-products" role="tabpanel" aria-labelledby="all-products-tab">
@@ -2078,8 +2082,8 @@
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
+                                            <th style="width: 120px">Add Stock</th>
                                             <th style="width: 150px">Options</th>
-                                            <th style="width: 160px">Update Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2106,8 +2110,8 @@
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
+                                            <th style="width: 120px">Add Stock</th>
                                             <th style="width: 150px">Options</th>
-                                            <th style="width: 160px">Update Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2148,7 +2152,7 @@
                                     <span class="badge bg-success" style="font-size: 0.75rem;">Available</span> = In stock and ready to sell, 
                                     <span class="badge bg-danger" style="font-size: 0.75rem;">Discontinued</span> = No longer stocked
                                 </li>
-                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Update stock, Change price, or Discontinue product.</li>
+                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Add stock, Change price, or Discontinue product.</li>
                             </ul>
                         </div>
                     </div>
@@ -2198,7 +2202,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="generateStockQRModalLabel">Scan to Update Stock</h5>
+                    <h5 class="modal-title" id="generateStockQRModalLabel">Scan to Add Stock</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -2216,29 +2220,7 @@
         </div>
     </div>
 
-    <!-- Scan Stock QR Modal (webcam) -->
-    <div class="modal fade" id="scanStockQRModal" tabindex="-1" aria-labelledby="scanStockQRModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="scanStockQRModalLabel">Scan QR (Webcam)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="stockQRScanner" style="width: 100%">
-                        <div class="text-center text-muted">
-                            <i class="bi bi-camera" style="font-size: 2rem;"></i>
-                            <p class="mt-2">Initializing camera...</p>
-                        </div>
-                    </div>
-                    <div id="stockQRScanResult" class="mt-2 small text-muted"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="closeScanQRBtn">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    
 
     <!-- Status Change Confirmation Modal -->
     <div class="modal fade" id="discontinueModal" tabindex="-1" aria-labelledby="discontinueModalLabel" aria-hidden="true">
@@ -2307,50 +2289,72 @@
                         <input type="hidden" id="productId" name="productId">
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="productName" class="form-label">Product Name</label>
-                                <input type="text" class="form-control" id="productName" name="productName" required>
+                                <label for="productNameDisplay" class="form-label">Product Name</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control" id="productNameDisplay" name="productName" placeholder="Search or type a product name" autocomplete="off" inputmode="text" maxlength="60" aria-autocomplete="list" aria-controls="nameSuggestions">
+                                    <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="variant" class="form-label">Variant (Optional)</label>
-                                <input type="text" class="form-control" id="variant" name="variant" placeholder="e.g., Red, Green, Organic">
+                                <label for="productVariantDisplay" class="form-label">Variant</label>
+                                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" inputmode="text" maxlength="60" list="variantDefaultSuggestions">
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="quantity_unit" class="form-label">Quantity</label>
+                                <label for="productSizeDisplay" class="form-label">Quantity</label>
                                 <div class="input-group quantity-unit-group">
-                                    <input type="text" class="form-control" id="quantity_unit" name="quantity_unit" required placeholder="Enter quantity">
-                                    <select class="form-select" id="quantityUnit" name="quantity_unit" aria-label="Quantity unit">
+                                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" list="quantitySuggestions">
+                                    <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit">
                                         <option value="box" selected>Box</option>
                                         <option value="kilo">Kilo</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="initialStock" class="form-label">Initial Stock (Per box/kilo)</label>
-                                <input type="number" class="form-control" id="initialStock" name="initialStock" min="0" required>
+                                <label for="supplierInput" class="form-label">Supplier <small class="text-muted ms-1">(optional)</small></label>
+                                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off" inputmode="text" maxlength="80">
+                                <datalist id="supplierList">
+                                    {% for sup in suppliers %}
+                                        <option value="{{ sup }}"></option>
+                                    {% endfor %}
+                                </datalist>
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="cost" class="form-label">Cost</label>
+                                <label for="costInput" class="form-label">Cost</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="cost" name="cost" min="0" step="0.01">
+                                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="0.01">
                                 </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="price" class="form-label">Price</label>
+                                <label for="priceInput" class="form-label">Price</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
+                                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required>
+                                </div>
+                                {% if app_role == 'admin' %}
+                                <div id="minPriceHelp" class="form-text">Enter cost to see minimum price</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3" id="initialStockRow">
+                            <div class="col-md-6">
+                                <label for="stockInput" class="form-label">Initial Stock (Per box/kilo)</label>
+                                <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <div class="mb-0">
+                                    <label class="form-label mb-0">VAT Inclusive Price: ₱<span id="vatInclusive">0.00</span></label>
                                 </div>
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label for="dateAdded" class="form-label">Date Added</label>
-                                <input type="date" class="form-control" id="dateAdded" name="dateAdded" required readonly title="Set to today and cannot be changed">
+                                <label for="productDate" class="form-label">Date Added</label>
+                                <input type="date" class="form-control" id="productDate" name="dateAdded" required readonly disabled>
                             </div>
                             <div class="col-md-6">
                                 <label for="status" class="form-label">Status</label>
@@ -2362,11 +2366,30 @@
                         </div>
                         <div class="mb-3">
                             <label for="productImage" class="form-label">Product Image (Optional)</label>
-                            <input type="file" class="form-control w-auto" style="max-width: 400px;" id="productImage" name="productImage" accept="image/jpeg,image/png" aria-describedby="productImageFeedback" title="Upload an image (JPG/PNG, max 2MB)">
+                            <input type="file" class="form-control w-auto" style="max-width: 400px;" id="productImage" name="productImage" accept="image/jpeg,image/png" aria-describedby="productImageFeedback">
                             <div id="productImageFeedback" class="invalid-feedback">Please upload a valid image (JPG/PNG, max 2MB).</div>
                             <div id="productImagePreview" class="mt-2"></div>
                         </div>
                     </form>
+                    <datalist id="quantitySuggestions">
+                        <option value="1"></option>
+                        <option value="2"></option>
+                        <option value="5"></option>
+                        <option value="10"></option>
+                        <option value="20"></option>
+                        <option value="25"></option>
+                        <option value="50"></option>
+                        <option value="100"></option>
+                    </datalist>
+                    <datalist id="variantDefaultSuggestions">
+                        <option value="Premium"></option>
+                        <option value="Standard"></option>
+                        <option value="Large"></option>
+                        <option value="Medium"></option>
+                        <option value="Small"></option>
+                        <option value="Imported"></option>
+                        <option value="Local"></option>
+                    </datalist>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" title="Close without saving">Cancel</button>
@@ -2376,7 +2399,7 @@
         </div>
     </div>
 
-    <!-- Update Stock modal removed in favor of dedicated page -->
+    <!-- Add Stock modal removed in favor of dedicated page -->
 
     <!-- Record Sale modal removed in favor of dedicated page -->
 
@@ -2408,8 +2431,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/js/bootstrap-datepicker.min.js"></script>
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <!-- HTML5 QR Code Scanner -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
     <script src="{% static 'js/modern-inventory.js' %}"></script>
 
     <script>
@@ -2548,8 +2570,8 @@
             const filters = {
                 searchInput: $('#searchInput').val() || '',
                 filterSelect: $('#filterSelect').val() || 'all',
-                fruitFilter: $('#fruitFilter').val() || 'all',
-                supplierFilter: $('#supplierFilter').val() || 'all',
+                fruitFilter: $('#productFilter').val() || 'all',
+                unitFilter: $('#unitFilter').val() || 'all',
                 activeTab: document.querySelector('.nav-link.active')?.id || 'all-products-tab'
             };
             localStorage.setItem('inventory_filters', JSON.stringify(filters));
@@ -2584,8 +2606,8 @@
             
             if (saved.searchInput) $('#searchInput').val(saved.searchInput);
             if (saved.filterSelect) $('#filterSelect').val(saved.filterSelect);
-            if (saved.fruitFilter) $('#fruitFilter').val(saved.fruitFilter);
-            if (saved.supplierFilter) $('#supplierFilter').val(saved.supplierFilter);
+            if (saved.fruitFilter) $('#productFilter').val(saved.fruitFilter);
+            if (saved.unitFilter) $('#unitFilter').val(saved.unitFilter);
             if (saved.activeTab) {
                 const tabElement = document.getElementById(saved.activeTab);
                 if (tabElement) {
@@ -2662,6 +2684,7 @@
                         loadProducts('allProductsTable', 'all');
                 }
                 loadActiveProducts();
+                try { updateInventoryCards(); } catch (e) {}
                 
                 // Scroll to top after everything is loaded
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2673,49 +2696,96 @@
         
 
 
+        function setHeaderCount(len) {
+            const container = document.getElementById('itemsCountContainer');
+            const el = document.getElementById('itemsCountHeader');
+            if (!container || !el) return;
+            if (len && len > 0) {
+                el.textContent = `${len} items`;
+                container.classList.remove('d-none');
+            } else {
+                el.textContent = '';
+                container.classList.add('d-none');
+            }
+        }
+
+        function normalizeHeaderCountLocation() {
+            const header = document.querySelector('.table-card .table-header');
+            const container = document.getElementById('itemsCountContainer');
+            const label = document.getElementById('itemsCountHeader');
+            if (!header || !container || !label) return;
+            const children = Array.from(header.children);
+            children.forEach((child) => {
+                if (child === container) return;
+                if (child.matches('.nav, .nav-tabs, ul.nav, ul.nav-tabs')) return;
+                const txt = (child.textContent || '').trim();
+                if (/^\d+\s+items$/i.test(txt)) {
+                    label.textContent = txt;
+                    child.remove();
+                }
+            });
+        }
+
         function setupEventHandlers() {
             // Search and filter - save on change
             $('#searchInput').on('input', function() {
                 saveFilters();
+                updateInventoryCards();
                 loadCurrentTab();
             });
+            $('#searchIconBtn').on('click', function(){
+                saveFilters();
+                updateInventoryCards();
+                loadCurrentTab();
+            });
+            $('#searchInput').on('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); saveFilters(); loadCurrentTab(); }});
             $('#filterSelect').on('change', function() {
                 saveFilters();
+                updateInventoryCards();
                 loadCurrentTab();
             });
-            $('#fruitFilter').on('change', function() {
+            $('#productFilter').on('change', function() {
                 saveFilters();
+                updateInventoryCards();
                 loadCurrentTab();
             });
-            $('#supplierFilter').on('change', function() {
+            $('#unitFilter').on('change', function() {
                 saveFilters();
+                updateInventoryCards();
                 loadCurrentTab();
             });
-            const inventoryRefreshBtn = document.getElementById('refreshTable');
+            const inventoryRefreshBtn = document.getElementById('inventoryRefreshBtn');
             const inventoryRefreshSpinner = document.getElementById('inventoryRefreshSpinner');
-            inventoryRefreshBtn?.addEventListener('click', function() {
+            inventoryRefreshBtn?.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (inventoryRefreshSpinner) inventoryRefreshSpinner.classList.remove('d-none');
                 inventoryRefreshBtn.disabled = true;
                 saveFilters();
-                Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
+                Promise.all([updateInventoryCards(), new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
                     inventoryRefreshBtn.disabled = false;
                     inventoryRefreshSpinner?.classList.add('d-none');
                 });
                 loadCurrentTab();
             });
 
+            normalizeHeaderCountLocation();
+
             // Tab event listeners - save tab on change
             $('#all-products-tab').on('shown.bs.tab', function() {
                 saveFilters();
                 loadProducts('allProductsTable', 'all');
+                const cnt = (window['allProductsTable_data']||[]).length; setHeaderCount(cnt); normalizeHeaderCountLocation();
             });
             $('#low-stock-tab').on('shown.bs.tab', function() {
                 saveFilters();
                 loadProducts('lowStockTable', 'Low Stock');
+                const cntL = (window['lowStockTable_data']||[]).length; setHeaderCount(cntL); normalizeHeaderCountLocation();
             });
             $('#out-of-stock-tab').on('shown.bs.tab', function() {
                 saveFilters();
                 loadProducts('outOfStockTable', 'Out of Stock');
+                const cntO = (window['outOfStockTable_data']||[]).length; setHeaderCount(cntO); normalizeHeaderCountLocation();
             });
 
             function loadCurrentTab() {
@@ -2738,24 +2808,24 @@
                 }
             }
 
-            // Product Modal (Add/Edit) - Initialize
-            // Only reset when opening for ADD mode (not edit mode)
-            $('#productModal').on('show.bs.modal', function(e) {
-                // Check if this is edit mode (productId is set)
+            $('#productModal').on('show.bs.modal', function() {
                 const isEditMode = $('#productId').val() && $('#productId').val() !== '';
-                
                 if (!isEditMode) {
-                    // Reset form only for add mode
                     $('#productForm')[0].reset();
                     $('#formAction').val('add');
                     $('#productId').val('');
                     $('#productModalLabel').text('Add New Product');
                     $('#saveProductBtn').text('Add Product').attr('title', 'Save the product details');
                     $('#productFormAlert').empty();
-                    $('#productImagePreview').empty(); // Clear image preview
-                    
-                    // Set today's date as default and lock it
-                    $('#dateAdded').val(new Date().toISOString().split('T')[0]).prop('readOnly', true);
+                    $('#productImagePreview').empty();
+                    $('#productDate').val(new Date().toISOString().split('T')[0]).prop('readOnly', true).prop('disabled', true);
+                    $('#priceInput').trigger('input');
+                    const unit = ($('#quantityUnitSelect').val() || 'box').toLowerCase();
+                    if (unit === 'kilo') {
+                        $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'Kilo');
+                    } else {
+                        $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
+                    }
                 }
             });
             
@@ -2765,25 +2835,24 @@
                 $('#formAction').val('add');
                 $('#productId').val('');
                 $('#productImagePreview').empty();
+                $('#nameSuggestions').hide();
+                $('#variantSuggestions').hide();
+                $('#initialStockRow').show();
             });
 
-            // Handle Edit button from dropdown (fetch full product details from API)
             $(document).on('click', '.edit-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 const productId = $(this).data('id');
                 
-                // Set edit mode flag BEFORE showing modal (to prevent reset)
                 $('#productId').val(productId);
                 $('#formAction').val('edit');
                 
-                // Fetch full product details from API
                 fetch(`{% url 'get_product_details' 0 %}`.replace('0', productId))
                     .then(response => response.json())
                     .then(result => {
                         if (!result.success) {
                             alert('Error loading product: ' + (result.message || 'Unknown error'));
-                            // Reset on error
                             $('#productId').val('');
                             $('#formAction').val('add');
                             return;
@@ -2791,38 +2860,48 @@
                         
                         const product = result.data;
                         
-                        // Update modal title and button
                         $('#productModalLabel').text('Edit Product');
                         $('#saveProductBtn').text('Save Changes').attr('title', 'Save the product details');
                         
-                        // Fill ALL form fields with existing product data
-                        // This is the EXACT SAME form as "Add Product", just pre-filled
-                        $('#productName').val(product.name || '');
-                        $('#variant').val(product.variant || '');
-                        $('#size').val(product.quantity_unit || '');
-                        $('#cost').val(product.cost || 0);
-                        $('#price').val(product.price || 0);
+                        const baseName = (product.name || '').replace(/\s*\(.*?\)\s*$/, '');
+                        $('#productNameDisplay').val(baseName);
+                        $('#productVariantDisplay').val(product.variant || '');
+                        $('#supplierInput').val(product.supplier || '');
+                        $('#productSizeDisplay').val(product.quantity_unit || '');
+                        $('#costInput').val(product.cost || 0);
+                        $('#priceInput').val(product.price || 0);
                         $('#status').val(product.status || 'Active');
-                        $('#dateAdded').val(product.date_added || new Date().toISOString().split('T')[0]).prop('readOnly', true);
-                        $('#initialStock').val(product.stock || 0);
+                        $('#productDate').val(product.date_added || new Date().toISOString().split('T')[0]).prop('readOnly', true).prop('disabled', true);
+                        $('#stockInput').val(product.stock || 0);
+                        $('#priceInput').trigger('input');
+                        $('#initialStockRow').hide();
+
+                        (function(){
+                            const role = '{{ app_role|default:"user"|lower }}';
+                            if (role === 'secretary') {
+                                $('#costInput').prop('readonly', true);
+                                $('#priceInput').prop('readonly', true);
+                                const note = $('<div class="form-text text-muted mt-1">Only admin can change cost and price.</div>');
+                                $('#priceInput').closest('.col-md-6').append(note);
+                            }
+                        })();
                         
-                        // Detect and set unit (box or kilo) from size field
                         const sizeText = (product.quantity_unit || '').toLowerCase();
-                        let detectedUnit = 'box'; // default
+                        let detectedUnit = 'box';
                         if (sizeText.includes('kilo')) {
                             detectedUnit = 'kilo';
                         } else if (sizeText.includes('box')) {
                             detectedUnit = 'box';
                         }
-                        $('#quantityUnit').val(detectedUnit);
-                        if ($('#productSizeUnit').length) {
-                            $('#productSizeUnit').val(detectedUnit);
+                        $('#quantityUnitSelect').val(detectedUnit);
+                        if (detectedUnit === 'kilo') {
+                            $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'Kilo');
+                        } else {
+                            $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
                         }
                         
-                        // Clear image file input (user can upload new image if needed)
                         $('#productImage').val('');
                         
-                        // Show current product image preview if exists
                         const imagePreview = $('#productImagePreview');
                         if (product.image) {
                             imagePreview.html(`
@@ -2837,98 +2916,185 @@
                             imagePreview.html('<small class="text-muted">No image uploaded</small>');
                         }
                         
-                        // Clear any previous alerts
                         $('#productFormAlert').empty();
                         
-                        // Show the modal (form is now pre-filled with existing data)
                         $('#productModal').modal('show');
                     })
                     .catch(error => {
                         console.error('Error fetching product details:', error);
                         alert('Error loading product details. Please try again.');
-                        // Reset on error
                         $('#productId').val('');
                         $('#formAction').val('add');
                     });
             });
 
-            // Handle save button click
-            $('#saveProductBtn').on('click', function() {
-                const formData = new FormData($('#productForm')[0]);
+            $('#priceInput').on('input', function(){
+                const price = parseFloat($(this).val()) || 0;
+                $('#vatInclusive').text((price * 1.12).toFixed(2));
+            });
+
+            (function(){
+                const $cost = $('#costInput');
+                const $price = $('#priceInput');
+                const $help = $('#minPriceHelp');
+                const updateMin = () => {
+                    if (!$help.length) return;
+                    const c = parseFloat($cost.val());
+                    if (isNaN(c) || c <= 0) {
+                        $help.text('Enter cost to see minimum price');
+                        $price.attr('min', '0');
+                        return;
+                    }
+                    const minPrice = c * 1.10;
+                    const fmt = v => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    $help.text('Minimum price: ' + fmt(minPrice) + ' (cost ' + fmt(c) + ' + 10% margin)');
+                    $price.attr('min', minPrice.toFixed(2));
+                };
+                $cost.on('input', updateMin);
+                updateMin();
+            })();
+
+            (function(){
+                const $qty = $('#productSizeDisplay');
+                const $unit = $('#quantityUnitSelect');
+                const applyUnit = () => {
+                    const u = ($unit.val() || 'box').toLowerCase();
+                    if (u === 'kilo') { $qty.attr('list','').val('').prop('disabled', true).attr('placeholder','Kilo'); }
+                    else { $qty.attr('list','quantitySuggestions').prop('disabled', false).attr('placeholder','Enter quantity'); }
+                };
+                $unit.on('change', applyUnit);
+                applyUnit();
+            })();
+
+            function showFormAlert(message, type){
+                const html = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+                $('#productFormAlert').html(html);
+            }
+
+            function setupAutocomplete(){
+                const $name = $('#productNameDisplay');
+                const $dropdown = $('#nameSuggestions');
+                let t;
+                $name.on('input', function(){
+                    let current = $(this).val();
+                    const cleaned = current.replace(/[^A-Za-z\s\-]/g, '');
+                    if (cleaned !== current) { $(this).val(cleaned); }
+                    const q = cleaned.trim();
+                    clearTimeout(t);
+                    if (!q) { $dropdown.hide(); return; }
+                    t = setTimeout(() => {
+                        $.get('{% url "fetch_built_in_products" %}', { search: q })
+                          .done(function(response){
+                              if (response.success){
+                                  $dropdown.empty();
+                                  if (!response.data || !response.data.length){ $dropdown.hide(); return; }
+                                  response.data.forEach(p => {
+                                      const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
+                                      option.on('click', function(){ $name.val(p.name); $dropdown.hide(); });
+                                      $dropdown.append(option);
+                                  });
+                                  $dropdown.show();
+                              }
+                          });
+                    }, 200);
+                });
+                $(document).on('click', function(e){ if (!$(e.target).closest('#productNameDisplay, #nameSuggestions').length) { $dropdown.hide(); } });
+                $('#productVariantDisplay').on('focus', function(){
+                    const base = $name.val().trim(); if (!base) return;
+                    $.get('{% url "fruit_master_variants" %}', { name: base })
+                      .done(function(resp){
+                          const list = (resp && resp.success && resp.data) ? resp.data : [];
+                          if (!list.length) return;
+                          let $menu = $('#variantSuggestions');
+                          if (!$menu.length){ $('#productVariantDisplay').after('<div id="variantSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#variantSuggestions'); }
+                          $menu.html(list.map(v=>`<div class="dropdown-item variant-item">${v}</div>`).join('')).show();
+                          $menu.off('click').on('click', '.variant-item', function(){ $('#productVariantDisplay').val($(this).text()); $menu.hide(); });
+                      });
+                });
+                $('#productVariantDisplay').on('input', function(){
+                    const cleaned = this.value.replace(/[^A-Za-z\s\-]/g, '');
+                    if (cleaned !== this.value) this.value = cleaned;
+                    $('#variantSuggestions').hide();
+                });
+            }
+            setupAutocomplete();
+
+            $('#supplierInput').on('input', function(){
+                const cleaned = this.value.replace(/[^A-Za-z\s\-.,&]/g, '');
+                if (cleaned !== this.value) this.value = cleaned;
+            }).on('blur', function(){
+                const val = this.value; if(!val) return;
+                this.value = val.toLowerCase().replace(/\s+/g,' ').replace(/\b[a-z]/g, ch=>ch.toUpperCase()).trim();
+            });
+
+            $('#saveProductBtn').on('click', function(){
+                const form = document.getElementById('productForm');
+                const formData = new FormData(form);
                 const isEditMode = $('#formAction').val() === 'edit';
-                
-                // Map form field names to backend expected names
-                // Form uses 'productName' but backend expects 'name'
-                const productName = formData.get('productName') || formData.get('name') || '';
-                if (productName) {
-                    formData.set('name', productName);
+                const name = ($('#productNameDisplay').val() || '').trim();
+                const variantVal = ($('#productVariantDisplay').val() || '').trim();
+                const unitSel = ($('#quantityUnitSelect').val() || 'box').toLowerCase();
+                let size = $('#productSizeDisplay').val();
+                const price = parseFloat($('#priceInput').val()) || 0;
+                const cost = parseFloat($('#costInput').val()) || 0;
+                const stock = parseInt($('#stockInput').val()) || 0;
+                if (!name){ showFormAlert('Product name is required.', 'danger'); return; }
+                if (!/^[A-Za-z][A-Za-z\s\-]*$/.test(name)){ showFormAlert('Product name can contain letters, spaces, and hyphens only.', 'danger'); return; }
+                if (unitSel === 'kilo'){ size = 'Kilo'; $('#productSizeDisplay').val(''); }
+                if (!size && unitSel !== 'kilo'){ showFormAlert('Product quantity is required.', 'danger'); return; }
+                if (!price || price <= 0){ showFormAlert('Price must be greater than 0.', 'danger'); return; }
+                if (cost > 0){
+                    const minPrice = Math.round(cost * 1.10 * 100) / 100;
+                    if (price + 1e-9 < minPrice){
+                        const fmt = v => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        showFormAlert('Price too low. Minimum price: ' + fmt(minPrice) + ' (cost ' + fmt(cost) + ' + 10% margin).', 'danger');
+                        $('#priceInput').addClass('is-invalid');
+                        return;
+                    } else {
+                        $('#priceInput').removeClass('is-invalid');
+                    }
                 }
-                
-                // Map quantityUnit to quantity_unit (for add_product function)
-                const quantityUnit = formData.get('quantityUnit') || formData.get('quantity_unit') || 'box';
-                formData.set('quantity_unit', quantityUnit);
-                
-                // Map dateAdded to date_added
-                const dateAdded = formData.get('dateAdded') || formData.get('date_added') || '';
-                if (dateAdded) {
-                    formData.set('date_added', dateAdded);
+                if (cost < 0){ showFormAlert('Cost cannot be negative.', 'danger'); return; }
+                if (!isEditMode && stock < 0){ showFormAlert('Stock cannot be negative.', 'danger'); return; }
+                formData.set('name', name);
+                formData.set('variant', variantVal);
+                formData.set('quantity_unit', unitSel === 'kilo' ? 'Kilo' : (size || ''));
+                const dateAdded = $('#productDate').val();
+                if (dateAdded) formData.set('date_added', dateAdded);
+                if (!isEditMode){
+                    formData.set('stock', stock);
+                    formData.set('boxes', stock);
+                    formData.set('units_per_box', 1);
+                } else {
+                    formData.delete('stock');
+                    formData.delete('boxes');
+                    formData.delete('units_per_box');
                 }
-                
-                // Note: productImage file is already in FormData with name 'productImage'
-                // Backend will check for both 'image' and 'productImage' in request.FILES
-                
-                // For both add and edit, map initialStock to boxes/units_per_box
-                const initialStock = parseInt($('#initialStock').val()) || 0;
-                formData.set('stock', initialStock);
-                formData.set('boxes', initialStock);
-                formData.set('units_per_box', 1);
-                
-                // Clear any previous alerts
                 $('#productFormAlert').empty();
-                
                 $.ajax({
                     url: "{% url 'handle_product_post' %}",
                     method: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
-                    success: function(response) {
-                        if (response.success) {
+                    success: function(response){
+                        if (response.success){
                             $('#productModal').modal('hide');
                             loadProducts();
-                            // Show success message outside modal
                             showAlert(response.message, 'success');
                         } else {
-                            // Show error message INSIDE the modal
-                            const alertHtml = `
-                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>
-                                    ${response.message || 'Error saving product. Please check all required fields.'}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            `;
-                            $('#productFormAlert').html(alertHtml);
+                            showFormAlert(response.message || 'Error saving product. Please check all required fields.', 'danger');
                         }
                     },
-                    error: function(xhr) {
+                    error: function(xhr){
                         let errorMessage = 'Error saving product. Please try again.';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMessage = xhr.responseJSON.message;
-                        }
-                        // Show error message INSIDE the modal
-                        const alertHtml = `
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
-                                ${errorMessage}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
-                        $('#productFormAlert').html(alertHtml);
+                        if (xhr.responseJSON && xhr.responseJSON.message) errorMessage = xhr.responseJSON.message;
+                        showFormAlert(errorMessage, 'danger');
                     }
                 });
             });
 
-            // Update Stock Modal functionality
+            // Add Stock Modal functionality
             let stockItems = [];
 
             // Function to validate stock items
@@ -2982,7 +3148,7 @@
                         value="${product.product_id}"
                         data-name="${product.name}"
                         data-variant="${product.variant || ''}"
-                        data-size="${product.quantity_unit || ''}"
+                        data-quantity_unit="${product.quantity_unit || ''}"
                         data-price="${product.price || 0}"
                         data-stock="${product.stock || 0}"
                     >${product.name} ${variant} ${size}</option>`);
@@ -3173,7 +3339,7 @@
                     `<div class="stock-item mb-3 p-3 border rounded">
                         <div class="row">
                             <div class="col-md-4">
-                                <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Fruit</label>
+                            <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">Product</label>
                                 <select class="form-select stock-product-select" required>
                                     <option value="">Select a product</option>
                                 </select>
@@ -3300,125 +3466,7 @@
                 });
             });
 
-            // Scan QR with webcam (uses html5-qrcode if available)
-            let html5QrcodeInstance = null;
-            $('#scanStockQRBtn').on('click', function(){
-                const modalEl = document.getElementById('scanStockQRModal');
-                const m = new bootstrap.Modal(modalEl);
-                m.show();
-                
-                // Reset the scanner area
-                $('#stockQRScanner').html(`
-                    <div class="text-center text-muted">
-                        <i class="bi bi-camera" style="font-size: 2rem;"></i>
-                        <p class="mt-2">Initializing camera...</p>
-                    </div>
-                `);
-                $('#stockQRScanResult').text('');
-                
-                setTimeout(function(){
-                    try {
-                        if (window.Html5Qrcode) {
-                            html5QrcodeInstance = new Html5Qrcode('stockQRScanner');
-                            
-                            const config = {
-                                fps: 10,
-                                qrbox: { width: 250, height: 250 },
-                                aspectRatio: 1.0
-                            };
-                            
-                            // Try back camera first, then front camera
-                            const cameraConfigs = [
-                                { facingMode: "environment" }, // Back camera
-                                { facingMode: "user" },         // Front camera
-                                "auto"                          // Auto-select
-                            ];
-                            
-                            let cameraIndex = 0;
-                            
-                            function tryNextCamera() {
-                                if (cameraIndex >= cameraConfigs.length) {
-                                    $('#stockQRScanner').html(`
-                                        <div class="alert alert-warning">
-                                            <i class="bi bi-exclamation-triangle me-2"></i>
-                                            Unable to access camera. Please ensure camera permissions are granted and try again.
-                                        </div>
-                                    `);
-                                    return;
-                                }
-                                
-                                html5QrcodeInstance.start(
-                                    cameraConfigs[cameraIndex],
-                                    config,
-                                    function(decodedText, decodedResult) {
-                                        $('#stockQRScanResult').html(`
-                                            <div class="alert alert-success">
-                                                <i class="bi bi-check-circle me-2"></i>
-                                                QR Code detected! Opening link...
-                                            </div>
-                                        `);
-                                        // Stop scanning after successful scan
-                                        html5QrcodeInstance.stop().then(() => {
-                                            try { 
-                                                window.open(decodedText, '_blank'); 
-                                                m.hide(); // Close modal after opening link
-                                            } catch(e) {
-                                                console.log("Error opening link:", e);
-                                            }
-                                        }).catch(err => {
-                                            console.log("Error stopping scanner:", err);
-                                        });
-                                    },
-                                    function(errorMessage) {
-                                        // Handle scan errors silently - this is normal during scanning
-                                    }
-                                ).catch(err => {
-                                    console.log(`Camera ${cameraIndex} failed:`, err);
-                                    cameraIndex++;
-                                    tryNextCamera();
-                                });
-                            }
-                            
-                            tryNextCamera();
-                        } else {
-                            $('#stockQRScanner').html(`
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle me-2"></i>
-                                    Webcam scanner library not found. You can scan using your phone after generating the QR.
-                                </div>
-                            `);
-                        }
-                    } catch (e) {
-                        $('#stockQRScanner').html(`
-                            <div class="alert alert-danger">
-                                <i class="bi bi-exclamation-circle me-2"></i>
-                                Unable to start scanner: ${e.message}
-                            </div>
-                        `);
-                    }
-                }, 200);
-            });
-
-            $('#closeScanQRBtn').on('click', function(){
-                if (html5QrcodeInstance) {
-                    html5QrcodeInstance.stop().then(() => {
-                        html5QrcodeInstance.clear();
-                    }).catch(err => {
-                        console.log("Error stopping scanner:", err);
-                    });
-                }
-            });
-
-            // Clean up scanner when modal is closed
-            $('#scanStockQRModal').on('hidden.bs.modal', function(){
-                if (html5QrcodeInstance) {
-                    html5QrcodeInstance.stop().then(() => {
-                        html5QrcodeInstance.clear();
-                    }).catch(err => {
-                        console.log("Error stopping scanner:", err);
-                    });
-                }
-            });
+            
 
             // Record sale form
             $('#recordSaleForm').on('submit', function(e) {
@@ -3596,20 +3644,21 @@
             window[`${tableId}_data`] = safeData;
             invPagination.currentPage[tableId] = 1;
             renderProductsTableForPage(safeData, tableId);
+            try { setHeaderCount(safeData.length); normalizeHeaderCountLocation(); } catch (e) {}
         }
 
         function loadProducts(tableId = 'allProductsTable', filter = 'all') {
             const search = $('#searchInput').val();
             const currentFilter = $('#filterSelect').val();
-            const supplierFilter = $('#supplierFilter').val() || 'all';
-            const fruitFilter = $('#fruitFilter').val() || 'all';
-            console.log('Loading products for table:', tableId, 'with filter:', filter, 'search:', search, 'supplier:', supplierFilter, 'fruit:', fruitFilter);
+            const unitFilter = $('#unitFilter').val() || 'all';
+            const fruitFilter = $('#productFilter').val() || 'all';
+            console.log('Loading products for table:', tableId, 'with filter:', filter, 'search:', search, 'unit:', unitFilter, 'product:', fruitFilter);
             
             fetch("{% url 'fetch_products' %}?" + new URLSearchParams({
                 search: search || '',
                 filter: filter === 'all' ? (currentFilter || 'All Products') : filter,
-                supplier: supplierFilter,
-                fruit: fruitFilter
+                unit: unitFilter,
+                product: fruitFilter
             }))
             .then(response => response.json())
             .then(response => {
@@ -3626,15 +3675,51 @@
                     return;
                 }
                 
-                // Store dataset and render page 1
                 renderProductsTable(response.data, tableId);
-                })
-                .catch(function(error){
-                    console.error('Failed to fetch products:', error);
-                    const tbody = $('#inventoryTable tbody').empty();
-                    tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
-                    if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
-                });
+                try { setHeaderCount(response.data.length || 0); normalizeHeaderCountLocation(); } catch (e) {}
+            })
+            .catch(function(error){
+                console.error('Failed to fetch products:', error);
+                const tbody = $('#inventoryTable tbody').empty();
+                tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+            });
+        }
+
+        async function updateInventoryCards(){
+            const search = $('#searchInput').val() || '';
+            const unitFilter = $('#unitFilter').val() || 'all';
+            const fruitFilter = $('#productFilter').val() || 'all';
+            const q = new URLSearchParams({
+                search: search,
+                filter: 'All Products',
+                unit: unitFilter,
+                product: fruitFilter
+            });
+            try {
+                const res = await fetch("{% url 'fetch_products' %}?" + q.toString());
+                const json = await res.json();
+                const rows = (json && json.success && Array.isArray(json.data)) ? json.data : [];
+                const baseName = function(n){
+                    if (!n) return '';
+                    const idx = n.indexOf('(');
+                    return idx === -1 ? n.trim() : n.slice(0, idx).trim();
+                };
+                const categories = Array.from(new Set(rows.map(r => baseName(r.name)))).length;
+                const activeProducts = rows.filter(r => String(r.status||'').toLowerCase() === 'active').length;
+                const totalStock = rows.reduce((s,r) => s + (parseInt(r.stock)||0), 0);
+                const restockAlerts = rows.filter(r => { const st = parseInt(r.stock)||0; return st>0 && st<=10; }).length;
+                const primaryCard = document.querySelector('.stats-grid .stat-icon.primary')?.closest('.stat-card');
+                const successCard = document.querySelector('.stats-grid .stat-icon.success')?.closest('.stat-card');
+                const warningCard = document.querySelector('.stats-grid .stat-icon.warning')?.closest('.stat-card');
+                const dangerCard = document.querySelector('.stats-grid .stat-icon.danger')?.closest('.stat-card');
+                if (primaryCard) primaryCard.querySelector('.stat-value').textContent = String(categories);
+                if (successCard) successCard.querySelector('.stat-value').textContent = String(activeProducts);
+                if (warningCard) warningCard.querySelector('.stat-value').textContent = String(totalStock);
+                if (dangerCard) dangerCard.querySelector('.stat-value').textContent = String(restockAlerts);
+            } catch (e) {
+                console.warn('Failed to update inventory cards', e);
+            }
         }
 
 
@@ -3655,7 +3740,7 @@
                 // Update all existing dropdowns
                 document.querySelectorAll('.product-select').forEach(select => {
                     select.innerHTML = '<option value="">Select a product</option>' + 
-                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-size="${p.quantity_unit || ''}" data-stock="${p.stock || 0}">${p.name} (${p.quantity_unit}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
+                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-quantity_unit="${p.quantity_unit || ''}" data-stock="${p.stock || 0}">${p.name} (${p.quantity_unit}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
                 });
                 return products; // Return products for Promise chain
             });
@@ -3672,9 +3757,9 @@
                 <div class="item-row mb-3 p-3 border rounded">
                     <div class="row">
                         <div class="col-md-5">
-                            <label class="form-label">Fruit</label>
+                            <label class="form-label">Product</label>
                             <select class="form-select product-select" required>
-                                <option value="">Select a fruit</option>
+                                <option value="">Select a product</option>
                         </select>
                             <div class="stock-info text-muted small mt-1"></div>
                     </div>
@@ -3699,7 +3784,7 @@
                 if ($this.find('option').length <= 1) { // Only has default option
                     let options = '<option value="">Select a product</option>';
                     products.forEach(product => {
-                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-size="${product.quantity_unit || ''}" data-stock="${product.stock || 0}">${product.name} (${product.quantity_unit || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
+                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-quantity_unit="${product.quantity_unit || ''}" data-stock="${product.stock || 0}">${product.name} (${product.quantity_unit || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
                     });
                     $this.html(options);
                     
@@ -3978,9 +4063,9 @@
                 <div class="item-row mb-3 p-3 border rounded">
                     <div class="row">
                         <div class="col-md-5">
-                            <label class="form-label">Fruit</label>
+                            <label class="form-label">Product</label>
                             <select class="form-select product-select" id="productSelect0" required>
-                                <option value="">Select a fruit</option>
+                                <option value="">Select a product</option>
                             </select>
                             <div class="stock-info text-muted small mt-1"></div>
                         </div>
@@ -4188,44 +4273,7 @@
         // Handle product form submission
         $('#productForm').on('submit', function(e) {
             e.preventDefault();
-            
-            const formData = new FormData(this);
-            const productId = formData.get('product_id');
-            
-            // Determine if this is an edit or add operation
-            if (productId && productId !== '') {
-                formData.append('action', 'edit');
-                formData.append('productId', productId); // Backend expects 'productId'
-                formData.append('cost', '0'); // Add default cost
-                formData.append('boxes', '1'); // Add default boxes
-                formData.append('units_per_box', '1'); // Add default units per box
-                formData.append('supplier', ''); // Add default supplier
-            } else {
-                formData.append('action', 'add');
-            }
-            
-            $.ajax({
-                url: "{% url 'handle_product_post' %}",
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    if (response.success) {
-                        $('#productModal').modal('hide');
-                        showAlert(response.message, 'success');
-                        loadProducts(); // Refresh the table
-                        // Reset form
-                        document.getElementById('productForm').reset();
-                        $('input[name="product_id"]').val(''); // Clear product ID
-                    } else {
-                        showAlert(response.message, 'danger');
-                    }
-                },
-                error: function() {
-                    showAlert('Failed to save product', 'danger');
-                }
-            });
+            $('#saveProductBtn').trigger('click');
         });
 
         // Remove legacy add-product modal wiring in favor of unified modal above
@@ -4361,12 +4409,12 @@
                             <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
                         </ul>
                     </div>`;
-                row.append(`<td>${optionsHtml}</td>`);
                 if (showAddStock) {
                     const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
-                    const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm" title="Update stock for this product"><i class="bi bi-plus-circle me-1"></i>Update Stock</a>`;
+                    const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm px-2 py-1" title="Add stock for this product"><i class="bi bi-plus-circle"></i> Add</a>`;
                     row.append(`<td>${addBtn}</td>`);
                 }
+                row.append(`<td>${optionsHtml}</td>`);
                 $tbody.append(row);
             });
             invUpdateControls(data.length, tableId);

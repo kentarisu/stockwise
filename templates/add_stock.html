@@ -272,7 +272,7 @@
                 <div class="stock-indicator text-muted"></div>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Boxes to Add</label>
+              <label class="form-label quantity-label">Boxes to Add</label>
               <input type="number" class="form-control stock-quantity" min="1" required>
                 <div style="height: 18px; visibility: hidden;">&nbsp;</div>
             </div>
@@ -290,7 +290,12 @@
                 <label class="form-label small fw-semibold">Batch ID Preview</label>
                 <div class="batch-id-preview p-2" style="font-size: 0.8rem;">
                 <span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span>
-              </div>
+                </div>
+                <div class="mt-2">
+                  <button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;">
+                    <i class="bi bi-plus-circle me-1"></i> Add Another Variant
+                  </button>
+                </div>
             </div>
           </div>
         </div>
@@ -334,15 +339,20 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{% static 'js/modern-inventory.js' %}"></script>
+<div id="pageConfig"
+     data-is-qr-mode="{% if qr_product %}true{% else %}false{% endif %}"
+     data-qr-product-id="{% if qr_product %}{{ qr_product.product_id|default:'' }}{% endif %}"
+     data-qr-product-name="{% if qr_product %}{{ qr_product.name|default:''|escapejs }}{% endif %}"
+     data-qr-product-locked="{% if qr_product and qr_product.locked %}true{% else %}false{% endif %}"
+     data-inventory-url="{% url 'products_inventory' %}"></div>
 <script>
-// @ts-nocheck
-// Configuration from Django template (linter will show false errors due to Django syntax)
-var PAGE_CONFIG = {
-  isQRMode: {% if qr_product %}true{% else %}false{% endif %},
-  qrProductId: {% if qr_product %}'{{ qr_product.product_id|default:"" }}'{% else %}null{% endif %},
-  qrProductName: {% if qr_product %}'{{ qr_product.name|default:""|escapejs }}'{% else %}null{% endif %},
-  qrProductLocked: {% if qr_product and qr_product.locked %}true{% else %}false{% endif %},
-  inventoryUrl: "{% url 'products_inventory' %}"
+const cfgEl=document.getElementById('pageConfig');
+const PAGE_CONFIG={
+  isQRMode:(cfgEl?.dataset.isQrMode||'')==='true',
+  qrProductId:(cfgEl?.dataset.qrProductId||'')||null,
+  qrProductName:(cfgEl?.dataset.qrProductName||'')||null,
+  qrProductLocked:(cfgEl?.dataset.qrProductLocked||'')==='true',
+  inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
 </script>
 <script>
@@ -357,10 +367,8 @@ function loadProducts(){
 }
 
 function updateStockProductSelects(){
-  // Group products by fruit base name (e.g., "Apple (Fuji)" -> "Apple")
   const groupedProducts = {};
   products.forEach(p => {
-    // Extract base fruit name (remove variant in parentheses)
     const baseName = p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : 'Other';
     if (!groupedProducts[baseName]) {
       groupedProducts[baseName] = [];
@@ -368,35 +376,41 @@ function updateStockProductSelects(){
     groupedProducts[baseName].push(p);
   });
   
-  // Sort fruit names alphabetically
   const sortedFruits = Object.keys(groupedProducts).sort();
+  const selectedProductIds = $('.stock-product-select').map(function(){ return ($(this).val()||'').toString(); }).get().filter(id=>id);
+  const selectedBases = $('.stock-product-select').map(function(){ const pid=$(this).val(); if(!pid) return null; const p=products.find(pp=>pp.product_id==pid); if(!p) return null; return (p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''); }).get().filter(Boolean);
   
   $('.stock-product-select').each(function(){
     const $this=$(this);
+    const baseFilter = $this.data('baseFilter') || '';
     const currentValue = $this.val(); // Store current selection
-    let options='<option value="">Select a fruit</option>';
+    let options='<option value="">Select a product</option>';
+    let currentBase = '';
+    if(currentValue){ const cp = products.find(pp=>pp.product_id==currentValue); if(cp){ currentBase = cp.name ? (cp.name.split('(')[0].trim() || cp.name.trim()) : ''; } }
     
-    // Create optgroups for each fruit category
-    sortedFruits.forEach(fruitName => {
-      options += `<optgroup label="${fruitName}">`;
-      groupedProducts[fruitName].forEach(p => {
-        const stock = p.stock || 0;
-        const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
-        
-        // Extract variant if name already contains it in parentheses, otherwise use p.variant
-        // e.g., "Apple (Fuji)" -> name already has variant, don't add again
-        let displayName = p.name || '';
-        
-        // Only add quantity if it exists
-        const size = p.quantity_unit ? ` (Qty: ${p.quantity_unit})` : '';
-        
-        // Format: "Product Name (Qty) - Price [Stock: X]"
-        displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}`;
-        
-        options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.quantity_unit||''}" data-stock="${stock}">${displayName}</option>`;
-      });
-      options += '</optgroup>';
+  sortedFruits.forEach(fruitName => {
+    if(baseFilter && fruitName !== baseFilter) return;
+    if(!baseFilter && selectedBases.includes(fruitName) && fruitName !== currentBase) return;
+    options += `<optgroup label="${fruitName}">`;
+    groupedProducts[fruitName].forEach(p => {
+      const stock = p.stock || 0;
+      const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
+      const variant = (p.variant || '').trim();
+      const hasVariantInName = variant && (p.name || '').toLowerCase().includes(`(${variant.toLowerCase()})`);
+      const nameWithVariant = variant && !hasVariantInName ? `${p.name} (${variant})` : (p.name || '');
+      let displayName = nameWithVariant;
+      
+      const size = p.quantity_unit ? ` (Qty: ${p.quantity_unit})` : '';
+      
+      const pidStr=(p.product_id||'').toString();
+      const isSelectedElsewhere = selectedProductIds.includes(pidStr) && pidStr !== (currentValue||'').toString();
+      const selectedLabel = isSelectedElsewhere ? ' [Already Selected]' : '';
+      displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}${selectedLabel}`;
+      const disabledAttr = isSelectedElsewhere ? 'disabled' : '';
+      options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${nameWithVariant}" data-variant="${p.variant||''}" data-quantity_unit="${p.quantity_unit||''}" data-stock="${stock}" ${disabledAttr}>${displayName}</option>`;
     });
+    options += '</optgroup>';
+  });
     
     $this.html(options);
     if(currentValue) {
@@ -439,31 +453,38 @@ function populateProductSelect(sel){
     groupedProducts[baseName].push(p);
   });
   
-  // Sort fruit names alphabetically
   const sortedFruits = Object.keys(groupedProducts).sort();
   
   const $select = $(sel);
   const currentValue = $select.val(); // Store current selection
+  const baseFilter = $select.data('baseFilter') || '';
+  const selectedProductIds = $('.stock-product-select').map(function(){ return ($(this).val()||'').toString(); }).get().filter(id=>id);
+  const selectedBases = $('.stock-product-select').map(function(){ const pid=$(this).val(); if(!pid) return null; const p=products.find(pp=>pp.product_id==pid); if(!p) return null; return (p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''); }).get().filter(Boolean);
+  let currentBase = '';
+  if(currentValue){ const cp = products.find(pp=>pp.product_id==currentValue); if(cp){ currentBase = cp.name ? (cp.name.split('(')[0].trim() || cp.name.trim()) : ''; } }
   let options = '<option value="">Select a product</option>';
   
   // Create optgroups for each fruit category
   sortedFruits.forEach(fruitName => {
+    if(baseFilter && fruitName !== baseFilter) return;
+    if(!baseFilter && selectedBases.includes(fruitName) && fruitName !== currentBase) return;
     options += `<optgroup label="${fruitName}">`;
     groupedProducts[fruitName].forEach(p => {
       const stock = p.stock || 0;
       const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
+      const variant = (p.variant || '').trim();
+      const hasVariantInName = variant && (p.name || '').toLowerCase().includes(`(${variant.toLowerCase()})`);
+      const nameWithVariant = variant && !hasVariantInName ? `${p.name} (${variant})` : (p.name || '');
+      let displayName = nameWithVariant;
       
-      // Extract variant if name already contains it in parentheses, otherwise use p.variant
-      // e.g., "Apple (Fuji)" -> name already has variant, don't add again
-      let displayName = p.name || '';
-      
-      // Only add quantity if it exists
       const size = p.quantity_unit ? ` (Qty: ${p.quantity_unit})` : '';
       
-      // Format: "Product Name (Qty) - Price [Stock: X]"
-      displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}`;
-      
-      options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant||''}" data-size="${p.quantity_unit||''}" data-stock="${stock}">${displayName}</option>`;
+      const pidStr=(p.product_id||'').toString();
+      const isSelectedElsewhere = selectedProductIds.includes(pidStr) && pidStr !== (currentValue||'').toString();
+      const selectedLabel = isSelectedElsewhere ? ' [Already Selected]' : '';
+      displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}${selectedLabel}`;
+      const disabledAttr = isSelectedElsewhere ? 'disabled' : '';
+      options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${nameWithVariant}" data-variant="${p.variant||''}" data-quantity_unit="${p.quantity_unit||''}" data-stock="${stock}" ${disabledAttr}>${displayName}</option>`;
     });
     options += '</optgroup>';
   });
@@ -557,9 +578,17 @@ $(document).ready(function(){
   })();
 
   $(document).on('change','.stock-product-select', function(){ 
+    const $this=$(this);
+    const pid=$this.val();
+    const $item=$this.closest('.stock-item');
+    const $qtyLabel=$item.find('.quantity-label');
+    if(pid){ let duplicate=false; $('.stock-product-select').not($this).each(function(){ if($(this).val()==pid){ duplicate=true; }}); if(duplicate){ $('#addStockFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">This product is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } const sp=products.find(pp=>pp.product_id==pid); const selBase=sp && sp.name ? (sp.name.split('(')[0].trim() || sp.name.trim()) : ''; const hasSameBaseElsewhere=$('.stock-product-select').not($this).toArray().some(el=>{ const v=$(el).val(); if(!v) return false; const p=products.find(pp=>pp.product_id==v); const b=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; return b===selBase; }); const isVariantFiltered=!!$this.data('baseFilter'); if(!isVariantFiltered && hasSameBaseElsewhere){ $('#addStockFormAlert').html('<div class=\"alert alert-info alert-dismissible fade show\" role=\"alert\">This base is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } }
     updateCurrentStock(this); 
+    if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const unit=(product.quantity_unit||'').toLowerCase(); if(unit.includes('kilo')||unit==='kg'){ $qtyLabel.text('Kilo to Add'); } else { $qtyLabel.text('Boxes to Add'); } } }
     validateStockItems(); 
-    updateBatchIdPreview($(this).closest('.stock-item'));
+    updateBatchIdPreview($item);
+    updateStockProductSelects();
+    updateStockVariantButtons();
   });
   $(document).on('input','.stock-quantity', function(){
     validateStockItems();
@@ -571,14 +600,36 @@ $(document).ready(function(){
     e.stopPropagation();
     console.log('Add Another Product button clicked - Event received!'); // Debug log
     
-    const html=`<div class="stock-item"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Product</label><select class="form-select stock-product-select" required><option value="">Select a product</option></select><div class="stock-indicator text-muted"></div></div><div class="col-md-3"><label class="form-label">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-3"><label class="form-label">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-2"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batch ID Preview</label><div class="batch-id-preview p-2" style="font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div></div></div></div>`;
+    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-stock-variant-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`;
     $('#stockItemsContainer').append(html); 
     console.log('New item added, populating product select'); // Debug log
     updateStockProductSelects();
+    updateStockVariantButtons();
   });
-  $(document).on('click','.remove-stock-item', function(){ $(this).closest('.stock-item').remove(); if($('.stock-item').length===1){ $('.remove-stock-item').hide(); } validateStockItems(); });
+  $(document).on('click','.remove-stock-item', function(){ $(this).closest('.stock-item').remove(); if($('.stock-item').length===1){ $('.remove-stock-item').hide(); } validateStockItems(); updateStockProductSelects(); updateStockVariantButtons(); });
+
+  function updateStockVariantButtons(){
+    const baseLastRowMap={}; const rows=[];
+    $('.stock-item').each(function(){ const $row=$(this); const pid=$row.find('.stock-product-select').val(); let base=''; if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ base=p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; } } rows.push({row:$row,base}); if(base){ baseLastRowMap[base]=$row; } });
+    rows.forEach(({row,base})=>{ const $btn=row.find('.add-stock-variant-btn'); if(!base){ $btn.hide(); return; } const lastRow=baseLastRowMap[base]; if(lastRow && row.is(lastRow)){ $btn.show(); } else { $btn.hide(); } });
+  }
+
+  $(document).on('click','.add-stock-variant-btn', function(){
+    const $row=$(this).closest('.stock-item');
+    const pid=$row.find('.stock-product-select').val();
+    if(!pid){ $('#addStockFormAlert').html('<div class=\"alert alert-info alert-dismissible fade show\" role=\"alert\">Select a product in this row first.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; }
+    const p=products.find(pp=>pp.product_id==pid);
+    const base=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : '';
+    if(!base){ return; }
+    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required data-base-filter=\"${base}\"><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-stock-variant-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`;
+    $('#stockItemsContainer').append(html);
+    $row.find('.add-stock-variant-btn').remove();
+    updateStockProductSelects();
+    updateStockVariantButtons();
+  });
 
   $('#saveStockBtn').on('click', function(){
+    const selectedIds=[]; let hasDup=false; $('.stock-product-select').each(function(){ const v=$(this).val(); if(v){ if(selectedIds.includes(v)){ hasDup=true; } else { selectedIds.push(v); } } }); if(hasDup){ $('#addStockFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Duplicate products detected. Please select unique products for each row.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; }
     if(!validateStockItems()){
       $('#addStockFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Please fill in all required fields.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
       return;

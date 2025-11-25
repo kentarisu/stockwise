@@ -278,10 +278,13 @@ class ThermalPrinterService:
             total = float(receipt_data.get('total', 0))
             amount_paid = float(receipt_data.get('amount_paid', 0))
             change = float(receipt_data.get('change', 0))
+            discount = float(receipt_data.get('discount', 0))
             
             self.printer.text(format_line("Subtotal:", f"{subtotal:,.2f}") + "\n")
             if vat > 0:
                 self.printer.text(format_line("VAT 12%:", f"{vat:,.2f}") + "\n")
+            if discount > 0:
+                self.printer.text(format_line("Discount:", f"-{discount:,.2f}") + "\n")
             
             self.printer.set(bold=True)
             self.printer.text(format_line("TOTAL:", f"{total:,.2f}") + "\n")
@@ -289,8 +292,7 @@ class ThermalPrinterService:
             
             self.printer.text("-" * LINE_WIDTH + "\n")
             self.printer.text(format_line("Amount Paid:", f"{amount_paid:,.2f}") + "\n")
-            if change > 0:
-                self.printer.text(format_line("Change:", f"{change:,.2f}") + "\n")
+            self.printer.text(format_line("Change:", f"{change:,.2f}") + "\n")
             
             # ===== FOOTER =====
             self.printer.text("=" * 32 + "\n")
@@ -577,4 +579,3 @@ def get_printer_service(connection_type: str = None, **kwargs) -> Optional[Therm
     except Exception as e:
         logger.error(f"Failed to initialize printer service: {e}")
         return None
-

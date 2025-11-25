@@ -71,7 +71,6 @@ class AppUser(models.Model):
 	profile_picture = models.CharField(max_length=100, null=True, blank=True)
 	is_active = models.BooleanField(default=True)  # TC-003: User account status
 	email = models.EmailField(max_length=100, null=True, blank=True)  # TC-034: Profile email
-	allow_google_login = models.BooleanField(default=False, help_text='Allow this account to sign in via Google OAuth')
 	created_at = models.DateTimeField(default=timezone.now)
 	last_login_at = models.DateTimeField(null=True, blank=True)
 
@@ -101,6 +100,8 @@ class Sale(models.Model):
 	total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 	change_given = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+	discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, default=0)
+	discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
 	status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed')
 	user = models.ForeignKey(AppUser, on_delete=models.PROTECT)
 	voided_at = models.DateTimeField(null=True, blank=True)
@@ -201,12 +202,10 @@ class ReportProductSummary(models.Model):
 
 	generated_at = models.DateTimeField(auto_now_add=True)
 	generated_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, blank=True)
-	filters_json = models.JSONField(null=True, blank=True)
 
 	opening_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	added_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	sold_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-	expired_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	closing_qty = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 	last_addition_at = models.DateTimeField(null=True, blank=True)
 
@@ -227,6 +226,7 @@ class ReportProductSummary(models.Model):
 	sms_expiry_count = models.IntegerField(default=0)
 	last_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
 	suggested_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+	accepted_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
 	price_action = models.CharField(max_length=10, null=True, blank=True)
 	demand_level = models.CharField(max_length=4, null=True, blank=True)
 

@@ -267,7 +267,7 @@
     </div>
     <div class="p-3">
       <div id="pageAlert"></div>
-      <form id="addFruitForm" method="post" enctype="multipart/form-data">
+      <form id="addProductForm" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         
         <div class="form-section">
@@ -278,20 +278,20 @@
             <div class="col-md-6">
                 <label class="form-label" for="productNameDisplay">Product Name</label>
                 <div class="position-relative">
-                    <input type="text" class="form-control" id="productNameDisplay" name="name" placeholder="Search or type a fruit name" autocomplete="off" inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60">
+                    <input type="text" class="form-control" id="productNameDisplay" name="name" placeholder="Search or type a product name" autocomplete="off" inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60">
                     <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
                 </div>
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="productVariantDisplay">Variant</label>
-                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" disabled inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60" list="variantDefaultSuggestions">
+                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" disabled inputmode="text" pattern="[A-Za-z][A-Za-z\s\-]*" maxlength="60">
             </div>
         </div>
           <div class="row g-3 mt-0">
             <div class="col-md-6">
                 <label class="form-label" for="productSizeDisplay">Quantity</label>
                 <div class="input-group quantity-unit-group">
-                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled list="quantitySuggestions">
+                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_value" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled>
                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit" disabled>
                         <option value="box" selected>Box</option>
                         <option value="kilo">Kilo</option>
@@ -299,7 +299,7 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <label class="form-label" for="supplierInput">Supplier</label>
+                <label class="form-label" for="supplierInput">Supplier <small class="text-muted ms-1">(optional)</small></label>
                 <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off" inputmode="text" maxlength="80">
                 <datalist id="supplierList">
                     {% for sup in suppliers %}
@@ -328,6 +328,7 @@
                     <span class="input-group-text">₱</span>
                     <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required autocomplete="off">
                 </div>
+                <small id="minPriceHint" class="text-muted d-block mt-1"></small>
             </div>
         </div>
           <div class="row g-3 mt-0">
@@ -376,26 +377,7 @@
 
 <div id="config" data-show-cost="{{ show_cost|yesno:'true,false' }}" style="display:none;"></div>
 
-<datalist id="quantitySuggestions">
-    <option value="1"></option>
-    <option value="2"></option>
-    <option value="5"></option>
-    <option value="10"></option>
-    <option value="20"></option>
-    <option value="25"></option>
-    <option value="50"></option>
-    <option value="100"></option>
-</datalist>
 
-<datalist id="variantDefaultSuggestions">
-    <option value="Premium"></option>
-    <option value="Standard"></option>
-    <option value="Large"></option>
-    <option value="Medium"></option>
-    <option value="Small"></option>
-    <option value="Imported"></option>
-    <option value="Local"></option>
-</datalist>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -428,10 +410,28 @@ function searchBuiltInProducts(query) {
         data: { search: query },
         success: function(response) {
             if (response.success) {
+                try { console.log('Built-in products:', (response.meta && response.meta.count), response); } catch(e) {}
                 displayNameSuggestions(response.data);
             }
         }
     });
+}
+
+// Global helper: set unit to Kilo when CSV sizes include 'Kilo'
+function applyUnitFromCSV(){
+    const base = $('#productNameDisplay').val().trim(); if (!base) return;
+    const varText = $('#productVariantDisplay').val().trim();
+    const $unit = $('#quantityUnitSelect');
+    $.get('{% url "fruit_master_sizes" %}', { name: base, variant: varText })
+     .done(function(resp){
+        const vals = (resp && resp.success && resp.data) ? resp.data : [];
+        const hasKilo = vals.some(v => String(v).trim().toLowerCase() === 'kilo');
+        if (hasKilo) {
+            $unit.val('kilo').trigger('change');
+        } else {
+            $unit.val('box').trigger('change');
+        }
+     });
 }
 
 function displayNameSuggestions(items) {
@@ -452,6 +452,7 @@ function displayNameSuggestions(items) {
             $('#productVariantDisplay, #productSizeDisplay, #quantityUnitSelect').prop('disabled', false);
             window.__selectedProductFromSuggestions = true;
             dropdown.hide();
+            applyUnitFromCSV();
         });
         dropdown.append(option);
     });
@@ -500,8 +501,7 @@ function setupProductAutocomplete() {
         if (!$(e.target).closest('#productNameDisplay, #nameSuggestions').length) { $dropdown.hide(); }
     });
     $name.on('focus', function(){
-        const q = $(this).val().trim();
-        searchBuiltInProducts(q);
+        searchBuiltInProducts('');
     });
 
     const $variant = $('#productVariantDisplay');
@@ -518,18 +518,40 @@ function setupProductAutocomplete() {
                   let $menu = $('#variantSuggestions');
                   if (!$menu.length) { $variant.after('<div id="variantSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#variantSuggestions'); }
                   $menu.html(list).show();
-                  $menu.off('click').on('click', '.variant-item', function(){ $variant.val($(this).text()); $menu.hide(); });
+                  $menu.off('click').on('click', '.variant-item', function(){ $variant.val($(this).text()); $menu.hide(); applyUnitFromCSV(); });
               }
           });
     });
     $size.on('focus', function(){
-        // For Quantity we no longer pull legacy size suggestions.
-        // If unit is kilo, nothing is typed; if box, user can type or use datalist.
         const unitNow = ($unit.val() || 'box').toLowerCase();
         if (unitNow === 'kilo') { return; }
-        const $menu = $('#sizeSuggestions');
-        if ($menu.length) { $menu.hide(); }
+        const base = ensureName(); if (!base) return;
+        const varText = $variant.val().trim();
+        $.get('{% url "fruit_master_sizes" %}', { name: base, variant: varText })
+         .done(function(resp){
+            let $menu = $('#sizeSuggestions');
+            if (!$menu.length) { $size.after('<div id="sizeSuggestions" class="dropdown-menu w-100" style="max-height:300px;overflow:auto;"></div>'); $menu = $('#sizeSuggestions'); }
+            $menu.empty();
+            if (resp && resp.success && resp.data && resp.data.length) {
+                const list = resp.data.map(v => `<div class="dropdown-item size-item">${v}</div>`).join('');
+                $menu.html(list).show();
+                $menu.off('click').on('click', '.size-item', function(){ $size.val($(this).text()); $menu.hide(); });
+            } else {
+                $menu.hide();
+            }
+         });
     });
+
+    $size.on('input', function(){
+        const $menu = $('#sizeSuggestions');
+        if (!$menu.length) return;
+        const v = (this.value || '').trim();
+        if (!v) { $menu.show(); return; }
+        const match = $menu.find('.size-item').toArray().some(function(el){ return ($(el).text().trim() === v); });
+        if (!match) { $menu.hide(); }
+    });
+
+    // applyUnitFromCSV is globally defined above
 }
 
 function showPageAlert(message, type) {
@@ -544,16 +566,16 @@ $(document).ready(function(){
     $('#productDateDisplay').val(new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'}));
     $('#productDate').val(new Date().toISOString().split('T')[0]);
 
-    $('#addFruitForm').on('submit', function(e){
+    $('#addProductForm').on('submit', function(e){
         e.preventDefault();
         const formData = new FormData(this);
         const name = formData.get('name');
-        let size = formData.get('quantity_unit');
+        const variantVal = $('#productVariantDisplay').val() || '';
+        formData.set('variant', variantVal);
         const unitSel = (formData.get('quantity_unit') || 'box').toLowerCase();
+        const quantityVal = formData.get('quantity_value');
         if (unitSel === 'kilo') {
-            // No quantity input when kilo is chosen; send sentinel to satisfy validation
-            size = 'Kilo';
-            formData.set('quantity_unit', size);
+            formData.set('quantity_value', '');
         }
         const price = parseFloat(formData.get('price'));
         const cost = parseFloat(formData.get('cost'));
@@ -564,8 +586,18 @@ $(document).ready(function(){
             showPageAlert('Product name can contain letters, spaces, and hyphens only.', 'danger');
             return;
         }
-        if (!size) { showPageAlert('Product quantity is required.', 'danger'); return; }
+        if (unitSel !== 'kilo') {
+            const qn = parseFloat(quantityVal);
+            if (isNaN(qn) || qn < 0) { showPageAlert('Product quantity is required.', 'danger'); return; }
+        }
         if (!price || price <= 0) { showPageAlert('Price must be greater than 0.', 'danger'); return; }
+        const minRequired = (!isNaN(cost) && cost > 0) ? (cost * 1.10) : 0;
+        if (minRequired > 0 && price < minRequired) {
+            const minFmt = minRequired.toFixed(2);
+            showPageAlert(`Price too low. Set at least ₱${minFmt} (cost ₱${cost.toFixed(2)} + 10% margin).`, 'danger');
+            $('#priceInput').removeClass('is-valid').addClass('is-invalid');
+            return;
+        }
         if (cost < 0) { showPageAlert('Cost cannot be negative.', 'danger'); return; }
         if (stock < 0) { showPageAlert('Stock cannot be negative.', 'danger'); return; }
 
@@ -594,10 +626,41 @@ $(document).ready(function(){
         });
     });
 
-    // VAT live calc
+    function updateMinPriceHint(){
+        const costVal = parseFloat($('#costInput').val());
+        const hintEl = $('#minPriceHint');
+        if (isNaN(costVal) || costVal <= 0) { hintEl.text('Enter cost to see minimum price'); return; }
+        const minNum = Math.round(costVal * 1.10 * 100) / 100;
+        const min = minNum.toFixed(2);
+        const c = costVal.toFixed(2);
+        hintEl.text(`Minimum price: ₱${min} (cost ₱${c} + 10% margin)`);
+        $('#priceInput').attr('min', min);
+    }
+
+    function validatePriceAgainstMin(){
+        const costVal = parseFloat($('#costInput').val());
+        const priceVal = parseFloat($('#priceInput').val());
+        const submitBtn = $('#addProductForm button[type="submit"]');
+        if (isNaN(priceVal)) { $('#priceInput').removeClass('is-valid is-invalid'); submitBtn.prop('disabled', false); return; }
+        if (!isNaN(costVal) && costVal > 0) {
+            const minNum = Math.round(costVal * 1.10 * 100) / 100;
+            if (priceVal + 1e-9 < minNum) {
+            $('#priceInput').removeClass('is-valid').addClass('is-invalid');
+            submitBtn.prop('disabled', true);
+            } else {
+            $('#priceInput').removeClass('is-invalid').addClass('is-valid');
+            submitBtn.prop('disabled', false);
+            }
+        }
+    }
     $('#priceInput').on('input', function(){
         const price = parseFloat($(this).val()) || 0; $('#vatInclusive').text((price * 1.12).toFixed(2));
+        updateMinPriceHint();
+        validatePriceAgainstMin();
     });
+    $('#costInput').on('input', function(){ updateMinPriceHint(); validatePriceAgainstMin(); });
+    updateMinPriceHint();
+    validatePriceAgainstMin();
 
     // Quantity unit behavior: when Kilo is picked, remove suggestions (no choosing);
     // when Box is picked, re-enable suggestions list.
@@ -607,15 +670,10 @@ $(document).ready(function(){
         const applyUnitBehavior = () => {
             const unit = ($unit.val() || 'box').toLowerCase();
             if (unit === 'kilo') {
-                // Remove datalist suggestions; keep free typing
-                // For kilo: do not enter any weight; disable and clear the field
-                $qty.attr('list', '');
                 $qty.val('');
                 $qty.prop('disabled', true);
                 $qty.attr('placeholder', 'Kilo');
             } else {
-                // Restore suggestions
-                $qty.attr('list', 'quantitySuggestions');
                 $qty.prop('disabled', false);
                 $qty.attr('placeholder', 'Enter quantity');
             }
@@ -624,6 +682,7 @@ $(document).ready(function(){
         // Hide any legacy suggestions dropdown if present when unit changes
         $unit.on('change', function(){ const $menu = $('#sizeSuggestions'); if ($menu.length) { $menu.hide(); } });
         applyUnitBehavior();
+        $('#productVariantDisplay').on('change', function(){ const $menu = $('#sizeSuggestions'); if ($menu.length) { $menu.hide(); } });
     })();
 
     // Live formatting for product name: remove digits and auto-capitalize words

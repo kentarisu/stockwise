@@ -55,7 +55,7 @@ class Command(BaseCommand):
                     for row in reader:
                         name = row['name'].strip()
                         variant = row['variant'].strip() if row['variant'] else ''
-                        size = row['size'].strip()
+                        quantity_unit = (row.get('quantity_unit') or row.get('size') or '').strip()
                         
                         # Create full product name with variant
                         full_name = f"{name} ({variant})" if variant else name
@@ -63,7 +63,7 @@ class Command(BaseCommand):
                         # Check if product already exists (built-in products only)
                         existing_products = Product.objects.filter(
                             name=full_name,
-                            size=size,
+                            quantity_unit=quantity_unit,
                             is_built_in=True
                         )
                         
@@ -74,12 +74,12 @@ class Command(BaseCommand):
                             product = Product.objects.create(
                                 name=full_name,
                                 variant=variant,
-                                size=size,
+                                quantity_unit=quantity_unit,
                                 is_built_in=True,
                                 status='active',
-                                price=0,  # Will be set when added to inventory
-                                cost=0,   # Will be set when added to inventory
-                                stock=0,  # Built-in products have no stock
+                                price=0,
+                                cost=0,
+                                stock=0,
                             )
                             created = True
                         

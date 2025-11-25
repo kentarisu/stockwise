@@ -84,8 +84,13 @@ class Command(BaseCommand):
         recipients = []
         message_codes = []
         from core.sms_service import sms_service
+        from core.models import SMS
+        from django.utils import timezone as _tz
+        today = _tz.localtime().date()
         for u in admins:
-            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
+            if SMS.objects.filter(user=u, message_type='sales_summary_daily', sent_at__date=today).exists():
+                continue
+            result = sms_service.send_sms(u.phone_number, message, allow_multipart=False)
             if result.get('success'):
                 success_count += 1
                 recipients.append(u.username)
@@ -150,7 +155,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=False)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

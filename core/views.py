@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.core import signing, mail
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_GET, require_POST
@@ -21,6 +22,7 @@ import requests
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from django.utils.crypto import get_random_string
+import random
  
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -66,24 +68,49 @@ def _is_strong_password(p: str) -> bool:
         return False
     return True
 
+def _normalize_name_variant(name: str, variant: str):
+    n = sanitize_text(name or '', 120)
+    v = sanitize_text(variant or '', 120)
+    if not v and '(' in n and n.endswith(')'):
+        try:
+            import re as _re
+            m = _re.match(r'^(.+?)\s*\(([^)]+)\)$', n)
+            if m:
+                n = m.group(1).strip()
+                v = m.group(2).strip()
+        except Exception:
+            pass
+    return n, v
+
+def _normalize_quantity(size: str, unit: str):
+    u = (unit or 'box').strip().lower()
+    if u == 'kilo':
+        return 'kilo'
+    s = (size or '').strip()
+    try:
+        s_norm = str(Decimal(s))
+        if Decimal(s_norm) < 0:
+            return ''
+        return s_norm
+    except Exception:
+        return ''
+
+def _exists_duplicate_product(name: str, variant: str, size: str, unit: str, exclude_id: int = None):
+    n, v = _normalize_name_variant(name, variant)
+    q = _normalize_quantity(size, unit)
+    if not n or not q:
+        return False
+    full = f"{n} ({v})" if v else n
+    qs = Product.objects.filter(is_built_in=False, quantity_unit__iexact=q).filter(
+        Q(name__iexact=full) | (Q(name__iexact=n) & Q(variant__iexact=v))
+    )
+    if exclude_id:
+        qs = qs.exclude(product_id=exclude_id)
+    return qs.exists()
+
 def get_allowed_google_accounts():
     """Combine env-configured Google accounts with user-configured accounts."""
-    allowed = dict(getattr(settings, 'GOOGLE_ALLOWED_ACCOUNTS', {}))
-    try:
-        dynamic_users = AppUser.objects.filter(
-            allow_google_login=True,
-            email__isnull=False
-        ).exclude(email__exact='')
-        for user in dynamic_users:
-            allowed[(user.email or '').lower()] = {
-                'role': user.role,
-                'username': user.username,
-                'user_id': user.user_id,
-            }
-    except Exception:
-        # During migrations or initial setup, the table might not exist yet.
-        pass
-    return allowed
+    return dict(getattr(settings, 'GOOGLE_ALLOWED_ACCOUNTS', {}))
 
 def _map_app_role(role_value: str) -> str:
     role_lower = (role_value or '').strip().lower()
@@ -115,11 +142,13 @@ def log_action(request, action: str, details: str = '', user: AppUser = None):
         else:
             ip_address = request.META.get('REMOTE_ADDR', '')
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]
+        action_safe = sanitize_text(action, 150)
+        details_safe = format_log_details(details or '')
         ActionLog.objects.create(
             user=user,
             role=role or '',
-            action=action[:150],
-            details=(details or '')[:2000],
+            action=action_safe,
+            details=details_safe,
             ip_address=ip_address[:45],
             user_agent=user_agent,
         )
@@ -133,12 +162,14 @@ def log_action(request, action: str, details: str = '', user: AppUser = None):
 def log_system_action(action: str, details: str = ''):
     """Log automated system actions (SMS, backups, etc.) without a user/request context."""
     try:
+        action_safe = sanitize_text(action, 150)
+        details_safe = format_log_details(details or '')
         ActionLog.objects.create(
             user=None,
             role='System',
-            action=action[:150],
-            details=(details or '')[:2000],
-            ip_address='127.0.0.1',  # System/localhost
+            action=action_safe,
+            details=details_safe,
+            ip_address='127.0.0.1',
             user_agent='StockWise Automated System',
         )
     except Exception as e:
@@ -258,6 +289,53 @@ def sanitize_text(value: str, max_len: int = 120) -> str:
     if len(safe) > max_len:
         safe = safe[:max_len]
     return safe
+def format_log_details(details: str) -> str:
+    if not details:
+        return ''
+    text = str(details)
+    try:
+        obj = json.loads(text)
+    except Exception:
+        obj = None
+    lines = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            key = sanitize_text(str(k), 60)
+            val_raw = str(v).strip()
+            if '@' in val_raw:
+                val_raw = _mask_email(val_raw)
+            val = sanitize_text(val_raw, 200)
+            lines.append(f"{key}: {val}")
+    elif isinstance(obj, list):
+        for it in obj:
+            if isinstance(it, dict):
+                parts = []
+                for k, v in it.items():
+                    key = sanitize_text(str(k), 60)
+                    val_raw = str(v).strip()
+                    if '@' in val_raw:
+                        val_raw = _mask_email(val_raw)
+                    val = sanitize_text(val_raw, 200)
+                    parts.append(f"{key}={val}")
+                lines.append(", ".join(parts))
+            else:
+                val_raw = str(it).strip()
+                if '@' in val_raw:
+                    val_raw = _mask_email(val_raw)
+                lines.append(sanitize_text(val_raw, 200))
+    else:
+        import re as _re
+        def _mask_email_in_text(m):
+            return _mask_email(m.group(0))
+        text = text.replace('\r', '')
+        text = _re.sub(r'([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})', _mask_email_in_text, text)
+        parts = [p.strip() for p in _re.split(r'[;\n]+', text) if p.strip()]
+        for p in parts:
+            lines.append(sanitize_text(p, 200))
+    result = "\n".join(lines)
+    if len(result) > 2000:
+        result = result[:2000]
+    return result
 
 def clamp_decimal(value_str: str, min_value: str = '0', precision: str = '0.01'):
     from decimal import Decimal, InvalidOperation
@@ -321,6 +399,12 @@ def forgot_password(request):
                         return JsonResponse({'ok': False, 'error': 'No account found with that email.'}, status=404)
                     messages.error(request, 'No account found with that email.')
                 else:
+                    if (user.role or '').lower() == 'secretary':
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({'ok': False, 'error': 'Password recovery is disabled for this account. Please contact an administrator.'}, status=403)
+                        messages.error(request, 'Password recovery is disabled for this account. Please contact an administrator.')
+                        context['submitted_email'] = email
+                        return render(request, 'password_forgot_help.html', context)
                     sent_at_ts = request.session.get('pending_reset_sent_at', 0)
                     if sent_at_ts:
                         now_ts = timezone.now().timestamp()
@@ -333,14 +417,7 @@ def forgot_password(request):
                             return render(request, 'password_forgot_help.html', context)
                     code = get_random_string(length=6, allowed_chars='0123456789')
                     details = json.dumps({'code': code})
-                    ActionLog.objects.create(
-                        user=user,
-                        role=user.role,
-                        action='password_reset_code',
-                        details=details,
-                        ip_address=request.META.get('REMOTE_ADDR', ''),
-                        user_agent=request.META.get('HTTP_USER_AGENT', ''),
-                    )
+                    log_action(request, 'Password reset code', details, user=user)
                     try:
                         sent_ok = _send_password_reset_email(user, code)
                         masked = _mask_email(user.email or '')
@@ -362,7 +439,7 @@ def forgot_password(request):
                             request.session['reset_attempts'] = 0
                             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                                 return JsonResponse({'ok': True, 'email': user.email, 'masked': masked, 'expires_in': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60, 'dev_code': code})
-                            messages.info(request, 'Development mode: email not configured, showing code on the next screen.')
+                            messages.info(request, 'Development mode: email not configured.')
                             return redirect('password_reset_verify')
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             return JsonResponse({'ok': False, 'error': f'Unable to send recovery code: {exc}'}, status=500)
@@ -395,6 +472,9 @@ def password_reset_verify(request):
     if pending_email:
         user = AppUser.objects.filter(email__iexact=pending_email).first()
         if user:
+            if (user.role or '').lower() == 'secretary':
+                ctx['error'] = 'Password recovery is managed by administrators for secretary accounts.'
+                return render(request, 'password_reset_verify.html', ctx)
             log = ActionLog.objects.filter(user=user, action='password_reset_code').order_by('-created_at').first()
             if log:
                 expires_at = log.created_at + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
@@ -404,9 +484,8 @@ def password_reset_verify(request):
                 if settings.DEBUG:
                     try:
                         data = json.loads(log.details or '{}')
-                        ctx['dev_code'] = str(data.get('code', '')).strip()
                     except Exception:
-                        ctx['dev_code'] = ''
+                        pass
     ctx['seconds_remaining'] = seconds_remaining
     ctx['masked_email'] = _mask_email(pending_email) if pending_email else ''
     if request.method == 'POST':
@@ -547,6 +626,16 @@ def login_view(request):
                 except Exception:
                     pass
                 _persist_user_session(request, user)
+                try:
+                    remember = request.POST.get('remember_me') in ['on', 'true', '1']
+                    if remember:
+                        # Persistent session: 30 days
+                        request.session.set_expiry(60*60*24*30)
+                    else:
+                        # Session expires on browser close
+                        request.session.set_expiry(0)
+                except Exception:
+                    pass
                 log_action(request, 'Login success', f'User logged in with username/password ({user.username})', user=user)
                 qr_redirect_url = request.session.pop('qr_redirect_url', None)
                 if qr_redirect_url:
@@ -737,24 +826,8 @@ def google_login_callback(request):
         messages.error(request, 'Google account email is required to sign in.')
         return redirect('login')
 
-    allowed_google_accounts = get_allowed_google_accounts()
-    allowed_account = allowed_google_accounts.get(email)
-    if not allowed_account:
-        messages.error(
-            request,
-            'This Google account is not allowed. Please use the authorized admin or secretary account.'
-        )
-        return redirect('login')
-
+    # Allow any account whose email matches an AppUser; fallback remains username/password login
     user = AppUser.objects.filter(email__iexact=email).first()
-    if not user and allowed_account.get('username'):
-        user = AppUser.objects.filter(username__iexact=allowed_account['username']).first()
-    if not user and allowed_account.get('role'):
-        user = AppUser.objects.filter(role__iexact=allowed_account['role']).order_by('user_id').first()
-
-    if not user:
-        messages.error(request, 'No matching StockWise user found for this Google account.')
-        return redirect('login')
 
     if not user:
         messages.error(request, 'No matching StockWise user found for this Google account.')
@@ -1000,18 +1073,18 @@ def products_inventory(request):
         search = request.GET.get('search', '')
         filter_status = request.GET.get('filter', 'All Products')
         supplier_filter = request.GET.get('supplier', 'all')
-        fruit_filter = request.GET.get('fruit', 'all')
+        fruit_filter = request.GET.get('product', request.GET.get('fruit', 'all'))
         sort_column = request.GET.get('sort_column', 'name')
         sort_order = request.GET.get('sort_order', 'asc')
 
-        # Base queryset: ALL products for accurate counting
+        # Base queryset: all products (inventory + built-ins)
         products = Product.objects.all()
 
         # Apply filters
         if search:
             products = products.filter(
                 Q(name__icontains=search) |
-                Q(size__icontains=search)
+                Q(quantity_unit__icontains=search)
             )
         if filter_status != 'All Products':
             products = products.filter(status=filter_status.lower())
@@ -1048,8 +1121,8 @@ def products_inventory(request):
         total_stock = products.aggregate(total=Sum('stock'))['total'] or 0
         restock_alerts = products.filter(status='active', stock__lt=10).count()
 
-        # For the table display, filter to non-built-in products only
-        table_products = products.filter(is_built_in=False)
+        # For the table display, use the selected products
+        table_products = products
 
         # Add pagination - 10 items per page
         from django.core.paginator import Paginator
@@ -1276,7 +1349,8 @@ def product_add(request):
         full_name = request.POST.get('full_name', '').strip()
         name = sanitize_text(full_name, max_len=120)
         variant = request.POST.get('variant', '').strip()
-        size = request.POST.get('quantity_unit', '').strip()
+        size = (request.POST.get('quantity_value', '').strip() or request.POST.get('quantity_unit', '').strip())
+        unit = (request.POST.get('quantity_unit', 'box') or 'box').strip().lower()
         # Always set new products to Active and date to today
         status = 'active'
         date_added = timezone.now().date()
@@ -1304,22 +1378,19 @@ def product_add(request):
         if cost > 0 and price < cost * (1 + MIN_MARGIN):
             min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
             return JsonResponse({
-                'success': False, 
-                'message': f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).'
+                'success': False,
+                'message': f'Price too low. Set at least ₱{min_price} (cost ₱{cost} + 10% margin).'
             })
-        # Enforce numeric-only quantity (allow one decimal point)
-        try:
-            # Normalize quantity by parsing to Decimal then back to string without trailing zeros
-            _s = str(Decimal(size))
-            # Prevent negative or non-numeric
-            if Decimal(_s) < 0:
-                return JsonResponse({'success': False, 'message': 'Quantity must be a non-negative number.'})
-            size = _s
-            # Enforce quantity to be one of the unified options
-            if size not in STANDARD_SIZE_OPTIONS:
-                return JsonResponse({'success': False, 'message': f'Quantity must be one of: {", ".join(STANDARD_SIZE_OPTIONS)}'})
-        except Exception:
-            return JsonResponse({'success': False, 'message': 'Quantity must be numeric (e.g., 10 or 10.5).'})
+        if unit == 'kilo':
+            size = 'kilo'
+        else:
+            try:
+                _s = str(Decimal(size))
+                if Decimal(_s) < 0:
+                    return JsonResponse({'success': False, 'message': 'Quantity must be a non-negative number.'})
+                size = _s
+            except Exception:
+                return JsonResponse({'success': False, 'message': 'Quantity must be numeric (e.g., 10 or 10.5).'})
         if price <= 0:
             return JsonResponse({'success': False, 'message': 'Price must be greater than 0.'})
         if cost < 0:
@@ -1327,9 +1398,9 @@ def product_add(request):
         if stock < 0:
             return JsonResponse({'success': False, 'message': 'Stock cannot be negative.'})
 
-        # Check if inventory product already exists (ignore built-ins)
-        if Product.objects.filter(name=name, size=size, is_built_in=False).exists():
-            return JsonResponse({'success': False, 'message': 'This product is already in your inventory.'})
+        if _exists_duplicate_product(name, variant, size, unit):
+            log_action(request, 'Duplicate product attempt', f'{name} ({variant}) / {size}')
+            return JsonResponse({'success': False, 'message': 'This product with the selected variant and quantity already exists.'})
 
         # Handle optional image upload
         image_field = request.FILES.get('image')
@@ -1344,7 +1415,7 @@ def product_add(request):
             product = Product.objects.create(
                 name=name,
                 variant=variant or None,
-                size=size,
+                quantity_unit=size,
                 status=status,
                 date_added=date_added,
                 price=price,
@@ -1374,9 +1445,97 @@ def product_add(request):
             'Product added',
             f'Added product {product.name} (ID {product.product_id}) with stock {stock}.'
         )
+        try:
+            csv_path = getattr(settings, 'FRUIT_MASTER_PATH', os.path.join(settings.BASE_DIR, 'fruit_master_full.csv'))
+            base_name = name
+            if '(' in base_name and ')' in base_name:
+                try:
+                    base_name = base_name.split('(')[0].strip()
+                except Exception:
+                    base_name = name
+            name_key = (base_name or '').strip().lower()
+            variant_key = (variant or '').strip().lower()
+            size_key = (size or '').strip()
+            exists_pair = False
+            if os.path.exists(csv_path):
+                with open(csv_path, newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        r_name = (row.get('name') or '').strip().lower()
+                        r_variant = (row.get('variant') or '').strip().lower()
+                        r_size = (row.get('size') or row.get('quantity_unit') or '').strip()
+                        if r_name == name_key and r_variant == variant_key and r_size == size_key:
+                            exists_pair = True
+                            break
+            if not exists_pair:
+                os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+                file_exists = os.path.exists(csv_path)
+                header = ['name', 'variant', 'quantity_unit']
+                if file_exists:
+                    try:
+                        with open(csv_path, newline='', encoding='utf-8') as rf:
+                            rdr = csv.reader(rf)
+                            first = next(rdr, None)
+                            if first and 'size' in first and 'quantity_unit' not in first:
+                                header = ['name', 'variant', 'size']
+                    except Exception:
+                        pass
+                with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=header)
+                    if not file_exists:
+                        writer.writeheader()
+                    payload = {'name': base_name, 'variant': variant}
+                    payload[header[2]] = size
+                    writer.writerow(payload)
+        except Exception:
+            pass
         return JsonResponse({'success': True, 'message': 'Product added to inventory successfully.'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
+
+@require_app_login
+@require_http_methods(["POST"])
+@csrf_exempt
+def stock_decrease(request, product_id):
+    try:
+        product = Product.objects.get(pk=product_id)
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'})
+
+    try:
+        if request.META.get('CONTENT_TYPE', '').startswith('application/json'):
+            payload = json.loads(request.body or b"{}")
+        else:
+            payload = request.POST
+        addition_id_raw = payload.get('addition_id') or payload.get('additionId')
+        amount_raw = payload.get('amount') or payload.get('decrease') or payload.get('qty')
+        addition_id = int(addition_id_raw)
+        amount = int(amount_raw)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid input data'})
+
+    if amount <= 0:
+        return JsonResponse({'success': False, 'message': 'Amount must be greater than zero'})
+
+    try:
+        addition = StockAddition.objects.get(addition_id=addition_id, product=product)
+    except StockAddition.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Stock addition not found'})
+
+    available = int(addition.remaining_quantity or 0)
+    if available <= 0:
+        return JsonResponse({'success': False, 'message': 'No available boxes in this batch'})
+
+    decrease = min(amount, available)
+    with transaction.atomic():
+        addition.remaining_quantity = available - decrease
+        addition.save()
+        current_stock = int(product.stock or 0)
+        product.stock = max(0, current_stock - decrease)
+        product.save()
+        log_action(request, 'Stock decreased', f'Product {product.product_id} ({product.name}), batch {addition.batch_id}, amount {decrease}')
+
+    return JsonResponse({'success': True, 'decreased': decrease, 'remaining': int(addition.remaining_quantity)})
 
 @require_app_login
 @require_http_methods(["POST"])
@@ -1389,8 +1548,12 @@ def product_edit(request, product_id):
             product.name = data['name']
             product.quantity_unit = data.get('quantity_unit', '')
             product.status = data.get('status', 'active')
-            product.price = data['price']
-            product.cost = data.get('cost', 0)
+            role = request.session.get('app_role')
+            if role == 'secretary':
+                pass
+            else:
+                product.price = data['price']
+                product.cost = data.get('cost', 0)
             product.save()
 
             if 'stock' in data:
@@ -1468,8 +1631,6 @@ def add_stock(request):
                     'supplier': request.POST.get('supplier', ''),
                     'batch_id': request.POST.get('batch_id') or '',
                     'cost': request.POST.get('cost') or None,
-                    'manufacturing_date': request.POST.get('manufacturing_date') or None,
-                    'expiry_date': request.POST.get('expiry_date') or None,
                 }]
             else:
                 return JsonResponse({'success': False, 'message': 'No items provided.'})
@@ -1502,31 +1663,8 @@ def add_stock(request):
                     provided_batch = item.get('batch_id')
                     batch_id = provided_batch or generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
                     
-                    # TC-013: Parse and validate expiry date
-                    expiry_date = None
-                    manufacturing_date = None
-                    if item.get('expiry_date'):
-                        from datetime import datetime
-                        try:
-                            expiry_date = datetime.strptime(item['expiry_date'], '%Y-%m-%d').date()
-                            # Validate expiry is not in the past
-                            if expiry_date < timezone.now().date():
-                                return JsonResponse({
-                                    'success': False, 
-                                    'message': 'Expiry date cannot be in the past.'
-                                })
-                        except ValueError:
-                            return JsonResponse({
-                                'success': False, 
-                                'message': 'Invalid expiry date format. Use YYYY-MM-DD.'
-                            })
-                    
-                    if item.get('manufacturing_date'):
-                        from datetime import datetime
-                        try:
-                            manufacturing_date = datetime.strptime(item['manufacturing_date'], '%Y-%m-%d').date()
-                        except ValueError:
-                            pass
+                    # Expiry/manufacturing dates were removed from schema in migration 0036.
+                    # Ignore any provided values to maintain compatibility.
                     
                     # Convert empty string to None for supplier
                     supplier_to_save = supplier.strip() if supplier and supplier.strip() else None
@@ -1539,8 +1677,6 @@ def add_stock(request):
                         batch_id=batch_id,
                         supplier=supplier_to_save,
                         cost=Decimal(str(item.get('cost') or 0)),
-                        expiry_date=expiry_date,
-                        manufacturing_date=manufacturing_date
                     )
                     
                     # Update product stock directly
@@ -1643,10 +1779,13 @@ def stock_qr_apply(request):
                         except Exception:
                             variant = ''
                     batch_id = generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+                    dt = parse_datetime(date_added) if date_added else None
+                    if dt is None:
+                        dt = timezone.now()
                     StockAddition.objects.create(
                         product=product,
                         quantity=quantity,
-                        date_added=date_added or timezone.now().date(),
+                        date_added=dt,
                         remaining_quantity=quantity,
                         batch_id=batch_id,
                         supplier=supplier
@@ -1690,37 +1829,30 @@ def stock_qr_apply(request):
 def qr_next_batch_sequence(request, product_id):
     """Get next batch sequence number for a product"""
     try:
-        # Lazy import to avoid circulars and guarantee availability
-        from core.models import StockAddition  # noqa: WPS433
         product = Product.objects.get(product_id=product_id)
-        
-        # Simple, robust rule: next sequence is count of existing additions + 1
-        # This avoids depending on historical batch_id string formats
-        existing_count = StockAddition.objects.filter(product=product).count()
-        next_sequence = (existing_count % 99) + 1  # keep it within 1..99 for two-digit suffixes
-        
-        # Generate base batch ID using product name and quantity
         from datetime import date
         today = date.today()
         base_name = product.name or ''
-        variant = ''
-        if '(' in base_name and base_name.endswith(')'):
-            try:
-                variant = base_name.split('(')[1].rstrip(')').strip()
-            except Exception:
-                variant = ''
-        
-        # Create base batch ID: first 2 chars of product name + quantity + date
-        product_prefix = base_name.replace(f"({variant})", '').strip()[:2].upper() if variant else base_name[:2].upper()
-        size_clean = product.quantity_unit.replace('-', '') if product.quantity_unit else ''
+        variant = product.variant or ''
+        fruit_acr = get_acronym(base_name.replace(f"({variant})", '').strip() if variant else base_name)
+        variant_acr = get_acronym(variant) if variant else ''
+        size_clean = str(product.quantity_unit or '').replace('-', '')
         date_str = today.strftime('%m%d%Y')
-        base_batch_id = f"{product_prefix}{size_clean}{date_str}"
-        
-        return JsonResponse({
-            'success': True, 
-            'next_sequence': next_sequence,
-            'base_batch_id': base_batch_id
-        })
+        parts = [fruit_acr]
+        if variant_acr:
+            parts.append(variant_acr)
+        if size_clean:
+            parts.append(size_clean)
+        parts.append(date_str)
+        base_batch_id = ''.join(parts)
+        last = StockAddition.objects.filter(product=product, batch_id__startswith=base_batch_id).order_by('-addition_id').first()
+        try:
+            last_seq = int((last.batch_id or '')[-2:]) if last else 0
+        except Exception:
+            last_seq = 0
+        last_qty = int(getattr(last, 'quantity', 0) or 0)
+        next_sequence = ((max(0, last_seq) - 1 + last_qty) % 99) + 1 if last else 1
+        return JsonResponse({'success': True, 'next_sequence': next_sequence, 'base_batch_id': base_batch_id})
         
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
@@ -1841,7 +1973,7 @@ def sales_view(request):
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
     user_filter = request.GET.get('user', 'all')
-    fruit_filter = request.GET.get('fruit', 'all')
+    fruit_filter = request.GET.get('product', request.GET.get('fruit', 'all'))
     today = timezone.localtime().date()
 
     # Base query for completed sales (case-insensitive)
@@ -1935,7 +2067,7 @@ def sales_view(request):
         key = row.transaction_number or f"SID{row.sale_id}"
         g = grouped.get(key)
         
-        # Format product display as "Name (Variant) (Quantity/Unit)"
+        
         product_display = row.product.name if row.product else ''
         variant = (row.product.variant.strip() if (row.product and row.product.variant) else '')
         unit = (row.product.quantity_unit if row.product else '')
@@ -2114,7 +2246,7 @@ def fetch_sales(request):
         end_date = request.GET.get('end_date', '')
         status = request.GET.get('status', 'completed')
         user_filter = request.GET.get('user', 'all')
-        fruit_filter = request.GET.get('fruit', 'all')
+        fruit_filter = request.GET.get('product', request.GET.get('fruit', 'all'))
 
         # Base query
         if status and status.lower() != 'all':
@@ -2216,10 +2348,21 @@ def fetch_sales(request):
             key = row.transaction_number or f"SID{row.sale_id}"
             g = grouped.get(key)
             
-            # Format product display as "Name [Variant] (Quantity/Unit)"
+            
             product_display = row.product.name if row.product else ''
-            if row.product and (row.product.variant or '').strip():
-                product_display = f"{product_display} {row.product.variant.strip()}"
+            # Strip any trailing parenthetical from stored name to get base name
+            if product_display:
+                import re
+                product_display = re.sub(r"\s*\(.*?\)\s*$", "", product_display).strip()
+            # Choose variant: prefer explicit field; otherwise try to extract from original name
+            variant_text = (row.product.variant or '').strip()
+            if not variant_text and row.product and '(' in row.product.name and ')' in row.product.name:
+                try:
+                    variant_text = row.product.name.split('(')[1].rstrip(')').strip()
+                except Exception:
+                    variant_text = ''
+            if variant_text:
+                product_display = f"{product_display} ({variant_text})"
             if row.product and row.product.quantity_unit:
                 product_display = f"{product_display} ({row.product.quantity_unit})"
             
@@ -2243,7 +2386,8 @@ def fetch_sales(request):
                     'total_boxes': int(row.quantity or 0),
                     'products': product_display,
                     'customer_name': getattr(row, 'customer_name', '') or '',
-                    'recorded_by': row.user.username if row.user else 'N/A'
+                    'recorded_by': row.user.username if row.user else 'N/A',
+                    'discount': float(getattr(row, 'discount_amount', 0) or 0)
                 }
             else:
                 g['items'].append(item)
@@ -2531,7 +2675,7 @@ def reports_view(request):
         'search': request.GET.get('search',''),
         'start_date': request.GET.get('start_date',''),
         'end_date': request.GET.get('end_date',''),
-        'fruit_filter': request.GET.get('fruit', 'all'),
+        'fruit_filter': request.GET.get('product', request.GET.get('fruit', 'all')),
         'all_users': all_users,
         'fruits': unique_fruits,
         'user_obj': user_obj,
@@ -2654,7 +2798,7 @@ def fetch_reports(request):
     start_date=request.GET.get('start_date','')
     end_date=request.GET.get('end_date','')
     user_filter=request.GET.get('user', 'all')
-    fruit_filter=request.GET.get('fruit', 'all')
+    fruit_filter=request.GET.get('product', request.GET.get('fruit', 'all'))
 
     # Debug logging - KEEP THESE FOR DEBUGGING
     print(f"=== FETCH_REPORTS DEBUG ===")
@@ -2699,7 +2843,18 @@ def fetch_reports(request):
                 try:
                     qs = qs.filter(user_id=int(user_filter))
                 except (ValueError, TypeError):
-                    pass
+                    try:
+                        uf = (str(user_filter) or '').strip()
+                        if uf:
+                            if uf.lower() in ('secretary', 'admin'):
+                                qs = qs.filter(user__role__iexact=uf)
+                            else:
+                                from .models import AppUser
+                                match = AppUser.objects.filter(username__iexact=uf).first()
+                                if match:
+                                    qs = qs.filter(user_id=match.user_id)
+                    except Exception:
+                        pass
 
             if fruit_filter and fruit_filter != 'all':
                 qs = qs.filter(
@@ -2725,7 +2880,7 @@ def fetch_reports(request):
 
         # sales_summary (for summary cards)
         agg = sales_queryset.aggregate(
-            total_revenue=Sum(F('quantity') * F('product__price')),
+            total_revenue=Sum('total'),
             transaction_count=Count('transaction_number', distinct=True),
             total_items_sold=Sum('quantity'),
             total_cogs=Sum(F('quantity') * F('product__cost')),
@@ -2737,12 +2892,12 @@ def fetch_reports(request):
         total_cogs = Decimal(agg['total_cogs'] or 0)
         gross_profit = total_rev - total_cogs
         gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
-        vat_total = total_rev * Decimal('0.12')
+        vat_total = total_rev - (total_rev / Decimal('1.12'))
         net_profit = gross_profit  # Placeholder until expenses are tracked
         sale_rows_count = agg['total_rows'] or 0
 
         prev_agg = previous_queryset.aggregate(
-            total_revenue=Sum(F('quantity') * F('product__price')),
+            total_revenue=Sum('total'),
             transaction_count=Count('transaction_number', distinct=True),
             total_items_sold=Sum('quantity')
         )
@@ -2802,7 +2957,7 @@ def fetch_reports(request):
             'product__product_id'
         ).annotate(
             boxes_sold=Sum('quantity'),
-            revenue=Sum(F('quantity') * F('product__price')),
+            revenue=Sum('total'),
             cogs=Sum(F('quantity') * F('product__cost'))
         )
         for prev in previous_summary_queryset:
@@ -2822,7 +2977,7 @@ def fetch_reports(request):
                 'product__cost'
             ).annotate(
                 boxes_sold=Sum('quantity'),
-                revenue=Sum(F('quantity') * F('product__price')),
+                revenue=Sum('total'),
                 cogs=Sum(F('quantity') * F('product__cost')),
                 transaction_count=Count('sale_id', distinct=True)
             ).order_by('-revenue')
@@ -2837,7 +2992,7 @@ def fetch_reports(request):
             cogs = Decimal(s['cogs'] or 0)
             profit = revenue - cogs
             gross_margin = float((profit / revenue * 100) if revenue else 0)
-            vat_amount = revenue * Decimal('0.12')
+            vat_amount = revenue - (revenue / Decimal('1.12'))
             transaction_count = s['transaction_count'] or 0
             avg_transaction = float(revenue / transaction_count) if transaction_count else 0
             unit_price = float(revenue / boxes) if boxes else 0
@@ -2850,12 +3005,22 @@ def fetch_reports(request):
             elif revenue:
                 sales_growth_pct = 100.0
 
-            # Format product display as "Name (Variant) (Quantity/Unit)"
+            
             product_display = s['product__name'] or ''
-            if s.get('product__variant'):
-                product_display = f"{product_display} ({s['product__variant']})"
-            if s['product__quantity_unit']:
-                product_display = f"{product_display} ({s['product__quantity_unit']})"
+            if product_display:
+                import re
+                product_display = re.sub(r"\s*\(.*?\)\s*$", "", product_display).strip()
+            variant = (s.get('product__variant') or '').strip()
+            if not variant and '(' in (s['product__name'] or '') and ')' in (s['product__name'] or ''):
+                try:
+                    variant = (s['product__name'].split('(')[1]).rstrip(')').strip()
+                except Exception:
+                    variant = ''
+            unit = (s.get('product__quantity_unit') or '')
+            if variant:
+                product_display = f"{product_display} ({variant})"
+            if unit:
+                product_display = f"{product_display} ({unit})"
             product_display = product_display.strip()
 
             sales_summary_data.append({
@@ -2917,12 +3082,22 @@ def fetch_reports(request):
             average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
             inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
 
-            # Format product display as "Name (Variant) (Quantity/Unit)"
+            
             product_display = t['product__name'] or ''
-            if t.get('product__variant'):
-                product_display = f"{product_display} ({t['product__variant']})"
-            if t['product__quantity_unit']:
-                product_display = f"{product_display} ({t['product__quantity_unit']})"
+            if product_display:
+                import re
+                product_display = re.sub(r"\s*\(.*?\)\s*$", "", product_display).strip()
+            variant = (t.get('product__variant') or '').strip()
+            if not variant and '(' in (t['product__name'] or '') and ')' in (t['product__name'] or ''):
+                try:
+                    variant = (t['product__name'].split('(')[1]).rstrip(')').strip()
+                except Exception:
+                    variant = ''
+            unit = (t.get('product__quantity_unit') or '')
+            if variant:
+                product_display = f"{product_display} ({variant})"
+            if unit:
+                product_display = f"{product_display} ({unit})"
             product_display = product_display.strip()
 
             top_fruits.append({
@@ -3023,7 +3198,11 @@ def fetch_reports(request):
                     'reorder_quantity': reorder_quantity,
                     'lead_time_days': lead_time_days,
                     'last_sale_date': last_sale_date,
-                    'status': 'Low Stock' if inv.stock <= reorder_point else 'Healthy',
+                    'status': (
+                        'Critical' if inv.stock <= reorder_point else (
+                            'Low' if inv.stock <= (inv.low_stock_threshold or 10) else 'Normal'
+                        )
+                    ),
                     'action_required': 'Reorder' if inv.stock <= reorder_point else 'Monitor'
                 })
         else:
@@ -3057,7 +3236,7 @@ def fetch_reports(request):
                 break
 
         # transactions - group by transaction_number to avoid showing each line item separately
-        rows = sales_queryset.order_by('-recorded_at', 'transaction_number', 'sale_id')[:200]
+        rows = sales_queryset.order_by('-recorded_at', 'transaction_number', 'sale_id')
         grouped = {}
         for row in rows:
             key = row.transaction_number or f"ORD{row.sale_id:06d}"
@@ -3087,24 +3266,26 @@ def fetch_reports(request):
                     'quantity_unit': [row.product.quantity_unit] if row.product and row.product.quantity_unit else [], 
                     'items_count': int(row.quantity or 0),
                     'boxes_count': int(row.quantity or 0),
-                    'subtotal': float(row.total or 0),
-                    'vat_amount': float((row.total or 0) * Decimal('0.12')),
-                    'total_amount': float((row.total or 0) * Decimal('1.12')),
-                    'amount_paid': float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12')),
-                    'change_amount': (float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))) - float((row.total or 0) * Decimal('1.12')),
+                    'subtotal': float((row.total or 0) / Decimal('1.12')),
+                    'vat_amount': float((row.total or 0) - ((row.total or 0) / Decimal('1.12'))),
+                    'total_amount': float(row.total or 0),
+                    'amount_paid': float(row.amount_paid or 0),
+                    'change_amount': float((row.amount_paid or 0) - (row.total or 0)),
                     'status': row.status,
                     'sale_ids': [row.sale_id],
+                    'discount_amount': float(getattr(row, 'discount_amount', 0) or 0)
                 }
             else:
                 # Accumulate to existing transaction
                 g['items_count'] += int(row.quantity or 0)
                 g['boxes_count'] += int(row.quantity or 0)
-                g['subtotal'] += float(row.total or 0)
-                g['vat_amount'] += float((row.total or 0) * Decimal('0.12'))
-                g['total_amount'] += float((row.total or 0) * Decimal('1.12'))
+                g['subtotal'] += float((row.total or 0) / Decimal('1.12'))
+                g['vat_amount'] += float((row.total or 0) - ((row.total or 0) / Decimal('1.12')))
+                g['total_amount'] += float(row.total or 0)
                 
-                g['amount_paid'] += float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))
-                g['change_amount'] += (float(row.amount_paid or 0) if row.amount_paid else float((row.total or 0) * Decimal('1.12'))) - float((row.total or 0) * Decimal('1.12'))
+                if not g.get('amount_paid') and row.amount_paid:
+                    g['amount_paid'] = float(row.amount_paid or 0)
+                g['change_amount'] = float((g.get('amount_paid') or 0) - g['total_amount'])
 
                 if product_display and product_display not in g['fruits']:
                     g['fruits'].append(product_display)
@@ -3113,7 +3294,8 @@ def fetch_reports(request):
                 if row.sale_id not in g.get('sale_ids', []):
                     g.setdefault('sale_ids', []).append(row.sale_id)
 
-        tx_data = list(grouped.values())[:100]  # Limit to 100 transactions for display
+        # Prepare transaction data sorted by most recent first; no hard limit so reports stay real-time
+        tx_data = sorted(grouped.values(), key=lambda x: x['date_time'], reverse=True)
 
         # Voided transactions data (for admin reports tab)
         voided_rows = voided_queryset.order_by('-voided_at', '-recorded_at', 'sale_id')[:200]
@@ -3196,6 +3378,120 @@ def fetch_reports(request):
         } for r in summary_reports]
 
 
+        # Accepted pricing recommendations for reporting (apply filters)
+        accepted_pricing = []
+        try:
+            import re
+            from core.models import PricingRecommendation
+            prs_q = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at'))
+            if date_range:
+                start_dt, end_dt = date_range
+                prs_q = prs_q.filter(
+                    created_at__date__gte=start_dt.date(),
+                    created_at__date__lte=end_dt.date()
+                )
+            # Product (fruit) filter
+            if fruit_filter and fruit_filter != 'all':
+                prs_q = prs_q.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
+            # Search filter
+            if search:
+                prs_q = prs_q.filter(
+                    Q(product__name__icontains=search) |
+                    Q(product__quantity_unit__icontains=search)
+                )
+            prs = prs_q.order_by('-created_at')[:200]
+            if not prs:
+                prs = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at')).order_by('-created_at')[:50]
+
+            def humanize_reason(text: str, action: str, change_pct=None, confidence=None) -> str:
+                raw = (text or '').strip()
+                if not raw:
+                    raw = 'Recent sales activity.'
+                import re as _re
+                conf_in_text = None
+                m_meta = _re.search(r"\[\s*Data:\s*n=(\d+),\s*confidence=([A-Za-z]+)\s*\]", raw)
+                n_sales = int(m_meta.group(1)) if m_meta else None
+                conf_in_text = m_meta.group(2).upper() if m_meta else None
+                m_boxes = _re.search(r"(\d+)\s+boxes", raw)
+                boxes = int(m_boxes.group(1)) if m_boxes else None
+                m_days = _re.search(r"(last|past)\s+(\d+)\s+days", raw.lower())
+                days = int(m_days.group(2)) if m_days else None
+                clean = _re.sub(r"\[.*?\]", "", raw)
+                clean = clean.replace('past 3 days', 'last 3 days').strip()
+
+                parts = []
+                if days or n_sales or boxes:
+                    seg = []
+                    if days:
+                        seg.append(f"last {days} days")
+                    metric = []
+                    if n_sales is not None:
+                        metric.append(f"{n_sales} transactions")
+                    if boxes is not None:
+                        metric.append(f"{boxes} boxes sold")
+                    if metric:
+                        parts.append(f"Based on the {', '.join(metric)} in the {(' ' + seg[0]) if seg else 'recent period'}, pricing was adjusted.")
+                    else:
+                        parts.append(clean)
+                else:
+                    parts.append(clean)
+
+                act = (action or '').upper()
+                try:
+                    pct_val = abs(float(change_pct)) if change_pct is not None else None
+                except Exception:
+                    pct_val = None
+                if act == 'INCREASE':
+                    if pct_val is not None:
+                        parts.append(f"Increase of {int(round(pct_val))}% targets better profit while keeping demand healthy.")
+                    else:
+                        parts.append("Increase targets better profit while keeping demand healthy.")
+                elif act == 'DECREASE':
+                    if pct_val is not None:
+                        parts.append(f"Decrease of {int(round(pct_val))}% aims to boost sales and move inventory.")
+                    else:
+                        parts.append("Decrease aims to boost sales and move inventory.")
+
+                conf_src = (confidence or conf_in_text or '').upper()
+                if conf_src:
+                    label = 'High' if conf_src.startswith('H') else 'Medium' if conf_src.startswith('M') else 'Low'
+                    parts.append(f"Confidence: {label}.")
+
+                return ' '.join([p.strip() for p in parts if p and p.strip()])
+
+            for pr in prs:
+                name_raw = pr.product.name if pr.product else 'Unknown'
+                base_name = re.sub(r"\s*\([^)]*\)\s*", "", name_raw).strip()
+                variant = getattr(pr.product, 'variant', '') or ''
+                unit = getattr(pr.product, 'quantity_unit', '') or ''
+                variant_part = f" ({variant})" if variant else ''
+                unit_part = f" ({unit})" if unit else ''
+                label = f"{base_name}{variant_part}{unit_part}" if base_name else name_raw
+                accepted_pricing.append({
+                    'date': pr.created_at.strftime('%Y-%m-%d') if pr.created_at else None,
+                    'timestamp': pr.created_at.strftime('%Y-%m-%d %H:%M') if pr.created_at else None,
+                    'product_id': pr.product.product_id if pr.product else None,
+                    'product_name': label,
+                    'name': base_name,
+                    'variant': variant,
+                    'quantity_unit': unit,
+                    'current_price': float(pr.current_price or 0),
+                    'suggested_price': float(pr.suggested_price or 0),
+                    'change_pct': float(pr.change_pct or 0),
+                    'action': pr.action,
+                    'reason': humanize_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence),
+                })
+            try:
+                print(f"Accepted pricing records: {len(accepted_pricing)}")
+            except Exception:
+                pass
+        except Exception:
+            accepted_pricing = []
+
         return JsonResponse({
             'success': True,
             'data': {
@@ -3210,6 +3506,7 @@ def fetch_reports(request):
                 'abc_analysis': abc_analysis,
                 'product_performance': summary_reports_data, 
                 'inventory_reports': summary_reports_data, 
+                'accepted_pricing': accepted_pricing,
             }
         })
     except Exception as e:
@@ -3222,13 +3519,28 @@ def export_report(request):
     if request.method not in ('POST','GET') or request.session.get('app_role')!='admin':
         return JsonResponse({'success':False,'message':'Forbidden'},status=403)
     getp = (lambda k, d=None: (request.POST.get(k) if request.method=='POST' else request.GET.get(k)) or d)
-    report_type = getp('report_type','transactions')
-    filter_type = getp('filter','Daily')
-    start_date = getp('start_date','')
-    end_date = getp('end_date','')
-    search = getp('search','')
-    user_filter = getp('user','all')
-    fruit_filter = getp('fruit','all')
+    report_type = getp('report_type', 'transactions')
+    filter_type = getp('filter', 'Daily')
+    start_date = getp('start_date', '')
+    end_date = getp('end_date', '')
+    search = getp('search', '')
+    user_filter = getp('user', 'all')
+    fruit_filter = getp('product', getp('fruit', 'all'))
+    accepted_prices_json = getp('accepted_prices', '{}')
+    
+    try:
+        accepted_prices = json.loads(accepted_prices_json)
+    except json.JSONDecodeError:
+        accepted_prices = {}
+
+    # Identify the user who generated the report (optional)
+    generated_by_user = None
+    try:
+        uid = request.session.get('app_user_id') or request.session.get('user_id')
+        if uid:
+            generated_by_user = AppUser.objects.filter(user_id=uid).first()
+    except Exception:
+        generated_by_user = None
 
     sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
     sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
@@ -3312,7 +3624,7 @@ def export_report(request):
     
     # Comprehensive sales summary
     agg = sales_queryset.aggregate(
-        total_revenue=Sum(F('quantity') * F('product__price')),
+        total_revenue=Sum('total'),
         transaction_count=Count('transaction_number', distinct=True),
         total_items_sold=Sum('quantity'),
         total_cogs=Sum(F('quantity') * F('product__cost'))
@@ -3323,12 +3635,12 @@ def export_report(request):
     total_cogs = Decimal(agg['total_cogs'] or 0)
     gross_profit = total_rev - total_cogs
     gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
-    vat_total = total_rev * Decimal('0.12')
+    vat_total = total_rev - (total_rev / Decimal('1.12'))
     net_profit = gross_profit
     
     # Previous period summary for growth calculation
     prev_agg = previous_queryset.aggregate(
-        total_revenue=Sum(F('quantity') * F('product__price')),
+        total_revenue=Sum('total'),
         transaction_count=Count('transaction_number', distinct=True),
         total_items_sold=Sum('quantity')
     )
@@ -3402,7 +3714,7 @@ def export_report(request):
         except:
             pass
     if fruit_filter and fruit_filter != 'all':
-        filter_info.append(f"Fruit: {fruit_filter}")
+        filter_info.append(f"Product: {fruit_filter}")
     
     meta_parts = [
         f"<b>Period:</b> {period_text}",
@@ -3490,7 +3802,7 @@ def export_report(request):
             'product__cost'
         ).annotate(
             boxes_sold=Sum('quantity'),
-            revenue=Sum(F('quantity') * F('product__price')),
+            revenue=Sum('total'),
             cogs=Sum(F('quantity') * F('product__cost')),
             transaction_count=Count('sale_id', distinct=True)
         ).order_by('-revenue')[:20]
@@ -3502,7 +3814,7 @@ def export_report(request):
         'product__product_id'
     ).annotate(
         boxes_sold=Sum('quantity'),
-        revenue=Sum(F('quantity') * F('product__price')),
+        revenue=Sum('total'),
         cogs=Sum(F('quantity') * F('product__cost'))
     )
     for prev in previous_summary_queryset:
@@ -3535,6 +3847,103 @@ def export_report(request):
             product_name = str(s['product__name'] or 'N/A')
             if s['product__quantity_unit']:
                 product_name = f"{product_name} ({s['product__quantity_unit']})"
+
+            # Accepted price from frontend (optional)
+            raw_ap = accepted_prices.get(str(product_id))
+            try:
+                accepted_price_value = clamp_decimal(str(raw_ap)) if raw_ap not in (None, '', 'null') else None
+            except Exception:
+                accepted_price_value = None
+
+            # Compute additional inventory metrics for the period
+            try:
+                # Added during period
+                added_qty = StockAddition.objects.filter(
+                    product_id=product_id,
+                    date_added__range=(current_start, current_end)
+                ).aggregate(total=Sum('quantity'))['total'] or 0
+
+                # Closing stock (end of period)
+                product_obj = Product.objects.filter(product_id=product_id).only('stock', 'low_stock_threshold').first()
+                closing_qty = Decimal(str(getattr(product_obj, 'stock', 0)))
+
+                # Opening stock approximation: closing + sold - added
+                opening_qty = closing_qty + Decimal(str(boxes)) - Decimal(str(added_qty))
+                if opening_qty < Decimal('0'):
+                    opening_qty = Decimal('0')
+
+                # Unit cost average and profit metrics
+                avg_unit_cost = (cogs / Decimal(str(boxes))) if boxes else None
+                gross_profit = revenue - cogs
+                gross_margin_pct = (gross_profit / revenue * Decimal('100')) if revenue else None
+
+                # Period days for rate metrics
+                if current_start and current_end:
+                    period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+                else:
+                    ft_lookup = (filter_type or '').lower()
+                    period_days = 7 if ft_lookup in ('weekly','week') else 30 if ft_lookup in ('monthly','month') else 1
+
+                avg_daily_sales = (Decimal(str(boxes)) / Decimal(str(period_days))) if boxes else Decimal('0')
+                days_of_cover_end = (closing_qty / avg_daily_sales) if avg_daily_sales > 0 else None
+
+                # Stock thresholds and flags
+                low_stock_threshold = Decimal(str(getattr(product_obj, 'low_stock_threshold', 0))) if product_obj else None
+                low_stock_flag = bool(product_obj and product_obj.stock <= int(getattr(product_obj, 'low_stock_threshold', 0)))
+
+                # First and last sale timestamps in the period
+                product_sales = sales_queryset.filter(product_id=product_id)
+                first_sale_at = product_sales.order_by('recorded_at').values_list('recorded_at', flat=True).first()
+                last_sale_at = product_sales.order_by('-recorded_at').values_list('recorded_at', flat=True).first()
+
+                # Last addition timestamp
+                last_addition_at = StockAddition.objects.filter(product_id=product_id).aggregate(last=Max('date_added'))['last']
+            except Exception:
+                added_qty = 0
+                closing_qty = Decimal('0')
+                opening_qty = Decimal('0')
+                avg_unit_cost = None
+                gross_profit = Decimal('0')
+                gross_margin_pct = None
+                avg_daily_sales = Decimal('0')
+                days_of_cover_end = None
+                low_stock_threshold = None
+                low_stock_flag = False
+                first_sale_at = None
+                last_sale_at = None
+                last_addition_at = None
+
+            # Persist full summary row
+            ReportProductSummary.objects.create(
+                product_id=s['product__product_id'],
+                period_start=current_start,
+                period_end=current_end,
+                granularity=filter_type,
+                generated_by=generated_by_user,
+                opening_qty=opening_qty,
+                added_qty=Decimal(str(added_qty)),
+                sold_qty=boxes,
+                closing_qty=closing_qty,
+                last_addition_at=last_addition_at,
+                avg_sell_price=Decimal(str(unit_price)) if unit_price else None,
+                revenue=revenue,
+                avg_unit_cost=avg_unit_cost,
+                cogs=cogs,
+                gross_profit=gross_profit,
+                gross_margin_pct=gross_margin_pct,
+                sell_through_pct=((Decimal('0') if opening_qty <= 0 else (Decimal(str(boxes)) / opening_qty * Decimal('100')))),
+                avg_daily_sales=avg_daily_sales,
+                days_of_cover_end=days_of_cover_end,
+                low_stock_threshold=low_stock_threshold,
+                low_stock_flag=low_stock_flag,
+                last_price=Decimal(str(unit_price)) if unit_price else None,
+                suggested_price=None,
+                accepted_price=accepted_price_value,
+                price_action=None,
+                demand_level=None,
+                first_sale_at=first_sale_at,
+                last_sale_at=last_sale_at,
+            )
             
             sales_summary_rows.append([
                 product_name[:35],
@@ -4160,6 +4569,88 @@ def export_report(request):
     else:
         elems.append(Paragraph("No voided transactions in this period.", styles['Normal']))
 
+    elems.append(Spacer(1, 10))
+    elems.append(Paragraph("ACCEPTED PRICING CHANGES", section_style))
+    elems.append(Spacer(1, 8))
+
+    try:
+        from core.models import PricingRecommendation
+        prs_q = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at'))
+        if current_start and current_end:
+            prs_q = prs_q.filter(
+                created_at__date__gte=current_start.date(),
+                created_at__date__lte=current_end.date()
+            )
+        if fruit_filter and fruit_filter != 'all':
+            prs_q = prs_q.filter(
+                Q(product__name__istartswith=fruit_filter + ' ') |
+                Q(product__name__istartswith=fruit_filter + '(') |
+                Q(product__name__iexact=fruit_filter)
+            )
+        prs = list(prs_q.order_by('-created_at')[:100])
+
+        def _fmt_reason(txt, action, pct, conf):
+            import re as _re
+            t = (txt or '').strip()
+            t = _re.sub(r"\[.*?\]", "", t)
+            t = t.replace('past 3 days', 'last 3 days').strip()
+            try:
+                p = abs(float(pct)) if pct is not None else None
+            except Exception:
+                p = None
+            suffix = ''
+            a = (action or '').upper()
+            if a == 'INCREASE':
+                suffix = f" Increase of {int(round(p))}% to improve profit." if p is not None else " Increase to improve profit."
+            elif a == 'DECREASE':
+                suffix = f" Decrease of {int(round(p))}% to boost sales." if p is not None else " Decrease to boost sales."
+            c = (conf or '').upper()
+            if c:
+                label = 'High' if c.startswith('H') else 'Medium' if c.startswith('M') else 'Low'
+                suffix += f" Confidence: {label}."
+            return (t + suffix).strip()
+
+        if prs:
+            rows = [['Date', 'Product', 'Previous Price', 'New Price', 'Change %', 'Action', 'Reason']]
+            for pr in prs:
+                name = pr.product.name if pr.product else 'Unknown'
+                q = getattr(pr.product, 'quantity_unit', '') if pr.product else ''
+                if q:
+                    name = f"{name} ({q})"
+                change_label = f"{float(pr.change_pct):.1f}%" if pr.change_pct is not None else '—'
+                rows.append([
+                    pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A',
+                    name[:30],
+                    f"₱{float(pr.current_price or 0):,.2f}",
+                    f"₱{float(pr.suggested_price or 0):,.2f}",
+                    change_label,
+                    (pr.action or '—'),
+                    _fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence)
+                ])
+
+            price_col_widths = [60, 120, 70, 70, 50, 60, available_width - (60+120+70+70+50+60) - 10]
+            pricing_table = Table(rows, repeatRows=1, colWidths=price_col_widths)
+            pricing_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3b82f6')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 8),
+                ('FONTSIZE', (0,1), (-1,-1), 7),
+                ('ALIGN', (2,1), (5,-1), 'RIGHT'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elems.append(pricing_table)
+        else:
+            elems.append(Paragraph("No accepted pricing changes in this period.", styles['Normal']))
+    except Exception:
+        elems.append(Paragraph("Accepted pricing data unavailable.", styles['Normal']))
+
     doc.build(elems)
     pdf = buffer.getvalue()
     buffer.close()
@@ -4253,11 +4744,9 @@ def profile_view(request):
                 if not current_password_valid:
                     errors.append('Current password is incorrect.')
 
-        google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
-
-        if google_enabled and not request.POST.get('email', '').strip():
-            errors.append('Email is required when enabling Google sign-in.')
+        # Google toggle removed; email validation retained
         email = request.POST.get('email', '').strip()
+        email_verified_flag = (request.POST.get('email_verified') or '').strip().lower() == 'true'
         if email:
             try:
                 validate_email(email)
@@ -4287,16 +4776,20 @@ def profile_view(request):
             if picture_file:
                 changes.append('profile picture')
             if email and email != old_email:
-                changes.append('email')
-            if google_enabled != user_obj.allow_google_login:
-                changes.append('Google login settings')
+                if email_verified_flag:
+                    changes.append('email')
             
             # Update user
             user_obj.full_name = full_name or user_obj.full_name
             user_obj.username = username_input or user_obj.username
             user_obj.phone_number = phone or user_obj.phone_number
-            user_obj.email = email if email else None
-            user_obj.allow_google_login = google_enabled
+            if email and email != old_email:
+                if email_verified_flag:
+                    user_obj.email = email
+                else:
+                    errors.append('Please verify the new email address using the code sent to it.')
+            else:
+                user_obj.email = email if email else None
             if new_pw:
                 user_obj.password = bcrypt.hash(new_pw)
             # Save picture if provided
@@ -4347,7 +4840,6 @@ def profile_view(request):
             'profile_picture': user.profile_picture,
             'is_active': user.is_active,
             'email': user.email if hasattr(user, 'email') else None,
-            'allow_google_login': user.allow_google_login,
         } for user in secretary_users]
 
     context = {
@@ -4358,6 +4850,285 @@ def profile_view(request):
         'all_users': all_users,
     }
     return render(request, 'profile_full.html', context)
+
+@require_app_login
+@require_http_methods(["POST"]) 
+def start_email_change(request):
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except AppUser.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found.'})
+    if (user_obj.role or '').lower() == 'secretary':
+        return JsonResponse({'success': False, 'message': 'Unauthorized. Please contact an admin to change email.'}, status=403)
+    new_email = (request.POST.get('new_email') or '').strip()
+    current_pw = request.POST.get('current_password', '')
+    if not new_email:
+        return JsonResponse({'success': False, 'message': 'Enter a valid email.'})
+    try:
+        validate_email(new_email)
+    except ValidationError:
+        return JsonResponse({'success': False, 'message': 'Enter a valid email address.'})
+    if AppUser.objects.filter(email__iexact=new_email).exclude(user_id=user_obj.user_id).exists():
+        return JsonResponse({'success': False, 'message': 'Email is already in use by another account.'})
+    # Cooldown: prevent resending within expiry window (same as password recovery)
+    sent_at_ts = request.session.get('pending_email_change_sent_at', 0)
+    if sent_at_ts:
+        now_ts = timezone.now().timestamp()
+        remaining = int(settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60 - (now_ts - sent_at_ts))
+        if remaining > 0:
+            return JsonResponse({'success': False, 'message': 'Please wait before requesting a new code.', 'seconds_remaining': remaining})
+
+    stored_password = user_obj.password
+    current_password_valid = False
+    if stored_password.startswith('$2y$'):
+        python_hash = stored_password.replace('$2y$', '$2b$', 1)
+        try:
+            current_password_valid = bcrypt.verify(current_pw, python_hash)
+        except Exception:
+            current_password_valid = bcrypt.verify(current_pw, stored_password)
+    else:
+        try:
+            current_password_valid = bcrypt.verify(current_pw, stored_password)
+        except Exception:
+            current_password_valid = False
+    if not current_password_valid:
+        return JsonResponse({'success': False, 'message': 'Current password is incorrect.'})
+    if not (user_obj.email or '').strip():
+        return JsonResponse({'success': False, 'message': 'Your current email is not set. Please contact an administrator.'})
+    code = _generate_two_factor_code()
+    expires = timezone.now() + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
+    request.session['pending_email_change_email'] = new_email
+    request.session['pending_email_change_code'] = code
+    request.session['pending_email_change_expiry'] = expires.timestamp()
+    request.session['pending_email_change_attempts'] = 0
+    request.session['pending_email_change_sent_at'] = timezone.now().timestamp()
+    subject = 'Confirm your new email for StockWise'
+    display_name = (getattr(user_obj, 'full_name', '') or user_obj.username or 'StockWise user').strip()
+    ctx = {
+        'recipient_name': display_name,
+        'code': code,
+        'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+        'new_email': new_email,
+        'old_email': user_obj.email or ''
+    }
+    text_body = render_to_string('emails/email_change_code.txt', ctx)
+    html_body = render_to_string('emails/email_change_code.html', ctx)
+    email_msg = mail.EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user_obj.email],
+    )
+    email_msg.attach_alternative(html_body, 'text/html')
+    try:
+        email_msg.send(fail_silently=False)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': f'Unable to send verification code: {exc}'})
+    return JsonResponse({'success': True, 'message': 'A verification code was sent to your current email.'})
+
+@require_app_login
+@require_http_methods(["POST"]) 
+def verify_email_change(request):
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except AppUser.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found.'})
+    if (user_obj.role or '').lower() == 'secretary':
+        return JsonResponse({'success': False, 'message': 'Unauthorized. Please contact an admin to change email.'}, status=403)
+    code = (request.POST.get('code') or '').strip()
+    pending_email = request.session.get('pending_email_change_email')
+    pending_code = request.session.get('pending_email_change_code')
+    pending_expiry = request.session.get('pending_email_change_expiry')
+    attempts = int(request.session.get('pending_email_change_attempts') or 0)
+    if not (pending_email and pending_code and pending_expiry):
+        return JsonResponse({'success': False, 'message': 'No pending email change request.'})
+    now_ts = timezone.now().timestamp()
+    if now_ts > float(pending_expiry):
+        for k in ['pending_email_change_email','pending_email_change_code','pending_email_change_expiry','pending_email_change_attempts']:
+            request.session.pop(k, None)
+        return JsonResponse({'success': False, 'message': 'Verification code has expired.'})
+    if code != str(pending_code):
+        attempts += 1
+        request.session['pending_email_change_attempts'] = attempts
+        return JsonResponse({'success': False, 'message': 'Invalid verification code.'})
+    old_email = user_obj.email or ''
+    user_obj.email = pending_email
+    user_obj.save(update_fields=['email'])
+    for k in ['pending_email_change_email','pending_email_change_code','pending_email_change_expiry','pending_email_change_attempts']:
+        request.session.pop(k, None)
+    log_action(request, 'Email changed', f'Email updated from {old_email} to {user_obj.email}.', user=user_obj)
+    subject = 'Welcome to StockWise'
+    display_name = (getattr(user_obj, 'full_name', '') or user_obj.username or 'StockWise user').strip()
+    ctx = {
+        'recipient_name': display_name,
+        'new_email': user_obj.email,
+        'old_email': old_email,
+    }
+    text_body = render_to_string('emails/email_change_welcome.txt', ctx)
+    html_body = render_to_string('emails/email_change_welcome.html', ctx)
+    welcome = mail.EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user_obj.email],
+    )
+    welcome.attach_alternative(html_body, 'text/html')
+    try:
+        welcome.send(fail_silently=False)
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'message': 'Email updated successfully.', 'email_verified': True})
+
+@require_app_login
+@require_http_methods(["POST"]) 
+def admin_start_secretary_email_change(request):
+    if (request.session.get('app_role') or '').lower() != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized. Admin access required.'}, status=403)
+    try:
+        target_user_id = int(request.POST.get('user_id') or 0)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid user id.'})
+    new_email = (request.POST.get('new_email') or '').strip()
+    try:
+        target = AppUser.objects.get(user_id=target_user_id)
+    except AppUser.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found.'})
+    if (target.role or '').lower() != 'secretary':
+        return JsonResponse({'success': False, 'message': 'Only secretary accounts are supported.'})
+    if not new_email:
+        return JsonResponse({'success': False, 'message': 'Enter a valid email.'})
+    try:
+        validate_email(new_email)
+    except ValidationError:
+        return JsonResponse({'success': False, 'message': 'Enter a valid email address.'})
+    if AppUser.objects.filter(email__iexact=new_email).exclude(user_id=target.user_id).exists():
+        return JsonResponse({'success': False, 'message': 'Email is already in use by another account.'})
+    sent_at_ts = request.session.get('admin_sec_email_change_sent_at', 0)
+    if sent_at_ts:
+        now_ts = timezone.now().timestamp()
+        remaining = int(settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60 - (now_ts - sent_at_ts))
+        if remaining > 0:
+            return JsonResponse({'success': False, 'message': 'Please wait before requesting a new code.', 'seconds_remaining': remaining})
+    code = _generate_two_factor_code()
+    expires = timezone.now() + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
+    request.session['admin_sec_email_change_user_id'] = target_user_id
+    request.session['admin_sec_email_change_new_email'] = new_email
+    request.session['admin_sec_email_change_code'] = code
+    request.session['admin_sec_email_change_expiry'] = expires.timestamp()
+    request.session['admin_sec_email_change_attempts'] = 0
+    request.session['admin_sec_email_change_sent_at'] = timezone.now().timestamp()
+    subject = 'Confirm new email for Secretary'
+    display_name = (getattr(target, 'full_name', '') or target.username or 'Secretary').strip()
+    ctx = {
+        'recipient_name': display_name,
+        'code': code,
+        'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+        'new_email': new_email,
+        'old_email': target.email or ''
+    }
+    text_body = render_to_string('emails/email_change_code.txt', ctx)
+    html_body = render_to_string('emails/email_change_code.html', ctx)
+    email_msg = mail.EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[new_email],
+    )
+    email_msg.attach_alternative(html_body, 'text/html')
+    try:
+        email_msg.send(fail_silently=False)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'message': f'Unable to send verification code: {exc}'})
+    return JsonResponse({'success': True, 'message': 'A verification code was sent to the new email.'})
+
+@require_app_login
+@require_http_methods(["POST"]) 
+def admin_verify_secretary_email_change(request):
+    if (request.session.get('app_role') or '').lower() != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized. Admin access required.'}, status=403)
+    try:
+        target_user_id = int(request.POST.get('user_id') or 0)
+    except Exception:
+        return JsonResponse({'success': False, 'message': 'Invalid user id.'})
+    code = (request.POST.get('code') or '').strip()
+    pending_user_id = int(request.session.get('admin_sec_email_change_user_id') or 0)
+    pending_email = request.session.get('admin_sec_email_change_new_email')
+    pending_code = request.session.get('admin_sec_email_change_code')
+    pending_expiry = request.session.get('admin_sec_email_change_expiry')
+    attempts = int(request.session.get('admin_sec_email_change_attempts') or 0)
+    if not (pending_user_id and pending_email and pending_code and pending_expiry):
+        return JsonResponse({'success': False, 'message': 'No pending email change request.'})
+    if pending_user_id != target_user_id:
+        return JsonResponse({'success': False, 'message': 'Mismatched request user.'})
+    now_ts = timezone.now().timestamp()
+    if now_ts > float(pending_expiry):
+        for k in ['admin_sec_email_change_user_id','admin_sec_email_change_new_email','admin_sec_email_change_code','admin_sec_email_change_expiry','admin_sec_email_change_attempts','admin_sec_email_change_sent_at']:
+            request.session.pop(k, None)
+        return JsonResponse({'success': False, 'message': 'Verification code has expired.'})
+    if code != str(pending_code):
+        attempts += 1
+        request.session['admin_sec_email_change_attempts'] = attempts
+        return JsonResponse({'success': False, 'message': 'Invalid verification code.'})
+    try:
+        target = AppUser.objects.get(user_id=target_user_id)
+    except AppUser.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found.'})
+    old_email = target.email or ''
+    target.email = pending_email
+    target.save(update_fields=['email'])
+    for k in ['admin_sec_email_change_user_id','admin_sec_email_change_new_email','admin_sec_email_change_code','admin_sec_email_change_expiry','admin_sec_email_change_attempts','admin_sec_email_change_sent_at']:
+        request.session.pop(k, None)
+    log_action(request, 'Secretary email changed', f'Email updated from {old_email} to {target.email}.', user=target)
+    subject = 'Welcome to StockWise'
+    display_name = (getattr(target, 'full_name', '') or target.username or 'Secretary').strip()
+    ctx = {
+        'recipient_name': display_name,
+        'new_email': target.email,
+        'old_email': old_email,
+    }
+    text_body = render_to_string('emails/email_change_welcome.txt', ctx)
+    html_body = render_to_string('emails/email_change_welcome.html', ctx)
+    welcome = mail.EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[target.email],
+    )
+    welcome.attach_alternative(html_body, 'text/html')
+    try:
+        welcome.send(fail_silently=False)
+    except Exception:
+        pass
+    try:
+        admin_emails = list(AppUser.objects.filter(role__iexact='Admin').exclude(email__isnull=True).exclude(email='').values_list('email', flat=True))
+        if admin_emails:
+            admin_subject = 'StockWise: Secretary Email Updated'
+            admin_ctx = {
+                'secretary_name': (getattr(target, 'full_name', '') or target.username or 'Secretary').strip(),
+                'username': target.username,
+                'old_email': old_email,
+                'new_email': target.email,
+                'changed_at': timezone.localtime(timezone.now()).strftime('%b %d, %Y %I:%M %p'),
+            }
+            admin_text = render_to_string('emails/secretary_email_update_admin.txt', admin_ctx)
+            admin_html = render_to_string('emails/secretary_email_update_admin.html', admin_ctx)
+            admin_email = mail.EmailMultiAlternatives(
+                subject=admin_subject,
+                body=admin_text,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=admin_emails,
+            )
+            admin_email.attach_alternative(admin_html, 'text/html')
+            try:
+                admin_email.send(fail_silently=False)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return JsonResponse({'success': True, 'message': 'Secretary email updated successfully.'})
 
 
 @require_app_login
@@ -4547,7 +5318,6 @@ def toggle_user_status(request):
             'email': user.email or '',
             'profile_picture': user.profile_picture or '',
             'is_active': user.is_active,
-            'allow_google_login': user.allow_google_login,
         }
         log_action(
             request,
@@ -4577,7 +5347,7 @@ def update_secretary_account(request):
         phone_number = request.POST.get('phone_number', '').strip()
         email = request.POST.get('email', '').strip()
         
-        google_enabled = request.POST.get('google_oauth_enabled') in ('on', 'true', '1')
+        # Google toggle removed
         
         if not user_id:
             return JsonResponse({'success': False, 'message': 'User ID is required.'})
@@ -4602,8 +5372,7 @@ def update_secretary_account(request):
             return JsonResponse({'success': False, 'message': 'Username is required.'})
         if password and not _is_strong_password(password):
             return JsonResponse({'success': False, 'message': 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.'})
-        if google_enabled and not email:
-            return JsonResponse({'success': False, 'message': 'Email is required when enabling Google sign-in.'})
+        # No special validation based on Google toggle
         
         # Check if username is already taken by another user
         existing_user = AppUser.objects.filter(username=username).exclude(user_id=user_id).first()
@@ -4617,8 +5386,9 @@ def update_secretary_account(request):
         if password:
             user.password = bcrypt.hash(password)
         user.phone_number = phone_number if phone_number else ''
-        user.email = email if email else None
-        user.allow_google_login = google_enabled
+        email_verified_flag = (request.POST.get('sec_email_change_verified') or '').strip().lower() in ('1','true')
+        if email_verified_flag:
+            user.email = email if email else None
         
         # Handle profile picture if provided
         picture_file = request.FILES.get('profile_picture')
@@ -4648,7 +5418,6 @@ def update_secretary_account(request):
                 'email': user.email,
                 'profile_picture': user.profile_picture,
                 'is_active': user.is_active,
-                'allow_google_login': user.allow_google_login,
             }
         })
     
@@ -4663,7 +5432,8 @@ def fetch_products(request):
     search = request.GET.get('search', '').strip()
     filter_status = request.GET.get('filter', 'All Products')
     supplier_filter = request.GET.get('supplier', 'all')
-    fruit_filter = request.GET.get('fruit', 'all')
+    unit_filter = request.GET.get('unit', 'all')
+    fruit_filter = request.GET.get('product', request.GET.get('fruit', 'all'))
 
     # Only show items that are actually in inventory; if field missing, fallback
     try:
@@ -4671,18 +5441,33 @@ def fetch_products(request):
     except Exception:
         products_qs = Product.objects.none()
     if search:
-        products_qs = products_qs.filter(Q(name__icontains=search) | Q(size__icontains=search))
-    if filter_status == 'active':
+        search_q = Q(name__icontains=search) \
+                   | Q(quantity_unit__icontains=search) \
+                   | Q(variant__icontains=search) \
+                   | Q(supplier__icontains=search)
+        try:
+            if str(search).isdigit():
+                search_q = search_q | Q(product_id=int(search))
+        except Exception:
+            pass
+        products_qs = products_qs.filter(search_q)
+    norm_filter = (filter_status or '').strip().lower()
+    if norm_filter in ['active', 'active only']:
         products_qs = products_qs.filter(status='active')
-    elif filter_status == 'Low Stock':
-        # Define low stock as less than 10 items
-        products_qs = products_qs.filter(stock__lt=10, stock__gt=0)
-    elif filter_status == 'Out of Stock':
+    elif norm_filter == 'low stock':
+        products_qs = products_qs.filter(stock__lte=10, stock__gt=0)
+    elif norm_filter == 'out of stock':
         products_qs = products_qs.filter(stock=0)
-    elif filter_status != 'All Products':
-        products_qs = products_qs.filter(status=filter_status.lower())
+    elif norm_filter not in ['all products', '']:
+        products_qs = products_qs.filter(status=norm_filter)
     
-    # Apply supplier filter if specified
+    # Apply unit filter if specified
+    if unit_filter and unit_filter != 'all':
+        if unit_filter == 'kilo':
+            products_qs = products_qs.filter(quantity_unit__icontains='kilo')
+        elif unit_filter == 'box':
+            products_qs = products_qs.exclude(quantity_unit__icontains='kilo')
+    # Apply supplier filter if specified (kept for backward compatibility elsewhere)
     if supplier_filter and supplier_filter != 'all':
         products_qs = products_qs.filter(supplier=supplier_filter)
     
@@ -4871,6 +5656,7 @@ def fetch_stock_details(request, product_id):
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
             'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
+            'addition_id': b.addition_id,
             'batch_ids': group_visible_ids,
         })
     return JsonResponse({
@@ -4901,31 +5687,90 @@ def fetch_built_in_products(request):
     """Return unique built-in product names from CSV for the Add Product modal autocomplete."""
     try:
         search = (request.GET.get('search') or '').strip().lower()
-        csv_path = os.path.join(settings.BASE_DIR, 'fruit_master_full.csv')
-        if not os.path.exists(csv_path):
-            return JsonResponse({'success': True, 'data': []})
+        project_root = str(getattr(settings, 'BASE_DIR'))
+        csv_path = os.path.join(project_root, 'media', 'builtins', 'fruit_master_full.csv')
         names = []
         seen = set()
-        with open(csv_path, newline='', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                row_l = {k.lower(): (v or '').strip() for k, v in row.items()}
-                base = row_l.get('name') or row_l.get('fruit') or row_l.get('product') or ''
+        try:
+            if os.path.exists(csv_path):
+                try:
+                    with open(csv_path, 'r', encoding='utf-8', newline='') as f:
+                        rdr = csv.reader(f)
+                        _ = next(rdr, None)
+                        for row in rdr:
+                            if not row:
+                                continue
+                            base = (row[0] if len(row) > 0 else '').strip()
+                            if not base:
+                                continue
+                            if '(' in base and ')' in base:
+                                try:
+                                    base = base.split('(')[0].strip()
+                                except Exception:
+                                    pass
+                            key = base.lower()
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                            names.append({'name': base})
+                except Exception:
+                    with open(csv_path, 'r', encoding='utf-8') as f:
+                        text = f.read()
+                    lines = [ln for ln in text.splitlines() if ln.strip()]
+                    for ln in lines[1:]:
+                        parts = ln.split(',')
+                        base = (parts[0] if parts else '').strip()
+                        if not base:
+                            continue
+                        if '(' in base and ')' in base:
+                            try:
+                                base = base.split('(')[0].strip()
+                            except Exception:
+                                pass
+                        key = base.lower()
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        names.append({'name': base})
+        except Exception:
+            names = []
+        # Include product names already present in the database as well (non-CSV)
+        try:
+            db_products = Product.objects.values('name', 'variant')
+            for p in db_products:
+                base = (p.get('name') or '').strip()
                 if not base:
                     continue
+                # If the name already includes a parenthetical variant, strip it out
                 if '(' in base and ')' in base:
                     try:
                         base = base.split('(')[0].strip()
                     except Exception:
                         pass
+                # Ensure we only keep base names; variants handled separately
                 key = base.lower()
-                if search and search not in key:
-                    continue
                 if key in seen:
                     continue
                 seen.add(key)
                 names.append({'name': base})
-        return JsonResponse({'success': True, 'data': names})
+        except Exception:
+            # Fail silently so that CSV names are still returned even if DB query fails
+            pass
+
+        # Optional search filtering (case-insensitive contains)
+        if search:
+            names = [n for n in names if search in n['name'].lower()]
+
+        # Sort alphabetically for consistent dropdown ordering
+        names.sort(key=lambda x: x['name'].lower())
+
+        sample = [n.get('name') for n in names[:10]]
+        try:
+            exists = os.path.exists(csv_path)
+            print(f"fetch_built_in_products -> exists={exists} path={csv_path} count={len(names)} sample={sample}")
+        except Exception:
+            pass
+        return JsonResponse({'success': True, 'data': names, 'meta': {'count': len(names), 'csv_path': csv_path, 'sample': sample}})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
@@ -4938,10 +5783,54 @@ def fruit_master_search(request):
 
 @require_GET
 def fruit_master_sizes(request):
-    """Return unified numeric quantity options regardless of product name."""
+    """Return quantity suggestions from CSV for a given product and optional variant."""
     try:
-        # Always return the unified list
-        return JsonResponse({'success': True, 'data': STANDARD_SIZE_OPTIONS})
+        base_name = (request.GET.get('name') or '').strip().lower()
+        variant = (request.GET.get('variant') or '').strip().lower()
+        project_root = str(getattr(settings, 'BASE_DIR'))
+        csv_path = os.path.join(project_root, 'media', 'builtins', 'fruit_master_full.csv')
+        if not os.path.exists(csv_path) or not base_name:
+            return JsonResponse({'success': True, 'data': []})
+        values = set()
+        # CSV sizes
+        if os.path.exists(csv_path):
+            with open(csv_path, 'r', encoding='utf-8') as rf:
+                lines = rf.read().splitlines()
+            for line in lines[1:]:
+                parts = [p.strip() for p in line.split(',')]
+                if len(parts) < 3:
+                    continue
+                name_val = parts[0]
+                var_val = parts[1]
+                qty_val = parts[2]
+                if '(' in name_val and ')' in name_val:
+                    try:
+                        name_val = name_val.split('(')[0].strip()
+                    except Exception:
+                        pass
+                if name_val.lower() != base_name:
+                    continue
+                if variant and var_val.lower() != variant:
+                    continue
+                if qty_val:
+                    values.add(qty_val)
+        # DB sizes
+        try:
+            db_qs = Product.objects.filter(name__istartswith=base_name)
+            if variant:
+                db_qs = db_qs.filter(variant__iexact=variant)
+            for prod in db_qs:
+                unit_val = (prod.quantity_unit or '').strip()
+                if unit_val:
+                    values.add(unit_val)
+        except Exception:
+            pass
+        # Return sorted numerically when possible
+        try:
+            sorted_vals = sorted(values, key=lambda x: (Decimal(str(x)) if str(x).replace('.','',1).isdigit() else Decimal('0'), str(x)))
+        except Exception:
+            sorted_vals = sorted(values)
+        return JsonResponse({'success': True, 'data': sorted_vals})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
 
@@ -4953,34 +5842,42 @@ def fruit_master_variants(request):
         base_name = (request.GET.get('name') or '').strip().lower()
         if not base_name:
             return JsonResponse({'success': True, 'data': []})
-        csv_path = os.path.join(settings.BASE_DIR, 'fruit_master_full.csv')
-        if not os.path.exists(csv_path):
-            return JsonResponse({'success': True, 'data': []})
+        project_root = str(getattr(settings, 'BASE_DIR'))
+        csv_path = os.path.join(project_root, 'media', 'builtins', 'fruit_master_full.csv')
         variants = set()
-        with open(csv_path, newline='', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                row_l = {k.lower(): (v or '').strip() for k, v in row.items()}
-                name_val = row_l.get('name') or row_l.get('fruit') or row_l.get('product') or ''
-                if not name_val:
-                    continue
-                norm = name_val
-                if '(' in norm and ')' in norm:
+        try:
+            # CSV variants
+            if os.path.exists(csv_path):
+                with open(csv_path, 'r', encoding='utf-8', newline='') as f:
+                    rdr = csv.reader(f)
+                    header = next(rdr, None)
+                    for row in rdr:
+                        if not row or len(row) < 2:
+                            continue
+                        base = (row[0] or '').strip()
+                        if '(' in base and ')' in base:
+                            try:
+                                base = base.split('(')[0].strip()
+                            except Exception:
+                                pass
+                        if base.lower() != base_name:
+                            continue
+                        var_val = (row[1] or '').strip()
+                        if var_val:
+                            variants.add(var_val)
+            # DB variants
+            db_qs = Product.objects.filter(name__istartswith=base_name)
+            for prod in db_qs:
+                var_val = (prod.variant or '').strip()
+                if not var_val and '(' in prod.name and ')' in prod.name:
                     try:
-                        norm = norm.split('(')[0].strip()
+                        var_val = prod.name.split('(')[1].split(')')[0].strip()
                     except Exception:
-                        pass
-                if norm.lower() != base_name:
-                    continue
-                var_val = row_l.get('variant') or row_l.get('variety') or row_l.get('type') or ''
-                if not var_val and '(' in (row_l.get('name') or '') and ')' in (row_l.get('name') or ''):
-                    try:
-                        _, v = (row_l.get('name') or '').rsplit('(', 1)
-                        var_val = v.rstrip(')').strip()
-                    except Exception:
-                        pass
+                        var_val = ''
                 if var_val:
                     variants.add(var_val)
+        except Exception:
+            variants = set()
         return JsonResponse({'success': True, 'data': sorted(variants)})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
@@ -5027,31 +5924,65 @@ def record_sale(request):
 
             year = timezone.now().year
             created_sales = []
+            # All sales in a single POST are part of one transaction
+            transaction_number = f"TXN-{int(timezone.now().timestamp())}-{random.randint(1000, 9999)}"
             total_amount = Decimal('0')
 
+            prepared = []
+            pre_total = Decimal('0')
             for item in items:
                 product_id = item.get('product_id')
                 quantity = int(item.get('quantity', 0))
                 if not product_id or quantity <= 0:
                     continue
-
-                # Normalize status to handle capitalized values in DB
                 product = Product.objects.filter(product_id=product_id, status__iexact='active').first()
                 if not product:
                     raise ValidationError(f'Product not found or inactive: {product_id}')
-
-                # Ensure stock
                 if product.stock < quantity:
                     raise ValidationError(f'Insufficient stock for {product.name}. Available: {product.stock}, Requested: {quantity}')
-
-                # Accept client-generated transaction and OR numbers
-                transaction_number = request.POST.get('transaction_number', '')
-                or_number = request.POST.get('or_number', '')
-
                 posted_price = request.POST.get('price')
                 unit_price = Decimal(str(posted_price)) if posted_price else Decimal(product.price)
                 line_total = unit_price * quantity
+                prepared.append({
+                    'product': product,
+                    'quantity': quantity,
+                    'unit_price': unit_price,
+                    'line_total': line_total
+                })
+                pre_total += line_total
 
+            dpct = request.POST.get('discount_pct')
+            damt = request.POST.get('discount_amount')
+            try:
+                discount_pct = Decimal(str(dpct or 0))
+            except Exception:
+                discount_pct = Decimal('0')
+            if discount_pct < 0:
+                discount_pct = Decimal('0')
+            if discount_pct > 100:
+                discount_pct = Decimal('100')
+            try:
+                discount_amount = Decimal(str(damt or 0))
+            except Exception:
+                discount_amount = Decimal('0')
+            if pre_total > 0 and discount_amount <= 0 and discount_pct > 0:
+                discount_amount = (pre_total * discount_pct) / Decimal('100')
+            if discount_amount < 0:
+                discount_amount = Decimal('0')
+            if discount_amount > pre_total:
+                discount_amount = pre_total
+
+            discounted_total = pre_total - discount_amount
+            change_value = amount_paid - discounted_total
+            or_number = request.POST.get('or_number', '')
+
+            for entry in prepared:
+                product = entry['product']
+                quantity = entry['quantity']
+                unit_price = entry['unit_price']
+                line_total = entry['line_total']
+                share = (discount_amount * line_total / pre_total) if pre_total > 0 else Decimal('0')
+                line_total_after = line_total - share
                 sale_row = Sale.objects.create(
                     product=product,
                     quantity=quantity,
@@ -5062,30 +5993,26 @@ def record_sale(request):
                     address=request.POST.get('address', request.POST.get('customer_address', '')),
                     contact_number=int(request.POST.get('contact_number', request.POST.get('customer_contact', 0)) or 0),
                     recorded_at=timezone.localtime(),
-                    total=line_total,
+                    total=line_total_after,
                     amount_paid=amount_paid,
-                    change_given=amount_paid - line_total,
+                    change_given=change_value,
+                    discount_pct=discount_pct,
+                    discount_amount=discount_amount,
                     status='completed',
                     user=user,
                 )
-
-                # Deduct stock using FIFO when available; fall back to simple decrement in tests
                 try:
                     deduct_stock_fifo(product.product_id, quantity)
-                    # Refresh product to get updated stock after FIFO deduction
                     product.refresh_from_db(fields=['stock'])
                 except Exception:
                     product.stock = models.F('stock') - int(quantity)
                     product.save()
                     product.refresh_from_db(fields=['stock'])
-                
-                # Check for low stock and send alert if needed (after sale)
                 if product.stock <= 10 and product.status.lower() == 'active':
                     from core.signals import send_low_stock_alert
                     send_low_stock_alert(product)
-
                 created_sales.append(sale_row.sale_id)
-                total_amount += line_total
+                total_amount += line_total_after
 
             log_action(
                 request,
@@ -5155,6 +6082,8 @@ def get_sale_details(request, sale_id):
             except Exception:
                 txn_number = ''
 
+        first_row = rows[0] if isinstance(rows, list) else sale
+        discount_amount = Decimal(str(getattr(first_row, 'discount_amount', Decimal('0')) or 0))
         return JsonResponse({
             'success': True,
             'sale': {
@@ -5162,7 +6091,7 @@ def get_sale_details(request, sale_id):
                 'transaction_number': txn_number,
                 'or_number': sale.or_number,
                 'recorded_at': sale.recorded_at.isoformat(),
-                'total': total_amount,
+                'total': float(total_amount),
                 'status': sale.status,
                 'username': sale.user.username if sale.user else 'Unknown',
                 'customer_name': getattr(sale, 'customer_name', ''),
@@ -5170,8 +6099,9 @@ def get_sale_details(request, sale_id):
                 'customer_address': getattr(sale, 'address', ''),
                 'product_count': len(items_data),
                 'total_boxes': total_boxes,
-                'amount_paid': total_amount,
-                'change_given': Decimal('0')
+                'amount_paid': float(getattr(first_row, 'amount_paid', total_amount) or 0),
+                'change_given': float(getattr(first_row, 'change_given', Decimal('0')) or 0),
+                'discount': float(discount_amount)
             },
             'items': items_data
         })
@@ -5252,6 +6182,7 @@ def stock_details(request, product_id):
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
             'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
+            'addition_id': b.addition_id,
             'batch_ids': group_visible_ids,
         })
     
@@ -5311,7 +6242,7 @@ def add_product(request):
             name = request.POST.get('name', '').strip() or request.POST.get('productName', '').strip()
             name = name.title() if name else ''
             variant = request.POST.get('variant', '').strip().title()
-            size = request.POST.get('quantity_unit', '').strip()
+            size = (request.POST.get('quantity_value', '').strip() or request.POST.get('quantity_unit', '').strip())
             quantity_unit = (request.POST.get('quantity_unit') or 'box').strip().lower()
             cost = Decimal(request.POST.get('cost', 0))
             price = Decimal(request.POST.get('price', 0))
@@ -5326,7 +6257,7 @@ def add_product(request):
                 units_per_box = int(request.POST.get('units_per_box', 1))
                 stock = boxes * units_per_box
             # Force today's date for new products (ignore client-provided value)
-            date_added = timezone.now().date()
+            product_date_added = timezone.now().date()
             supplier = request.POST.get('supplier', '').strip()
             
             # Validate required fields
@@ -5353,14 +6284,11 @@ def add_product(request):
             MIN_MARGIN = Decimal('0.10')  # 10% minimum margin
             if cost > 0 and price < cost * (1 + MIN_MARGIN):
                 min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
-                raise ValueError(f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).')
+                raise ValueError(f'Price too low. Set at least ₱{min_price} (cost ₱{cost} + 10% margin).')
             
-            # Build full product name
-            full_name = f"{name} ({variant})" if variant else name
-            
-            # Check if product already exists in INVENTORY (ignore built-ins)
-            if Product.objects.filter(name=full_name, size=size, is_built_in=False).exists():
-                raise ValueError("A product with this name and quantity already exists in your inventory.")
+            if _exists_duplicate_product(name, variant, size, quantity_unit):
+                log_action(request, 'Duplicate product attempt', f'{name} ({variant}) / {size}')
+                return JsonResponse({'success': False, 'message': 'This product with the selected variant and quantity already exists.'})
             
             # Handle image upload - check both 'image' and 'productImage' field names
             image_path = None
@@ -5383,15 +6311,16 @@ def add_product(request):
                 # Save file
                 default_storage.save(image_path, uploaded_file)
             
-            # Create product
+            # Build full name and create product
+            full_name = f"{name} ({variant})" if variant else name
             product = Product.objects.create(
                 name=full_name,
                 variant=variant,
-                size=size,
+                quantity_unit=size,
                 cost=cost,
                 price=price,
                 status=status,
-                date_added=date_added,
+                date_added=product_date_added,
                 image=image_path,
                 supplier=supplier
             )
@@ -5402,7 +6331,7 @@ def add_product(request):
                 StockAddition.objects.create(
                     product=product,
                     quantity=stock,
-                    date_added=date_added,
+                    date_added=timezone.now(),
                     remaining_quantity=stock,
                     batch_id=batch_id
                 )
@@ -5416,6 +6345,45 @@ def add_product(request):
                 'Product added',
                 f'Added product {full_name} (ID {product.product_id}) with stock {stock}.'
             )
+            try:
+                csv_path = getattr(settings, 'FRUIT_MASTER_PATH', os.path.join(settings.BASE_DIR, 'fruit_master_full.csv'))
+                name_key = (name or '').strip().lower()
+                variant_key = (variant or '').strip().lower()
+                size_key = (size or '').strip()
+                exists_pair = False
+                if os.path.exists(csv_path):
+                    with open(csv_path, newline='', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            r_name = (row.get('name') or '').strip().lower()
+                            r_variant = (row.get('variant') or '').strip().lower()
+                            r_size = (row.get('size') or row.get('quantity_unit') or '').strip()
+                            if r_name == name_key and r_variant == variant_key and r_size == size_key:
+                                exists_pair = True
+                                break
+                if not exists_pair:
+                    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+                    file_exists = os.path.exists(csv_path)
+                    # Choose header compatibly with existing file
+                    header = ['name', 'variant', 'quantity_unit']
+                    if file_exists:
+                        try:
+                            with open(csv_path, newline='', encoding='utf-8') as rf:
+                                rdr = csv.reader(rf)
+                                first = next(rdr, None)
+                                if first and 'size' in first and 'quantity_unit' not in first:
+                                    header = ['name', 'variant', 'size']
+                        except Exception:
+                            pass
+                    with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+                        writer = csv.DictWriter(f, fieldnames=header)
+                        if not file_exists:
+                            writer.writeheader()
+                        payload = {'name': name, 'variant': variant}
+                        payload[header[2]] = size
+                        writer.writerow(payload)
+            except Exception:
+                pass
             
             return JsonResponse({'success': True, 'message': 'Product added successfully.'})
     
@@ -5444,11 +6412,16 @@ def edit_product(request):
             size_input = request.POST.get('quantity_unit', '').strip()
             size = size_input if size_input else product.quantity_unit
             
-            cost_input = request.POST.get('cost', '')
-            cost = Decimal(cost_input) if cost_input else product.cost
-            
-            price_input = request.POST.get('price', '')
-            price = Decimal(price_input) if price_input else product.price
+            role = request.session.get('app_role')
+            if role == 'secretary':
+                cost = product.cost
+                price = product.price
+            else:
+                cost_input = request.POST.get('cost', '')
+                cost = Decimal(cost_input) if cost_input else product.cost
+                
+                price_input = request.POST.get('price', '')
+                price = Decimal(price_input) if price_input else product.price
             
             status_input = request.POST.get('status', '')
             status = status_input.lower() if status_input else product.status
@@ -5462,16 +6435,7 @@ def edit_product(request):
                 units_per_box = int(request.POST.get('units_per_box', 1))
                 stock = boxes * units_per_box if boxes > 0 else product.stock
             
-            # Get date_added - use existing if not provided
-            date_added_str = request.POST.get('date_added') or request.POST.get('dateAdded')
-            if date_added_str:
-                from datetime import datetime
-                try:
-                    date_added = datetime.strptime(date_added_str, '%Y-%m-%d').date()
-                except:
-                    date_added = product.date_added
-            else:
-                date_added = product.date_added
+            addition_dt = timezone.now()
             
             supplier = request.POST.get('supplier', '').strip() or (product.supplier or '')
             
@@ -5510,12 +6474,9 @@ def edit_product(request):
                 min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
                 raise ValueError(f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).')
             
-            # Build full product name
-            full_name = f"{name} ({variant})" if variant else name
-            
-            # Check if product already exists (excluding current product)
-            if Product.objects.filter(name=full_name, size=size).exclude(product_id=product_id).exists():
-                raise ValueError("A product with this name and quantity already exists.")
+            if _exists_duplicate_product(name, variant, size, 'kilo' if (size or '').strip().lower() == 'kilo' else 'box', exclude_id=product_id):
+                log_action(request, 'Duplicate product attempt', f'{name} ({variant}) / {size} already exists (edit)')
+                raise ValueError("Duplicate product detected - this combination already exists in the system")
             
             # Handle image upload - check both 'image' and 'productImage' field names
             uploaded_file = None
@@ -5539,13 +6500,13 @@ def edit_product(request):
                 product.image = image_path
             
             # Update product
+            full_name = f"{name} ({variant})" if variant else name
             product.name = full_name
             product.variant = variant
             product.quantity_unit = size
             product.cost = cost
             product.price = price
             product.status = status
-            product.date_added = date_added
             product.supplier = supplier
             product.save()
             
@@ -5559,7 +6520,7 @@ def edit_product(request):
                 StockAddition.objects.create(
                     product=product,
                     quantity=stock_difference,
-                    date_added=date_added,
+                    date_added=addition_dt,
                     remaining_quantity=stock_difference,
                     batch_id=batch_id
                 )
@@ -5628,9 +6589,7 @@ def update_product_status(request):
 
 # Helper functions
 def generate_batch_id(product, name, variant):
-    """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>.
-    SS ranges 01-99 and resets per product/quantity per day.
-    """
+    """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>."""
     from datetime import date
     
     # Clean name (remove variant if present)
@@ -5640,26 +6599,24 @@ def generate_batch_id(product, name, variant):
     
     fruit_acr = get_acronym(base_name)
     variant_acr = get_acronym(variant) if variant else ''
-    size_full = str(product.quantity_unit) if product.quantity_unit else ''
-    
+    size_clean = str(product.quantity_unit or '').replace('-', '')
     today = date.today()
     date_part = f"{today.month:02d}{today.day:02d}{today.year}"
-    
-    # Sequence increments per product and wraps at 99 (not daily)
-    existing_total = StockAddition.objects.filter(
-        product=product
-    ).count()
-    sequence = (existing_total % 99) + 1
-    seq_part = f"{sequence:02d}"
-    
-    parts = [fruit_acr]
+    prefix_parts = [fruit_acr]
     if variant_acr:
-        parts.append(variant_acr)
-    if size_full:
-        parts.append(size_full)
-    parts.append(date_part)
-    parts.append(seq_part)
-    return ''.join(parts)
+        prefix_parts.append(variant_acr)
+    if size_clean:
+        prefix_parts.append(size_clean)
+    prefix_parts.append(date_part)
+    base_prefix = ''.join(prefix_parts)
+    last = StockAddition.objects.filter(product=product, batch_id__startswith=base_prefix).order_by('-addition_id').first()
+    try:
+        last_seq = int((last.batch_id or '')[-2:]) if last else 0
+    except Exception:
+        last_seq = 0
+    last_qty = int(getattr(last, 'quantity', 0) or 0)
+    next_seq = ((max(0, last_seq) - 1 + last_qty) % 99) + 1 if last else 1
+    return f"{base_prefix}{next_seq:02d}"
 
 
 def get_acronym(text):
@@ -5705,6 +6662,12 @@ def deduct_stock_fifo(product_id, quantity):
     ).aggregate(total=models.Sum('remaining_quantity'))['total'] or 0
     total_remaining = max(0, int(total_remaining))
     Product.objects.filter(product_id=product_id).update(stock=total_remaining)
+    try:
+        p = Product.objects.get(product_id=product_id)
+        p.stock = total_remaining
+        p.save(update_fields=['stock'])
+    except Exception:
+        pass
 
 
 def _expand_batch_box_ids(batch_id, quantity):
@@ -5839,11 +6802,16 @@ def sms_settings_view(request):
         .annotate(quantity=Sum('quantity'))
         .order_by('-quantity')[:3])
     
-    # Low stock products
+    # Low stock and out-of-stock products
     low_stock_products = Product.objects.filter(
         status='active',
-        stock__lte=10
+        stock__lte=10,
+        stock__gt=0
     ).order_by('stock')[:5]
+    out_of_stock_products = Product.objects.filter(
+        status='active',
+        stock=0
+    ).order_by('name')[:5]
 
     # Get SMS notification settings
     from core.models import SMSNotificationSettings
@@ -5859,6 +6827,7 @@ def sms_settings_view(request):
         'today_stats': today_stats,
         'top_products': top_products,
         'low_stock_products': low_stock_products,
+        'out_of_stock_products': out_of_stock_products,
         'today_date': today,
         'user_obj': user_obj,
     }
@@ -5940,9 +6909,11 @@ def test_notification_type(request):
         notification_type = request.POST.get('type', 'sales')
         user_id = request.session.get('app_user_id')
         user_obj = AppUser.objects.get(user_id=user_id)
-        
         if not user_obj.phone_number:
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
+        now = timezone.localtime()
+        today = now.date()
+        product = Product.objects.filter(status='active').first() or Product.objects.first()
 
         # Generate real data message based on notification type
         if notification_type == 'sales':
@@ -6027,7 +6998,7 @@ def test_notification_type(request):
                 
                 # Get recent sales data (last 30 days)
                 end_date = timezone.localtime()
-                start_date = end_date - timezone.timedelta(days=30)
+                start_date = end_date - timezone.timedelta(days=3)
                 
                 sales = Sale.objects.filter(
                     recorded_at__gte=start_date,
@@ -6139,27 +7110,75 @@ def test_notification_type(request):
             # Fallback generic message (should rarely be used)
             message = "STOCKWISE Test Message\n\nSMS system is working correctly.\n\n- STOCKWISE System"
         
+        # Cooldown checks per type
+        try:
+            if notification_type == 'sales':
+                if SMS.objects.filter(user=user_obj, message_type='sales_summary_daily', sent_at__date=today).exists():
+                    next_dt = timezone.make_aware(datetime.combine(today + timezone.timedelta(days=1), datetime.min.time()))
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'Daily Sales already sent today',
+                        'cooldown_active': True,
+                        'next_allowed_at': format_local_datetime(next_dt)
+                    }, status=429)
+            elif notification_type == 'stock':
+                last = SMS.objects.filter(user=user_obj, message_type='stock_alert').order_by('-sent_at').first()
+                if last:
+                    next_dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=30))
+                    if now < next_dt:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'Stock alerts already sent recently',
+                            'cooldown_active': True,
+                            'next_allowed_at': format_local_datetime(next_dt)
+                        }, status=429)
+            elif notification_type == 'pricing':
+                last = SMS.objects.filter(user=user_obj, message_type='pricing_alert').order_by('-sent_at').first()
+                if last:
+                    next_dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=360))
+                    if now < next_dt:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'Pricing recommendations already sent recently',
+                            'cooldown_active': True,
+                            'next_allowed_at': format_local_datetime(next_dt)
+                        }, status=429)
+        except Exception:
+            pass
+
         # Send SMS using the existing SMS service
         from core.management.commands.send_daily_sms import Command
         sms_command = Command()
         
         try:
             from core.sms_service import sms_service as _svc
-            send_success = _svc.send_sms(user_obj.phone_number, message, allow_multipart=(notification_type == 'sales'))
-            if send_success:
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=False)
+            ok = isinstance(send_result, dict) and send_result.get('success') or bool(send_result)
+            if ok:
+                try:
+                    if product:
+                        msg_type = 'sales_summary_daily' if notification_type == 'sales' else 'stock_alert' if notification_type == 'stock' else 'pricing_alert'
+                        SMS.objects.filter(product=product, user=user_obj, message_type=msg_type).delete()
+                        SMS.objects.create(
+                            product=product,
+                            user=user_obj,
+                            message_type=msg_type,
+                            demand_level='mid',
+                            message_content=message[:500]
+                        )
+                except Exception:
+                    pass
                 log_action(
                     request,
                     'Notification sent',
-                    f'Sent {notification_type} notification to {user_obj.phone_number}.'
-                )
+                    f'Sent {notification_type} notification to {user_obj.phone_number}.')
                 return JsonResponse({'success': True, 'message': f'{notification_type.capitalize()} notification sent successfully!'})
             else:
                 log_action(
                     request,
                     'Notification failed',
-                    f'Failed to send {notification_type} notification to {user_obj.phone_number}.'
-                )
-                return JsonResponse({'success': False, 'message': 'Failed to send notification'})
+                    f'Failed to send {notification_type} notification to {user_obj.phone_number}.')
+                return JsonResponse({'success': False, 'message': send_result.get('message') if isinstance(send_result, dict) else 'Failed to send notification'})
         except Exception as e:
             error_msg = str(e)
             log_action(
@@ -6376,11 +7395,10 @@ def get_notification_stats(request):
 
 def generate_and_store_pricing_recommendations():
     """
-    Helper function to generate pricing recommendations and store them with 3-day expiration.
+    Generate pricing recommendations for display only.
     
-    Uses 120 days of sales data for better statistical analysis and demand elasticity calculation.
-    However, products that have been accepted/rejected in the last 3 days are excluded from
-    new recommendations to respect the cooldown period.
+    Do not persist auto-generated recommendations. Only accepted recommendations
+    are stored for reporting.
     """
     from core.pricing_ai import DemandPricingAI, PolicyConfig
     from core.models import Sale, Product, PricingRecommendation
@@ -6388,7 +7406,7 @@ def generate_and_store_pricing_recommendations():
     import pandas as pd
     
     end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=30)
+    start_date = end_date - timedelta(days=3)
     
     sales_data = Sale.objects.filter(
         recorded_at__date__gte=start_date,
@@ -6402,19 +7420,12 @@ def generate_and_store_pricing_recommendations():
     sales_df = pd.DataFrame(list(sales_data))
     sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
     
-    # Get product catalog - exclude products that were acted upon in the last 3 days
-    from django.db import models as db_models
-    cooldown_threshold = timezone.now() - timedelta(days=3)
-    products = Product.objects.filter(
-        db_models.Q(last_pricing_action_at__isnull=True) | 
-        db_models.Q(last_pricing_action_at__lt=cooldown_threshold)
-    ).values('product_id', 'name', 'price', 'cost', 'last_pricing_action_at')
+    # Get full product catalog; field last_pricing_action_at was removed, so default to None
+    products = Product.objects.values('product_id', 'name', 'price', 'cost')
     catalog_df = pd.DataFrame(list(products))
-    catalog_df.columns = ['product_id', 'name', 'price', 'cost', 'last_change_date']
-    # Convert last_pricing_action_at to last_change_date format for pricing AI
-    catalog_df['last_change_date'] = catalog_df['last_change_date'].apply(
-        lambda x: pd.to_datetime(x).date() if pd.notna(x) else None
-    )
+    if catalog_df.empty:
+        return []
+    catalog_df['last_change_date'] = None
     
     # Configure pricing AI
     cfg = PolicyConfig(
@@ -6431,30 +7442,12 @@ def generate_and_store_pricing_recommendations():
     engine = DemandPricingAI(cfg)
     proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
     
-    # Delete expired recommendations for products that will get new recommendations
-    product_ids_to_update = proposals['product_id'].tolist()
-    PricingRecommendation.objects.filter(product_id__in=product_ids_to_update).delete()
-    
-    # Store new recommendations with 3-day expiration
-    expires_at = timezone.now() + timedelta(days=3)
     recommendations = []
     for _, row in proposals.iterrows():
         try:
             product = Product.objects.get(product_id=row['product_id'])
-            created_rec = PricingRecommendation.objects.create(
-                product=product,
-                current_price=Decimal(str(row['current_price'])),
-                suggested_price=Decimal(str(row['suggested_price'])),
-                change_pct=Decimal(str(row['change_pct'])),
-                action=row['action'],
-                reason=row['reason'],
-                elasticity=Decimal(str(row['elasticity'])) if row['elasticity'] else None,
-                r2=Decimal(str(row['r2'])) if row['r2'] else None,
-                confidence=row['confidence'],
-                expires_at=expires_at
-            )
             recommendations.append({
-                'recommendation_id': created_rec.recommendation_id,
+                'recommendation_id': None,
                 'product_id': row['product_id'],
                 'name': row['name'],
                 'variant': product.variant or '',
@@ -6470,7 +7463,6 @@ def generate_and_store_pricing_recommendations():
             })
         except Product.DoesNotExist:
             continue
-    
     return recommendations
 
 
@@ -6481,8 +7473,11 @@ def get_pricing_recommendations(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     try:
-        from core.models import PricingRecommendation
         from datetime import timedelta
+        from core.models import PricingRecommendation, ActionLog
+        # Detect silent UI loads (dashboard/offcanvas) to avoid blocking with cooldown
+        is_silent = request.GET.get('silent', '').lower() == 'true' or request.META.get('HTTP_X_SILENT', '').lower() == 'true'
+        bypass = request.GET.get('bypass_cooldown', '').lower() == 'true' or request.META.get('HTTP_X_BYPASS_COOLDOWN', '').lower() == 'true'
         
         # Check for valid (non-expired) stored recommendations
         now = timezone.now()
@@ -6517,7 +7512,33 @@ def get_pricing_recommendations(request):
                 'actionable_count': actionable_count
             })
         
-        # No valid recommendations, generate new ones
+        # No valid recommendations
+        if is_silent and not bypass:
+            # For silent UI loads, don't generate new ones; return friendly message
+            return JsonResponse({
+                'success': False,
+                'message': 'Recommendations not available yet. They update every 3 days.'
+            })
+
+        # Manual request path: enforce cooldown before generating
+        user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        now_ts = timezone.now()
+        cutoff = now_ts - timedelta(days=3)
+        last_manual = ActionLog.objects.filter(
+            user_id=user_id,
+            action__in=['Pricing recommendations generated', 'Manual pricing notification sent']
+        ).order_by('-created_at').first()
+        if not bypass and last_manual and last_manual.created_at > cutoff:
+            next_allowed = last_manual.created_at + timedelta(days=3)
+            return JsonResponse({
+                'success': False,
+                'message': 'Please wait before generating new recommendations. Cooldown is 3 days to prevent redundancy.',
+                'cooldown_active': True,
+                'next_allowed_at': format_local_datetime(next_allowed),
+                'cooldown_seconds_remaining': max(0, int((next_allowed - now_ts).total_seconds()))
+            }, status=429)
+
+        # Generate new ones now
         recommendations = generate_and_store_pricing_recommendations()
         
         if not recommendations:
@@ -7279,6 +8300,9 @@ def apply_pricing_recommendation(request):
     try:
         product_id = request.POST.get('product_id')
         new_price = float(request.POST.get('new_price'))
+        provided_action = (request.POST.get('action') or '').strip().upper()
+        provided_change_pct = request.POST.get('change_pct')
+        provided_reason = (request.POST.get('reason') or '').strip()
         
         if not product_id or new_price <= 0:
             return JsonResponse({'success': False, 'message': 'Invalid product ID or price'})
@@ -7288,12 +8312,30 @@ def apply_pricing_recommendation(request):
         product = Product.objects.get(product_id=product_id)
         old_price = product.price
         product.price = new_price
-        # Record that pricing action was taken (accepted)
-        product.last_pricing_action_at = timezone.now()
         product.save()
-        
-        # Delete any existing recommendations for this product (accepted, so remove recommendation)
-        PricingRecommendation.objects.filter(product=product).delete()
+
+        # Persist the accepted recommendation to the database for reporting
+        try:
+            change_pct = 0.0
+            if old_price and float(old_price) != 0:
+                change_pct = ((float(new_price) / float(old_price)) - 1.0) * 100.0
+            action = provided_action if provided_action in ('INCREASE', 'DECREASE', 'HOLD') else ('INCREASE' if float(new_price) > float(old_price) else 'DECREASE' if float(new_price) < float(old_price) else 'HOLD')
+            reason = provided_reason or 'Accepted by admin via dashboard.'
+            expires_at = timezone.now()  # Prevent inclusion in outbound recommendation messages
+            PricingRecommendation.objects.create(
+                product=product,
+                current_price=old_price,
+                suggested_price=new_price,
+                change_pct=abs(change_pct),
+                action=action,
+                reason=reason,
+                elasticity=None,
+                r2=None,
+                confidence=None,
+                expires_at=expires_at,
+            )
+        except Exception:
+            pass
         
         log_action(
             request,
@@ -7328,13 +8370,9 @@ def reject_pricing_recommendation(request):
             return JsonResponse({'success': False, 'message': 'Invalid product ID'})
         
         # Record that pricing action was taken (rejected)
-        from core.models import Product, PricingRecommendation
+        from core.models import Product
         product = Product.objects.get(product_id=product_id)
-        product.last_pricing_action_at = timezone.now()
         product.save()
-        
-        # Delete any existing recommendations for this product (rejected, so remove recommendation)
-        PricingRecommendation.objects.filter(product=product).delete()
         
         log_action(
             request,
@@ -7354,26 +8392,47 @@ def reject_pricing_recommendation(request):
 
 
 @require_app_login
-def test_pricing_notification(request):
-    """Send pricing notification with real data"""
+def send_pricing_notification(request):
+    """Manually send pricing notification using last 3 days of sales"""
     if request.session.get('app_role') != 'admin':
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     try:
+        from core.models import ActionLog, SMS
         user_id = request.session.get('app_user_id')
         user_obj = AppUser.objects.get(user_id=user_id)
-        
+
         if not user_obj.phone_number:
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
+
+        from datetime import timedelta
+        bypass = request.POST.get('bypass_cooldown', '').lower() == 'true' or request.META.get('HTTP_X_BYPASS_COOLDOWN', '').lower() == 'true'
+        now_ts = timezone.now()
+        cutoff = now_ts - timedelta(days=3)
+        last_manual = ActionLog.objects.filter(
+            user_id=user_id,
+            action__in=['Pricing recommendations generated', 'Manual pricing notification sent']
+        ).order_by('-created_at').first()
+        if not bypass and last_manual and last_manual.created_at > cutoff:
+            next_allowed = last_manual.created_at + timedelta(days=3)
+            return JsonResponse({
+                'success': False,
+                'message': 'Please wait before sending pricing recommendations. Cooldown is 3 days to prevent redundancy.',
+                'cooldown_active': True,
+                'next_allowed_at': format_local_datetime(next_allowed),
+                'cooldown_seconds_remaining': max(0, int((next_allowed - now_ts).total_seconds()))
+            }, status=429)
 
         # Generate real pricing recommendation message
         try:
             from core.pricing_ai import DemandPricingAI, PolicyConfig
             import pandas as pd
+            from core.models import PricingRecommendation
+            from decimal import Decimal
             
             # Get recent sales data (last 30 days)
             end_date = timezone.localtime()
-            start_date = end_date - timezone.timedelta(days=30)
+            start_date = end_date - timezone.timedelta(days=3)
             
             sales = Sale.objects.filter(
                 recorded_at__gte=start_date,
@@ -7416,34 +8475,53 @@ def test_pricing_notification(request):
                 engine = DemandPricingAI(cfg)
                 proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
                 
-                # Get actionable recommendations
-                actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
-                
-                if not actionable.empty:
-                    # Format recommendations
-                    message = "STOCKWISE Pricing\n\n"
-                    
-                    # Add top recommendation
-                    top_rec = actionable.iloc[0]
-                    action_symbol = "+" if top_rec['action'] == 'INCREASE' else "-"
-                    change_pct = abs(top_rec['change_pct'])
-                    
-                    # Create user-friendly reason
-                    sales_count = top_rec.get('sales_count', 0)
-                    if sales_count > 0:
-                        if top_rec['action'] == 'INCREASE':
-                            reason = "Good sales trend"
+                # Persist recommendations for dashboard/offcanvas consistency
+                try:
+                    from datetime import timedelta
+                    affected_ids = proposals['product_id'].tolist()
+                    PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
+                    expires_at = timezone.now() + timedelta(days=3)
+                    for _, rec in proposals.iterrows():
+                        try:
+                            product_obj = Product.objects.get(product_id=rec['product_id'])
+                        except Exception:
+                            continue
+                        # Normalize/friendly reason for parity with offcanvas
+                        act = rec.get('action', '')
+                        sales_count = rec.get('sales_count', 0)
+                        if sales_count > 0:
+                            if act == 'INCREASE':
+                                friendly = 'Good sales trend'
+                            elif act == 'DECREASE':
+                                friendly = 'Low sales activity'
+                            else:
+                                friendly = 'Price optimization'
                         else:
-                            reason = "Low sales activity"
-                    else:
-                        reason = "Price optimization"
-                    
-                    message += f"{top_rec['name']}\n"
-                    message += f"PHP {top_rec['current_price']:.0f} -> {top_rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
-                    message += f"Reason: {reason}\n\n"
-                    
-                    message += "STOCKWISE"
-                else:
+                            friendly = 'Price optimization'
+                        PricingRecommendation.objects.create(
+                            product=product_obj,
+                            current_price=Decimal(str(rec['current_price'])),
+                            suggested_price=Decimal(str(rec['suggested_price'])),
+                            change_pct=Decimal(str(rec['change_pct'])),
+                            action=rec['action'],
+                            reason=friendly,
+                            elasticity=Decimal(str(rec['elasticity'])) if rec.get('elasticity') is not None else None,
+                            r2=Decimal(str(rec['r2'])) if rec.get('r2') is not None else None,
+                            confidence=rec.get('confidence', 'MED'),
+                            expires_at=expires_at
+                        )
+                except Exception:
+                    pass
+
+                # Build SMS from persisted actionable recommendations for parity
+                from core.pricing_ai import format_pricing_sms_from_queryset, validate_pricing_sms_parity
+                qs = PricingRecommendation.objects.filter(expires_at__gt=timezone.now()).select_related('product')
+                actionable_qs = qs.filter(action__in=['INCREASE','DECREASE'])
+                message = format_pricing_sms_from_queryset(actionable_qs)
+                if actionable_qs.exists() and not validate_pricing_sms_parity(actionable_qs, message):
+                    return JsonResponse({'success': False, 'message': 'Validation failed: SMS content does not match recommendations.'})
+                
+                if proposals is not None and getattr(proposals, 'empty', False) is False:
                     message = "STOCKWISE Pricing\n\n"
                     message += "No changes recommended.\n\n"
                     message += "STOCKWISE"
@@ -7460,10 +8538,23 @@ def test_pricing_notification(request):
         # Send SMS using the existing SMS service
         from core.management.commands.send_daily_sms import Command
         sms_command = Command()
-        
+
         try:
             from core.sms_service import sms_service as _svc
-            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=True):
+            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=False):
+                try:
+                    product = Product.objects.filter(status='active').first() or Product.objects.first()
+                    if product:
+                        SMS.objects.create(
+                            product=product,
+                            user=user_obj,
+                            message_type='pricing_alert',
+                            demand_level='mid',
+                            message_content=message[:500]
+                        )
+                except Exception:
+                    pass
+                log_action(request, 'Manual pricing notification sent', f"Sent pricing SMS to {user_obj.phone_number}.")
                 return JsonResponse({'success': True, 'message': 'Pricing recommendation sent successfully!'})
             else:
                 return JsonResponse({'success': False, 'message': 'Failed to send pricing recommendation'})
@@ -7485,9 +8576,9 @@ def test_pricing_notification(request):
 def get_product_id(request):
     name = request.GET.get('name')
     variant = request.GET.get('variant')
-    size = request.GET.get('quantity_unit')
+    quantity_unit = request.GET.get('quantity_unit')
     full_name = f"{name} ({variant})" if variant else name
-    product = Product.objects.filter(name=full_name, size=size, is_built_in=False).first()
+    product = Product.objects.filter(name=full_name, quantity_unit=quantity_unit, is_built_in=False).first()
     if product:
         return JsonResponse({'success': True, 'product_id': product.product_id})
     else:
@@ -7534,43 +8625,43 @@ def send_all_notifications_now(request):
                 'message': 'No products found in database. Please add at least one product before sending notifications.'
             })
 
-        # Sales summary (full list)
-        today = timezone.localtime().date()
-        today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
-        total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
-        total_transactions = today_sales.count()
-        total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
-        
-        # Get product breakdown with remaining stock
-        product_sales = today_sales.values(
-            'product__name', 
-            'product__quantity_unit',
-            'product__stock'
-        ).annotate(
-            boxes_sold=Sum('quantity')
-        ).order_by('-boxes_sold')[:5]  # Top 5 products
-        
-        sales_msg = "STOCKWISE Daily Sales Report\n"
-        sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
-        sales_msg += f"==== OVERALL SUMMARY ====\n"
-        sales_msg += f"Total Revenue: PHP {total_revenue:,.2f}\n"
-        sales_msg += f"Total Boxes Sold: {total_boxes}\n"
-        sales_msg += f"Total Transactions: {total_transactions}\n\n"
-        
-        if product_sales:
-            sales_msg += f"==== TOP PRODUCTS TODAY ====\n"
-            for i, prod in enumerate(product_sales, 1):
-                product_name = f"{prod['product__name']} ({prod['product__quantity_unit']})"
-                boxes_sold = prod['boxes_sold']
-                remaining = prod['product__stock']
-                sales_msg += f"{i}. {product_name}\n"
-                sales_msg += f"   Sold: {boxes_sold} boxes\n"
-                sales_msg += f"   Remaining: {remaining} boxes\n\n"
+        now = timezone.localtime()
+        today = now.date()
+        def _recent(tp, day=False, minutes=None):
+            qs = SMS.objects.filter(user=user_obj, message_type=tp)
+            if day:
+                qs = qs.filter(sent_at__date=today)
+            elif minutes:
+                qs = qs.filter(sent_at__gte=now - timezone.timedelta(minutes=minutes))
+            return qs.exists()
+
+        if not _recent('sales_summary_daily', day=True):
+            today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+            total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
+            total_transactions = today_sales.count()
+            total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
+            product_sales = today_sales.values('product__name', 'product__quantity_unit', 'product__stock').annotate(boxes_sold=Sum('quantity')).order_by('-boxes_sold')[:5]
+            sales_msg = "STOCKWISE Daily Sales Report\n"
+            sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
+            sales_msg += "==== OVERALL SUMMARY ====\n"
+            sales_msg += f"Total Revenue: PHP {total_revenue:,.2f}\n"
+            sales_msg += f"Total Boxes Sold: {total_boxes}\n"
+            sales_msg += f"Total Transactions: {total_transactions}\n\n"
+            if product_sales:
+                sales_msg += "==== TOP PRODUCTS TODAY ====\n"
+                for i, prod in enumerate(product_sales, 1):
+                    product_name = f"{prod['product__name']} ({prod['product__quantity_unit']})"
+                    boxes_sold = prod['boxes_sold']
+                    remaining = prod['product__stock']
+                    sales_msg += f"{i}. {product_name}\n"
+                    sales_msg += f"   Sold: {boxes_sold} boxes\n"
+                    sales_msg += f"   Remaining: {remaining} boxes\n\n"
+            else:
+                sales_msg += "No sales recorded today.\n\n"
+            sales_msg += "- STOCKWISE"
+            results['sales'] = _svc.send_sms(user_obj.phone_number, sales_msg, allow_multipart=False)
         else:
-            sales_msg += "No sales recorded today.\n\n"
-        
-        sales_msg += "- STOCKWISE"
-        results['sales'] = _svc.send_sms(user_obj.phone_number, sales_msg, allow_multipart=True)
+            results['sales'] = {'success': False, 'message': 'Already sent today'}
         print(f"DEBUG: Sales SMS result: {results.get('sales')}")
         
         # Create SMS record for sales summary if sent successfully
@@ -7608,7 +8699,6 @@ def send_all_notifications_now(request):
         oos = Product.objects.filter(stock=0, status='active').order_by('name')
         
         stock_msg = "STOCKWISE Stock Alert\n\n"
-        
         if oos.exists():
             stock_msg += "CRITICAL - OUT OF STOCK:\n"
             for p in oos:
@@ -7616,7 +8706,6 @@ def send_all_notifications_now(request):
                 unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
                 stock_msg += f"- {p.name}{variant_part}{unit_part}\n"
             stock_msg += "\n"
-        
         if low_stock.exists():
             stock_msg += "WARNING - LOW STOCK:\n"
             for p in low_stock:
@@ -7625,20 +8714,20 @@ def send_all_notifications_now(request):
                 unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
                 stock_msg += f"- {p.name}{variant_part}{unit_part}: {p.stock} {box_text} left\n"
             stock_msg += "\n"
-        
         if not low_stock.exists() and not oos.exists():
             stock_msg += "All products have sufficient stock.\n\n"
-        
         stock_msg += "- STOCKWISE"
-        
-        # Send SMS for low stock alerts
-        results['stock'] = _svc.send_sms(user_obj.phone_number, stock_msg, allow_multipart=True)
+
+        if not _recent('stock_alert', minutes=30):
+            results['stock'] = _svc.send_sms(user_obj.phone_number, stock_msg, allow_multipart=False)
+        else:
+            results['stock'] = {'success': False, 'message': 'Already sent recently'}
         print(f"DEBUG: Stock SMS result: {results.get('stock')}")
         
         # Create SMS record for stock alert if sent successfully
-        stock_success = results.get('stock', {})
-        print(f"DEBUG: Stock success check - type: {type(stock_success)}, value: {stock_success}")
-        if isinstance(stock_success, dict) and stock_success.get('success'):
+        stock_success = isinstance(results.get('stock', {}), dict) and results['stock'].get('success')
+        print(f"DEBUG: Stock success: {stock_success}")
+        if stock_success:
             if product:
                 try:
                     # Delete existing record first to ensure we create a new one with current timestamp
@@ -7670,7 +8759,7 @@ def send_all_notifications_now(request):
             from core.pricing_ai import DemandPricingAI, PolicyConfig
             import pandas as pd
             end_date = timezone.localtime()
-            start_date = end_date - timezone.timedelta(days=30)
+            start_date = end_date - timezone.timedelta(days=3)
             sales = Sale.objects.filter(recorded_at__gte=start_date, recorded_at__lte=end_date, status='completed').select_related('product')
             if sales.exists():
                 rows = [{
@@ -7728,7 +8817,10 @@ def send_all_notifications_now(request):
                 pricing_msg = "STOCKWISE Pricing\n\nInsufficient sales data.\nNeed more sales history.\n\nSTOCKWISE"
         except Exception as e:
             pricing_msg = f"STOCKWISE Pricing\n\nError generating recommendations: {str(e)}\n\nSTOCKWISE"
-        results['pricing'] = _svc.send_sms(user_obj.phone_number, pricing_msg, allow_multipart=True)
+        if not _recent('pricing_alert', minutes=360):
+            results['pricing'] = _svc.send_sms(user_obj.phone_number, pricing_msg, allow_multipart=False)
+        else:
+            results['pricing'] = {'success': False, 'message': 'Already sent recently'}
         print(f"DEBUG: Pricing SMS result: {results.get('pricing')}")
         print(f"DEBUG: Product available: {product is not None}")
         
@@ -7762,7 +8854,36 @@ def send_all_notifications_now(request):
         else:
             print(f"DEBUG: Pricing SMS not successful or unexpected result format")
 
-        summary = {k: bool(v) for k, v in results.items()}
+        summary = {}
+        details = {}
+        next_allowed = {}
+        for k, v in results.items():
+            if isinstance(v, dict):
+                ok = bool(v.get('success'))
+                summary[k] = ok
+                if not ok:
+                    msg = v.get('message') or ''
+                    if msg:
+                        details[k] = msg
+                        if 'already sent' in msg.lower():
+                            try:
+                                if k == 'sales':
+                                    dt = timezone.make_aware(datetime.combine(today + timezone.timedelta(days=1), datetime.min.time()))
+                                    next_allowed[k] = format_local_datetime(dt)
+                                elif k == 'stock':
+                                    last = SMS.objects.filter(user=user_obj, message_type='stock_alert').order_by('-sent_at').first()
+                                    if last:
+                                        dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=30))
+                                        next_allowed[k] = format_local_datetime(dt)
+                                elif k == 'pricing':
+                                    last = SMS.objects.filter(user=user_obj, message_type='pricing_alert').order_by('-sent_at').first()
+                                    if last:
+                                        dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=360))
+                                        next_allowed[k] = format_local_datetime(dt)
+                            except Exception:
+                                pass
+            else:
+                summary[k] = bool(v)
         success_count = sum(1 for v in results.values() if isinstance(v, dict) and v.get('success'))
         print(f"DEBUG: Summary of results: {summary}")
         print(f"DEBUG: Success count: {success_count} out of {len(results)}")
@@ -7773,8 +8894,10 @@ def send_all_notifications_now(request):
             f'Sent {success_count} of {len(results)} notifications (sales/stock/pricing).'
         )
         return JsonResponse({
-            'success': any(summary.values()), 
+            'success': any(summary.values()),
             'results': summary,
+            'details': details,
+            'next_allowed': next_allowed,
             'message': f'Successfully sent {success_count} out of {len(results)} notifications'
         })
 
@@ -7812,28 +8935,15 @@ def transaction_details(request, sale_id):
         else:
             related_sales = related_sales.filter(sale_id=sale_id)
 
-        # Build transaction-level aggregates
-        subtotal = Decimal('0.00')
-        vat_total = Decimal('0.00')
-        total_amount = Decimal('0.00')
-        amount_paid_total = Decimal('0.00')
-        change_total = Decimal('0.00')
+        # Build transaction-level aggregates (prices stored are VAT-inclusive; sale.total already includes discount share)
+        gross_total = Decimal('0.00')
         items = []
         payments = []
         audit_trail = []
 
         for sale in related_sales:
-            line_subtotal = Decimal(sale.total or 0)
-            line_vat = line_subtotal * Decimal('0.12')
-            line_total = line_subtotal + line_vat
-            line_amount_paid = Decimal(sale.amount_paid or line_total)
-            line_change = Decimal(sale.change_given or (line_amount_paid - line_total))
-
-            subtotal += line_subtotal
-            vat_total += line_vat
-            total_amount += line_total
-            amount_paid_total += line_amount_paid
-            change_total += line_change
+            line_gross = Decimal(sale.total or 0)  # VAT-inclusive, discount-applied
+            gross_total += line_gross
 
             # Format product display as "Name (Variant) (Quantity/Unit)"
             product_display = sale.product.name if sale.product else 'Unknown'
@@ -7845,7 +8955,7 @@ def transaction_details(request, sale_id):
                 'quantity_unit': sale.product.quantity_unit if sale.product else 'N/A',
                 'quantity': sale.quantity,
                 'price': float(sale.product.price) if sale.product else 0.0,
-                'total_price': float(line_total),
+                'amount': float(line_gross),
             })
 
             audit_trail.append({
@@ -7854,12 +8964,34 @@ def transaction_details(request, sale_id):
                 'timestamp': sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
             })
 
-        if amount_paid_total:
+        # Use the first row's payment values (amount_paid/change_given stored per transaction row)
+        first_row = related_sales[0] if related_sales else main_sale
+        amount_paid = Decimal(str(getattr(first_row, 'amount_paid', gross_total) or gross_total))
+        change = Decimal(str(getattr(first_row, 'change_given', Decimal('0')) or 0))
+
+        if amount_paid:
             payments.append({
                 'mode': 'Cash',
                 'reference': txn_number or f"ORD{main_sale.sale_id:06d}",
-                'amount': float(amount_paid_total),
+                'amount': float(amount_paid),
             })
+
+        # Transaction-level discount: stored on each row as the full discount
+        try:
+            discount_val = Decimal(str(getattr(main_sale, 'discount_amount', Decimal('0')) or 0))
+        except Exception:
+            discount_val = Decimal('0')
+
+        # Compute discount and breakdown
+        try:
+            discount_val = Decimal(str(getattr(main_sale, 'discount_amount', Decimal('0')) or 0))
+        except Exception:
+            discount_val = Decimal('0')
+
+        pre_discount_gross = gross_total + discount_val
+        subtotal_net = (pre_discount_gross / Decimal('1.12')) if pre_discount_gross else Decimal('0')
+        vat_total = pre_discount_gross - subtotal_net
+        total_amount = gross_total
 
         transaction_data = {
             'sale_id': main_sale.sale_id,
@@ -7870,11 +9002,12 @@ def transaction_details(request, sale_id):
             'contact_number': str(main_sale.contact_number) if main_sale.contact_number else 'N/A',
             'address': main_sale.address or 'N/A',
             'processed_by': main_sale.user.username if main_sale.user else 'N/A',
-            'subtotal': float(subtotal),
+            'subtotal': float(subtotal_net),
             'vat_amount': float(vat_total),
+            'discount_amount': float(discount_val),
             'total_amount': float(total_amount),
-            'amount_paid': float(amount_paid_total),
-            'change_amount': float(change_total),
+            'amount_paid': float(amount_paid),
+            'change_amount': float(change),
             'status': main_sale.status,
             'created_at': main_sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': (main_sale.voided_at.strftime('%Y-%m-%d %H:%M:%S') if main_sale.voided_at else main_sale.recorded_at.strftime('%Y-%m-%d %H:%M:%S')),
@@ -7954,14 +9087,13 @@ def print_thermal_receipt(request, sale_id):
             total_amount += Decimal(str(amount))
             total_boxes += quantity
         
-        # Calculate totals (VAT is already included in total_amount from sale.total)
-        # If sale.total includes VAT, we need to calculate backwards
-        # Total = Subtotal * 1.12, so Subtotal = Total / 1.12
-        subtotal = float(total_amount / Decimal('1.12'))  # Calculate subtotal without VAT
-        vat = float(total_amount - Decimal(str(subtotal)))  # VAT = Total - Subtotal
-        total = float(total_amount)  # Keep total as is
-        amount_paid = float(total)
-        change = Decimal('0')
+        discount_amount = Decimal(str(getattr(rows[0], 'discount_amount', Decimal('0')) or 0)) if isinstance(rows, list) and rows else Decimal('0')
+        pre_discount_total = total_amount + discount_amount
+        subtotal = float(pre_discount_total / Decimal('1.12'))
+        vat = float(pre_discount_total - Decimal(str(subtotal)))
+        total = float(pre_discount_total - discount_amount)
+        amount_paid = float(getattr(rows[0], 'amount_paid', total) or total)
+        change = Decimal(str(getattr(rows[0], 'change_given', Decimal('0')) or 0))
         
         # Format date
         from django.utils import dateformat
@@ -7982,6 +9114,7 @@ def print_thermal_receipt(request, sale_id):
             'subtotal': subtotal,
             'vat': vat,
             'total': total,
+            'discount': float(discount_amount),
             'amount_paid': amount_paid,
             'change': float(change),
             'processed_by': sale.user.username if sale.user else ''

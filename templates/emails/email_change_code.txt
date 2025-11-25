@@ -1,0 +1,11 @@
+Hello {{ recipient_name }},
+
+You requested to change the email on your StockWise account from {{ old_email }} to {{ new_email }}.
+Use this verification code to confirm the change:
+
+Code: {{ code }}
+
+This code expires in {{ expiry_minutes }} minutes.
+If you did not request this change, please ignore this message.
+
+StockWise Security Team

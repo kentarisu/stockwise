@@ -25,6 +25,20 @@ class Command(BaseCommand):
         else:
             self.send_low_stock_alerts(threshold=options['threshold'])
 
+    def _label(self, product):
+        n = (getattr(product, 'name', '') or '')
+        v = (getattr(product, 'variant', '') or '').strip()
+        u = (getattr(product, 'quantity_unit', '') or '').strip()
+        ln = n.lower()
+        def has(t):
+            return t and f"({t.lower()})" in ln
+        parts = [n]
+        if v and not has(v) and v != u:
+            parts.append(f" ({v})")
+        if u and not has(u) and u != v:
+            parts.append(f" ({u})")
+        return "".join(parts)
+
     def send_test_low_stock_alert(self):
         """Send a test low stock alert"""
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
@@ -73,16 +87,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('No low stock or out of stock items found.'))
             return
 
-        # Format the alert message
         message = self.format_low_stock_alert(low_stock_products, out_of_stock_products, threshold)
-        
-        # Send SMS to all admins
+
         success_count = 0
         recipients = []
         message_codes = []
         from core.sms_service import sms_service
         for u in admins:
-            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
+            result = sms_service.send_sms(u.phone_number, message, allow_multipart=False)
             if result.get('success'):
                 success_count += 1
                 recipients.append(u.username)
@@ -91,7 +103,7 @@ class Command(BaseCommand):
                     message_codes.append(code)
                 self.stdout.write(self.style.SUCCESS(f'Low stock alert sent to {u.username} at {u.phone_number}'))
             else:
-                self.stdout.write(self.style.ERROR(f'Failed to send low stock alert to {u.username} at {u.phone_number}: {result.get('message')}'))
+                self.stdout.write(self.style.ERROR(f'Failed to send low stock alert to {u.username} at {u.phone_number}: {result.get("message")}'))
         
         self.stdout.write(
             self.style.SUCCESS(f'Low stock alerts sent to {success_count} admin(s)')
@@ -117,34 +129,41 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products, threshold):
-        """Format the low stock alert message (ASCII, professional, matches dashboard/signals style)"""
         message = "STOCKWISE Stock Alert\n\n"
-        
-        # Out of stock (critical)
+
+        def _label(name, variant, quantity_unit):
+            n = (name or "")
+            v = (variant or "").strip()
+            u = (quantity_unit or "").strip()
+            ln = n.lower()
+            def has(t):
+                return t and f"({t.lower()})" in ln
+            parts = [n]
+            if v and not has(v) and v != u:
+                parts.append(f" ({v})")
+            if u and not has(u) and u != v:
+                parts.append(f" ({u})")
+            return "".join(parts)
+
         if out_of_stock_products.exists():
             message += "CRITICAL - OUT OF STOCK:\n"
-            for product in out_of_stock_products[:5]:  # Limit to 5 items
-                quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
-                variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
-                message += f"- {product.name}{variant_info}{quantity_info}\n"
+            for product in out_of_stock_products:
+                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
+                message += f"- {label}\n"
             message += "\n"
-        
-        # Low stock (warning)
+
         if low_stock_products.exists():
             message += "WARNING - LOW STOCK:\n"
-            for product in low_stock_products[:5]:  # Limit to 5 items
-                quantity_info = f" ({product.quantity_unit})" if product.quantity_unit else ""
-                variant_info = f" ({product.variant})" if getattr(product, 'variant', None) else ""
+            for product in low_stock_products:
                 box_text = "box" if product.stock == 1 else "boxes"
-                message += f"- {product.name}{variant_info}{quantity_info}: {product.stock} {box_text} left\n"
+                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
+                message += f"- {label}: {product.stock} {box_text} left\n"
             message += "\n"
-        
-        # If no alerts
+
         if not out_of_stock_products.exists() and not low_stock_products.exists():
             message += "All products have sufficient stock.\n\n"
-        
+
         message += "- STOCKWISE"
-        
         return message
 
     def send_sms(self, phone_number, message):
@@ -152,7 +171,7 @@ class Command(BaseCommand):
         try:
             from core.sms_service import sms_service
             
-            result = sms_service.send_sms(phone_number, message, allow_multipart=True)
+            result = sms_service.send_sms(phone_number, message, allow_multipart=False)
             
             if result['success']:
                 self.stdout.write(self.style.SUCCESS(result['message']))

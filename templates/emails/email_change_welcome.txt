@@ -1,0 +1,10 @@
+Hello {{ recipient_name }},
+
+Welcome to your updated StockWise account.
+Your login email has been changed from {{ old_email }} to {{ new_email }}.
+
+You can now sign in to StockWise using this address.
+
+If you did not request this change, please contact your administrator immediately.
+
+— StockWise Team

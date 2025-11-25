@@ -288,16 +288,16 @@ class DemandPricingAI:
             # Generate user-friendly reason
             if action == "INCREASE":
                 if ratio >= 1.2:
-                    reason = f"Strong demand: {total_sales_count} sales in past 30 days ({int(total_qty_sold)} boxes sold). Customers are buying frequently - you can increase price to boost profit margin."
+                    reason = f"Strong demand: {total_sales_count} sales in past 3 days ({int(total_qty_sold)} boxes sold). Customers are buying frequently - you can increase price to boost profit margin."
                 else:
-                    reason = f"Good sales: {total_sales_count} transactions in past 30 days ({int(total_qty_sold)} boxes). Price increase of {abs(change_pct*100):.1f}% can improve your profit while maintaining demand."
+                    reason = f"Good sales: {total_sales_count} transactions in past 3 days ({int(total_qty_sold)} boxes). Price increase of {abs(change_pct*100):.1f}% can improve your profit while maintaining demand."
             elif action == "DECREASE":
                 if ratio <= 0.8:
-                    reason = f"Low demand: Only {total_sales_count} sales in past 30 days ({int(total_qty_sold)} boxes). Lowering price by {abs(change_pct*100):.1f}% can attract more customers and increase total revenue."
+                    reason = f"Low demand: Only {total_sales_count} sales in past 3 days ({int(total_qty_sold)} boxes). Lowering price by {abs(change_pct*100):.1f}% can attract more customers and increase total revenue."
                 else:
-                    reason = f"Moderate sales: {total_sales_count} transactions in past 30 days. Small price decrease of {abs(change_pct*100):.1f}% can boost sales volume and overall revenue."
+                    reason = f"Moderate sales: {total_sales_count} transactions in past 3 days. Small price decrease of {abs(change_pct*100):.1f}% can boost sales volume and overall revenue."
             else:
-                reason = f"Optimal pricing: {total_sales_count} sales in past 30 days. Current price is well-balanced for demand and profit."
+                reason = f"Optimal pricing: {total_sales_count} sales in past 3 days. Current price is well-balanced for demand and profit."
             
             # Add technical details for reference (optional)
             technical_info = f" [Data: n={nobs}, confidence={'HIGH' if r2 >= 0.6 else 'MED' if r2 >= 0.3 else 'LOW'}]"
@@ -379,3 +379,80 @@ class DemandPricingAI:
         pd.DataFrame(approvals).to_csv("approvals_log.csv", index=False)
         print("[INFO] Approval log saved to approvals_log.csv")
         return updated_catalog
+
+# ----------------------------
+# Shared formatting helpers
+# ----------------------------
+
+def _label(name: str, variant: str, quantity_unit: str) -> str:
+    n = (name or "")
+    v = (variant or "").strip()
+    u = (quantity_unit or "").strip()
+    ln = n.lower()
+    def has(t):
+        return t and f"({t.lower()})" in ln
+    parts = [n]
+    if v and not has(v) and v != u:
+        parts.append(f" ({v})")
+    if u and not has(u) and u != v:
+        parts.append(f" ({u})")
+    return "".join(parts)
+
+def _friendly_reason(action: str, sales_count: int) -> str:
+    try:
+        sc = int(sales_count or 0)
+    except Exception:
+        sc = 0
+    a = (action or '').upper()
+    if sc > 0:
+        if a == 'INCREASE':
+            return 'Good sales trend'
+        elif a == 'DECREASE':
+            return 'Low sales activity'
+    return 'Price optimization'
+
+def format_pricing_sms_from_queryset(qs) -> str:
+    from django.utils import timezone
+    lines = ["STOCKWISE Pricing", ""]
+    for rec in qs:
+        p = getattr(rec, 'product', None)
+        name = getattr(p, 'name', '') if p else ''
+        variant = getattr(p, 'variant', '') if p else ''
+        unit = getattr(p, 'quantity_unit', '') if p else ''
+        label = _label(name or getattr(rec, 'name', ''), variant, unit)
+        act = (getattr(rec, 'action', '') or '').upper()
+        sym = '+' if act == 'INCREASE' else '-' if act == 'DECREASE' else ''
+        cur = float(getattr(rec, 'current_price', 0))
+        sug = float(getattr(rec, 'suggested_price', 0))
+        pct = abs(float(getattr(rec, 'change_pct', 0)))
+        reason = getattr(rec, 'reason', '') or _friendly_reason(act, getattr(rec, 'sales_count', 0))
+        # Normalize reason to friendly form
+        if '[Data:' in reason:
+            reason = reason.split('[Data:')[0].strip()
+        if reason.lower() in ('', 'n/a'):
+            reason = _friendly_reason(act, getattr(rec, 'sales_count', 0))
+        lines.append(label)
+        lines.append(f"₱{cur:.2f} → ₱{sug:.2f} ({sym}{pct:.1f}%)")
+        lines.append(f"Reason: {reason}")
+        lines.append("")
+    lines.append('STOCKWISE')
+    return "\n".join(lines)
+
+def validate_pricing_sms_parity(qs, message: str) -> bool:
+    # Ensure each rec’s label and price line appear in the message
+    try:
+        msg = message or ''
+        for rec in qs:
+            p = getattr(rec, 'product', None)
+            label = _label(getattr(p, 'name', '') or getattr(rec, 'name', ''), getattr(p, 'variant', ''), getattr(p, 'quantity_unit', ''))
+            cur = float(getattr(rec, 'current_price', 0))
+            sug = float(getattr(rec, 'suggested_price', 0))
+            act = (getattr(rec, 'action', '') or '').upper()
+            sym = '+' if act == 'INCREASE' else '-' if act == 'DECREASE' else ''
+            pct = abs(float(getattr(rec, 'change_pct', 0)))
+            price_line = f"₱{cur:.2f} → ₱{sug:.2f} ({sym}{pct:.1f}%)"
+            if label not in msg or price_line not in msg:
+                return False
+        return True
+    except Exception:
+        return False

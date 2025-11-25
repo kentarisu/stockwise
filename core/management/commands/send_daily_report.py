@@ -31,7 +31,7 @@ class Command(BaseCommand):
         to_phone = admin_obj.phone_number
 
         # Send SMS using iProg API
-        result = sms_service.send_sms(to_phone, msg, allow_multipart=True)
+        result = sms_service.send_sms(to_phone, msg, allow_multipart=False)
         
         if result['success']:
             self.stdout.write(self.style.SUCCESS(f"SMS sent to {to_phone}"))

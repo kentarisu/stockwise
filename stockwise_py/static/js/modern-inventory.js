@@ -545,7 +545,7 @@ class ModernInventorySystem {
     handleResize() {
         // Responsive adjustments
         const sidebar = document.querySelector('.sidebar');
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth <= 768 && sidebar) {
             sidebar.classList.remove('active');
         }
         

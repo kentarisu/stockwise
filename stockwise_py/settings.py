@@ -182,8 +182,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    BASE_DIR.parent / 'static',  # Points to C:\Users\Orly\stockwise\static
-    BASE_DIR / 'static',         # Points to C:\Users\Orly\stockwise\stockwise_py\static
+    BASE_DIR / 'static',
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
@@ -193,6 +192,9 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 # Media files (user uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.parent / 'media'  # Points to C:\Users\Orly\stockwise\media
+
+FRUIT_MASTER_DIR = MEDIA_ROOT / 'builtins'
+FRUIT_MASTER_PATH = str(FRUIT_MASTER_DIR / 'fruit_master_full.csv')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

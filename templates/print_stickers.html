@@ -176,7 +176,7 @@
           <div class="col-md-6">
               <label class="form-label">Product Name</label>
               <div class="position-relative">
-              <input type="text" class="form-control" id="stickerFruitSelect" placeholder="Search or select fruit name" autocomplete="off">
+              <input type="text" class="form-control" id="stickerProductSelect" placeholder="Search or select product name" autocomplete="off">
                 <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
             </div>
           </div>
@@ -193,7 +193,7 @@
           <div class="col-md-6">
               <label class="form-label">Quantity</label>
               <div class="position-relative">
-              <input type="text" class="form-control" id="stickerSizeSelect" placeholder="Enter quantity (e.g., 120 or 125-175)" disabled autocomplete="off">
+              <input type="text" class="form-control" id="stickerSizeSelect" placeholder="Enter quantity" disabled autocomplete="off">
                 <div id="sizeSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
               </div>
             </div>
@@ -205,10 +205,10 @@
             <i class="bi bi-info-circle me-2"></i>
           <strong>Instructions:</strong>
           <ul class="mb-0 mt-2">
-            <li>Select a product name (fruit → variant → quantity)</li>
-            <li>Enter a numeric quantity value (e.g., 28, 32, 125-175)</li>
+            <li>Select a product name (product → variant → quantity)</li>
+            <li>Enter quantity (number or kilo)</li>
             <li>Click "Generate QR Code Stickers" to create printable QR stickers</li>
-            <li>Each sticker contains a unique QR code for that specific batch</li>
+            <li>Each sticker uses the product's permanent QR code</li>
             <li><strong>Delivery date will be set when you scan and confirm stock</strong></li>
           </ul>
         </div>
@@ -312,9 +312,9 @@
     function baseName(name){ if(!name) return ''; const s=String(name); const i=s.indexOf('('); const j=s.endsWith(')')?s.lastIndexOf('('):-1; if(i>=0){ return s.substring(0,i).trim(); } return s.trim(); }
     function loadStickerVariants(fruit){ const variantList=$('#stickerVariantList'); $('#stickerVariantSelect').prop('disabled',true).val(''); $('#stickerSizeSelect').prop('disabled',true).val(''); variantList.empty(); if(!fruit) return; const variants=[...new Set(allProducts.filter(p=>baseName(p.name)===fruit).map(p=>p.variant).filter(v=>v))]; if(variants.length===0){       $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','No variants available - proceed to quantity'); loadStickerSizes(fruit,''); } else { $('#stickerVariantSelect').prop('disabled',false).attr('placeholder','Search or select variant'); variants.forEach(v=>variantList.append($('<option>',{value:v}))); } }
     function loadStickerSizes(fruit,variant){ $('#stickerSizeSelect').prop('disabled',false).val(''); if(!fruit) return; const sizes=[...new Set(allProducts.filter(p=>{ if(!variant){return baseName(p.name)===fruit && (!p.variant||p.variant==='');} else {return baseName(p.name)===fruit && (p.variant||'')===variant;} }).map(p=>p.quantity_unit).filter(s=>s))]; if(sizes.length>0){ $('#stickerSizeSelect').attr('placeholder',`Enter quantity (e.g., ${sizes.slice(0,3).join(', ')})`); } else { $('#stickerSizeSelect').attr('placeholder','Enter numeric quantity'); } }
-    function validateForm(){ const fruit=$('#stickerFruitSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>baseName(p.name)===fruit && (p.variant||'')!==''); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
-    $('#stickerFruitSelect').on('change', function(){ loadStickerVariants($(this).val()); validateForm(); });
-    $('#stickerVariantSelect').on('change', function(){ loadStickerSizes($('#stickerFruitSelect').val(), $(this).val()); validateForm(); });
+    function validateForm(){ const fruit=$('#stickerProductSelect').val(); const variant=$('#stickerVariantSelect').val(); const size=$('#stickerSizeSelect').val(); const hasVariants=allProducts.some(p=>baseName(p.name)===fruit && (p.variant||'')!==''); $('#generateStickersBtn').prop('disabled', hasVariants ? (!fruit||!variant||!size) : (!fruit||!size)); }
+    $('#stickerProductSelect').on('change', function(){ loadStickerVariants($(this).val()); validateForm(); });
+    $('#stickerVariantSelect').on('change', function(){ loadStickerSizes($('#stickerProductSelect').val(), $(this).val()); validateForm(); });
     $('#stickerSizeSelect').on('change input', validateForm);
     // CSRF setup
     function getCookie(name) {
@@ -358,7 +358,7 @@
         items.forEach(p => {
             const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
             option.on('click', function(){
-                $('#stickerFruitSelect').val(p.name);
+                $('#stickerProductSelect').val(p.name);
                 $('#stickerVariantSelect, #stickerSizeSelect').prop('disabled', false);
                 window.__selectedProductFromSuggestions = true;
                 dropdown.hide();
@@ -373,7 +373,7 @@
     }
  
     function setupProductAutocomplete() {
-        const $name = $('#stickerFruitSelect');
+        const $name = $('#stickerProductSelect');
         const $dropdown = $('#nameSuggestions');
         let t;
         $name.on('input', function(){
@@ -390,7 +390,7 @@
             validateForm();
         });
         $(document).on('click', function(e){
-            if (!$(e.target).closest('#stickerFruitSelect, #nameSuggestions').length) { $dropdown.hide(); }
+            if (!$(e.target).closest('#stickerProductSelect, #nameSuggestions').length) { $dropdown.hide(); }
         });
         $name.on('focus', function(){
             const q = $(this).val().trim();
@@ -444,7 +444,7 @@
 
     // Enable/disable Variant and Quantity depending on current selection
     function updateEnableStates(){
-        const fruit = $('#stickerFruitSelect').val().trim();
+        const fruit = $('#stickerProductSelect').val().trim();
         const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
         // Variant is enabled when a fruit is chosen and that fruit has variants
         $('#stickerVariantSelect').prop('disabled', !fruit || !hasVariants);
@@ -457,7 +457,7 @@
     }
  
     function validateForm() {
-        const fruit = $('#stickerFruitSelect').val();
+        const fruit = $('#stickerProductSelect').val();
         const variant = $('#stickerVariantSelect').val();
         const size = $('#stickerSizeSelect').val();
         const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
@@ -572,11 +572,11 @@
         // Suggestions container is pre-rendered in HTML (see above)
  
         $('#generateStickersBtn').on('click', function(){
-            const fruit = $('#stickerFruitSelect').val();
+            const fruit = $('#stickerProductSelect').val();
             const variant = $('#stickerVariantSelect').val();
             const size = $('#stickerSizeSelect').val();
             if (!fruit || !size) {
-                alert('Please select a product name and quantity');
+                window.modernInventorySystem && window.modernInventorySystem.showNotification('Please select a product name and quantity', 'warning', 5000);
                 return;
             }
             const hasVariants = (allProducts || []).some(p => baseName(p.name) === fruit && (p.variant || '') !== '');
@@ -597,18 +597,18 @@
                             populateStickerModal(data.data);
                             stickerModal.show();
                         } else {
-                            alert(data.message || 'Failed to generate sticker data.');
+                            window.modernInventorySystem && window.modernInventorySystem.showNotification(data.message || 'Failed to generate sticker data.', 'error', 6000);
                         }
                     })
                     .catch(err => {
                         console.error('Sticker fetch error:', err);
-                        alert('Error generating sticker. Please try again.');
+                        window.modernInventorySystem && window.modernInventorySystem.showNotification('Error generating sticker. Please try again.', 'error', 6000);
                     })
                     .finally(() => {
                         $('#generateStickersBtn').prop('disabled', false).html('<i class="bi bi-qr-code-scan"></i> Generate QR Code Stickers');
                     });
             } else {
-                alert('Product not found in your inventory with that selection.');
+                window.modernInventorySystem && window.modernInventorySystem.showNotification('Product not found in your inventory with that selection.', 'warning', 6000);
             }
         });
         // Load inventory products for suggestions

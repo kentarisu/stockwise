@@ -373,8 +373,8 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 # Use STARTTLS by default (change via env vars if needed)
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = _clean_val(os.getenv('EMAIL_HOST_USER', ''))
+EMAIL_HOST_PASSWORD = _clean_val(os.getenv('EMAIL_HOST_PASSWORD', '')).replace(' ', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@stockwise.local')
 
 TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '2'))

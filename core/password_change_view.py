@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from core.models import AppUser
 from passlib.hash import bcrypt
-from core.views import require_app_login, _is_strong_password
+from core.views import require_app_login, _is_strong_password, _verify_password
 import re
 
  

@@ -174,7 +174,7 @@
                 <p class="date-info">Date: Set when scanned</p>
                 <div class="button-group">
                     <button class="scan-button" onclick="window.print()">Print on Regular Printer</button>
-                    <button class="scan-button secondary" id="thermalPrintBtn">Print on Thermal Printer</button>
+                    <button class="scan-button secondary" id="thermalPrintBtn" data-product-id="{{ product.product_id }}">Print on Thermal Printer</button>
                 </div>
             </div>
         </div>
@@ -225,7 +225,8 @@
         }
         
         document.getElementById('thermalPrintBtn').addEventListener('click', function(){
-            printStickerThermal({{ product.product_id }});
+            const pid = document.getElementById('thermalPrintBtn').dataset.productId;
+            printStickerThermal(pid);
         });
     </script>
 </body>

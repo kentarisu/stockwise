@@ -15,7 +15,6 @@ urlpatterns = [
 	path('stock_details/', views.stock_details_view, name='stock_details'),
 path('products/add/', views.add_product_page, name='add_product_page'),
 path('sales/record/', views.record_sale_page, name='record_sale'),
-path('sales/record/page/', views.record_sale_page, name='record_sale_page'),
 path('stock/add/', views.add_stock_page, name='add_stock_page'),
 path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('products_inventory/post/', views.handle_product_post, name='handle_product_post'),
@@ -70,8 +69,7 @@ path('api/products/<int:product_id>/delete/', views.product_delete, name='delete
     path('api/fruit_master/variants/', views.fruit_master_variants, name='fruit_master_variants'),
 path('api/sales/record/', views.record_sale, name='record_sale_api'),
 path('api/stock/add/', views.add_stock, name='add_stock_api'),
-path('stock/add/', views.add_stock_page, name='add_stock'),
-path('sales/record/', views.record_sale_page, name='record_sale'),
+    # Removed duplicate routes: canonical paths are defined above
     path('api/stock/qr/create/', views.stock_qr_create, name='stock_qr_create'),
     path('api/stock/qr/apply/', views.stock_qr_apply, name='stock_qr_apply'),
     path('api/stock/qr/decode/', views.stock_qr_decode, name='stock_qr_decode'),

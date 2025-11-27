@@ -27,7 +27,6 @@ import random
 from datetime import datetime, timedelta
 from decimal import Decimal
 from io import StringIO, BytesIO
-import csv
 from django.http import HttpResponse
 from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib import colors
@@ -38,9 +37,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from passlib.hash import bcrypt
-import os
 
-from django.views.decorators.http import require_GET
 # FruitMaster removed per 6-table schema
 import django.db.models as models
 from django.core.exceptions import ValidationError
@@ -67,6 +64,18 @@ def _is_strong_password(p: str) -> bool:
     if not re.search(r"[^A-Za-z0-9]", p):
         return False
     return True
+
+def _verify_password(stored_password: str, candidate: str) -> bool:
+    try:
+        if stored_password.startswith('$2y$'):
+            python_hash = stored_password.replace('$2y$', '$2b$', 1)
+            try:
+                return bcrypt.verify(candidate, python_hash)
+            except Exception:
+                return bcrypt.verify(candidate, stored_password)
+        return bcrypt.verify(candidate, stored_password)
+    except Exception:
+        return False
 
 def _normalize_name_variant(name: str, variant: str):
     n = sanitize_text(name or '', 120)
@@ -486,7 +495,7 @@ def password_reset_verify(request):
                     seconds_remaining = rem
             else:
                 # Fallback to latest log timestamp
-                log = ActionLog.objects.filter(user=user, action='Password reset code').order_by('-created_at').first()
+                log = ActionLog.objects.filter(user=user, action='Password Reset Code').order_by('-created_at').first()
                 if log:
                     expires_at = log.created_at + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
                     remaining = int((expires_at - timezone.now()).total_seconds())
@@ -534,11 +543,11 @@ def password_reset_verify(request):
                 return render(request, 'password_reset_verify.html', ctx)
 
             # Find the latest reset code for this user
-            log = ActionLog.objects.filter(user=user, action='Password reset code').order_by('-created_at').first()
+            log = ActionLog.objects.filter(user=user, action='Password Reset Code').order_by('-created_at').first()
             if not log and posted_email and posted_email.lower() != (email or '').lower():
                 user_post = AppUser.objects.filter(email__iexact=posted_email).first()
                 if user_post:
-                    log = ActionLog.objects.filter(user=user_post, action='Password reset code').order_by('-created_at').first()
+                    log = ActionLog.objects.filter(user=user_post, action='Password Reset Code').order_by('-created_at').first()
                     if log:
                         user = user_post
                         request.session['pending_reset_email'] = user.email
@@ -4934,18 +4943,7 @@ def start_email_change(request):
             return JsonResponse({'success': False, 'message': 'Please wait before requesting a new code.', 'seconds_remaining': remaining})
 
     stored_password = user_obj.password
-    current_password_valid = False
-    if stored_password.startswith('$2y$'):
-        python_hash = stored_password.replace('$2y$', '$2b$', 1)
-        try:
-            current_password_valid = bcrypt.verify(current_pw, python_hash)
-        except Exception:
-            current_password_valid = bcrypt.verify(current_pw, stored_password)
-    else:
-        try:
-            current_password_valid = bcrypt.verify(current_pw, stored_password)
-        except Exception:
-            current_password_valid = False
+    current_password_valid = _verify_password(stored_password, current_pw)
     if not current_password_valid:
         return JsonResponse({'success': False, 'message': 'Current password is incorrect.'})
     if not (user_obj.email or '').strip():

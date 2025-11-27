@@ -783,8 +783,7 @@ function buildThermalPreview(data) {
 }
 
 // CSRF helper
-function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
-const csrftoken=getCookie('csrftoken');
+const csrftoken=window.getCookie('csrftoken');
 $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 
 let products=[]; let currentStep=1; window.saleItems=[]; window.lastRecordedSaleId=null; let transactionNumber=''; let orNumber='';
@@ -1135,23 +1134,7 @@ function printThermalReceipt(saleId) {
         formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
     }
     
-    // Get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    
-    const csrftoken = getCookie('csrftoken');
+    const csrftoken = window.getCookie('csrftoken');
     
     fetch(`/api/printer/receipt/${saleId}/`, {
         method: 'POST',

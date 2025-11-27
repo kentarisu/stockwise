@@ -1024,6 +1024,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/csrf.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Sidebar toggle functionality
@@ -1194,21 +1195,7 @@
                 modal.show();
             }
 
-            // Get CSRF token
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
+            
 
             // Upload & Restore button
             document.getElementById('uploadRestoreBtn').addEventListener('click', function() {
@@ -1260,7 +1247,7 @@
                 try {
                     const formData = new FormData();
                     formData.append('backup_file', file);
-                    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                    formData.append('csrfmiddlewaretoken', window.getCookie('csrftoken'));
                     
                     const response = await fetch('{% url "upload_and_restore_backup" %}', {
                         method: 'POST',
@@ -1350,7 +1337,7 @@
                     const response = await fetch('{% url "create_backup" %}', {
                         method: 'POST',
                         headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-CSRFToken': window.getCookie('csrftoken'),
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     });
@@ -1384,7 +1371,7 @@
                         fetch(`{% url 'restore_backup' 0 %}`.replace('0', backupId), {
                             method: 'POST',
                             headers: {
-                                'X-CSRFToken': getCookie('csrftoken'),
+                                'X-CSRFToken': window.getCookie('csrftoken'),
                                 'X-Requested-With': 'XMLHttpRequest'
                             }
                         })
@@ -1414,7 +1401,7 @@
                         fetch(`{% url 'delete_backup' 0 %}`.replace('0', backupId), {
                             method: 'POST',
                             headers: {
-                                'X-CSRFToken': getCookie('csrftoken'),
+                                'X-CSRFToken': window.getCookie('csrftoken'),
                                 'X-Requested-With': 'XMLHttpRequest'
                             }
                         })

@@ -2101,7 +2101,7 @@
                             <i class="bi bi-plus-lg"></i>
                             Add Product
                         </a>
-                        <a href="{% url 'record_sale_page' %}" class="btn-modern success">
+                        <a href="{% url 'record_sale' %}" class="btn-modern success">
                             <i class="bi bi-cart-plus"></i>
                             Record Sale
                         </a>
@@ -2615,22 +2615,7 @@
     <script src="{% static 'js/modern-inventory.js' %}"></script>
 
     <script>
-        // CSRF token setup for AJAX
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-        const csrftoken = getCookie('csrftoken');
+        const csrftoken = window.getCookie('csrftoken');
         $.ajaxSetup({
             headers: {
                 'X-CSRFToken': csrftoken
@@ -4257,23 +4242,7 @@
                 formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
             }
             
-            // Get CSRF token
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            
-            const csrftoken = getCookie('csrftoken');
+            const csrftoken = window.getCookie('csrftoken');
             
             fetch(`/api/printer/receipt/${saleId}/`, {
                 method: 'POST',

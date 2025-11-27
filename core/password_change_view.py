@@ -6,21 +6,10 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from core.models import AppUser
 from passlib.hash import bcrypt
-from core.views import require_app_login
+from core.views import require_app_login, _is_strong_password
 import re
 
-def _is_strong_password(p: str) -> bool:
-    if not p or len(p) < 8:
-        return False
-    if not re.search(r"[A-Z]", p):
-        return False
-    if not re.search(r"[a-z]", p):
-        return False
-    if not re.search(r"\d", p):
-        return False
-    if not re.search(r"[^A-Za-z0-9]", p):
-        return False
-    return True
+ 
 
 
 @require_app_login
@@ -58,20 +47,7 @@ def change_password(request):
         
         # Verify old password
         stored_password = user.password
-        password_valid = False
-        
-        # Handle both PHP ($2y$) and Python ($2b$) bcrypt formats
-        if stored_password.startswith('$2y$'):
-            python_hash = stored_password.replace('$2y$', '$2b$', 1)
-            try:
-                password_valid = bcrypt.verify(old_password, python_hash)
-            except Exception:
-                password_valid = bcrypt.verify(old_password, stored_password)
-        else:
-            try:
-                password_valid = bcrypt.verify(old_password, stored_password)
-            except Exception:
-                password_valid = False
+        password_valid = _verify_password(stored_password, old_password)
         
         if not password_valid:
             return JsonResponse({'success': False, 'message': 'Current password is incorrect.'})

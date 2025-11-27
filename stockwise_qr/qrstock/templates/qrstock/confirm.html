@@ -261,7 +261,7 @@
       </a>
 
       <!-- Record Sale Action -->
-      <a href="{% url 'record_sale_page' %}?product_id={{ product.product_id }}" class="action-card record-sale">
+      <a href="{% url 'record_sale' %}?product_id={{ product.product_id }}" class="action-card record-sale">
         <div class="d-flex align-items-center">
         <div class="action-icon record-sale">
             <i class="bi bi-receipt"></i>
@@ -284,7 +284,7 @@
 <script>
 // Display session timer
 document.addEventListener('DOMContentLoaded', function() {
-  var minutesRemaining = {{ minutes_remaining|default:60 }};
+  var minutesRemaining = parseInt('{{ minutes_remaining|default:60 }}', 10);
   
   // Only show warning if less than 15 minutes remain
   if (minutesRemaining < 15) {

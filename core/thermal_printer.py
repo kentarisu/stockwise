@@ -94,30 +94,16 @@ class ThermalPrinterService:
                 self.printer = Network(host, port=port)
                 
             elif self.connection_type == 'windows':
-                # Windows printer (via Windows print spooler)
-                # Use the printer name as it appears in Windows Printers & scanners
                 printer_name = kwargs.get('printer_name', 'POS58 Printer')
-                # For Windows, we need to use a temporary file approach or direct Windows API
-                # The File class with printer name might not work correctly
-                # Instead, we'll use a temporary file and send it to the printer
                 import tempfile
-                import os
                 import platform
-                
-                if platform.system() == 'Windows':
-                    # On Windows, create a temporary file for the print job
-                    # This ensures proper job termination
-                    self._temp_file = tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.prn')
-                    self._temp_file_path = self._temp_file.name
-                    self._temp_file.close()
-                    # Open file for writing ESC/POS commands
-                    self.printer = File(devfile=self._temp_file_path)
-                    self._printer_name = printer_name
-                else:
-                    # On other systems, try direct printer name
-                    self.printer = File(devfile=printer_name)
-                    self._temp_file_path = None
-                    self._printer_name = None
+                if platform.system() != 'Windows':
+                    raise EnvironmentError("Windows printer type is only supported on Windows hosts")
+                self._temp_file = tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.prn')
+                self._temp_file_path = self._temp_file.name
+                self._temp_file.close()
+                self.printer = File(devfile=self._temp_file_path)
+                self._printer_name = printer_name
             else:
                 raise ValueError(f"Unsupported connection type: {self.connection_type}")
             
@@ -457,7 +443,7 @@ class ThermalPrinterService:
     
     def _send_windows_job(self) -> bool:
         """Helper to send buffered print job when using Windows spooler"""
-        windows_success = True
+        windows_success = False
         if self.connection_type == 'windows' and hasattr(self, '_temp_file_path') and self._temp_file_path:
             windows_success = False
             try:
@@ -533,6 +519,9 @@ class ThermalPrinterService:
                 if not self.last_error:
                     self.last_error = f"Windows print job failed: {e}"
                 windows_success = False
+        else:
+            self.last_error = self.last_error or "Windows spooler job unavailable on this host"
+            windows_success = False
         return windows_success
     
     def close(self):
@@ -572,7 +561,123 @@ def get_printer_service(connection_type: str = None, **kwargs) -> Optional[Therm
     if not ESCPOS_AVAILABLE:
         logger.error("python-escpos library not available")
         return None
-    
+
+
+def render_receipt_pdf(receipt_data: Dict[str, Any]) -> bytes:
+    """Render a simple receipt PDF as a cross-platform fallback.
+
+    Returns PDF bytes that can be downloaded and printed from any device.
+    """
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import mm
+    import io
+
+    buf = io.BytesIO()
+    # Use a narrow custom width approximating 58mm thermal paper, with dynamic height
+    page_width = 58 * mm
+    page_height = letter[1]  # Start with letter height; we won't rely on exact height
+    c = canvas.Canvas(buf, pagesize=(page_width, page_height))
+
+    x_margin = 6 * mm
+    y = page_height - 12 * mm
+
+    def draw_center(text, size=10, bold=False):
+        nonlocal y
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawCentredString(page_width / 2, y, text)
+        y -= (size + 6)
+
+    def draw_left(text, size=9, bold=False):
+        nonlocal y
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        c.drawString(x_margin, y, text)
+        y -= (size + 6)
+
+    # Header
+    company_name = (receipt_data.get('company_name') or 'StockWise').strip()
+    draw_center(company_name, size=11, bold=True)
+    company_address = (receipt_data.get('company_address') or '').strip()
+    if company_address:
+        for line in wrap_text(company_address, width=36):
+            draw_center(line, size=9)
+    company_phone = (receipt_data.get('company_phone') or '').strip()
+    if company_phone:
+        draw_center(f"Tel: {company_phone}", size=9)
+    draw_center("", size=2)
+    draw_center("SALES RECEIPT", size=11, bold=True)
+    draw_center("", size=2)
+
+    # Transaction info
+    draw_left(f"Transaction No.: {receipt_data.get('transaction_number', 'N/A')}", size=9)
+    draw_left(f"OR No.: {receipt_data.get('or_number', 'N/A')}", size=9)
+    draw_left(f"Date: {receipt_data.get('date', 'N/A')}", size=9)
+    processed_by = (receipt_data.get('processed_by') or '').strip()
+    if processed_by:
+        draw_left(f"Processed by: {processed_by}", size=9)
+    c.line(x_margin, y, page_width - x_margin, y)
+    y -= 6
+
+    # Customer info
+    cust_name = (receipt_data.get('customer_name') or '').strip()
+    draw_left(f"Customer: {cust_name if cust_name and cust_name != 'N/A' else ''}", size=9)
+    cust_contact = (receipt_data.get('customer_contact') or '').strip()
+    if cust_contact:
+        draw_left(f"Contact: {cust_contact}", size=9)
+    cust_addr = (receipt_data.get('customer_address') or '').strip()
+    if cust_addr and cust_addr != 'N/A':
+        for idx, line in enumerate(wrap_text(cust_addr, width=40)):
+            draw_left(("Address: " if idx == 0 else "          ") + line, size=9)
+    c.line(x_margin, y, page_width - x_margin, y)
+    y -= 6
+
+    # Items
+    items = receipt_data.get('items', [])
+    if items:
+        draw_left(f"{'Description':<18}{'Qty':>4}{'Amount':>10}", size=9, bold=True)
+        c.line(x_margin, y+2, page_width - x_margin, y+2)
+        for it in items:
+            name = (it.get('name') or 'Item').strip()
+            qty = int(it.get('quantity') or 0)
+            amount = float(it.get('amount') or 0)
+            first = wrap_text(name, width=18)[0]
+            draw_left(f"{first:<18}{str(qty):>4}{amount:>10.2f}", size=9)
+            # Additional wrapped lines
+            for extra in wrap_text(name, width=32)[1:]:
+                draw_left(extra, size=9)
+        c.line(x_margin, y, page_width - x_margin, y)
+        y -= 6
+
+    # Totals
+    subtotal = float(receipt_data.get('subtotal', 0))
+    vat = float(receipt_data.get('vat', 0))
+    total = float(receipt_data.get('total', 0))
+    amount_paid = float(receipt_data.get('amount_paid', 0))
+    change = float(receipt_data.get('change', 0))
+    discount = float(receipt_data.get('discount', 0))
+    discount_pct = float(receipt_data.get('discount_pct', 0))
+    draw_left(f"Subtotal: {subtotal:,.2f}", size=9)
+    if vat > 0:
+        draw_left(f"VAT 12%: {vat:,.2f}", size=9)
+    if discount > 0:
+        pct = (f" ({discount_pct:g}%)" if discount_pct > 0 else "")
+        draw_left(f"Discount{pct}: -{discount:,.2f}", size=9)
+    draw_left(f"TOTAL: {total:,.2f}", size=11, bold=True)
+    draw_left(f"Amount Paid: {amount_paid:,.2f}", size=9)
+    draw_left(f"Change: {change:,.2f}", size=9)
+
+    # Footer
+    c.line(x_margin, y, page_width - x_margin, y)
+    y -= 10
+    draw_center("Thank you for your purchase!", size=9)
+    draw_center("This is not an official receipt.", size=9)
+
+    c.showPage()
+    c.save()
+    pdf_bytes = buf.getvalue()
+    buf.close()
+    return pdf_bytes
+
     # Get default connection type from settings or use provided
     from django.conf import settings
     default_connection = getattr(settings, 'THERMAL_PRINTER_TYPE', 'usb')

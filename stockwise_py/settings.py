@@ -375,7 +375,13 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'
 EMAIL_HOST_USER = _clean_val(os.getenv('EMAIL_HOST_USER', ''))
 EMAIL_HOST_PASSWORD = _clean_val(os.getenv('EMAIL_HOST_PASSWORD', '')).replace(' ', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@stockwise.local')
+EMAIL_SENDER_NAME = _clean_val(os.getenv('EMAIL_SENDER_NAME', ''))
+_DEFAULT_FROM = _clean_val(os.getenv('DEFAULT_FROM_EMAIL', ''))
+DEFAULT_FROM_EMAIL = (
+    _DEFAULT_FROM or (
+        f"{EMAIL_SENDER_NAME} <{EMAIL_HOST_USER}>" if EMAIL_SENDER_NAME and EMAIL_HOST_USER else (EMAIL_HOST_USER or 'no-reply@stockwise.local')
+    )
+)
 
 TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '2'))
 TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv('TWO_FACTOR_MAX_ATTEMPTS', '5'))

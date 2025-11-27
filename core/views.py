@@ -9364,15 +9364,19 @@ def print_thermal_receipt(request, sale_id):
             connection_params['printer_name'] = printer_name
         
         # Import thermal printer service
-        from .thermal_printer import get_printer_service
+        from .thermal_printer import get_printer_service, render_receipt_pdf
+        import base64
         
         # Get printer service
         printer_service = get_printer_service(connection_type=connection_type, **connection_params)
         
         if not printer_service:
+            pdf_bytes = render_receipt_pdf(receipt_data)
+            pdf_b64 = base64.b64encode(pdf_bytes).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Failed to connect to printer. Please check printer connection and settings.'
+                'message': 'Failed to connect to printer. Please check printer connection and settings.',
+                'pdf_b64': pdf_b64,
             }, status=500)
         
         # Print receipt
@@ -9397,9 +9401,12 @@ def print_thermal_receipt(request, sale_id):
             service_error = getattr(printer_service, 'last_error', None)
             if service_error:
                 error_msg += f' Details: {service_error}'
+            pdf_bytes = render_receipt_pdf(receipt_data)
+            pdf_b64 = base64.b64encode(pdf_bytes).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': error_msg
+                'message': error_msg,
+                'pdf_b64': pdf_b64,
             }, status=500)
     
     except Sale.DoesNotExist:
@@ -9459,9 +9466,29 @@ def test_thermal_printer(request):
         printer_service = get_printer_service(connection_type=connection_type, **connection_params)
         
         if not printer_service:
+            from .thermal_printer import render_receipt_pdf
+            import base64
+            test_data = {
+                'company_name': 'StockWise Test',
+                'company_address': 'Test Address',
+                'transaction_number': 'TEST001',
+                'or_number': 'OR001',
+                'date': '2025-01-01 12:00',
+                'customer_name': 'Test Customer',
+                'items': [
+                    {'name': 'Test Product', 'quantity': 1, 'price': 100.00, 'amount': 100.00}
+                ],
+                'subtotal': 100.00,
+                'vat': 12.00,
+                'total': 112.00,
+                'amount_paid': 112.00,
+                'change': 0.00
+            }
+            pdf_b64 = base64.b64encode(render_receipt_pdf(test_data)).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Failed to connect to printer. Please check connection settings.'
+                'message': 'Failed to connect to printer. Please check connection settings.',
+                'pdf_b64': pdf_b64,
             }, status=500)
         
         # Print test receipt
@@ -9476,9 +9503,29 @@ def test_thermal_printer(request):
                 'message': 'Test print successful! Check your printer.'
             })
         else:
+            from .thermal_printer import render_receipt_pdf
+            import base64
+            test_data = {
+                'company_name': 'StockWise Test',
+                'company_address': 'Test Address',
+                'transaction_number': 'TEST001',
+                'or_number': 'OR001',
+                'date': '2025-01-01 12:00',
+                'customer_name': 'Test Customer',
+                'items': [
+                    {'name': 'Test Product', 'quantity': 1, 'price': 100.00, 'amount': 100.00}
+                ],
+                'subtotal': 100.00,
+                'vat': 12.00,
+                'total': 112.00,
+                'amount_paid': 112.00,
+                'change': 0.00
+            }
+            pdf_b64 = base64.b64encode(render_receipt_pdf(test_data)).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Test print failed. Please check printer status.'
+                'message': 'Test print failed. Please check printer status.',
+                'pdf_b64': pdf_b64,
             }, status=500)
     
     except Exception as e:

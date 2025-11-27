@@ -148,11 +148,11 @@
             display: flex !important;
             align-items: center;
             justify-content: center;
-            background: var(--gray-50) !important;
+            background: transparent !important;
             border: var(--border-width) solid var(--gray-300) !important;
             color: var(--gray-700) !important;
-            min-width: 44px !important;
-            min-height: 44px !important;
+            min-width: 36px !important;
+            min-height: 36px !important;
             padding: var(--space-2);
             border-radius: var(--radius-md);
             transition: all var(--transition-fast);
@@ -717,7 +717,7 @@
             :root {
                 --content-padding: 1rem;
                 --sidebar-width: 100vw;
-                --header-height: 90px;
+                --header-height: 72px;
             }
 
             .sidebar {
@@ -734,13 +734,20 @@
             }
 
             .header {
-                padding: 0.75rem 1rem;
+                padding: 0.5rem 0.75rem;
                 min-height: var(--header-height);
             }
 
+            .header-title-section {
+                padding-left: 1rem;
+            }
+
             .header-left h1 {
-                font-size: 1.5rem;
+                font-size: 1.25rem;
                 line-height: 1.2;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .header-subtitle {
@@ -749,7 +756,7 @@
             }
 
             .header-right {
-                gap: 0.75rem;
+                gap: 0.5rem;
                 flex-wrap: wrap;
             }
 
@@ -1208,19 +1215,12 @@
             }
         }
 
-        /* MOBILE MENU BUTTON - FORCE VISIBILITY ON MOBILE */
+        /* MOBILE MENU BUTTON VISIBILITY */
         @media (max-width: 768px) {
             .mobile-menu-btn {
                 display: flex !important;
                 visibility: visible !important;
                 opacity: 1 !important;
-                background: #007bff !important; /* Blue background for debugging */
-                border: 2px solid #000000 !important; /* Black border for debugging */
-                color: #ffffff !important; /* White text for debugging */
-                min-width: 44px !important;
-                min-height: 44px !important;
-                position: relative !important;
-                z-index: 9999 !important;
             }
         }
 
@@ -1416,6 +1416,7 @@
                     {% block page_subtitle %}{% endblock %}
                 </div>
                 <div class="header-right">
+                    <button id="mobileMenuToggle" class="mobile-menu-btn" aria-label="Open menu"><i class="bi bi-list"></i></button>
                     {% block header_actions %}{% endblock %}
                     <div class="dropdown">
                         <button class="user-avatar-btn" 
@@ -1424,7 +1425,7 @@
                                 aria-label="User menu">
                             <img src="https://via.placeholder.com/40" 
                                  alt="User avatar" 
-                                 class="user-avatar">
+                                 class="user-avatar" loading="lazy" decoding="async">
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" role="menu">
                             <li role="none">
@@ -1467,19 +1468,43 @@
             const sidebar = document.getElementById('sidebar');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
             const body = document.body;
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const pageBurger = document.querySelector('.burger-menu-btn');
 
             function closeMobileMenu() {
                 if (sidebar && sidebarOverlay) {
                     sidebar.classList.remove('active');
                     sidebarOverlay.classList.remove('active');
-                    body.classList.remove('sidebar-open');
                 }
+                body.classList.remove('sidebar-open');
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) mainContent.classList.remove('sidebar-open');
             }
 
             // Handle overlay click
             if (sidebarOverlay) {
                 sidebarOverlay.addEventListener('click', function() {
                     closeMobileMenu();
+                });
+            }
+
+            // If page already provides its own burger button, hide base toggle to avoid duplication
+            if (pageBurger && mobileMenuToggle) {
+                mobileMenuToggle.style.display = 'none';
+            }
+
+            if (mobileMenuToggle && sidebar) {
+                mobileMenuToggle.addEventListener('click', function() {
+                    const isOpen = sidebar.classList.contains('active');
+                    if (isOpen) {
+                        closeMobileMenu();
+                    } else {
+                        sidebar.classList.add('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.add('active');
+                        body.classList.add('sidebar-open');
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    }
                 });
             }
 
@@ -1562,6 +1587,11 @@
             window.addEventListener('orientationchange', function() {
                 closeMobileMenu();
             });
+
+            // Ensure sidebar starts closed on mobile
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
 
             // Handle logout confirmation
             document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {

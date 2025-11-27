@@ -94,20 +94,19 @@ def send_low_stock_alert(product):
             return "".join(parts)
 
         label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
+        unit = (getattr(product, 'quantity_unit', None) or '').strip().lower()
+        unit_label = 'kilos' if unit == 'kilo' else 'boxes'
         if product.stock == 0:
             message = (
                 "STOCKWISE Stock Alert\n\n"
                 "CRITICAL - OUT OF STOCK:\n"
                 f"- {label}\n\n"
-                "- STOCKWISE"
             )
         else:
-            box_text = "box" if int(product.stock) == 1 else "boxes"
             message = (
                 "STOCKWISE Stock Alert\n\n"
                 "WARNING - LOW STOCK:\n"
-                f"- {label}: {int(product.stock)} {box_text} left\n\n"
-                "- STOCKWISE"
+                f"- {label}: {int(product.stock)} {unit_label} left\n\n"
             )
         
         # Send SMS to all admins IMMEDIATELY (REAL-TIME)

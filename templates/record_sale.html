@@ -741,6 +741,7 @@ function buildThermalPreview(data) {
   lines.push(`Transaction No.: ${data.transaction_number || ''}`);
   lines.push(`OR No.: ${data.or_number || ''}`);
   lines.push(`Date: ${data.date || ''}`);
+  lines.push(`Processed by: ${data.processed_by || ''}`);
   lines.push(`Customer: ${data.customer_name || ''}`);
   lines.push(`Contact: ${data.customer_contact || ''}`);
   if (data.customer_address) {
@@ -765,7 +766,12 @@ function buildThermalPreview(data) {
   lines.push('='.repeat(RECEIPT_WIDTH));
   lines.push(padLine('Subtotal:', peso(data.subtotal || 0)));
   if (data.vat) lines.push(padLine('VAT 12%:', peso(data.vat || 0)));
-  if (data.discount && Number(data.discount) > 0) lines.push(padLine('Discount:', '-' + peso(data.discount)));
+  if (data.discount && Number(data.discount) > 0) {
+    const pctVal = Number(data.discount_pct || 0);
+    const pctStr = pctVal > 0 ? ((pctVal % 1 === 0) ? String(pctVal.toFixed(0)) : String(pctVal.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
+    const pct = pctStr ? ` (${pctStr}%)` : '';
+    lines.push(padLine(`Discount${pct}:`, '-' + peso(data.discount)));
+  }
   lines.push(padLine('TOTAL:', peso(data.total || 0)));
   lines.push('-'.repeat(RECEIPT_WIDTH));
   lines.push(padLine('Amount Paid:', peso(data.amount_paid || 0)));
@@ -782,6 +788,7 @@ const csrftoken=getCookie('csrftoken');
 $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 
 let products=[]; let currentStep=1; window.saleItems=[]; window.lastRecordedSaleId=null; let transactionNumber=''; let orNumber='';
+const processedBy = "{{ app_username|default:'' }}";
 
 function loadActiveProducts(){
   return fetch("{% url 'get_active_products' %}")
@@ -935,6 +942,7 @@ function generateReceipt(){
     transaction_number: transactionNumber || '',
     or_number: orNumber || '',
     date: formatReceiptDate(new Date()),
+    processed_by: processedBy,
     customer_name: customerName,
     customer_contact: customerContact,
     customer_address: customerAddress,
@@ -952,6 +960,7 @@ function generateReceipt(){
     subtotal,
     vat,
     discount: discountAmount,
+    discount_pct: discountPct,
     total: totalAmount,
     amount_paid: amountPaid,
     change
@@ -966,7 +975,18 @@ function toTitleCase(str){ return (str||'').toLowerCase().replace(/\b([a-z])([a-
 $('#customerName').on('blur', function(){ const v=$(this).val(); $(this).val(toTitleCase(v)); });
 $('#customerAddress').on('blur', function(){ const v=$(this).val(); $(this).val(toTitleCase(v)); });
 $('#customerContact').on('input', function(){ const digits=$(this).val().replace(/\D/g,'').slice(0,11); $(this).val(digits); });
-function recordSale(){ const items=window.saleItems||[]; const amountPaid=parseFloat($('#paymentTendered').val())||0; const discountPct=parseFloat($('#discountPercentage').val())||0; const discountAmount=(window.originalTotalWithVAT||0)*Math.max(0,Math.min(100,discountPct))/100; const customerName=toTitleCase($('#customerName').val()||''); const customerContact=($('#customerContact').val()||'').replace(/\D/g,''); const customerAddress=toTitleCase($('#customerAddress').val()||''); if(customerContact && customerContact.length!==11){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Contact number must be exactly 11 digits.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, discount_pct: discountPct, discount_amount: discountAmount, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() }; return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; transactionNumber=String(resp.sale_ids[0]); $('#transactionNumber').text(transactionNumber); } $('#orNumber').text(orNumber||''); }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }}); }
+function recordSale(){
+  const items=window.saleItems||[];
+  const amountPaid=parseFloat($('#paymentTendered').val())||0;
+  const discountPct=parseFloat($('#discountPercentage').val())||0;
+  const discountAmount=(window.originalTotalWithVAT||0)*Math.max(0,Math.min(100,discountPct))/100;
+  const customerName=toTitleCase($('#customerName').val()||'');
+  const customerContact=($('#customerContact').val()||'').replace(/\D/g,'');
+  const customerAddress=toTitleCase($('#customerAddress').val()||'');
+  if(customerContact && customerContact.length!==11){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Contact number must be exactly 11 digits.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; }
+  const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, discount_pct: discountPct, discount_amount: discountAmount, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() };
+  return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; } if(resp.transaction_number){ transactionNumber=String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); } if(resp.or_number){ orNumber=String(resp.or_number); $('#orNumber').text(orNumber); } }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }});
+}
  // Detect if device is mobile/tablet or desktop
  function isMobileOrTablet() {
      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
@@ -1016,11 +1036,14 @@ function printReceipt(){
              const newId = parseInt(resp.sale_ids[0], 10);
              if (!Number.isNaN(newId)) {
                  window.lastRecordedSaleId = newId;
+                 // Keep the transaction and OR numbers consistent with what was saved
+                 if (resp.transaction_number) { transactionNumber = String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); }
+                 if (resp.or_number) { orNumber = String(resp.or_number); $('#orNumber').text(orNumber); }
                  // Smart printer detection
                  if (isMobile) {
                      printRegularReceipt();
                  } else {
-            printThermalReceipt(newId);
+                     printThermalReceipt(newId);
                  }
              } else {
                  alert('Sale recorded but receipt ID is invalid. Please try again.');

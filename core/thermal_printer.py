@@ -279,12 +279,16 @@ class ThermalPrinterService:
             amount_paid = float(receipt_data.get('amount_paid', 0))
             change = float(receipt_data.get('change', 0))
             discount = float(receipt_data.get('discount', 0))
+            discount_pct = float(receipt_data.get('discount_pct', 0))
             
             self.printer.text(format_line("Subtotal:", f"{subtotal:,.2f}") + "\n")
             if vat > 0:
                 self.printer.text(format_line("VAT 12%:", f"{vat:,.2f}") + "\n")
             if discount > 0:
-                self.printer.text(format_line("Discount:", f"-{discount:,.2f}") + "\n")
+                pct_raw = f"{discount_pct:.2f}" if discount_pct > 0 else ""
+                pct_clean = pct_raw.rstrip('0').rstrip('.') if pct_raw else ""
+                pct_label = f" ({pct_clean}%)" if pct_clean else ""
+                self.printer.text(format_line(f"Discount{pct_label}:", f"-{discount:,.2f}") + "\n")
             
             self.printer.set(bold=True)
             self.printer.text(format_line("TOTAL:", f"{total:,.2f}") + "\n")

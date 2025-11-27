@@ -2328,7 +2328,7 @@
             }
 
             .header-left h1 {
-                font-size: 1.5rem;
+                font-size: 1.125rem;
                 line-height: 1.2;
             }
 
@@ -2338,7 +2338,7 @@
             }
 
             .header-right {
-                gap: 0.75rem;
+                gap: 0.5rem;
                 flex-wrap: wrap;
             }
 
@@ -2358,14 +2358,14 @@
             }
 
             .header-left h1 {
-                font-size: 1.25rem;
+                font-size: 1.125rem;
                 line-height: 1.3;
                 margin: 0;
                 flex: 1;
                 min-width: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .header-subtitle {
@@ -3441,7 +3441,12 @@
         function updateRangeLabels() {
             console.log('updateRangeLabels called');
             const today = new Date();
-            const iso = (dt) => dt.toISOString().slice(0, 10);
+            const localISO = (dt) => {
+                const y = dt.getFullYear();
+                const m = String(dt.getMonth() + 1).padStart(2, '0');
+                const d = String(dt.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
 
             let start = new Date();
             let end = new Date();
@@ -3473,15 +3478,15 @@
             }
             
             if (selectedValue === 'today') {
-                // start and end are already today
-                startDate = iso(today);
-                endDate = iso(today);
+                // start and end are already today (local)
+                startDate = localISO(today);
+                endDate = localISO(today);
             } else if (selectedValue === 'week') {
-                startDate = iso(weekStart);
-                endDate = iso(today);
+                startDate = localISO(weekStart);
+                endDate = localISO(today);
             } else if (selectedValue === 'month') {
-                startDate = iso(monthStart);
-                endDate = iso(today);
+                startDate = localISO(monthStart);
+                endDate = localISO(today);
             } else if (selectedValue === 'custom') {
                 // If custom dates are already set, use them
                 if (customStart && customEnd) {
@@ -3490,8 +3495,8 @@
                 } else {
                     // Open custom range modal
                     const customRangeModal = new bootstrap.Modal(document.getElementById('customRangeModal'));
-                    $('#customStart').val(customStart || iso(today));
-                    $('#customEnd').val(customEnd || iso(today));
+                    $('#customStart').val(customStart || localISO(today));
+                    $('#customEnd').val(customEnd || localISO(today));
                     customRangeModal.show();
                     return; // Don't trigger loadReports yet, wait for modal apply
                 }
@@ -3499,8 +3504,8 @@
             
             // Ensure dates are always set
             if (!startDate || !endDate) {
-                startDate = iso(today);
-                endDate = iso(today);
+                startDate = localISO(today);
+                endDate = localISO(today);
             }
         }
 
@@ -3512,8 +3517,10 @@
             try {
                 // Determine filter_type based on whether custom dates are provided
                 const filterType = (startDate && endDate) ? 'custom' : 'today';
-                const userFilter = $('#userFilter').val() || 'all';
-                const fruitFilter = $('#productFilter').val() || 'all';
+                const userFilterRaw = $('#userFilter').val() || 'all';
+                const fruitFilterRaw = $('#productFilter').val() || 'all';
+                const userFilter = (/^all\b/i.test(String(userFilterRaw)) || /^all users$/i.test(String(userFilterRaw))) ? 'all' : userFilterRaw;
+                const fruitFilter = (/^all\b/i.test(String(fruitFilterRaw)) || /^all products$/i.test(String(fruitFilterRaw))) ? 'all' : fruitFilterRaw;
                 
                 const response = await $.ajax({
                     url: '/api/reports/fetch/', // Corrected URL
@@ -4203,6 +4210,10 @@
                 $('#reportDetailSubtotal').text(`₱${formatCurrency(transaction.subtotal || 0)}`);
                 $('#reportDetailVat').text(`₱${formatCurrency(transaction.vat_amount || 0)}`);
                 $('#reportDetailDiscount').text(`₱${formatCurrency(transaction.discount_amount || transaction.discount || 0)}`);
+                const dpct = Number(transaction.discount_pct || 0);
+                const pctStr = dpct > 0 ? ((dpct % 1 === 0) ? String(dpct.toFixed(0)) : String(dpct.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
+                const labelEl = document.getElementById('reportDetailDiscountLabel');
+                if (labelEl) labelEl.textContent = pctStr ? `Discount (${pctStr}%)` : 'Discount';
                 $('#reportDetailTotal').text(`₱${formatCurrency(transaction.total_amount || 0)}`);
                 $('#reportDetailAmountPaid').text(`₱${formatCurrency(transaction.amount_paid || 0)}`);
                 $('#reportDetailChange').text(`₱${formatCurrency(transaction.change_amount || 0)}`);
@@ -4370,17 +4381,35 @@
                     startDate = customStart;
                     endDate = customEnd;
                 } else if (filterType === 'today') {
-                    startDate = endDate = today.toISOString().slice(0, 10);
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    startDate = endDate = localISO(today);
                 } else if (filterType === 'week') {
                     const weekStart = new Date(today);
                     weekStart.setDate(today.getDate() - 6);
-                    startDate = weekStart.toISOString().slice(0, 10);
-                    endDate = today.toISOString().slice(0, 10);
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    startDate = localISO(weekStart);
+                    endDate = localISO(today);
                 } else if (filterType === 'month') {
                     const monthStart = new Date(today);
                     monthStart.setDate(today.getDate() - 29);
-                    startDate = monthStart.toISOString().slice(0, 10);
-                    endDate = today.toISOString().slice(0, 10);
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    startDate = localISO(monthStart);
+                    endDate = localISO(today);
                 }
                 
                 // Create form data
@@ -4691,7 +4720,7 @@
                                 <strong id="reportDetailVat">₱0.00</strong>
                             </div>
                             <div class="report-card">
-                                <span>Discount</span>
+                                <span id="reportDetailDiscountLabel">Discount</span>
                                 <strong id="reportDetailDiscount">₱0.00</strong>
                             </div>
                             <div class="report-card">

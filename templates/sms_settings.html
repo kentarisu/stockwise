@@ -224,7 +224,7 @@
 
         .main-content {
             flex: 1;
-            margin-left: var(--sidebar-width);
+            margin-left: 0;
             padding: calc(var(--header-height) + var(--space-lg)) var(--space-lg) var(--space-lg);
             transition: none;
             min-height: 100vh;
@@ -266,7 +266,7 @@
 
             .main-content {
                 margin-left: var(--sidebar-width);
-                margin-top: var(--header-height);
+                padding: calc(var(--header-height) + var(--space-md)) var(--space-lg) var(--space-lg);
             }
 
             .main-content:not(.sidebar-open) {
@@ -459,7 +459,7 @@
             :root {
                 --content-padding: 1rem;
                 --sidebar-width: 280px;
-                --header-height: 90px;
+                --header-height: 72px;
             }
 
             .sidebar {
@@ -473,14 +473,19 @@
             }
             
             .main-content {
+                margin-left: 0 !important;
+                margin-top: 0;
+                padding: calc(var(--header-height) + 0.25rem) 0.5rem 0.5rem;
+            }
+            .main-content.sidebar-open {
                 margin-left: 0;
-                margin-top: var(--header-height);
             }
             
             .content-area {
-                padding: 1rem;
+                padding: 0.75rem;
                 max-width: 100%;
                 overflow-x: hidden;
+                gap: 0.75rem;
             }
             
             .header {
@@ -499,15 +504,16 @@
             .header-title-section {
                 flex: 1;
                 min-width: 0;
+                padding-left: 0.75rem;
             }
 
             .header-left h1 {
-                font-size: 1.25rem;
+                font-size: 1.125rem;
                 line-height: 1.3;
                 margin: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .header-subtitle {
@@ -515,7 +521,7 @@
             }
             
             .header-right {
-                gap: 0.75rem;
+                gap: 0.5rem;
                 flex-wrap: wrap;
             }
 
@@ -555,8 +561,8 @@
 
             /* Cards - Mobile */
             .card-modern, .card, .settings-card, .page-header {
-                padding: 1rem !important;
-                margin-bottom: 1rem;
+                padding: 0.75rem !important;
+                margin-bottom: 0.75rem;
                 border-radius: 12px;
             }
 
@@ -569,19 +575,19 @@
             }
 
             /* Buttons - Mobile */
-            .btn-modern, .btn, .dropdown-toggle {
-                min-height: 44px !important;
-                min-width: 44px !important;
-                padding: 12px 20px !important;
-                font-size: 15px !important;
+            .btn-modern, .dropdown-toggle {
+                min-height: 36px !important;
+                min-width: 36px !important;
+                padding: 8px 12px !important;
+                font-size: 14px !important;
                 border-radius: 10px !important;
             }
 
             /* Forms - Mobile */
             .form-control, .form-select {
-                min-height: 44px !important;
-                font-size: 16px !important;
-                padding: 12px 16px !important;
+                min-height: 40px !important;
+                font-size: 15px !important;
+                padding: 10px 12px !important;
             }
 
             /* Modals - Mobile */
@@ -603,7 +609,7 @@
         @media (max-width: 480px) {
             :root {
                 --content-padding: 0.75rem;
-                --header-height: 80px;
+                --header-height: 68px;
             }
 
             .header {
@@ -611,7 +617,7 @@
             }
             
             .header-title-section {
-                padding-left: 1.5rem;
+                padding-left: 0.5rem;
             }
 
             .header-left h1 {
@@ -619,20 +625,21 @@
             }
 
             .content-area {
-                padding: 0.75rem;
+                padding: 0.625rem;
+                gap: 0.625rem;
             }
 
             .card-modern, .card, .settings-card, .page-header {
-                padding: 0.875rem !important;
+                padding: 0.625rem !important;
             }
 
             .page-title {
                 font-size: 1.25rem !important;
             }
 
-            .btn-modern, .btn {
-                padding: 12px 16px !important;
-                font-size: 15px !important;
+            .btn-modern {
+                padding: 8px 10px !important;
+                font-size: 13px !important;
             }
 
             .modal-dialog {
@@ -800,14 +807,16 @@
         .notification-card {
             background: white;
             border-radius: var(--radius-md) !important;
-            padding: var(--space-sm) !important;
+            padding: 0 !important;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
-            margin-bottom: var(--space-sm) !important;
+            margin: var(--space-2xs) 0 !important;
             transition: all 0.2s ease;
             display: flex;
             flex-direction: column;
-            gap: var(--space-sm);
+            gap: var(--space-2xs);
+            width: 100%;
+            height: 100%;
         }
 
         .notification-card:hover {
@@ -854,32 +863,57 @@
             font-size: 0.85rem !important;
             font-weight: 600;
             color: var(--gray-900);
-            margin-bottom: var(--space-2xs) !important;
+            margin-bottom: 0 !important;
+            text-align: center;
+        }
+
+        .notification-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+            width: 100%;
+        }
+
+        .notification-header .notification-icon {
+            margin-bottom: 0 !important;
+        }
+
+        .notification-header .notification-title {
+            margin: 0 !important;
+            text-align: left !important;
         }
 
         .notification-description {
             color: var(--gray-600);
             font-size: 0.75rem !important;
-            margin-bottom: var(--space-xs) !important;
+            margin: 0 !important;
             line-height: 1.35;
+            text-align: center;
         }
 
         .notification-settings {
             background: var(--gray-50);
             border-radius: var(--radius-md) !important;
-            padding: var(--space-xs) !important;
-            margin-top: var(--space-xs) !important;
+            padding: 0 !important;
+            margin: var(--space-2xs) 0 !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100% !important;
         }
 
         .setting-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--space-xs) !important;
+            justify-content: center;
+            gap: var(--space-xs);
+            margin: 0 !important;
+            width: 100%;
+            text-align: center;
         }
 
         .setting-row:last-child {
-            margin-bottom: 0;
+            margin: 0;
         }
 
         .setting-label {
@@ -949,7 +983,7 @@
             border: 1px solid var(--gray-200);
             border-radius: 8px;
             padding: 1rem;
-            margin-top: 1rem;
+            margin: var(--space-2xs) 0 !important;
             font-family: 'Courier New', monospace;
             font-size: 0.875rem;
             color: var(--gray-700);
@@ -1012,6 +1046,31 @@
         .stat-icon.pricing {
             background: rgba(139, 92, 246, 0.1);
             color: #8b5cf6;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: var(--space-xs) !important;
+                overflow: visible;
+                padding-bottom: 0;
+            }
+            .stat-card {
+                min-width: 0;
+                padding: var(--space-2xs) var(--space-xs) !important;
+            }
+            .stat-icon {
+                width: 1.5rem !important;
+                height: 1.5rem !important;
+                font-size: 0.8rem !important;
+            }
+            .stat-value {
+                font-size: 0.9rem !important;
+            }
+            .stat-label, .stat-subtitle {
+                font-size: 0.68rem !important;
+            }
         }
 
         .stat-content {
@@ -1114,12 +1173,14 @@
             font-size: 1.1rem;
         }
 
-        .main-content,
-        .main-content.sidebar-open {
-            margin-left: var(--sidebar-width);
-            padding: var(--space-lg);
-            min-height: calc(100vh - var(--header-height));
-            transition: none;
+        @media (min-width: 769px) {
+            .main-content,
+            .main-content.sidebar-open {
+                margin-left: var(--sidebar-width);
+                padding: calc(var(--header-height) + var(--space-sm)) var(--space-lg) var(--space-lg) !important;
+                min-height: calc(100vh - var(--header-height));
+                transition: none;
+            }
         }
 
         .main-content:not(.sidebar-open) {
@@ -1167,6 +1228,12 @@
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: var(--space-md);
             margin-bottom: var(--space-lg);
+        }
+        .row.g-0 > [class*='col-'] {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            display: flex;
+            align-items: stretch;
         }
 
         .stat-card,
@@ -1281,16 +1348,21 @@
         .preview-box {
             padding: var(--space-xs) !important;
             font-size: 0.75rem !important;
-            margin-top: var(--space-xs) !important;
+            margin: var(--space-2xs) 0 !important;
+        }
+
+        .notification-card .preview-box {
+            width: 100% !important;
+            margin: var(--space-xs) 0 !important;
         }
 
         .notification-card .card-actions {
             display: flex;
             flex-wrap: wrap;
             gap: var(--space-xs);
-            margin-top: var(--space-xs);
+            margin: 0 !important;
             width: 100%;
-            justify-content: flex-start;
+            justify-content: center;
         }
 
         .notification-card .card-actions .btn {
@@ -1519,14 +1591,16 @@
         </div>
 
         <!-- Notification Types -->
-        <div class="row">
+        <div class="row g-0">
             <!-- Daily Sales Summary -->
             <div class="col-lg-4">
                 <div class="notification-card {% if sms_settings.sales_enabled %}active{% else %}inactive{% endif %}" id="salesCard">
-                    <div class="notification-icon sales">
-                        <i class="bi bi-graph-up"></i>
+                    <div class="notification-header">
+                        <div class="notification-icon sales">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <h6 class="notification-title">Daily Sales Summary</h6>
                     </div>
-                    <h6 class="notification-title">Daily Sales Summary</h6>
                     <p class="notification-description">
                         Automatically receive daily reports with total revenue, transactions, and top-selling products at 8:00 PM.
                     </p>
@@ -1562,27 +1636,12 @@
                         </div>
                     </div>
                     
-                    <div class="preview-box" id="salesPreview" style="display: none;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                    <div class="preview-box" id="salesPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
                             <small><strong>From:</strong> STOCKWISE</small>
                         </div>
                         <strong>Daily Sales Summary:</strong><br>
-                        STOCKWISE Daily Sales Report<br>
-                        Date: {{ today_date|date:"F d, Y" }}<br><br>
-                        ==== OVERALL SUMMARY ====<br>
-                        Total Revenue: PHP {{ today_stats.total_revenue_formatted|default:"0.00" }}<br>
-                        Total Boxes Sold: {{ today_stats.total_boxes|default:"0" }}<br>
-                        Total Transactions: {{ today_stats.total_sales|default:"0" }}<br><br>
-                        {% if top_products %}
-                        ==== TOP PRODUCTS TODAY ====<br>
-                        {% for product in top_products %}
-                        {{ forloop.counter }}. {{ product.product__name }} ({{ product.product__size }})<br>
-                           Sold: {{ product.quantity }} boxes<br>
-                           Revenue: PHP {{ product.revenue|default:"0.00" }}<br>
-                           Remaining: {{ product.product__stock|default:"0" }} boxes<br><br>
-                        {% endfor %}
-                        {% endif %}
-                        - STOCKWISE
+                        {{ sales_preview_msg|linebreaksbr }}
                     </div>
                     
                     <div class="card-actions">
@@ -1599,10 +1658,12 @@
             <!-- Low Stock Alerts -->
             <div class="col-lg-4">
                 <div class="notification-card {% if sms_settings.stock_enabled %}active{% else %}inactive{% endif %}" id="stockCard">
-                    <div class="notification-icon stock">
-                        <i class="bi bi-exclamation-triangle"></i>
+                    <div class="notification-header">
+                        <div class="notification-icon stock">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <h6 class="notification-title">Low Stock Alerts</h6>
                     </div>
-                    <h6 class="notification-title">Low Stock Alerts</h6>
                     <p class="notification-description">
                         Automatically get notified when product inventory falls below your specified threshold (real-time monitoring).
                     </p>
@@ -1633,29 +1694,12 @@
                         </div>
                     </div>
                     
-                    <div class="preview-box" id="stockPreview" style="display: none;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                    <div class="preview-box" id="stockPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
                             <small><strong>From:</strong> STOCKWISE</small>
                         </div>
                         <strong>Stock Alert:</strong><br>
-                        STOCKWISE Stock Alert<br><br>
-                        {% if out_of_stock_products %}
-                        CRITICAL - OUT OF STOCK:<br>
-                        {% for product in out_of_stock_products %}
-                        - {{ product.name }}{% if product.variant %} ({{ product.variant }}){% endif %}{% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif %}<br>
-                        {% endfor %}
-                        <br>
-                        {% endif %}
-                        {% if low_stock_products %}
-                        WARNING - LOW STOCK:<br>
-                        {% for product in low_stock_products %}
-                        - {{ product.name }}{% if product.variant %} ({{ product.variant }}){% endif %}{% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif %}: {{ product.stock }} {% if product.stock == 1 %}box{% else %}boxes{% endif %} left<br>
-                        {% endfor %}
-                        <br>
-                        {% elif not out_of_stock_products %}
-                        All products have sufficient stock.<br><br>
-                        {% endif %}
-                        - STOCKWISE
+                        {{ stock_preview_msg|linebreaksbr }}
                     </div>
                     
                     <div class="card-actions">
@@ -1672,10 +1716,12 @@
             <!-- Demand-Driven Pricing -->
             <div class="col-lg-4">
                 <div class="notification-card {% if sms_settings.pricing_enabled %}active{% else %}inactive{% endif %}" id="pricingCard">
-                    <div class="notification-icon pricing">
-                        <i class="bi bi-tags"></i>
+                    <div class="notification-header">
+                        <div class="notification-icon pricing">
+                            <i class="bi bi-tags"></i>
+                        </div>
+                        <h6 class="notification-title">Demand-Driven Pricing Recommendation</h6>
                     </div>
-                    <h6 class="notification-title">Demand-Driven Pricing</h6>
                     <p class="notification-description">
                         Automatically receive AI-powered pricing recommendations based on demand elasticity and market conditions every 3 days.
                     </p>
@@ -1707,28 +1753,17 @@
                         </div>
                     </div>
                     
-                    <div class="preview-box" id="pricingPreview" style="display: none;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem;">
+                    <div class="preview-box" id="pricingPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
                             <small><strong>From:</strong> STOCKWISE</small>
                         </div>
-                        <strong>Pricing Recommendation:</strong>
-                        <small class="ms-2 badge bg-secondary">Example Preview</small><br>
-                        STOCKWISE Pricing<br><br>
-                        <div id="pricingRecommendationsContent">
-                            <div class="text-center text-muted">
-                                <i class="bi bi-hourglass-split"></i> Generating recommendations...
-                            </div>
-                        </div>
-                        <br>
-                        STOCKWISE
+                        <strong>Pricing Recommendation:</strong><br>
+                        {{ pricing_preview_msg|linebreaksbr }}
                     </div>
                     
                     <div class="card-actions">
                         <button type="button" class="btn btn-outline-primary btn-sm pricing-action-btn" onclick="togglePreview('pricingPreview')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
                             <i class="bi bi-eye me-1"></i>Preview
-                        </button>
-                        <button type="button" class="btn btn-outline-info btn-sm pricing-action-btn" onclick="getPricingRecommendations()" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
-                            <i class="bi bi-lightbulb me-1"></i>Get Recommendations
                         </button>
                         <button type="button" class="btn btn-outline-success btn-sm pricing-action-btn" onclick="sendNotificationNow('pricing')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
                             <i class="bi bi-send me-1"></i>Send Now
@@ -1980,7 +2015,7 @@
                     if (pricingVisible) {
                         loadPricingRecommendations();
                     } else if (previewVisible) {
-                        getPricingRecommendations();
+                        
                     }
                 } catch (_) {}
                 Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
@@ -1999,7 +2034,7 @@
                 $preview.slideDown();
                 // If it's the pricing preview, load recommendations
                 if (previewId === 'pricingPreview') {
-                    getPricingRecommendations();
+                    
                 }
             }
         }
@@ -2017,13 +2052,15 @@
             if (type === 'pricing') {
                 url = "{% url 'send_pricing_notification' %}";
                 data = {
-                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val()
+                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
+                    force: 'true'
                 };
             } else {
                 url = "{% url 'test_notification_type' %}";
                 data = {
                     csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
-                    type: type
+                    type: type,
+                    force: 'true'
                 };
             }
             
@@ -2071,50 +2108,7 @@
             });
         }
 
-        // Get pricing recommendations function
-        function getPricingRecommendations() {
-            const $content = $('#pricingRecommendationsContent');
-            $content.html('<div class="text-center text-muted"><i class="bi bi-hourglass-split"></i> Generating recommendations...</div>');
-            
-            $.ajax({
-                url: "{% url 'get_pricing_recommendations' %}?bypass_cooldown=true",
-                method: 'GET',
-                success: function(response) {
-                    if (response.cooldown_active) {
-                        $content.html(`<div class="alert alert-warning"><i class="bi bi-hourglass-split me-2"></i>${response.message}<br><small class="text-muted">Next allowed: ${response.next_allowed_at}</small></div>`);
-                        $('.pricing-action-btn').prop('disabled', true);
-                    } else if (response.success && response.recommendations.length > 0) {
-                        let html = '';
-                        const actionable = response.recommendations.filter(r => r.action === 'INCREASE' || r.action === 'DECREASE');
-                        
-                        if (actionable.length > 0) {
-                            actionable.slice(0, 3).forEach((rec, index) => {
-                                const actionSymbol = rec.action === 'INCREASE' ? '+' : '-';
-                                const changePct = Math.abs(rec.change_pct);
-                                
-                                html += `${rec.name}<br>`;
-                                html += `PHP ${Math.round(rec.current_price)} -> ${Math.round(rec.suggested_price)} (${actionSymbol}${Math.round(changePct)}%)<br><br>`;
-                            });
-                        } else {
-                            html = 'No changes recommended.<br>All products optimally priced.';
-                        }
-                        
-                        $content.html(html);
-                    } else {
-                        $content.html('Insufficient sales data.<br>Need more sales history.');
-                    }
-                },
-                error: function(xhr) {
-                    const resp = xhr.responseJSON || {};
-                    if (resp.cooldown_active) {
-                        $content.html(`<div class="alert alert-warning"><i class="bi bi-hourglass-split me-2"></i>${resp.message}<br><small class="text-muted">Next allowed: ${resp.next_allowed_at}</small></div>`);
-                        $('.pricing-action-btn').prop('disabled', true);
-                    } else {
-                        $content.html('Error generating recommendations.<br>Please try again later.');
-                    }
-                }
-            });
-        }
+        
 
         // Save notification settings
         function saveNotificationSettings() {
@@ -2423,35 +2417,39 @@
             const burgerMenuBtn = document.getElementById('burgerMenuBtn');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-            // Sidebar is already set to active in HTML, just ensure no animation on load
-            if (window.innerWidth > 768 && sidebar) {
-                // Sidebar already open on desktop; no animation adjustments needed
+            function openMobileMenu() {
+                if (!sidebar) return;
+                sidebar.classList.add('active');
+                burgerMenuBtn && burgerMenuBtn.classList.add('active');
+                if (sidebarOverlay) sidebarOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeMobileMenu() {
+                if (!sidebar) return;
+                sidebar.classList.remove('active');
+                burgerMenuBtn && burgerMenuBtn.classList.remove('active');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
             }
 
             // Burger menu button toggle
             if (burgerMenuBtn && sidebar) {
                 burgerMenuBtn.addEventListener('click', function() {
-                    sidebar.classList.toggle('active');
-                    burgerMenuBtn.classList.toggle('active');
-                    const mainContent = document.querySelector('.main-content');
-                    
+                    const isOpen = sidebar.classList.contains('active');
                     if (window.innerWidth > 768) {
                         // Desktop: toggle sidebar and adjust main content
-                        if (sidebar.classList.contains('active')) {
-                            if (mainContent) mainContent.classList.add('sidebar-open');
+                        const mainContent = document.querySelector('.main-content');
+                        if (isOpen) {
+                            sidebar.classList.remove('active');
+                            mainContent && mainContent.classList.remove('sidebar-open');
                         } else {
-                            if (mainContent) mainContent.classList.remove('sidebar-open');
+                            sidebar.classList.add('active');
+                            mainContent && mainContent.classList.add('sidebar-open');
                         }
                     } else {
-                        // Mobile: show overlay and prevent body scroll
-                        if (sidebarOverlay) {
-                            sidebarOverlay.classList.toggle('active');
-                        }
-                        if (sidebar.classList.contains('active')) {
-                            document.body.style.overflow = 'hidden';
-                        } else {
-                            document.body.style.overflow = '';
-                        }
+                        // Mobile: explicit open/close to keep overlay in sync
+                        if (isOpen) closeMobileMenu(); else openMobileMenu();
                     }
                 });
             }
@@ -2459,12 +2457,7 @@
             // Close sidebar when clicking overlay (mobile only)
             if (sidebarOverlay) {
                 sidebarOverlay.addEventListener('click', function() {
-                    if (window.innerWidth <= 768) {
-                        sidebar.classList.remove('active');
-                        sidebarOverlay.classList.remove('active');
-                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                        document.body.style.overflow = '';
-                    }
+                    if (window.innerWidth <= 768) closeMobileMenu();
                 });
             }
 
@@ -2474,15 +2467,12 @@
                 link.addEventListener('click', function() {
                     const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
-                        sidebar.classList.remove('active');
-                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-                        document.body.style.overflow = '';
+                        closeMobileMenu();
                     } else {
                         // Desktop: close sidebar when navigating
                         sidebar.classList.remove('active');
-                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                        burgerMenuBtn && burgerMenuBtn.classList.remove('active');
+                        mainContent && mainContent.classList.remove('sidebar-open');
                     }
                 });
             });
@@ -2491,31 +2481,30 @@
             window.addEventListener('resize', function() {
                 const mainContent = document.querySelector('.main-content');
                 if (window.innerWidth > 768) {
-                    // Desktop: keep sidebar state but remove mobile-specific styles
-                    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                    // Desktop: remove mobile overlay and body scroll lock
+                    sidebarOverlay && sidebarOverlay.classList.remove('active');
                     document.body.style.overflow = '';
-                    if (sidebar && sidebar.classList.contains('active') && mainContent) {
-                        mainContent.classList.add('sidebar-open');
-                    } else if (mainContent) {
-                        mainContent.classList.remove('sidebar-open');
+                    if (sidebar && sidebar.classList.contains('active')) {
+                        mainContent && mainContent.classList.add('sidebar-open');
+                    } else {
+                        mainContent && mainContent.classList.remove('sidebar-open');
                     }
                 } else {
-                    // Mobile: remove desktop-specific styles
-                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                    // Mobile: ensure content not shifted
+                    mainContent && mainContent.classList.remove('sidebar-open');
                 }
             });
 
             // Close sidebar with escape key
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                    const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth > 768) {
-                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                        const mainContent = document.querySelector('.main-content');
+                        sidebar.classList.remove('active');
+                        burgerMenuBtn && burgerMenuBtn.classList.remove('active');
+                        mainContent && mainContent.classList.remove('sidebar-open');
                     } else {
-                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-                        document.body.style.overflow = '';
+                        closeMobileMenu();
                     }
                 }
             });
@@ -2523,7 +2512,6 @@
             // Handle logout confirmation
             document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
                 link.addEventListener('click', function(e) {
-                    // Check if Bootstrap modal is available
                     if (typeof bootstrap !== 'undefined') {
                         e.preventDefault();
                         const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
@@ -2531,6 +2519,9 @@
                     }
                 });
             });
+
+            // Ensure closed on mobile load
+            if (window.innerWidth <= 768) closeMobileMenu();
         });
     </script>
 
@@ -2560,7 +2551,30 @@
         </div>
     </div>
             </div>
-        </main>
+</main>
     </div>
+    <script>
+    (function(){
+        const header = document.querySelector('.header');
+        const root = document.documentElement;
+        if (!header || !root) return;
+        let scheduled = false;
+        const updateHeaderVar = () => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                const h = header.getBoundingClientRect().height;
+                const val = Math.round(h) + 'px';
+                if (getComputedStyle(root).getPropertyValue('--header-height').trim() !== val) {
+                    root.style.setProperty('--header-height', val);
+                }
+            });
+        };
+        updateHeaderVar();
+        try { new ResizeObserver(updateHeaderVar).observe(header); } catch(_) {}
+        window.addEventListener('resize', updateHeaderVar, { passive: true });
+    })();
+    </script>
 </body>
 </html>

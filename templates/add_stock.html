@@ -291,16 +291,18 @@
                 <div class="batch-id-preview p-2" style="font-size: 0.8rem;">
                 <span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span>
                 </div>
+                {% if not preselected_product_id %}
                 <div class="mt-2">
                   <button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;">
                     <i class="bi bi-plus-circle me-1"></i> Add Another Variant
                   </button>
                 </div>
+                {% endif %}
             </div>
           </div>
         </div>
       </div>
-        {% if not qr_product %}
+        {% if not qr_product and not preselected_product_id %}
         <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="addStockItemBtn">
           <i class="bi bi-plus-circle"></i> Add Another Product
         </button>
@@ -344,6 +346,7 @@
      data-qr-product-id="{% if qr_product %}{{ qr_product.product_id|default:'' }}{% endif %}"
      data-qr-product-name="{% if qr_product %}{{ qr_product.name|default:''|escapejs }}{% endif %}"
      data-qr-product-locked="{% if qr_product and qr_product.locked %}true{% else %}false{% endif %}"
+     data-preselected-product-id="{% if preselected_product_id %}{{ preselected_product_id }}{% endif %}"
      data-inventory-url="{% url 'products_inventory' %}"></div>
 <script>
 const cfgEl=document.getElementById('pageConfig');
@@ -352,8 +355,10 @@ const PAGE_CONFIG={
   qrProductId:(cfgEl?.dataset.qrProductId||'')||null,
   qrProductName:(cfgEl?.dataset.qrProductName||'')||null,
   qrProductLocked:(cfgEl?.dataset.qrProductLocked||'')==='true',
+  preselectedProductId:(cfgEl?.dataset.preselectedProductId||'')||null,
   inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
+const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId && !PAGE_CONFIG.isQRMode;
 </script>
 <script>
 function getCookie(name){let v=null;if(document.cookie&&document.cookie!==''){const cs=document.cookie.split(';');for(let i=0;i<cs.length;i++){const c=cs[i].trim();if(c.substring(0,name.length+1)===(name+'=')){v=decodeURIComponent(c.substring(name.length+1));break;}}}return v;}
@@ -556,11 +561,10 @@ $(document).ready(function(){
   $('#stockDate').val(new Date().toISOString().split('T')[0]);
   loadProducts();
 
-  // Preselect product using query parameter (?product_id=123)
   (function(){
     try {
       const params = new URLSearchParams(window.location.search);
-      const pid = params.get('product_id');
+      const pid = PAGE_CONFIG.preselectedProductId || params.get('product_id');
       if (pid) {
         // Wait until products are loaded and selects are initialized
         const attemptSelect = function(retries){
@@ -568,6 +572,10 @@ $(document).ready(function(){
           if ($first.length && $first.find('option').length > 1) {
             $first.val(pid).trigger('change');
             $('#addStockFormAlert').html('<div class="alert alert-info alert-dismissible fade show" role="alert"><i class="bi bi-info-circle me-2"></i>Product pre-selected from Inventory. You can now enter boxes and supplier.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+            if(DISABLE_ADDITIONS){
+              $('#addStockItemBtn').remove();
+              $('.add-stock-variant-btn').hide();
+            }
             return;
           }
           if (retries > 0) setTimeout(()=>attemptSelect(retries-1), 300);
@@ -598,9 +606,9 @@ $(document).ready(function(){
   $('#addStockItemBtn').on('click', function(e){
     e.preventDefault();
     e.stopPropagation();
+    if(DISABLE_ADDITIONS){ return; }
     console.log('Add Another Product button clicked - Event received!'); // Debug log
-    
-    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-stock-variant-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`;
+    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class=\\"mt-2\\"><button type=\\"button\\" class=\\"btn btn-outline-secondary btn-sm add-stock-variant-btn\\" style=\\"display:none;\\"><i class=\\"bi bi-plus-circle me-1\\"></i> Add Another Variant</button></div>'}</div></div></div>`;
     $('#stockItemsContainer').append(html); 
     console.log('New item added, populating product select'); // Debug log
     updateStockProductSelects();
@@ -609,19 +617,21 @@ $(document).ready(function(){
   $(document).on('click','.remove-stock-item', function(){ $(this).closest('.stock-item').remove(); if($('.stock-item').length===1){ $('.remove-stock-item').hide(); } validateStockItems(); updateStockProductSelects(); updateStockVariantButtons(); });
 
   function updateStockVariantButtons(){
+    if(DISABLE_ADDITIONS){ $('.add-stock-variant-btn').hide(); return; }
     const baseLastRowMap={}; const rows=[];
     $('.stock-item').each(function(){ const $row=$(this); const pid=$row.find('.stock-product-select').val(); let base=''; if(pid){ const p=products.find(pp=>pp.product_id==pid); if(p){ base=p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; } } rows.push({row:$row,base}); if(base){ baseLastRowMap[base]=$row; } });
     rows.forEach(({row,base})=>{ const $btn=row.find('.add-stock-variant-btn'); if(!base){ $btn.hide(); return; } const lastRow=baseLastRowMap[base]; if(lastRow && row.is(lastRow)){ $btn.show(); } else { $btn.hide(); } });
   }
 
   $(document).on('click','.add-stock-variant-btn', function(){
+    if(DISABLE_ADDITIONS){ return; }
     const $row=$(this).closest('.stock-item');
     const pid=$row.find('.stock-product-select').val();
     if(!pid){ $('#addStockFormAlert').html('<div class=\"alert alert-info alert-dismissible fade show\" role=\"alert\">Select a product in this row first.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; }
     const p=products.find(pp=>pp.product_id==pid);
     const base=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : '';
     if(!base){ return; }
-    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required data-base-filter=\"${base}\"><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-stock-variant-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`;
+    const html=`<div class=\"stock-item\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-4\"><label class=\"form-label\">Product</label><select class=\"form-select stock-product-select\" required data-base-filter=\"${base}\"><option value=\"\">Select a product</option></select><div class=\"stock-indicator text-muted\"></div></div><div class=\"col-md-3\"><label class=\"form-label quantity-label\">Boxes to Add</label><input type=\"number\" class=\"form-control stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-3\"><label class=\"form-label\">Supplier</label><input type=\"text\" class=\"form-control stock-supplier\" placeholder=\"Enter supplier name\"><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-2\"><label class=\"form-label\" style=\"visibility:hidden;height:0;margin:0;padding:0;\">&nbsp;</label><button type=\"button\" class=\"btn btn-danger btn-sm d-block w-100 remove-stock-item\"><i class=\"bi bi-trash\"></i> Remove</button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batch ID Preview</label><div class=\"batch-id-preview p-2\" style=\"font-size: 0.8rem;\"><span class=\"batch-id-display text-muted\">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class=\\"mt-2\\"><button type=\\"button\\" class=\\"btn btn-outline-secondary btn-sm add-stock-variant-btn\\" style=\\"display:none;\\"><i class=\\"bi bi-plus-circle me-1\\"></i> Add Another Variant</button></div>'}</div></div></div>`;
     $('#stockItemsContainer').append(html);
     $row.find('.add-stock-variant-btn').remove();
     updateStockProductSelects();

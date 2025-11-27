@@ -18,6 +18,40 @@
     <!-- Select2 CSS for searchable selects -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
+        @media (max-width: 768px) {
+            .header { padding: 0.75rem 1rem; }
+            .header-brand { font-size: 1rem; }
+            .header-brand span { display: none; }
+            .header-brand i { font-size: 1.5rem; }
+            .header-left h1 { font-size: 1.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .burger-menu-btn { width: 0.875rem; height: 0.875rem; }
+            .main-content { margin-left: 0 !important; padding-top: calc(var(--header-height) + 1rem); }
+            .content-area { padding: 0.75rem; }
+            .header-title-section { padding-left: 0.75rem; }
+            .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+            .action-buttons { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
+            .action-buttons .btn-modern, .action-buttons .btn-filter-action { flex: 1 1 0; min-width: 0; padding: 0.5rem; font-size: 0.85rem; }
+            .filters-row { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
+            .filters-row .form-group { flex: 1 1 0; min-width: 0; }
+            .table-responsive { overflow-x: auto; }
+            .header-left { gap: 0.75rem; }
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
+            .sidebar.active { transform: translateX(0); }
+            .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 999; display: none; }
+            .sidebar.active + .sidebar-overlay { display: block; }
+        }
+    </style>
+    <style>
+        /* Force SMS header sizing on Inventory header */
+        #inventoryHeader .header-title-section { padding-left: 3rem !important; }
+        #inventoryHeader .header-left h1 { font-size: 1.5rem !important; font-weight: 700 !important; line-height: 1.25 !important; margin: 0 !important; }
+        @media (max-width: 768px) {
+            #inventoryHeader .header-title-section { padding-left: 0.75rem !important; }
+            #inventoryHeader .header-left h1 { font-size: 1.25rem !important; }
+            #inventoryHeader .header-brand span { display: none !important; }
+        }
+    </style>
+    <style>
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
@@ -65,6 +99,35 @@
 
         html {
             font-size: 14px;
+        }
+        .table-header .table-count { display: none !important; }
+        @media (max-width: 768px) {
+            .header { padding: 0.75rem 1rem !important; min-height: var(--header-height) !important; }
+            .header-left { gap: 0.75rem !important; }
+            .burger-menu-btn { width: 0.875rem !important; height: 0.875rem !important; }
+            .header-brand span { display: none !important; }
+            .header-title-section { padding-left: 0.75rem !important; max-width: 64vw !important; }
+            .header-left h1 { font-size: 1.25rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            .user-avatar { width: 1.75rem !important; height: 1.75rem !important; }
+            .main-content { margin-left: 0 !important; padding-top: calc(var(--header-height) + 1rem) !important; }
+            .content-area { padding: 0.75rem !important; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
+            .action-buttons { flex-direction: row !important; flex-wrap: nowrap !important; gap: 0.5rem !important; }
+            .action-buttons > div.d-flex { display: contents !important; }
+            .action-buttons .btn-modern, .action-buttons .btn-filter-action { flex: 1 1 0 !important; min-width: 0 !important; padding: 0.5rem 0.75rem !important; font-size: 0.7rem !important; line-height: 1.1 !important; white-space: nowrap !important; }
+            .action-buttons .btn-modern { gap: 0.35rem !important; }
+            .action-buttons .btn-filter-action { gap: 0.35rem !important; }
+            .filters-row { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 0.5rem !important; align-items: end !important; }
+            .filters-row .form-group:first-child { grid-column: 1 / -1 !important; min-width: 0 !important; }
+            .filters-row .form-group { min-width: 0 !important; }
+            .filters-row .form-label { font-size: 0.65rem !important; letter-spacing: 0.06em !important; }
+            .filters-row .form-select, .filters-row .form-control { font-size: 0.78rem !important; padding: 0.4rem 0.6rem !important; min-height: 34px !important; }
+            .filter-search-input { font-size: 0.85rem !important; }
+            .table-header { display: flex !important; align-items: center !important; justify-content: space-between !important; flex-wrap: wrap !important; gap: 0.5rem !important; }
+            .table-header .nav-tabs { flex: 1 1 100% !important; display: flex !important; gap: 0.25rem !important; flex-wrap: nowrap !important; }
+            .nav-tabs .nav-item { flex: 1 1 0 !important; min-width: 0 !important; }
+            .nav-tabs .nav-link { padding: 0.4rem 0.5rem !important; font-size: 0.78rem !important; min-height: 32px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+            .table-header .table-count { order: 2 !important; flex: 1 1 100% !important; text-align: right !important; font-size: 0.75rem !important; }
         }
 
         body {
@@ -691,6 +754,7 @@
             border: 1px solid var(--gray-100);
             /* Allow dropdowns to overflow above rows */
             overflow: visible;
+            position: relative;
         }
 
         .table-header {
@@ -735,6 +799,7 @@
             padding: 1rem;
             border-bottom: 1px solid var(--gray-100);
             vertical-align: middle;
+            overflow: visible !important;
         }
 
         .table tbody tr:hover {
@@ -774,10 +839,21 @@
             z-index: 10;
         }
 
+        /* Position dropdown relative to cell and keep above */
+        .table tbody td .dropdown { position: relative; }
+
         /* When dropdown is open, increase parent td z-index */
         .table-card .dropdown.show {
             z-index: 1000;
         }
+
+        /* Ensure dropdown menus display when manually toggled */
+        .dropdown-menu.show { display: block !important; }
+
+        /* When a dropdown is open, lift the whole row above neighbors */
+        .table tbody tr.dropdown-open { position: relative; z-index: 5000 !important; }
+        .table tbody td .dropdown-menu { right: 0; left: auto; z-index: 5001; pointer-events: auto; }
+        .table tbody td .btn-icon.dropdown-toggle { position: relative; z-index: 5002; }
 
 
         /* Status Badges */
@@ -911,9 +987,7 @@
         }
 
         @media (max-width: 768px) {
-            .header-title-section {
-                padding-left: 1.5rem;
-            }
+            .header-title-section { flex: 1; min-width: 0; padding-left: 0.75rem; }
             
             .pagination-container {
                 flex-direction: column;
@@ -1041,24 +1115,21 @@
         @media (max-width: 768px) {
             :root {
                 --content-padding: 1rem;
-                --sidebar-width: 280px;
-                --header-height: 90px;
+                --sidebar-width: 100vw;
+                --header-height: 72px;
             }
 
             .sidebar {
                 transform: translateX(-100%);
                 width: var(--sidebar-width);
-                max-width: 85vw;
+                max-width: 100vw;
             }
 
             .sidebar.active {
                 transform: translateX(0);
             }
 
-            .main-content {
-                margin-left: 0;
-                margin-top: var(--header-height);
-            }
+            .main-content { margin-left: 0 !important; margin-top: 0; padding: calc(var(--header-height) + 1.25rem) 0.75rem 0.75rem; }
 
             .header {
                 padding: 0.75rem 1rem;
@@ -1066,42 +1137,47 @@
             }
 
             .header-left {
-                gap: 0.75rem;
+                gap: 0.75rem !important;
+                display: flex !important;
+                align-items: center !important;
+                flex: 1 !important;
+                min-width: 0 !important;
             }
 
-            .header-brand span {
-                display: none;
-            }
+            .header-brand span { display: none !important; }
+            .header-brand i { font-size: 1.5rem !important; }
 
-            .header-title-section {
-                flex: 1;
-                min-width: 0;
-            }
+            .header-title-section { padding-left: 0.75rem !important; flex: 1 !important; min-width: 0 !important; }
 
             .header-left h1 {
-                font-size: 1.25rem;
-                line-height: 1.3;
-                margin: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
+                font-size: 1.25rem !important;
+                font-weight: 700 !important;
+                line-height: 1.3 !important;
+                margin: 0 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
 
-            .header-subtitle {
-                display: none;
-            }
+            .header-subtitle { display: none; }
 
-            .header-right {
-                gap: 0.75rem;
-                flex-wrap: wrap;
-            }
+            .header-right { gap: 0.5rem; flex-shrink: 0; }
+            .user-avatar { width: 1.5rem; height: 1.5rem; }
+            .btn-filter-action { padding: 0.75rem 1.5rem; font-size: 0.95rem; height: auto; min-width: 0; width: auto; }
 
             /* Burger Menu Button - Show on Mobile */
             .burger-menu-btn {
                 display: flex !important;
                 width: 0.875rem !important;
                 height: 0.875rem !important;
+                margin-right: 0.25rem !important;
+                padding: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                justify-content: center !important;
+                gap: 2px !important;
             }
+            .burger-menu-btn span { height: 1px !important; }
 
             .header-left {
                 display: flex;
@@ -1112,14 +1188,14 @@
             }
 
             .header-left h1 {
-                font-size: 1.25rem;
+                font-size: 1.125rem;
                 line-height: 1.3;
                 margin: 0;
                 flex: 1;
                 min-width: 0;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                white-space: normal;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .header-subtitle {
@@ -1133,17 +1209,15 @@
             /* Mobile menu toggle button - SHOW ON MOBILE */
             #mobileMenuToggle {
                 display: flex !important;
-                background: var(--primary) !important;
-                border: 2px solid var(--gray-900) !important;
-                color: #ffffff !important;
-                min-width: 44px !important;
-                min-height: 44px !important;
-                position: relative !important;
-                z-index: 9999 !important;
+                background: transparent !important;
+                border: var(--border-width) solid var(--gray-300) !important;
+                color: var(--gray-700) !important;
+                min-width: 36px !important;
+                min-height: 36px !important;
             }
 
             .content-area {
-                padding: 1rem;
+                padding: 0.75rem;
                 max-width: 100%;
                 overflow-x: hidden;
             }
@@ -1155,15 +1229,9 @@
                 border-radius: 12px;
             }
 
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
-            }
+            .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
 
-            .stat-card {
-                padding: 1rem 0.75rem;
-                min-height: auto;
-            }
+            .stat-card { padding: 1rem 0.75rem; min-height: auto; min-width: 0; }
 
             .stat-icon {
                 width: 2.5rem;
@@ -1180,26 +1248,15 @@
                 font-size: 0.75rem;
             }
 
-            .filters-row {
-                display: flex;
-                flex-direction: column;
-                gap: 0.75rem;
-            }
+            .filters-row { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
 
-            .filters-row .form-group {
-                width: 100%;
-            }
+            .filters-row .form-group { flex: 1 1 0; min-width: 0; }
 
-            .action-buttons {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
+            .action-buttons { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
 
             .action-buttons .btn-modern,
-            .action-buttons .btn {
-                width: 100%;
-                justify-content: center;
-            }
+            .action-buttons .btn,
+            .action-buttons .btn-filter-action { flex: 1 1 0; min-width: 0; justify-content: center; }
 
             .table-responsive {
                 margin: 0 -1rem;
@@ -1218,19 +1275,9 @@
                 padding: 0.625rem 0.5rem;
             }
 
-            .nav-tabs {
-                flex-wrap: wrap;
-                border-bottom: 2px solid var(--gray-200);
-            }
+            .nav-tabs { flex-wrap: nowrap; border-bottom: 2px solid var(--gray-200); }
 
-            .nav-tabs .nav-link {
-                font-size: 0.875rem;
-                padding: 0.75rem 1rem;
-                min-height: 44px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
+            .nav-tabs .nav-link { font-size: 0.82rem; padding: 0.5rem 0.75rem; min-height: 36px; display: flex; align-items: center; justify-content: center; }
 
             /* Buttons - Mobile */
             .btn-modern, .btn, .dropdown-toggle {
@@ -1282,15 +1329,14 @@
                 padding: 0.75rem;
             }
 
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 0.625rem;
-            }
+            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
 
             .stat-card {
                 padding: 0.875rem;
             }
 
+            .nav-tabs { flex-wrap: nowrap; }
+            .nav-tabs .nav-link { padding: 0.5rem 0.75rem; font-size: 0.8rem; }
             .table {
                 font-size: 0.75rem;
             }
@@ -1344,6 +1390,27 @@
             #mobileMenuToggle {
                 display: none !important;
             }
+        }
+    </style>
+    <style>
+        .header { padding: 0.75rem 1rem !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 1001 !important; box-shadow: var(--shadow-sm) !important; }
+        .header-left { display: flex !important; align-items: center !important; gap: 0 !important; flex: 1 !important; }
+        .header-brand { display: flex !important; align-items: center !important; gap: 0.5rem !important; font-size: 1.15rem !important; font-weight: 700 !important; text-decoration: none !important; color: var(--gray-900) !important; flex-shrink: 0 !important; }
+        .header-brand i { font-size: 1.5rem !important; color: var(--primary) !important; }
+        .header-title-section { display: flex !important; flex-direction: column !important; gap: 0.25rem !important; padding-left: 3rem !important; }
+        .header-left h1 { font-size: 1.5rem !important; font-weight: 700 !important; color: var(--gray-900) !important; margin: 0 !important; line-height: 1.25 !important; }
+        .header-subtitle { color: var(--gray-500) !important; font-size: 0.8rem !important; margin-top: var(--space-xs) !important; line-height: 1.3 !important; }
+        .header-right { display: flex !important; align-items: center !important; gap: var(--space-sm) !important; }
+        .user-avatar { width: 1.75rem !important; height: 1.75rem !important; border-radius: 50% !important; border: 2px solid var(--primary-light) !important; }
+        .burger-menu-btn { width: 0.875rem !important; height: 0.875rem !important; }
+        .header-brand span { display: inline !important; }
+        @media (max-width: 768px) {
+            .header { padding: 0.75rem 1rem !important; min-height: var(--header-height) !important; }
+            .header-left { gap: 0.75rem !important; }
+            .header-brand span { display: none !important; }
+            .header-title-section { flex: 1 !important; min-width: 0 !important; padding-left: 0.75rem !important; }
+            .header-left h1 { font-size: 1.25rem !important; line-height: 1.3 !important; margin: 0 !important; white-space: normal !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            .header-right { gap: 0.5rem !important; }
         }
     </style>
     <style>
@@ -1607,15 +1674,78 @@
         }
     </style>
     <style>
-        /* Local mobile card overrides (standalone page) */
+        /* Mobile: collapsed columns to fit on screen (no horizontal scroll) */
         @media (max-width: 768px) {
-            .content-area table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: block !important; background: #fff; }
-            .content-area table.table-mobile-card thead { display: none !important; }
-            .content-area table.table-mobile-card tbody { display: block !important; }
-            .content-area table.table-mobile-card tr { display: block !important; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-            .content-area table.table-mobile-card td { display: flex !important; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.5rem 0 !important; border: none !important; border-bottom: 1px solid #f3f4f6 !important; white-space: normal !important; color: #111827 !important; }
-            .content-area table.table-mobile-card td:last-child { border-bottom: none !important; }
-            .content-area table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
+            /* Keep table column layout and override any external mobile-card CSS */
+            .content-area table.table-mobile-card { table-layout: fixed !important; width: 100% !important; display: table !important; border-collapse: collapse !important; box-sizing: border-box !important; }
+            .content-area table.table-mobile-card thead { display: table-header-group !important; }
+            .content-area table.table-mobile-card tbody { display: table-row-group !important; }
+            .content-area table.table-mobile-card tr:not(.mobile-details) { display: table-row !important; }
+            .content-area table.table-mobile-card td { display: table-cell !important; }
+            .content-area table.table-mobile-card td::before { content: none !important; display: none !important; }
+            .content-area table.table-mobile-card th, .content-area table.table-mobile-card td { padding: 0.16rem !important; font-size: 0.58rem !important; line-height: 1.08 !important; }
+            .content-area table.table-mobile-card th { font-size: 0.56rem !important; }
+            .content-area table.table-mobile-card thead th { text-align: center !important; }
+            .content-area table.table-mobile-card thead th:first-child { width: 52px !important; }
+            .content-area table.table-mobile-card tbody td:first-child { width: 52px !important; }
+            .content-area table.table-mobile-card td img.product-image { width: 36px !important; height: 36px !important; border-radius: 8px !important; }
+            .content-area table.table-mobile-card thead th:last-child { font-size: 0 !important; }
+            .content-area table.table-mobile-card th:nth-child(1),
+            .content-area table.table-mobile-card td:nth-child(1),
+            .content-area table.table-mobile-card th:nth-child(2),
+            .content-area table.table-mobile-card td:nth-child(2),
+            .content-area table.table-mobile-card th:nth-child(7),
+            .content-area table.table-mobile-card td:nth-child(7),
+            .content-area table.table-mobile-card th:nth-child(8),
+            .content-area table.table-mobile-card td:nth-child(8)
+            { display: none !important; }
+            .content-area table.table-mobile-card th:nth-child(3), .content-area table.table-mobile-card td:nth-child(3) { width: 23% !important; }
+            .content-area table.table-mobile-card td:nth-child(3) { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            .content-area table.table-mobile-card th:nth-child(4), .content-area table.table-mobile-card td:nth-child(4) { width: 23% !important; }
+            .content-area table.table-mobile-card th:nth-child(5), .content-area table.table-mobile-card td:nth-child(5) { width: 23% !important; }
+            .content-area table.table-mobile-card th:nth-child(6), .content-area table.table-mobile-card td:nth-child(6) { width: 23% !important; }
+            .content-area table.table-mobile-card th:last-child, .content-area table.table-mobile-card td:last-child { width: 8% !important; text-align: center !important; padding-right: 0 !important; }
+            .content-area table.table-mobile-card td:nth-child(4),
+            .content-area table.table-mobile-card td:nth-child(6) { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 0 !important; }
+            .content-area table.table-mobile-card td:nth-child(5),
+            .content-area table.table-mobile-card td:nth-child(7) { text-align: center !important; }
+            .content-area table.table-mobile-card td:nth-child(6) { text-align: right !important; }
+            .content-area table.table-mobile-card td:nth-child(7) i.bi-circle-fill { display: none !important; }
+            .content-area table.table-mobile-card td:nth-child(7) .stock-link i { display: none !important; }
+            .content-area table.table-mobile-card td:nth-child(7) .stock-link { display: inline-block !important; max-width: 48px !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+            .content-area table.table-mobile-card td .stock-link { padding: 0 !important; background: transparent !important; border: 0 !important; font-size: 0.6rem !important; font-weight: 600 !important; }
+            .content-area table.table-mobile-card td .btn-icon { width: 22px !important; height: 22px !important; min-width: 22px !important; min-height: 22px !important; padding: 0 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
+            #lowStockTable th:nth-child(9), #lowStockTable td:nth-child(9),
+            #outOfStockTable th:nth-child(9), #outOfStockTable td:nth-child(9) { display: none !important; }
+            /* Clickable rows for collapsible details */
+            .content-area table.table-mobile-card tbody tr.mobile-row { cursor: default !important; pointer-events: none; }
+            .content-area table.table-mobile-card tbody tr.mobile-row * { pointer-events: auto; }
+            .content-area table.table-mobile-card tbody tr.mobile-row:hover { background: transparent !important; }
+            .table-responsive { min-width: 0 !important; }
+            .content-area { padding: 0 !important; }
+            .table-responsive.table-responsive-wrapper { overflow-x: visible !important; width: 100% !important; margin-bottom: 0.25rem !important; }
+            .table-card { margin: 0.25rem 0.15rem !important; }
+            .table-header { padding: 0.25rem 0.4rem !important; }
+            .nav-tabs .nav-link { padding: 0.28rem 0.4rem !important; font-size: 0.7rem !important; }
+            .tab-content { padding: 0 !important; }
+            .pagination-container { margin-top: 0.2rem !important; padding: 0.1rem !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; }
+            .pagination .page-link { padding: 0.06rem 0.22rem !important; font-size: 0.58rem !important; line-height: 1 !important; border-radius: 4px !important; min-width: 20px !important; min-height: 18px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
+            .pagination .page-item { margin: 0 1px !important; }
+            .pagination .page-item.active .page-link { padding: 0.08rem 0.26rem !important; }
+            .pagination .label-text { display: none !important; }
+            .pagination { flex-wrap: nowrap !important; }
+            .pagination-container .d-flex { gap: 0.25rem !important; }
+            .pagination-info { font-size: 0.62rem !important; }
+            /* Details row for hidden columns */
+            tr.mobile-details { display: none; }
+            .content-area table.table-mobile-card tr.mobile-details.show { display: table-row !important; }
+            tr.mobile-details > td { background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 0.5rem 0.75rem !important; }
+            .mobile-details dl { margin: 0; }
+            .mobile-details dt { font-weight: 600; font-size: 0.75rem; color: #6b7280; }
+            .mobile-details dd { margin: 0 0 0.4rem 0; font-size: 0.82rem; }
+            .stock-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #c7d2fe; border-radius: 14px; color: #4338ca; background: #eef2ff; font-weight: 600; text-decoration: none; }
+            .stock-pill i { font-size: 0.9rem; }
+            .stock-pill #mPDStockDot { font-size: 0.6rem; }
         }
     </style>
     <style>
@@ -1811,7 +1941,7 @@
 <body>
     <div class="app-container">
         <!-- Unified Header -->
-        <header class="header" role="banner">
+        <header class="header" role="banner" id="inventoryHeader">
             <div class="header-left">
                 <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
                     <span></span>
@@ -1822,10 +1952,10 @@
                     <i class="bi bi-basket-fill"></i>
                     <span>StockWise</span>
                 </a>
-                <div class="header-title-section">
-                    <h1>Inventory Management</h1>
+                <div class="header-title-section" style="padding-left: 3rem;">
+                    <h1 style="font-size: 1.5rem; font-weight: 700; line-height: 1.25; margin: 0;">Inventory Management</h1>
                     <p class="header-subtitle">Manage your product inventory and track stock levels</p>
-            </div>
+                </div>
             </div>
             <div class="header-right">
                 <div class="dropdown">
@@ -1842,7 +1972,7 @@
         <!-- Sidebar Overlay -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <!-- Sidebar -->
-        <nav class="sidebar active">
+        <nav class="sidebar">
             <div class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Main</div>
@@ -1917,7 +2047,7 @@
         </nav>
 
         <!-- Main Content -->
-        <main class="main-content sidebar-open">
+        <main class="main-content">
 
             <div class="content-area">
                 <!-- Stats Grid -->
@@ -1980,7 +2110,7 @@
                             Add Stock
                         </a>
                     </div>
-                    <button type="button" class="btn-filter-action" id="inventoryRefreshBtn" aria-label="Refresh table" style="width: 150px; justify-content: center;">
+                    <button type="button" class="btn-filter-action" id="inventoryRefreshBtn" aria-label="Refresh table" style="justify-content: center;">
                         <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="inventoryRefreshSpinner"></span>
                         <span class="refresh-text">Refresh</span>
                     </button>
@@ -2041,7 +2171,7 @@
                                 <button class="nav-link" id="out-of-stock-tab" data-bs-toggle="tab" data-bs-target="#out-of-stock" type="button" role="tab" aria-controls="out-of-stock" aria-selected="false">Out of Stock</button>
                             </li>
                         </ul>
-                        <div class="table-count" id="itemsCountContainer"><span id="itemsCountHeader" class="text-muted"></span></div>
+                        
                     </div>
                     <div class="tab-content p-3 pt-0">
                         <div class="tab-pane fade show active" id="all-products" role="tabpanel" aria-labelledby="all-products-tab">
@@ -2057,7 +2187,7 @@
                                             <th>Price</th>
                                             <th>Stock</th>
                                             <th>Status</th>
-                                            <th style="width: 150px">Options</th>
+                                            <th>Options</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -2215,6 +2345,56 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-outline-primary" id="copyStockQRLinkBtn">Copy Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="mobileProductDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Product Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <img id="mPDImage" src="" alt="Product image" style="width: 80px; height: 80px; border-radius: 8px; border: 1px solid #e5e7eb;" />
+                        <div>
+                            <div id="mPDName" style="font-weight: 600;"></div>
+                            <div class="text-muted" id="mPDVariant"></div>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="small text-muted">Product ID</div>
+                            <div id="mPDProductId"></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Status</div>
+                            <div id="mPDStatus"></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Quantity</div>
+                            <div id="mPDQuantityUnit"></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Price</div>
+                            <div id="mPDPrice"></div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Stock</div>
+                            <a id="mPDStockLink" href="#" class="stock-pill" title="View stock details">
+                                <i id="mPDStockDot" class="bi bi-circle-fill"></i>
+                                <i class="bi bi-eye"></i>
+                                <span id="mPDStockCount"></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="mPDAddStock" href="#" class="btn btn-primary">Add Stock</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -2501,11 +2681,27 @@
             }
             
             // Add touch-friendly dropdown behavior
-            $(document).on('touchstart', '.dropdown-toggle', function(e) {
-                const $this = $(this);
-                setTimeout(function() {
-                    $this.dropdown('toggle');
-                }, 10);
+            $(document).on('click touchstart touchend', '.btn-icon.dropdown-toggle', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                const $btn = $(this);
+                const $menu = $btn.siblings('.dropdown-menu');
+                const $row = $btn.closest('tr');
+                if ($menu.length) {
+                    setTimeout(function(){
+                        // Close other open menus
+                        $('.dropdown-menu').not($menu).removeClass('show').css('display','');
+                        $('.table tbody tr').removeClass('dropdown-open');
+                        // Toggle this menu visibly without Bootstrap plugin
+                        const willShow = !$menu.hasClass('show');
+                        $menu.toggleClass('show', willShow).css('display', willShow ? 'block' : '');
+                        $btn.attr('aria-expanded', willShow ? 'true' : 'false');
+                        // Bring parent cell above neighbors
+                        $btn.closest('td').css('z-index', willShow ? 5003 : '');
+                        if (willShow) { $row.addClass('dropdown-open'); } else { $row.removeClass('dropdown-open'); }
+                    }, 0);
+                }
             });
             
             // Improve table scrolling on mobile
@@ -2523,7 +2719,7 @@
             // Handle custom icon buttons on mobile without interfering with Bootstrap dropdowns
             $(document).on('click', '.btn-icon', function(e) {
                 // If this button is a Bootstrap dropdown toggler, let Bootstrap handle it
-                if ($(this).attr('data-bs-toggle') === 'dropdown') {
+                if ($(this).hasClass('dropdown-toggle')) {
                     return; // do not intercept Bootstrap dropdowns
                 }
                 // Otherwise, toggle the adjacent custom menu if any
@@ -2538,9 +2734,16 @@
             
             // Close dropdowns when clicking outside
             $(document).on('click', function(e) {
-                if (!$(e.target).closest('.dropdown').length) {
+                if (!$(e.target).closest('.dropdown, .dropdown-menu').length) {
                     $('.dropdown-menu').removeClass('show');
+                    $('.table tbody tr').removeClass('dropdown-open');
+                    $('.table tbody td').css('z-index','');
                 }
+            });
+
+            // Prevent menu clicks from closing via outside handler
+            $(document).on('click touchstart', '.dropdown-menu', function(e){
+                e.stopPropagation();
             });
         }
 
@@ -2622,6 +2825,7 @@
             console.log('Document ready - starting product loading...');
             
             setupEventHandlers();
+            watchAndRemoveItemsCounters();
             initMobileOptimizations();
             $('#addStockForm [name="date_added"]').val(new Date().toISOString().split('T')[0]);
             
@@ -2711,19 +2915,59 @@
 
         function normalizeHeaderCountLocation() {
             const header = document.querySelector('.table-card .table-header');
-            const container = document.getElementById('itemsCountContainer');
-            const label = document.getElementById('itemsCountHeader');
-            if (!header || !container || !label) return;
-            const children = Array.from(header.children);
-            children.forEach((child) => {
-                if (child === container) return;
-                if (child.matches('.nav, .nav-tabs, ul.nav, ul.nav-tabs')) return;
-                const txt = (child.textContent || '').trim();
-                if (/^\d+\s+items$/i.test(txt)) {
-                    label.textContent = txt;
-                    child.remove();
+            if (!header) return;
+            const nodes = Array.from(header.querySelectorAll('*'));
+            nodes.forEach((node) => {
+                const txt = (node.textContent || '').replace(/\s+/g,' ').trim();
+                if (/^\d+\s+items$/i.test(txt) || /^0\s+items$/i.test(txt) || /\bitems\b$/i.test(txt)) {
+                    node.remove();
                 }
             });
+            try {
+                const walker = document.createTreeWalker(header, NodeFilter.SHOW_TEXT);
+                let t;
+                while ((t = walker.nextNode())) {
+                    const s = (t.textContent || '').replace(/\s+/g,' ').trim();
+                    if (/^\d*\s*items$/i.test(s) || /^0\s*items$/i.test(s)) {
+                        t.textContent = '';
+                    }
+                }
+            } catch (_) {}
+        }
+
+        function watchAndRemoveItemsCounters(){
+            const root = document.querySelector('.table-card');
+            if (!root) return;
+            const scrub = (node) => {
+                try {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const s = (node.textContent || '').replace(/\s+/g,' ').trim();
+                        if (/^\d*\s*items$/i.test(s)) node.textContent = '';
+                        return;
+                    }
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const s = (node.textContent || '').replace(/\s+/g,' ').trim();
+                        if (/^\d+\s+items$/i.test(s) || /^0\s+items$/i.test(s)) {
+                            node.remove();
+                            return;
+                        }
+                        const tw = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+                        let t; while ((t = tw.nextNode())) {
+                            const ts = (t.textContent || '').replace(/\s+/g,' ').trim();
+                            if (/^\d*\s*items$/i.test(ts)) t.textContent = '';
+                        }
+                    }
+                } catch (_) {}
+            };
+            // Initial scrub
+            scrub(root);
+            const mo = new MutationObserver((list) => {
+                list.forEach(m => {
+                    m.addedNodes.forEach(n => scrub(n));
+                    if (m.target) scrub(m.target);
+                });
+            });
+            mo.observe(root, { childList: true, subtree: true, characterData: true });
         }
 
         function setupEventHandlers() {
@@ -3587,7 +3831,7 @@
                                 </li>
                                 <li class="page-item ${!hasPrevious ? 'disabled' : ''}">
                                     <a class="page-link" href="#" data-table="${tableId}" data-page="${current - 1}" ${!hasPrevious ? 'tabindex="-1" aria-disabled="true"' : ''}>
-                                        <i class="bi bi-chevron-left"></i> Previous
+                                        <i class="bi bi-chevron-left"></i> <span class="label-text">Previous</span>
                                     </a>
                                 </li>`;
                 
@@ -3611,7 +3855,7 @@
                 
                 html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
                         <a class="page-link" href="#" data-table="${tableId}" data-page="${current + 1}" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
-                            Next <i class="bi bi-chevron-right"></i>
+                            <span class="label-text">Next</span> <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
                     <li class="page-item ${!hasNext ? 'disabled' : ''}">
@@ -3667,11 +3911,13 @@
                 if (!response.success) {
                     const tbody = $(`#${tableId} tbody`).empty();
                     tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No products found</td></tr>');
+                    try { setHeaderCount(0); normalizeHeaderCountLocation(); } catch (e) {}
                     return;
                 }
                 
                 if (!response.data || !Array.isArray(response.data)) {
                     console.error('Invalid data format from API:', response);
+                    try { setHeaderCount(0); normalizeHeaderCountLocation(); } catch (e) {}
                     return;
                 }
                 
@@ -3683,6 +3929,7 @@
                 const tbody = $('#inventoryTable tbody').empty();
                 tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
+                try { setHeaderCount(0); normalizeHeaderCountLocation(); } catch (e) {}
             });
         }
 
@@ -3863,7 +4110,7 @@
             const change = parseFloat($('#paymentChange').text()) || 0;
 
             // Get customer information
-            const customerName = $('#customerName').val() || 'Walk-in Customer';
+            const customerName = $('#customerName').val() || '';
             const customerContact = $('#customerContact').val() || '';
             const customerAddress = $('#customerAddress').val() || '';
 
@@ -3906,7 +4153,7 @@
 
             // Add customer information to receipt
             let customerInfoHtml = '';
-            if (customerName && customerName !== 'Walk-in Customer') {
+            if (customerName) {
                 customerInfoHtml += `<div class="receipt-info"><span>Customer: ${customerName}</span></div>`;
             }
             if (customerContact) {
@@ -4152,7 +4399,21 @@
         const burgerMenuBtn = document.getElementById('burgerMenuBtn');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-        // Sidebar starts open via HTML. No animation adjustments needed.
+        // Ensure default: desktop open, mobile closed
+        (function initSidebarState(){
+            const mainContent = document.querySelector('.main-content');
+            if (window.innerWidth > 768) {
+                if (sidebar) sidebar.classList.add('active');
+                if (mainContent) mainContent.classList.add('sidebar-open');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            } else {
+                if (sidebar) sidebar.classList.remove('active');
+                if (mainContent) mainContent.classList.remove('sidebar-open');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        })();
 
         // Desktop transitions disabled intentionally
 
@@ -4376,46 +4637,76 @@
             const rows = invSlice(data, page);
             rows.forEach((product)=>{
                 const row = $('<tr>');
-                // Product Image
                 const imageUrl = product.image || '';
                 const imageHtml = imageUrl 
-                    ? `<img src="${imageUrl}" alt="${product.name || 'Product'}" class="product-image" data-full-image="${imageUrl}" onerror="this.src='https://via.placeholder.com/60?text=No+Image'; this.onerror=null;">`
+                    ? `<img src="${imageUrl}" alt="${product.name || 'Product'}" class="product-image" data-full-image="${imageUrl}" loading="lazy" decoding="async" width="60" height="60" onerror="this.src='https://via.placeholder.com/60?text=No+Image'; this.onerror=null;">`
                     : '<div class="product-image-placeholder"><i class="bi bi-image"></i></div>';
-                row.append(`<td>${imageHtml}</td>`);
-                row.append(`<td>${product.product_id}</td>`);
-                let productName = product.name; let variant = product.variant || '-';
+                let productName = product.name; let variant = product.variant || '';
                 const m = productName && productName.match(/^(.+?)\s*\(([^)]+)\)$/);
                 if(m){ productName = m[1].trim(); variant = m[2].trim(); }
-                row.append(`<td>${productName}</td>`);
-                row.append(`<td>${variant}</td>`);
-                row.append(`<td>${product.quantity_unit||''}</td>`);
-                row.append(`<td>₱${formatCurrency(product.price)}</td>`);
-                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
-                const stockValue = parseInt(product.stock)||0;
-                row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
                 const statusLower = (product.status || '').toLowerCase();
                 const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
                 const statusDisplay = product.status || 'N/A';
                 const isDiscontinued = statusLower === 'discontinued';
-                row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
+                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
+                const stockValue = parseInt(product.stock)||0;
                 let optionsHtml = `
                     <div class="dropdown">
-                        <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
+                        <button class="btn btn-sm btn-icon dropdown-toggle" type="button" aria-expanded="false" title="More options">
                             <i class="bi bi-three-dots-vertical"></i>
                             <span class="visually-hidden">More options for ${product.name}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item view-details-item d-md-none"
+                                data-id="${product.product_id}"
+                                data-name="${productName}"
+                                data-variant="${variant || ''}"
+                                data-quantity_unit="${product.quantity_unit || ''}"
+                                data-price="${product.price}"
+                                data-stock="${stockValue}"
+                                data-image="${imageUrl}"
+                                data-status="${statusDisplay}"
+                                title="View details"><i class="bi bi-eye me-2"></i> View Details</button></li>
                             <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
                             <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
                         </ul>
                     </div>`;
-                if (showAddStock) {
-                    const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
-                    const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm px-2 py-1" title="Add stock for this product"><i class="bi bi-plus-circle"></i> Add</a>`;
-                    row.append(`<td>${addBtn}</td>`);
+                const isMobile = window.matchMedia('(max-width: 768px)').matches;
+                if (isMobile) {
+                    row.addClass('mobile-row');
+                    // Build standard columns; extra fields will appear in expandable details row
+                    row.append(`<td>${imageHtml}</td>`);
+                    row.append(`<td>${product.product_id}</td>`);
+                    row.append(`<td>${productName}</td>`);
+                    row.append(`<td>${variant || '-'}</td>`);
+                    row.append(`<td>${product.quantity_unit||''}</td>`);
+                    row.append(`<td>₱${formatCurrency(product.price)}</td>`);
+                    row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                    row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
+                    if (showAddStock) {
+                        const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
+                        const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm px-2 py-1" title="Add stock for this product"><i class="bi bi-plus-circle"></i> Add</a>`;
+                        row.append(`<td>${addBtn}</td>`);
+                    }
+                    row.append(`<td>${optionsHtml}</td>`);
+                } else {
+                    row.append(`<td>${imageHtml}</td>`);
+                    row.append(`<td>${product.product_id}</td>`);
+                    row.append(`<td>${productName}</td>`);
+                    row.append(`<td>${variant || '-'}</td>`);
+                    row.append(`<td>${product.quantity_unit||''}</td>`);
+                    row.append(`<td>₱${formatCurrency(product.price)}</td>`);
+                    row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                    row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
+                    if (showAddStock) {
+                        const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
+                        const addBtn = `<a href="${addStockUrl}" class="btn btn-primary btn-sm px-2 py-1" title="Add stock for this product"><i class="bi bi-plus-circle"></i> Add</a>`;
+                        row.append(`<td>${addBtn}</td>`);
+                    }
+                    row.append(`<td>${optionsHtml}</td>`);
                 }
-                row.append(`<td>${optionsHtml}</td>`);
                 $tbody.append(row);
+                // no collapsible row on mobile
             });
             invUpdateControls(data.length, tableId);
             if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
@@ -4425,6 +4716,7 @@
             if (window.enhanceMobileTables) { 
                 window.enhanceMobileTables(); 
             }
+            // no collapsible rows used on mobile now
             
             // Image viewer click handler - use event delegation for dynamically added images
             $(document).on('click', '.product-image', function(e) {
@@ -4438,6 +4730,57 @@
         });
     </script>
     <script>
+        $(document).on('click', '.view-details-btn, .view-details-item', function(e){
+            e.preventDefault();
+            if (!window.matchMedia('(max-width: 768px)').matches) return;
+            const $btn = $(this);
+            const name = $btn.data('name') || '';
+            const variant = $btn.data('variant') || '';
+            const productId = $btn.data('id') || '';
+            const quantityUnit = $btn.data('quantity_unit') || '';
+            const price = $btn.data('price') || 0;
+            const stock = Number($btn.data('stock') || 0);
+            const image = $btn.data('image') || '';
+            const status = $btn.data('status') || '';
+
+            $('#mPDName').text(name);
+            $('#mPDVariant').text(variant || '-');
+            $('#mPDProductId').text(productId);
+            $('#mPDQuantityUnit').text(quantityUnit || '-');
+            $('#mPDPrice').text(`₱${formatCurrency(price)}`);
+            $('#mPDStatus').text(status);
+            if (image) {
+                $('#mPDImage').attr('src', image).show();
+            } else {
+                $('#mPDImage').attr('src', 'https://via.placeholder.com/120?text=No+Image').show();
+            }
+            const addStockUrl = `{% url 'add_stock_page' %}?product_id=${productId}`;
+            $('#mPDAddStock').attr('href', addStockUrl);
+            const stockClass = stock <= 10 ? 'text-danger' : stock <= 30 ? 'text-warning' : 'text-success';
+            $('#mPDStockCount').text(stock);
+            $('#mPDStockLink').attr('href', `/stock_details/?product_id=${productId}`);
+            $('#mPDStockDot').removeClass('text-danger text-warning text-success').addClass(stockClass);
+            $('.dropdown-menu').removeClass('show');
+            $('.table tbody tr').removeClass('dropdown-open');
+            $('.table tbody td').css('z-index','');
+            $('#mobileProductDetailsModal').modal('show');
+            $('#mobileProductDetailsModal').attr('aria-hidden','false');
+        });
+
+        $(document).on('click', '#mPDStockLink', function(e){
+            e.preventDefault();
+            const href = $(this).attr('href') || '';
+            if (href && !href.startsWith('#')) {
+                window.location.href = href;
+            }
+        });
+        // Modal accessibility: ensure aria-hidden toggles correctly
+        $('#mobileProductDetailsModal').on('shown.bs.modal', function(){
+            $(this).attr('aria-hidden','false');
+        });
+        $('#mobileProductDetailsModal').on('hidden.bs.modal', function(){
+            $(this).attr('aria-hidden','true');
+        });
         // Sanitize Product Modal inputs
         (function(){
             const nameInput = document.getElementById('productName');

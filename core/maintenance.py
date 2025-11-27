@@ -5,6 +5,8 @@ ISO/IEC 25010:2011 - Portability (Adaptability/Installability)
 from django.http import HttpResponse
 from django.conf import settings
 import os
+import json
+import time
 
 
 def is_maintenance_mode():
@@ -107,4 +109,77 @@ class MaintenanceModeMiddleware:
         </html>
         """
         return HttpResponse(html, status=503)
+
+
+class AuditMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        start_ts = time.time()
+        response = None
+        try:
+            response = self.get_response(request)
+            return response
+        finally:
+            try:
+                path = request.path or ''
+                if path.startswith('/static/'):
+                    return
+                method = (request.method or '').upper()
+                role = (request.session.get('app_role') or '').strip()
+                action = f"{method} {path}"
+                params = {}
+                try:
+                    if request.GET:
+                        params['query'] = {k: request.GET.get(k, '') for k in request.GET.keys()}
+                except Exception:
+                    pass
+                body = {}
+                try:
+                    if request.META.get('CONTENT_TYPE', '').lower().startswith('application/json'):
+                        import json as _json
+                        parsed = _json.loads(request.body.decode('utf-8') or '{}') if request.body else {}
+                        body = parsed if isinstance(parsed, dict) else {'_raw': str(parsed)}
+                    elif request.POST:
+                        body = {k: request.POST.get(k, '') for k in request.POST.keys()}
+                except Exception:
+                    pass
+                redacted_keys = {'password', 'new_password', 'confirm_password', 'token', 'authorization'}
+                def _redact(d):
+                    out = {}
+                    for k, v in (d or {}).items():
+                        if str(k).lower() in redacted_keys:
+                            out[k] = '[REDACTED]'
+                        else:
+                            out[k] = v
+                    return out
+                details_obj = {
+                    'role': role,
+                    'status_code': getattr(response, 'status_code', None),
+                    'duration_ms': int((time.time() - start_ts) * 1000),
+                    'query': _redact(params.get('query') or {}),
+                    'body': _redact(body),
+                    'referer': request.META.get('HTTP_REFERER', ''),
+                }
+                from core.views import log_action
+                log_action(request, action, json.dumps(details_obj))
+            except Exception:
+                pass
+
+    def process_exception(self, request, exception):
+        try:
+            path = request.path or ''
+            if path.startswith('/static/'):
+                return None
+            method = (request.method or '').upper()
+            action = f"{method} {path} (exception)"
+            details_obj = {
+                'error': str(exception),
+            }
+            from core.views import log_action
+            log_action(request, action, json.dumps(details_obj))
+        except Exception:
+            pass
+        return None
 

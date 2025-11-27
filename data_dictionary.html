@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stockwise Data Dictionary</title>
+<style>
+ body{font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;color:#111}
+ h1{font-size:24px;margin:0 0 8px}
+ h2{font-size:18px;margin:24px 0 8px}
+ p{margin:6px 0}
+ .note{background:#f6f8fa;border:1px solid #e1e4e8;border-radius:6px;padding:12px;margin:12px 0}
+ table{border-collapse:collapse;width:100%;margin:12px 0}
+ th,td{border:1px solid #ddd;padding:8px;vertical-align:top}
+ th{background:#fafafa;text-align:left;font-weight:600}
+ .table-name{font-weight:600}
+ .mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+ .grid{display:grid;grid-template-columns:1fr;gap:8px}
+</style>
+</head>
+<body>
+<h1>Stockwise Data Dictionary</h1>
+<div class="note">
+ <p>This document is a standalone reference and is not wired into the application. Field size shows the maximum length for text types or the precision for decimals. Numeric, boolean, and date/time fields do not have a fixed character length; therefore their field size is shown as <span class="mono">n/a</span>.</p>
+</div>
+
+<h2 class="table-name">Table: products</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>product_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment product identifier</td><td>101</td></tr>
+ <tr><td>name</td><td>Varchar</td><td>Text</td><td>50</td><td>Commercial product name</td><td>Papaya</td></tr>
+ <tr><td>variant</td><td>Varchar</td><td>Text (nullable)</td><td>50</td><td>Variant descriptor such as size or type</td><td>Red</td></tr>
+ <tr><td>status</td><td>Varchar</td><td>Enum: active/discontinued</td><td>12</td><td>Lifecycle status; active items are sold</td><td>active</td></tr>
+ <tr><td>image</td><td>Varchar</td><td>Path/filename (nullable)</td><td>100</td><td>Image file name or path</td><td>papaya.jpg</td></tr>
+ <tr><td>date_added</td><td>Date</td><td>YYYY-MM-DD</td><td>n/a</td><td>Date the product was added to the catalog</td><td>2025-11-01</td></tr>
+ <tr><td>price</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Current selling price per unit</td><td>1127.50</td></tr>
+ <tr><td>cost</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Unit cost used for margin calculations</td><td>900.00</td></tr>
+ <tr><td>quantity_unit</td><td>Varchar</td><td>Text</td><td>50</td><td>Unit label displayed to users</td><td>box</td></tr>
+ <tr><td>low_stock_threshold</td><td>Integer</td><td>Number</td><td>n/a</td><td>Low stock alert threshold</td><td>10</td></tr>
+ <tr><td>stock</td><td>Integer</td><td>Number</td><td>n/a</td><td>Current stock on hand</td><td>35</td></tr>
+ <tr><td>is_built_in</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Marks built-in items separate from inventory products</td><td>False</td></tr>
+ <tr><td>supplier</td><td>Varchar</td><td>Text (nullable)</td><td>100</td><td>Supplier name</td><td>ABC Trading</td></tr>
+ <tr><td>qr_code</td><td>Binary</td><td>Bytes</td><td>n/a</td><td>QR code binary payload for scanning</td><td>(bytes)</td></tr>
+ <tr><td>sku</td><td>Varchar</td><td>Text (unique, nullable)</td><td>50</td><td>Optional external stock keeping unit</td><td>PAPA-001</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Record creation timestamp</td><td>2025-11-01 08:30:00</td></tr>
+ <tr><td>last_updated</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Auto-updated modification timestamp</td><td>2025-11-25 14:12:40</td></tr>
+</table>
+
+<h2 class="table-name">Table: stock_additions</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>addition_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment batch addition id</td><td>5001</td></tr>
+ <tr><td>product</td><td>Foreign Key</td><td>products.product_id</td><td>n/a</td><td>Product associated with the batch</td><td>101</td></tr>
+ <tr><td>quantity</td><td>Integer</td><td>Number</td><td>n/a</td><td>Units added to stock</td><td>20</td></tr>
+ <tr><td>date_added</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Date and time of the stock addition</td><td>2025-11-20 09:15:00</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Record creation timestamp</td><td>2025-11-20 09:15:01</td></tr>
+ <tr><td>remaining_quantity</td><td>Decimal</td><td>Quantity</td><td>10,2</td><td>Remaining quantity from this batch</td><td>12.00</td></tr>
+ <tr><td>cost</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Cost per unit for this batch</td><td>880.00</td></tr>
+ <tr><td>batch_id</td><td>Varchar</td><td>Text</td><td>20</td><td>Batch identifier for traceability</td><td>B-20251120-01</td></tr>
+ <tr><td>supplier</td><td>Varchar</td><td>Text (nullable)</td><td>100</td><td>Supplier name</td><td>ABC Trading</td></tr>
+</table>
+
+<h2 class="table-name">Table: users</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>user_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment user identifier</td><td>1</td></tr>
+ <tr><td>username</td><td>Varchar</td><td>Text</td><td>25</td><td>Login username</td><td>johndoe</td></tr>
+ <tr><td>full_name</td><td>Varchar</td><td>Text (nullable)</td><td>100</td><td>Person’s full name</td><td>John Doe</td></tr>
+ <tr><td>password</td><td>Varchar</td><td>Text (hashed)</td><td>255</td><td>Password hash stored by the system</td><td>$2y$12$...</td></tr>
+ <tr><td>phone_number</td><td>Varchar</td><td>Text</td><td>15</td><td>User contact number</td><td>09171234567</td></tr>
+ <tr><td>role</td><td>Varchar</td><td>Enum: Admin/Secretary</td><td>9</td><td>Access role determining permissions</td><td>Admin</td></tr>
+ <tr><td>profile_picture</td><td>Varchar</td><td>Path/filename (nullable)</td><td>100</td><td>Profile image file</td><td>john.png</td></tr>
+ <tr><td>is_active</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Account active flag</td><td>True</td></tr>
+ <tr><td>email</td><td>Email</td><td>Text (nullable)</td><td>100</td><td>Email address</td><td>john@example.com</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Account creation time</td><td>2025-10-01 10:00:00</td></tr>
+ <tr><td>last_login_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Most recent login time</td><td>2025-11-25 12:45:00</td></tr>
+</table>
+
+<h2 class="table-name">Table: sales</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>sale_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment sale identifier</td><td>70001</td></tr>
+ <tr><td>product</td><td>Foreign Key</td><td>products.product_id</td><td>n/a</td><td>Product sold in the transaction</td><td>101</td></tr>
+ <tr><td>quantity</td><td>Integer</td><td>Number</td><td>n/a</td><td>Units sold</td><td>2</td></tr>
+ <tr><td>price</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Unit price at time of sale</td><td>1127.50</td></tr>
+ <tr><td>transaction_number</td><td>Varchar</td><td>Text</td><td>32</td><td>Internal transaction reference</td><td>TX-20251126-0001</td></tr>
+ <tr><td>or_number</td><td>Varchar</td><td>Text</td><td>32</td><td>Official receipt number</td><td>OR-001234</td></tr>
+ <tr><td>customer_name</td><td>Varchar</td><td>Text</td><td>50</td><td>Customer’s name if provided</td><td>Jane Smith</td></tr>
+ <tr><td>address</td><td>Varchar</td><td>Text</td><td>50</td><td>Customer address if provided</td><td>Barangay 5</td></tr>
+ <tr><td>contact_number</td><td>Integer</td><td>Number</td><td>n/a</td><td>Customer contact number</td><td>9171234567</td></tr>
+ <tr><td>recorded_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>When the sale was recorded</td><td>2025-11-26 18:37:36</td></tr>
+ <tr><td>total</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Total transaction amount</td><td>2255.00</td></tr>
+ <tr><td>amount_paid</td><td>Decimal</td><td>Money (nullable)</td><td>10,2</td><td>Amount tendered by customer</td><td>2300.00</td></tr>
+ <tr><td>change_given</td><td>Decimal</td><td>Money (nullable)</td><td>10,2</td><td>Change returned to customer</td><td>45.00</td></tr>
+ <tr><td>discount_pct</td><td>Decimal</td><td>Percent (nullable)</td><td>5,2</td><td>Discount percent applied</td><td>10.00</td></tr>
+ <tr><td>discount_amount</td><td>Decimal</td><td>Money (nullable)</td><td>10,2</td><td>Discount monetary value</td><td>250.00</td></tr>
+ <tr><td>status</td><td>Varchar</td><td>Enum: completed/voided</td><td>10</td><td>Transaction status</td><td>completed</td></tr>
+ <tr><td>user</td><td>Foreign Key</td><td>users.user_id</td><td>n/a</td><td>Staff member who recorded the sale</td><td>1</td></tr>
+ <tr><td>voided_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS (nullable)</td><td>n/a</td><td>Time sale was voided</td><td>2025-11-26 19:00:00</td></tr>
+ <tr><td>stock_restored</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Whether voiding restored stock levels</td><td>True</td></tr>
+</table>
+
+<h2 class="table-name">Table: sms</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>sms_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment SMS record identifier</td><td>3001</td></tr>
+ <tr><td>product</td><td>Foreign Key</td><td>products.product_id</td><td>n/a</td><td>Product referenced by the message</td><td>101</td></tr>
+ <tr><td>user</td><td>Foreign Key</td><td>users.user_id</td><td>n/a</td><td>Recipient user reference</td><td>1</td></tr>
+ <tr><td>message_type</td><td>Varchar</td><td>Enum: sales_summary_daily/weekly/stock_alert/pricing_alert</td><td>32</td><td>Type of message sent</td><td>pricing_alert</td></tr>
+ <tr><td>demand_level</td><td>Varchar</td><td>Enum: high/mid/low</td><td>4</td><td>Demand classification for the message</td><td>high</td></tr>
+ <tr><td>message_content</td><td>Text</td><td>Text</td><td>n/a</td><td>SMS body content</td><td>Pricing recommendation...</td></tr>
+ <tr><td>sent_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Timestamp when the SMS was sent</td><td>2025-11-26 18:40:00</td></tr>
+</table>
+
+<h2 class="table-name">Table: sms_notification_settings</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>setting_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Singleton settings identifier</td><td>1</td></tr>
+ <tr><td>sales_enabled</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Enable daily sales summaries</td><td>True</td></tr>
+ <tr><td>sales_time</td><td>Varchar</td><td>HH:MM (24h)</td><td>5</td><td>Time to send daily sales summary</td><td>20:00</td></tr>
+ <tr><td>stock_enabled</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Enable low stock alerts</td><td>True</td></tr>
+ <tr><td>stock_threshold</td><td>Integer</td><td>Number</td><td>n/a</td><td>Low stock threshold in units</td><td>10</td></tr>
+ <tr><td>pricing_enabled</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Enable pricing recommendation alerts</td><td>True</td></tr>
+ <tr><td>pricing_sensitivity</td><td>Varchar</td><td>Enum: conservative/moderate/aggressive</td><td>20</td><td>Sensitivity level for price alerts</td><td>moderate</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Settings creation time</td><td>2025-10-01 10:00:00</td></tr>
+ <tr><td>updated_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Last update timestamp</td><td>2025-11-25 12:00:00</td></tr>
+</table>
+
+<h2 class="table-name">Table: report_product_summary</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>report_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment report identifier</td><td>90001</td></tr>
+ <tr><td>product</td><td>Foreign Key</td><td>products.product_id</td><td>n/a</td><td>Product summarized in the report</td><td>101</td></tr>
+ <tr><td>period_start</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Start of the reporting period</td><td>2025-11-01 00:00:00</td></tr>
+ <tr><td>period_end</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>End of the reporting period</td><td>2025-11-26 23:59:59</td></tr>
+ <tr><td>granularity</td><td>Varchar</td><td>Text</td><td>10</td><td>Aggregation level such as daily or weekly</td><td>daily</td></tr>
+ <tr><td>generated_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Time the report was generated</td><td>2025-11-26 18:35:00</td></tr>
+ <tr><td>generated_by</td><td>Foreign Key</td><td>users.user_id (nullable)</td><td>n/a</td><td>User who generated the report</td><td>1</td></tr>
+ <tr><td>opening_qty</td><td>Decimal</td><td>Quantity</td><td>12,2</td><td>Opening stock quantity</td><td>40.00</td></tr>
+ <tr><td>added_qty</td><td>Decimal</td><td>Quantity</td><td>12,2</td><td>Quantity added during the period</td><td>25.00</td></tr>
+ <tr><td>sold_qty</td><td>Decimal</td><td>Quantity</td><td>12,2</td><td>Quantity sold during the period</td><td>30.00</td></tr>
+ <tr><td>closing_qty</td><td>Decimal</td><td>Quantity</td><td>12,2</td><td>Closing stock quantity</td><td>35.00</td></tr>
+ <tr><td>last_addition_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS (nullable)</td><td>n/a</td><td>Time of the last stock addition</td><td>2025-11-20 09:15:00</td></tr>
+ <tr><td>avg_sell_price</td><td>Decimal</td><td>Money (nullable)</td><td>12,4</td><td>Average selling price</td><td>1120.0000</td></tr>
+ <tr><td>revenue</td><td>Decimal</td><td>Money</td><td>14,2</td><td>Total revenue in the period</td><td>45000.00</td></tr>
+ <tr><td>avg_unit_cost</td><td>Decimal</td><td>Money (nullable)</td><td>12,4</td><td>Average unit cost</td><td>880.0000</td></tr>
+ <tr><td>cogs</td><td>Decimal</td><td>Money</td><td>14,2</td><td>Cost of goods sold</td><td>36000.00</td></tr>
+ <tr><td>gross_profit</td><td>Decimal</td><td>Money</td><td>14,2</td><td>Gross profit</td><td>9000.00</td></tr>
+ <tr><td>gross_margin_pct</td><td>Decimal</td><td>Percent (nullable)</td><td>6,2</td><td>Gross margin percentage</td><td>20.00</td></tr>
+ <tr><td>sell_through_pct</td><td>Decimal</td><td>Percent (nullable)</td><td>6,2</td><td>Sell-through percentage</td><td>75.00</td></tr>
+ <tr><td>avg_daily_sales</td><td>Decimal</td><td>Quantity (nullable)</td><td>12,4</td><td>Average daily units sold</td><td>1.5000</td></tr>
+ <tr><td>days_of_cover_end</td><td>Decimal</td><td>Days (nullable)</td><td>8,2</td><td>Stock coverage at period end</td><td>23.50</td></tr>
+ <tr><td>low_stock_threshold</td><td>Decimal</td><td>Quantity (nullable)</td><td>12,2</td><td>Threshold used for low stock evaluation</td><td>10.00</td></tr>
+ <tr><td>low_stock_flag</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Indicates low stock at the end of period</td><td>False</td></tr>
+ <tr><td>sms_low_stock_count</td><td>Integer</td><td>Number</td><td>n/a</td><td>Low stock SMS messages sent</td><td>2</td></tr>
+ <tr><td>sms_expiry_count</td><td>Integer</td><td>Number</td><td>n/a</td><td>Expiry SMS messages sent</td><td>0</td></tr>
+ <tr><td>last_price</td><td>Decimal</td><td>Money (nullable)</td><td>12,4</td><td>Last known price during period</td><td>1127.5000</td></tr>
+ <tr><td>suggested_price</td><td>Decimal</td><td>Money (nullable)</td><td>12,4</td><td>System’s suggested price</td><td>1150.0000</td></tr>
+ <tr><td>accepted_price</td><td>Decimal</td><td>Money (nullable)</td><td>12,4</td><td>Admin-accepted price change</td><td>1150.0000</td></tr>
+ <tr><td>price_action</td><td>Varchar</td><td>Text (nullable)</td><td>10</td><td>Action label for price recommendation</td><td>INCREASE</td></tr>
+ <tr><td>demand_level</td><td>Varchar</td><td>Text (nullable)</td><td>4</td><td>Demand classification</td><td>high</td></tr>
+ <tr><td>first_sale_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS (nullable)</td><td>n/a</td><td>Time of first sale in period</td><td>2025-11-02 09:00:00</td></tr>
+ <tr><td>last_sale_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS (nullable)</td><td>n/a</td><td>Time of last sale in period</td><td>2025-11-26 18:00:00</td></tr>
+ <tr><td>updated_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Report update timestamp</td><td>2025-11-26 18:35:00</td></tr>
+</table>
+
+<h2 class="table-name">Table: action_logs</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>action_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment log identifier</td><td>11001</td></tr>
+ <tr><td>user</td><td>Foreign Key</td><td>users.user_id (nullable)</td><td>n/a</td><td>User who performed the action</td><td>1</td></tr>
+ <tr><td>role</td><td>Varchar</td><td>Text</td><td>20</td><td>User role at the time of action</td><td>Admin</td></tr>
+ <tr><td>action</td><td>Varchar</td><td>Text</td><td>150</td><td>Short title describing the action</td><td>Product price updated</td></tr>
+ <tr><td>details</td><td>Text</td><td>Text</td><td>n/a</td><td>Detailed message for the action</td><td>Applied pricing recommendation...</td></tr>
+ <tr><td>ip_address</td><td>Varchar</td><td>Text</td><td>45</td><td>Client IP address</td><td>203.0.113.5</td></tr>
+ <tr><td>user_agent</td><td>Varchar</td><td>Text</td><td>255</td><td>Browser user agent string</td><td>Mozilla/5.0...</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Log creation timestamp</td><td>2025-11-26 18:40:10</td></tr>
+</table>
+
+<h2 class="table-name">Table: backups</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>backup_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment backup identifier</td><td>2001</td></tr>
+ <tr><td>filename</td><td>Varchar</td><td>Text</td><td>255</td><td>Backup file name</td><td>db_2025-11-26.sql</td></tr>
+ <tr><td>file_path</td><td>Varchar</td><td>Text</td><td>500</td><td>Full path to the backup file</td><td>C:\\backups\\db_2025-11-26.sql</td></tr>
+ <tr><td>file_size</td><td>BigInteger</td><td>Number (bytes)</td><td>n/a</td><td>Backup size in bytes</td><td>104857600</td></tr>
+ <tr><td>backup_type</td><td>Varchar</td><td>Enum: full/database/media</td><td>20</td><td>Backup category</td><td>database</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Time backup was created</td><td>2025-11-26 02:00:00</td></tr>
+ <tr><td>created_by</td><td>Varchar</td><td>Text (nullable)</td><td>100</td><td>Initiator or owner of the backup</td><td>admin</td></tr>
+ <tr><td>notes</td><td>Text</td><td>Text (nullable)</td><td>n/a</td><td>Optional notes or comments</td><td>nightly run</td></tr>
+ <tr><td>is_verified</td><td>Boolean</td><td>True/False</td><td>n/a</td><td>Whether the backup file was verified to exist</td><td>True</td></tr>
+</table>
+
+<h2 class="table-name">Table: pricing_recommendations</h2>
+<table>
+ <tr><th>Field Name</th><th>Data Type</th><th>Data Format</th><th>Field Size</th><th>Description</th><th>Example</th></tr>
+ <tr><td>recommendation_id</td><td>Integer (PK)</td><td>Number</td><td>n/a</td><td>Auto-increment recommendation identifier</td><td>6001</td></tr>
+ <tr><td>product</td><td>Foreign Key</td><td>products.product_id</td><td>n/a</td><td>Product the recommendation applies to</td><td>101</td></tr>
+ <tr><td>current_price</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Current price before change</td><td>1127.50</td></tr>
+ <tr><td>suggested_price</td><td>Decimal</td><td>Money</td><td>10,2</td><td>Suggested price after analysis</td><td>1150.00</td></tr>
+ <tr><td>change_pct</td><td>Decimal</td><td>Percent</td><td>6,2</td><td>Percent change between current and suggested</td><td>2.00</td></tr>
+ <tr><td>action</td><td>Varchar</td><td>Enum: INCREASE/DECREASE/HOLD</td><td>10</td><td>Direction of price adjustment</td><td>INCREASE</td></tr>
+ <tr><td>reason</td><td>Text</td><td>Text</td><td>n/a</td><td>Human-readable explanation of the recommendation</td><td>Low sales activity in the past 3 days</td></tr>
+ <tr><td>elasticity</td><td>Decimal</td><td>Coefficient (nullable)</td><td>8,4</td><td>Estimated price elasticity of demand</td><td>-1.0000</td></tr>
+ <tr><td>r2</td><td>Decimal</td><td>Ratio (nullable)</td><td>6,4</td><td>Model fit quality (R²)</td><td>0.4200</td></tr>
+ <tr><td>confidence</td><td>Varchar</td><td>Enum: LOW/MED/HIGH (nullable)</td><td>20</td><td>Qualitative confidence derived from R²</td><td>MED</td></tr>
+ <tr><td>created_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Time the recommendation was created</td><td>2025-11-26 18:37:00</td></tr>
+ <tr><td>expires_at</td><td>DateTime</td><td>YYYY-MM-DD HH:MM:SS</td><td>n/a</td><td>Expiry time; recommendations are valid for three days</td><td>2025-11-29 18:37:00</td></tr>
+</table>
+
+<h2>Why some Field Size values are n/a</h2>
+<div class="note">
+ <p>Text fields define a maximum character length, so a concrete size is shown. Decimal fields define precision and scale. Integer, boolean, and date/time types are stored in native formats and do not have a character-length limit; their capacity is fixed by the database type rather than a text length, so the field size is noted as <span class="mono">n/a</span>.</p>
+</div>
+
+</body>
+</html>

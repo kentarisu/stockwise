@@ -34,7 +34,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
             return
         
-        message = "💰 StockWise Pricing Recommendation\n\nTest Alert: This is a test pricing notification.\n\n📱 Sent by StockWise System"
+        message = "STOCKWISE Pricing Recommendation\n\nTest Alert: This is a test pricing notification."
         
         for u in admins:
             if self.send_sms(u.phone_number, message):
@@ -129,8 +129,7 @@ class Command(BaseCommand):
             )
 
     def format_pricing_recommendation(self, actionable_recommendations, days):
-        """Format pricing recommendations (ASCII, professional, matches dashboard style)"""
-        message = "STOCKWISE Pricing\n\n"
+        message = "STOCKWISE Pricing Recommendation\n\n"
         
         top_recommendations = actionable_recommendations.head(3)
         for _, rec in top_recommendations.iterrows():
@@ -145,8 +144,7 @@ class Command(BaseCommand):
             message += f"{rec['name']}\n"
             message += f"PHP {rec['current_price']:.0f} -> PHP {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
             message += f"Reason: {reason}\n\n"
-        
-        message += "STOCKWISE"
+
         return message
 
     def send_sms(self, phone_number, message):

@@ -46,7 +46,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
             return
         
-        message = "⚠️ StockWise Low Stock Alert\n\nTest Alert: This is a test notification.\n\n📱 Sent by StockWise System"
+        message = "STOCKWISE Stock Alert\n\nTest Alert: This is a test notification."
         
         for u in admins:
             if self.send_sms(u.phone_number, message):
@@ -162,8 +162,6 @@ class Command(BaseCommand):
 
         if not out_of_stock_products.exists() and not low_stock_products.exists():
             message += "All products have sufficient stock.\n\n"
-
-        message += "- STOCKWISE"
         return message
 
     def send_sms(self, phone_number, message):

@@ -41,6 +41,22 @@ h4 { font-size: clamp(1.125rem, 1rem + 0.5vw, 1.5rem); }
 h5 { font-size: clamp(1rem, 0.9rem + 0.4vw, 1.25rem); }
 h6 { font-size: clamp(0.875rem, 0.85rem + 0.2vw, 1rem); }
 
+@media (max-width: 768px) {
+    .btn-modern, .dropdown-toggle {
+        min-height: 36px;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 360px) {
+    .btn-modern, .dropdown-toggle {
+        min-height: 34px;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+}
+
 /* ================================================
    RESPONSIVE GRID SYSTEM
    ================================================ */
@@ -287,6 +303,93 @@ textarea {
         flex-direction: row;
         align-items: center;
     }
+}
+
+:root {
+    --sidebar-width: 212px;
+    --header-height: 72px;
+}
+
+.header {
+    min-height: var(--header-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    z-index: 1001;
+    padding: 0.75rem 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-left: 0.75rem;
+}
+
+.header-left h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.burger-menu-btn {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 0.875rem;
+    height: 0.875rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+.burger-menu-btn span {
+    width: 100%;
+    height: 1.5px;
+    background: #374151;
+    border-radius: 1.5px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center;
+}
+
+@media (max-width: 768px) {
+    .header { padding: 0.625rem 0.75rem; }
+    .header-left h1 { font-size: 1.25rem; }
+    .burger-menu-btn { width: 0.65rem !important; height: 0.65rem !important; margin-right: 0.25rem; }
+    .burger-menu-btn span { height: 1px !important; }
+}
+
+@media (min-width: 769px) {
+    #mobileMenuToggle { display: none !important; }
+}
+
+.user-avatar {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    border: 2px solid #e0e7ff;
 }
 
 /* ================================================

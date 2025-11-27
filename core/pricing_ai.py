@@ -406,14 +406,34 @@ def _friendly_reason(action: str, sales_count: int) -> str:
     a = (action or '').upper()
     if sc > 0:
         if a == 'INCREASE':
-            return 'Good sales trend'
+            return 'Good sales trend in the past 3 days'
         elif a == 'DECREASE':
             return 'Low sales activity'
     return 'Price optimization'
 
+def _normalize_offcanvas_reason(text: str) -> str:
+    raw = (text or '').strip()
+    if not raw:
+        return ''
+    import re as _re
+    # Remove technical data like [Data: n=14, confidence=LOW]
+    raw = _re.sub(r"\s*\[Data:.*?\]", "", raw)
+    raw = _re.sub(r"\s*\[.*?confidence.*?\]", "", raw)
+    # Clean extra spaces
+    raw = _re.sub(r"\s+", " ", raw).strip()
+    # Phrase normalization to match offcanvas
+    lower = raw.lower()
+    if 'strong demand' in lower:
+        raw = _re.sub(r"strong demand", "High customer demand", raw, flags=_re.IGNORECASE)
+    if 'customers are buying frequently' in lower:
+        raw = _re.sub(r"customers are buying frequently", "frequent purchases", raw, flags=_re.IGNORECASE)
+    if 'boost profit margin' in lower:
+        raw = _re.sub(r"boost profit margin", "increase profitability", raw, flags=_re.IGNORECASE)
+    return raw
+
 def format_pricing_sms_from_queryset(qs) -> str:
-    from django.utils import timezone
-    lines = ["STOCKWISE Pricing", ""]
+    lines = ["STOCKWISE Pricing Recommendation", ""]
+    idx = 1
     for rec in qs:
         p = getattr(rec, 'product', None)
         name = getattr(p, 'name', '') if p else ''
@@ -421,37 +441,30 @@ def format_pricing_sms_from_queryset(qs) -> str:
         unit = getattr(p, 'quantity_unit', '') if p else ''
         label = _label(name or getattr(rec, 'name', ''), variant, unit)
         act = (getattr(rec, 'action', '') or '').upper()
-        sym = '+' if act == 'INCREASE' else '-' if act == 'DECREASE' else ''
-        cur = float(getattr(rec, 'current_price', 0))
+        cur = float(getattr(p, 'price', getattr(rec, 'current_price', 0)))
         sug = float(getattr(rec, 'suggested_price', 0))
-        pct = abs(float(getattr(rec, 'change_pct', 0)))
-        reason = getattr(rec, 'reason', '') or _friendly_reason(act, getattr(rec, 'sales_count', 0))
-        # Normalize reason to friendly form
-        if '[Data:' in reason:
-            reason = reason.split('[Data:')[0].strip()
-        if reason.lower() in ('', 'n/a'):
-            reason = _friendly_reason(act, getattr(rec, 'sales_count', 0))
-        lines.append(label)
-        lines.append(f"₱{cur:.2f} → ₱{sug:.2f} ({sym}{pct:.1f}%)")
+        pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
+        sign = '+' if pct > 0 else ('-' if pct < 0 else '')
+        reason_raw = getattr(rec, 'reason', '')
+        reason = _normalize_offcanvas_reason(reason_raw) or _friendly_reason(act, getattr(rec, 'sales_count', 0))
+        lines.append(f"{idx}. {label}")
+        lines.append(f"PHP {cur:.2f} -> {sug:.2f} ({sign}{abs(pct):.0f}%)")
         lines.append(f"Reason: {reason}")
         lines.append("")
-    lines.append('STOCKWISE')
+        idx += 1
     return "\n".join(lines)
 
 def validate_pricing_sms_parity(qs, message: str) -> bool:
-    # Ensure each rec’s label and price line appear in the message
+    # Ensure each rec’s label and pricing line appear in the message
     try:
         msg = message or ''
         for rec in qs:
             p = getattr(rec, 'product', None)
             label = _label(getattr(p, 'name', '') or getattr(rec, 'name', ''), getattr(p, 'variant', ''), getattr(p, 'quantity_unit', ''))
-            cur = float(getattr(rec, 'current_price', 0))
+            cur = float(getattr(p, 'price', getattr(rec, 'current_price', 0)))
             sug = float(getattr(rec, 'suggested_price', 0))
-            act = (getattr(rec, 'action', '') or '').upper()
-            sym = '+' if act == 'INCREASE' else '-' if act == 'DECREASE' else ''
-            pct = abs(float(getattr(rec, 'change_pct', 0)))
-            price_line = f"₱{cur:.2f} → ₱{sug:.2f} ({sym}{pct:.1f}%)"
-            if label not in msg or price_line not in msg:
+            price_prefix = f"PHP {cur:.2f} -> {sug:.2f}"
+            if label not in msg or price_prefix not in msg:
                 return False
         return True
     except Exception:

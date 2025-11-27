@@ -113,7 +113,7 @@ class Command(BaseCommand):
                         sales_count = rec.get('sales_count', 0)
                         if sales_count > 0:
                             if rec['action'] == 'INCREASE':
-                                friendly = 'Good sales trend'
+                                friendly = 'Good sales trend in the past 3 days'
                             elif rec['action'] == 'DECREASE':
                                 friendly = 'Low sales activity'
                             else:
@@ -192,8 +192,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
     
     def _format_pricing_message(self, recommendations, total_count):
-        """Format pricing recommendations into SMS message (ASCII, includes variant and unit)"""
-        message = "STOCKWISE Pricing\n\n"
+        message = "STOCKWISE Pricing Recommendation\n\n"
 
         for idx, (_, rec) in enumerate(recommendations.iterrows(), 1):
             action_symbol = "+" if rec['action'] == 'INCREASE' else "-"
@@ -210,7 +209,7 @@ class Command(BaseCommand):
             sales_count = rec.get('sales_count', 0)
             if sales_count > 0:
                 if rec['action'] == 'INCREASE':
-                    reason = "Good sales trend"
+                    reason = "Good sales trend in the past 3 days"
                 else:
                     reason = "Low sales activity"
             else:
@@ -220,16 +219,7 @@ class Command(BaseCommand):
             message += f"PHP {rec['current_price']:.0f} -> {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
             message += f"Reason: {reason}\n\n"
 
-        message += "STOCKWISE"
         return message
     
     def _format_no_recommendations_message(self):
-        """Format message when no recommendations"""
-        message = "STOCKWISE AI Pricing Report\n"
-        message += "Automatic 3-Day Analysis\n\n"
-        message += "==== STATUS ====\n"
-        message += "All products are optimally priced!\n\n"
-        message += "No pricing changes recommended at this time.\n"
-        message += "Your current prices are well-balanced.\n\n"
-        message += "- STOCKWISE"
-        return message
+        return "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."

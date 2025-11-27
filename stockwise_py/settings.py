@@ -15,6 +15,11 @@ import os
 from dotenv import load_dotenv
 import ssl
 import certifi
+try:
+    import whitenoise  # noqa: F401
+    _HAS_WHITENOISE = True
+except Exception:
+    _HAS_WHITENOISE = False
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +34,8 @@ ssl._create_default_https_context = ssl.create_default_context(cafile=certifi.wh
 SECRET_KEY = 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
+MAINTENANCE_MODE = True
 
 # Allowed hosts for ngrok and local development
 ALLOWED_HOSTS = [
@@ -47,6 +53,8 @@ ALLOWED_HOSTS = [
     '8ad38ee8cba3.ngrok-free.app',  # Current ngrok URL
     '.ngrok-free.app',  # Wildcard for all ngrok-free.app subdomains
     '.ngrok.io',        # Legacy ngrok domains
+    '.ondigitalocean.app',
+    '.digitaloceansites.com',
 ]
 
 # Tell Django to trust reverse proxy headers from ngrok so scheme/host are correct
@@ -78,6 +86,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok-free.app',  # Wildcard for all ngrok URLs
     'https://*.ngrok.app',        # Alternative ngrok domain
     'https://*.ngrok.io',         # Legacy ngrok domains
+    'https://*.ondigitalocean.app',
+    'https://*.digitaloceansites.com',
 ]
 
 # Temporary workaround for ngrok CSRF issues
@@ -92,22 +102,31 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
     'core',
     'django_crontab',
     'stockwise_qr.qrstock',
 ]
+if not _HAS_WHITENOISE:
+    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'whitenoise.runserver_nostatic']
 
 MIDDLEWARE = [
-    'core.maintenance.MaintenanceModeMiddleware',  # TC-043: Maintenance mode
+    'core.maintenance.MaintenanceModeMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'core.maintenance.AuditMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',  # Disabled for ngrok development
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+if not _HAS_WHITENOISE:
+    MIDDLEWARE = [m for m in MIDDLEWARE if m != 'whitenoise.middleware.WhiteNoiseMiddleware']
+if os.getenv('DISABLE_CSRF', 'false').lower() == 'true':
+    MIDDLEWARE = [m for m in MIDDLEWARE if m != 'django.middleware.csrf.CsrfViewMiddleware']
 
 # NOTE: CSRF middleware is disabled for ngrok development
 # Re-enable 'django.middleware.csrf.CsrfViewMiddleware' for production
@@ -183,15 +202,17 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
+    BASE_DIR / 'stockwise_py' / 'static',
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+WHITENOISE_USE_FINDERS = True
 
 # Ensure static files are only served from the static directories
-STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' if _HAS_WHITENOISE else 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Media files (user uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR.parent / 'media'  # Points to C:\Users\Orly\stockwise\media
+MEDIA_ROOT = BASE_DIR / 'media'
 
 FRUIT_MASTER_DIR = MEDIA_ROOT / 'builtins'
 FRUIT_MASTER_PATH = str(FRUIT_MASTER_DIR / 'fruit_master_full.csv')
@@ -300,6 +321,10 @@ GOOGLE_ALLOWED_ACCOUNTS = {
         'username': os.getenv('GOOGLE_SECRETARY_USERNAME', 'secretary'),
     },
 }
+
+if os.getenv('DATABASE_URL'):
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URL'), conn_max_age=600)
 
 # ========== EMAIL / TWO-FACTOR SETTINGS ==========
 # Default to SMTP backend (production-safe). Override via EMAIL_BACKEND env var if needed.

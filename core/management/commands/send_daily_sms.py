@@ -68,15 +68,15 @@ class Command(BaseCommand):
         total_revenue = sales_query.aggregate(total=Sum('total'))['total'] or 0
         total_boxes = sales_query.aggregate(total=Sum('quantity'))['total'] or 0
         
-        # Get top selling products
+        kilos_sold = sales_query.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
         top_products = (sales_query
-            .values('product__name', 'product__variant', 'product__quantity_unit')
-            .annotate(quantity=Sum('quantity'))
-            .order_by('-quantity')[:3])
+            .values('product__name', 'product__variant', 'product__quantity_unit', 'product__stock')
+            .annotate(quantity=Sum('quantity'), revenue=Sum('total'))
+            .order_by('-quantity')[:5])
         
         # Format the message
         message = self.format_sales_summary(
-            target_date, total_sales, total_revenue, total_boxes, top_products, date_label
+            target_date, total_sales, total_revenue, total_boxes, top_products, kilos_sold, date_label
         )
         
         # Send SMS to all active notifications
@@ -122,32 +122,37 @@ class Command(BaseCommand):
             self.style.SUCCESS(f'Daily SMS summary sent to {success_count} admin(s)')
         )
 
-    def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products, date_label="Yesterday"):
-        """Format the sales summary message (ASCII, professional, matches dashboard style)"""
+    def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products, kilos_sold, date_label="Yesterday"):
+        """Format the sales summary message"""
         date_str = date.strftime('%B %d, %Y')
-        
-        message = "STOCKWISE Daily Sales Report\n"
+        message = "STOCKWISE Daily Sales Report\n\n"
         message += f"Date: {date_str}\n\n"
-        message += "==== OVERALL SUMMARY ====\n"
-        message += f"Total Revenue: PHP {total_revenue:,.2f}\n"
-        message += f"Total Boxes Sold: {total_boxes}\n"
-        message += f"Total Transactions: {total_sales}\n\n"
-        
+        message += "== OVERALL SUMMARY ==\n\n"
+        message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
+        message += f"Total Boxes Sold: {int(total_boxes)}\n"
+        message += f"Total Kilos Sold: {int(kilos_sold or 0)}\n"
+        message += f"Total Transactions: {int(total_sales)}\n\n"
         if top_products:
-            message += "==== TOP PRODUCTS TODAY ====\n"
+            message += "== TOP PRODUCTS TODAY ==\n"
             for i, product in enumerate(top_products, 1):
                 name = product.get('product__name') or ''
-                variant = product.get('product__variant') or ''
-                unit = product.get('product__quantity_unit') or ''
-                variant_part = f" ({variant})" if variant else ""
-                unit_part = f" ({unit})" if unit else ""
-                message += f"{i}. {name}{variant_part}{unit_part}\n"
-                message += f"   Sold: {product['quantity']} boxes\n\n"
+                variant = (product.get('product__variant') or '').strip()
+                unit = (product.get('product__quantity_unit') or '').strip().lower()
+                remaining = int(product.get('product__stock') or 0)
+                sold_qty = int(product.get('quantity') or 0)
+                revenue = float(product.get('revenue') or 0)
+                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+                rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+                label = f"{name}"
+                if variant:
+                    label += f" ({variant})"
+                label += f" ({product.get('product__quantity_unit')})"
+                message += f"{i}. {label}\n"
+                message += f"Sold: {sold_qty} {unit_label}\n"
+                message += f"Revenue: PHP {revenue:,.2f}\n"
+                message += f"Remaining: {remaining} {rem_label}\n\n"
         else:
-            message += "No sales recorded today.\n\n"
-        
-        message += "- STOCKWISE"
-        
+            message += "No sales recorded today.\n"
         return message
 
     def send_sms(self, phone_number, message):

@@ -76,7 +76,7 @@
     --sidebar-width: 280px;
     --sidebar-width-collapsed: 80px;
     --header-height: 72px;
-    --content-padding: 2rem;
+    --content-padding: clamp(1rem, 4vw, 2rem);
     --border-radius: 12px;
     --border-radius-sm: 8px;
     --border-radius-lg: 16px;
@@ -1267,6 +1267,73 @@ body {
 }
 
 @media (max-width: 480px) {
+    :root {
+        --content-padding: 0.75rem;
+        --header-height: 80px;
+    }
+
+    .header {
+        padding: 0.625rem 0.75rem;
+    }
+
+    .header-left h1 {
+        font-size: 1.25rem;
+    }
+
+    .content-area {
+        padding: 0.75rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.625rem;
+    }
+
+    .stat-card {
+        padding: 0.875rem;
+    }
+
+    .table {
+        font-size: 0.75rem;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.5rem 0.375rem;
+    }
+
+    .btn-modern, .dropdown-toggle {
+        padding: 12px 16px;
+        font-size: 15px;
+    }
+
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100vw - 1rem);
+    }
+}
+
+@media (max-width: 360px) {
+    .header-left h1 {
+        font-size: 1.125rem;
+    }
+
+    .btn-modern, .dropdown-toggle {
+        min-height: 38px;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .content-area {
+        padding: 0.625rem;
+    }
+
+    .table {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 480px) {
     .content-area {
         padding: var(--space-4);
     }
@@ -1504,8 +1571,8 @@ body {
 
 /* Touch-friendly button sizing */
 @media (max-width: 768px) {
-    .btn-modern, .btn, .dropdown-toggle {
-        min-height: 40px;
+    .btn-modern, .dropdown-toggle {
+        min-height: 36px;
         padding: 8px 12px;
         font-size: 13px;
         border-radius: 6px;

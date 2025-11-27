@@ -10,8 +10,12 @@ numpy>=2.3.0
 pandas>=2.3.0
 python-escpos==3.1
 pyserial==3.5
-pywin32==311
+pywin32==311; sys_platform == "win32"
 google-auth==2.34.0
 requests==2.32.3
 python-dotenv==1.2.1
 itsdangerous==2.2.0
+gunicorn==21.2.0
+whitenoise==6.6.0
+dj-database-url==2.3.0
+psycopg2-binary==2.9.9

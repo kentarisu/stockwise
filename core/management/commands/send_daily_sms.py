@@ -99,7 +99,9 @@ class Command(BaseCommand):
                     message_codes.append(code)
                 self.stdout.write(self.style.SUCCESS(f'Daily summary sent to {u.username} at {u.phone_number}'))
             else:
-                self.stdout.write(self.style.ERROR(f'Failed to send daily summary to {u.username} at {u.phone_number}: {result.get('message')}'))
+                self.stdout.write(self.style.ERROR(
+                    f"Failed to send daily summary to {u.username} at {u.phone_number}: {result.get(\"message\")}"
+                ))
         
         if recipients:
             from core.views import log_system_action

@@ -845,11 +845,25 @@ def google_login_callback(request):
     }
 
     try:
+        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         token_response = requests.post(
             settings.GOOGLE_TOKEN_ENDPOINT,
             data=token_payload,
+            headers=headers,
             timeout=10
         )
+        if token_response.status_code == 401:
+            # Retry using HTTP Basic auth (some environments require client credentials in header)
+            try:
+                token_response = requests.post(
+                    settings.GOOGLE_TOKEN_ENDPOINT,
+                    data={k: v for k, v in token_payload.items() if k not in ('client_id', 'client_secret')},
+                    headers=headers,
+                    auth=(settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET),
+                    timeout=10
+                )
+            except Exception:
+                pass
         if token_response.status_code >= 400:
             try:
                 err = token_response.json()

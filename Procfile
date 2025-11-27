@@ -1,1 +1,1 @@
-web: gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:8080
+web: gunicorn stockwise_py.wsgi --bind 0.0.0.0:$PORT --workers 3

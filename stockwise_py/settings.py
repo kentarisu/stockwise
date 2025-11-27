@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 import ssl
 import certifi
+import dj_database_url
 try:
     import whitenoise  # noqa: F401
     _HAS_WHITENOISE = True
@@ -163,6 +164,16 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Override database from DATABASE_URL if provided (e.g., DigitalOcean Managed DB)
+_db_url = (os.getenv('DATABASE_URL') or '').strip()
+try:
+    # Only attempt parse when value looks like a real URL (scheme present)
+    if _db_url and not _db_url.startswith('${'):
+        DATABASES['default'] = dj_database_url.config(default=_db_url, conn_max_age=600)
+except Exception:
+    # Fallback to SQLite if DATABASE_URL is invalid during build
+    pass
 
 
 # Password validation

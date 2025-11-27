@@ -319,9 +319,17 @@ _GOOGLE_REDIRECT_BASE = (os.getenv('GOOGLE_REDIRECT_BASE', '') or '').strip()
 _GOOGLE_CREDENTIALS_FILE = (os.getenv('GOOGLE_CREDENTIALS_FILE', '') or '').strip()
 def _clean_val(_s):
     try:
-        return (_s or '').replace('`','').strip()
+        return (_s or '').replace('`','').replace('"','').replace("'",'').strip()
     except Exception:
         return (_s or '').strip()
+if not _GOOGLE_CREDENTIALS_FILE:
+    try:
+        for _fname in os.listdir(BASE_DIR.parent):
+            if _fname.startswith('client_secret_') and _fname.endswith('.json'):
+                _GOOGLE_CREDENTIALS_FILE = str((BASE_DIR.parent / _fname).resolve())
+                break
+    except Exception:
+        pass
 try:
     if (not _GOOGLE_CLIENT_ID or not _GOOGLE_CLIENT_SECRET) and _GOOGLE_CREDENTIALS_FILE and os.path.exists(_GOOGLE_CREDENTIALS_FILE):
         with open(_GOOGLE_CREDENTIALS_FILE, 'r', encoding='utf-8') as _f:

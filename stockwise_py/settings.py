@@ -235,13 +235,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # iProg SMS API credentials – configured via env vars
 # Get your API token from: https://sms.iprogtech.com/
-IPROG_API_TOKEN = os.getenv('IPROG_API_TOKEN', 'ca42e08b40ba51019938dca6599f28b5a9605acd')
+IPROG_API_TOKEN = os.getenv('IPROG_API_TOKEN', '')
 IPROG_SENDER_ID = os.getenv('IPROG_SENDER_ID', 'STOCKWISE')  # Custom sender name (max 11 characters)
 # Route selector for iProg (0 or 1). We'll switch to 1 for delivery testing.
 IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
-
-# Admin phone number (Philippines local format without +63)
-ADMIN_PHONE = os.getenv('ADMIN_PHONE', '9630675254')
 
 CRONJOBS = [
     # Daily sales SMS at 20:00 (8:00 PM) server local time
@@ -273,7 +270,6 @@ MAINTENANCE_MODE = False
 # NOTE: IPROG SMS currently does NOT support custom sender IDs
 # All messages use system sender route (sender ID is ignored by API)
 IPROG_SENDER_ID = 'IPROGSMS'  # API sender ID (will work when iProg supports custom IDs)
-IPROG_SMS_ADMIN_PHONE = '09630675254'  # Admin phone for SMS notifications
 SMS_APP_NAME = 'STOCKWISE'  # App name displayed in message content
 
 # IMPORTANT: Set your IPROG API token as environment variable or here
@@ -314,12 +310,12 @@ THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com
 
 # ========== GOOGLE AUTH SETTINGS ==========
-GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_CLIENT_ID = (os.getenv('GOOGLE_CLIENT_ID', '') or '').strip()
+GOOGLE_CLIENT_SECRET = (os.getenv('GOOGLE_CLIENT_SECRET', '') or '').strip()
 GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
 GOOGLE_AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
-GOOGLE_REDIRECT_BASE = os.getenv('GOOGLE_REDIRECT_BASE', '')  # e.g., 'http://127.0.0.1:8000'
+GOOGLE_REDIRECT_BASE = (os.getenv('GOOGLE_REDIRECT_BASE', '') or '').strip()  # e.g., 'http://127.0.0.1:8000'
 
 # Allow only the temporary admin+secretary Google accounts unless overridden
 GOOGLE_ALLOWED_ACCOUNTS = {

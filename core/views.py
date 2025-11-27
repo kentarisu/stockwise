@@ -850,10 +850,18 @@ def google_login_callback(request):
             data=token_payload,
             timeout=10
         )
-        token_response.raise_for_status()
+        if token_response.status_code >= 400:
+            try:
+                err = token_response.json()
+                err_type = (err.get('error') or '')
+                err_desc = (err.get('error_description') or '')
+                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).')
+            except Exception:
+                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code}).')
+            return redirect('login')
         token_data = token_response.json()
-    except requests.RequestException as exc:
-        messages.error(request, f'Unable to complete Google sign-in (token error: {exc}).')
+    except requests.RequestException:
+        messages.error(request, 'Unable to complete Google sign-in (network error).')
         return redirect('login')
 
     id_token_value = token_data.get('id_token')

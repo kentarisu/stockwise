@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import json
 from dotenv import load_dotenv
 import ssl
 import certifi
@@ -309,13 +310,36 @@ THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 910
 THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com
 
-# ========== GOOGLE AUTH SETTINGS ==========
-GOOGLE_CLIENT_ID = (os.getenv('GOOGLE_CLIENT_ID', '') or '').strip()
-GOOGLE_CLIENT_SECRET = (os.getenv('GOOGLE_CLIENT_SECRET', '') or '').strip()
 GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
 GOOGLE_AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
-GOOGLE_REDIRECT_BASE = (os.getenv('GOOGLE_REDIRECT_BASE', '') or '').strip()  # e.g., 'http://127.0.0.1:8000'
+_GOOGLE_CLIENT_ID = (os.getenv('GOOGLE_CLIENT_ID', '') or '').strip()
+_GOOGLE_CLIENT_SECRET = (os.getenv('GOOGLE_CLIENT_SECRET', '') or '').strip()
+_GOOGLE_REDIRECT_BASE = (os.getenv('GOOGLE_REDIRECT_BASE', '') or '').strip()
+_GOOGLE_CREDENTIALS_FILE = (os.getenv('GOOGLE_CREDENTIALS_FILE', '') or '').strip()
+def _clean_val(_s):
+    try:
+        return (_s or '').replace('`','').strip()
+    except Exception:
+        return (_s or '').strip()
+try:
+    if (not _GOOGLE_CLIENT_ID or not _GOOGLE_CLIENT_SECRET) and _GOOGLE_CREDENTIALS_FILE and os.path.exists(_GOOGLE_CREDENTIALS_FILE):
+        with open(_GOOGLE_CREDENTIALS_FILE, 'r', encoding='utf-8') as _f:
+            _data = json.load(_f)
+        _web = _data.get('web') or _data
+        _cid = _clean_val(_web.get('client_id') or '')
+        _sec = _clean_val(_web.get('client_secret') or '')
+        if _cid and _sec:
+            _GOOGLE_CLIENT_ID = _cid
+            _GOOGLE_CLIENT_SECRET = _sec
+        _origins = _web.get('javascript_origins') or []
+        if not _GOOGLE_REDIRECT_BASE and isinstance(_origins, list) and _origins:
+            _GOOGLE_REDIRECT_BASE = _clean_val(_origins[-1] or '')
+except Exception:
+    pass
+GOOGLE_CLIENT_ID = _clean_val(_GOOGLE_CLIENT_ID)
+GOOGLE_CLIENT_SECRET = _clean_val(_GOOGLE_CLIENT_SECRET)
+GOOGLE_REDIRECT_BASE = _clean_val(_GOOGLE_REDIRECT_BASE)
 
 # Allow only the temporary admin+secretary Google accounts unless overridden
 GOOGLE_ALLOWED_ACCOUNTS = {

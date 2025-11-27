@@ -865,11 +865,24 @@ def google_login_callback(request):
             except Exception:
                 pass
         if token_response.status_code >= 400:
+            hint = ''
             try:
                 err = token_response.json()
                 err_type = (err.get('error') or '')
                 err_desc = (err.get('error_description') or '')
-                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).')
+                if token_response.status_code == 401 and err_type.lower() == 'invalid_client':
+                    hint = f' Verify Google OAuth client settings and authorized redirect URI: {redirect_uri}.'
+                ci = (settings.GOOGLE_CLIENT_ID or '')
+                cid_mask = (ci[:8] + '...' + ci[-6:]) if len(ci) > 20 else ci
+                details = json.dumps({
+                    'status': token_response.status_code,
+                    'error': err_type,
+                    'description': err_desc,
+                    'redirect_uri': redirect_uri,
+                    'client_id': cid_mask,
+                })
+                log_action(request, 'Google OAuth token error', details)
+                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).{hint}')
             except Exception:
                 messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code}).')
             return redirect('login')

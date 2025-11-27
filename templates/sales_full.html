@@ -3377,16 +3377,16 @@
                 body: formData
             })
             .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showPrintSuccessModal();
-        } else {
-            showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
-        }
-    })
+            .then(data => {
+                if (data.success) {
+                    showPrintSuccessModal();
+                } else {
+                    showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+                }
+            })
             .catch(err => {
                 console.error('Thermal print error', err);
-            showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+                showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
             });
         }
 
@@ -3417,7 +3417,8 @@
                 printRegularReceipt(saleId);
             } else {
             printThermalReceipt(saleId);
-            }
+        }
+
             return;
         }
             

@@ -9,6 +9,7 @@ from core.thermal_printer import get_printer_service
 import qrcode
 import io
 import base64
+from django.urls import reverse
 
 def qr_sticker_view(request, product_id):
     """Generate QR code sticker page for a product"""
@@ -166,6 +167,45 @@ def qr_generator_view(request, product_id):
         
     except Exception as e:
         return HttpResponse(f"Error generating QR data: {str(e)}", status=500)
+
+
+def qr_generate_image(request, product_id):
+    """Return QR data (PNG or JSON) that encodes the confirm page URL.
+
+    Used by products_inventory_full.html via /qr/generate/<product_id>/?date=YYYY-MM-DD
+    The confirm page lets the user choose Add Stock or Record Sale.
+    """
+    try:
+        product = get_object_or_404(Product, product_id=product_id)
+        date_str = request.GET.get('date')
+        from itsdangerous import URLSafeSerializer
+        s = URLSafeSerializer(settings.SECRET_KEY)
+        payload = {'p': product.product_id}
+        if date_str:
+            payload['d'] = date_str
+        token = s.dumps(payload)
+        confirm_url = request.build_absolute_uri(reverse('qr_confirm', kwargs={'token': token}))
+
+        qr = qrcode.QRCode(version=None, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=2)
+        qr.add_data(confirm_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # If JSON requested, return base64 and the link
+        if request.GET.get('format') == 'json' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            buf.seek(0)
+            b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+            return JsonResponse({'success': True, 'qr_code_base64': b64, 'qr_link': confirm_url})
+
+        # Otherwise return the PNG image
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        return HttpResponse(buf.getvalue(), content_type='image/png')
+    except Exception as e:
+        return HttpResponse(f"Error generating QR image: {str(e)}", status=500)
 
 def qr_debug_view(request, product_id):
     """Debug view to show current QR data"""

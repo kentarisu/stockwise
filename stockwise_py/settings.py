@@ -308,6 +308,8 @@ THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 910
 # Use this if your printer shows up in Device Manager under "Print queues" but not under "Ports (COM & LPT)"
 # The printer name should match exactly as it appears in Windows Settings → Printers & scanners
 THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
+# Optional: HTTP print bridge URL; if set, server will POST receipt/test jobs
+PRINTER_WEBHOOK_URL = _clean_val(os.getenv('PRINTER_WEBHOOK_URL', ''))
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com
 
 GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']

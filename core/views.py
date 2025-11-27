@@ -9363,20 +9363,39 @@ def print_thermal_receipt(request, sale_id):
             printer_name = request.POST.get('printer_name', getattr(settings, 'THERMAL_PRINTER_NAME', 'POS58 Printer'))
             connection_params['printer_name'] = printer_name
         
-        # Import thermal printer service
-        from .thermal_printer import get_printer_service, render_receipt_pdf
-        import base64
+        # Optional HTTP print bridge
+        webhook_url = getattr(settings, 'PRINTER_WEBHOOK_URL', '')
+        if webhook_url:
+            try:
+                import requests
+                payload = {
+                    'action': 'print_receipt',
+                    'connection_type': connection_type,
+                    'params': connection_params,
+                    'receipt': receipt_data,
+                }
+                r = requests.post(webhook_url, json=payload, timeout=12)
+                ok = (r.status_code == 200 and (r.json().get('success') if 'application/json' in (r.headers.get('Content-Type') or '') else True))
+                if ok:
+                    log_action(
+                        request,
+                        'Receipt printed via webhook',
+                        f'Printed receipt via webhook for sale {sale_id}.'
+                    )
+                    return JsonResponse({'success': True, 'message': 'Receipt printed successfully!'}, status=200)
+                return JsonResponse({'success': False, 'message': f'Webhook print failed ({r.status_code}).'}, status=500)
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': f'Webhook error: {str(e)}'}, status=500)
+
+        from .thermal_printer import get_printer_service
         
         # Get printer service
         printer_service = get_printer_service(connection_type=connection_type, **connection_params)
         
         if not printer_service:
-            pdf_bytes = render_receipt_pdf(receipt_data)
-            pdf_b64 = base64.b64encode(pdf_bytes).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Failed to connect to printer. Please check printer connection and settings.',
-                'pdf_b64': pdf_b64,
+                'message': 'Failed to connect to printer. Please check printer connection and settings.'
             }, status=500)
         
         # Print receipt
@@ -9401,12 +9420,9 @@ def print_thermal_receipt(request, sale_id):
             service_error = getattr(printer_service, 'last_error', None)
             if service_error:
                 error_msg += f' Details: {service_error}'
-            pdf_bytes = render_receipt_pdf(receipt_data)
-            pdf_b64 = base64.b64encode(pdf_bytes).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': error_msg,
-                'pdf_b64': pdf_b64,
+                'message': error_msg
             }, status=500)
     
     except Sale.DoesNotExist:
@@ -9459,36 +9475,33 @@ def test_thermal_printer(request):
             printer_name = request.POST.get('printer_name', getattr(settings, 'THERMAL_PRINTER_NAME', 'POS58 Printer'))
             connection_params['printer_name'] = printer_name
         
-        # Import thermal printer service
+        # Optional HTTP print bridge
+        webhook_url = getattr(settings, 'PRINTER_WEBHOOK_URL', '')
+        if webhook_url:
+            try:
+                import requests
+                payload = {
+                    'action': 'test_print',
+                    'connection_type': connection_type,
+                    'params': connection_params,
+                }
+                r = requests.post(webhook_url, json=payload, timeout=8)
+                ok = (r.status_code == 200 and (r.json().get('success') if 'application/json' in (r.headers.get('Content-Type') or '') else True))
+                if ok:
+                    return JsonResponse({'success': True, 'message': 'Test print successful! Check your printer.'})
+                return JsonResponse({'success': False, 'message': f'Webhook test failed ({r.status_code}).'}, status=500)
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': f'Webhook error: {str(e)}'}, status=500)
+
         from .thermal_printer import get_printer_service
         
         # Get printer service
         printer_service = get_printer_service(connection_type=connection_type, **connection_params)
         
         if not printer_service:
-            from .thermal_printer import render_receipt_pdf
-            import base64
-            test_data = {
-                'company_name': 'StockWise Test',
-                'company_address': 'Test Address',
-                'transaction_number': 'TEST001',
-                'or_number': 'OR001',
-                'date': '2025-01-01 12:00',
-                'customer_name': 'Test Customer',
-                'items': [
-                    {'name': 'Test Product', 'quantity': 1, 'price': 100.00, 'amount': 100.00}
-                ],
-                'subtotal': 100.00,
-                'vat': 12.00,
-                'total': 112.00,
-                'amount_paid': 112.00,
-                'change': 0.00
-            }
-            pdf_b64 = base64.b64encode(render_receipt_pdf(test_data)).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Failed to connect to printer. Please check connection settings.',
-                'pdf_b64': pdf_b64,
+                'message': 'Failed to connect to printer. Please check connection settings.'
             }, status=500)
         
         # Print test receipt
@@ -9503,29 +9516,9 @@ def test_thermal_printer(request):
                 'message': 'Test print successful! Check your printer.'
             })
         else:
-            from .thermal_printer import render_receipt_pdf
-            import base64
-            test_data = {
-                'company_name': 'StockWise Test',
-                'company_address': 'Test Address',
-                'transaction_number': 'TEST001',
-                'or_number': 'OR001',
-                'date': '2025-01-01 12:00',
-                'customer_name': 'Test Customer',
-                'items': [
-                    {'name': 'Test Product', 'quantity': 1, 'price': 100.00, 'amount': 100.00}
-                ],
-                'subtotal': 100.00,
-                'vat': 12.00,
-                'total': 112.00,
-                'amount_paid': 112.00,
-                'change': 0.00
-            }
-            pdf_b64 = base64.b64encode(render_receipt_pdf(test_data)).decode('ascii')
             return JsonResponse({
                 'success': False,
-                'message': 'Test print failed. Please check printer status.',
-                'pdf_b64': pdf_b64,
+                'message': 'Test print failed. Please check printer status.'
             }, status=500)
     
     except Exception as e:

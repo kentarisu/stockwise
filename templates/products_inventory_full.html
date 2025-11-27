@@ -3678,13 +3678,16 @@
                     $('#addStockFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">Please select a product and ensure the date is set before generating a QR.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
                     return;
                 }
-                const url = `/qr/generate/${productId}/?date=${encodeURIComponent(dateISO)}`;
-                // Show QR in existing modal so you can copy/print
-                const absolute = window.location.origin + url;
-                $('#stockQRContainer').html(`<img src="${url}" alt="QR" style="max-width:100%"/>`);
-                $('#stockQRLinkWrap').text(absolute);
-                const m = new bootstrap.Modal(document.getElementById('generateStockQRModal'));
-                m.show();
+                const url = `/qr/generate/${productId}/?date=${encodeURIComponent(dateISO)}&format=json`;
+                fetch(url).then(r => r.json()).then(data => {
+                    if (!data.success) { throw new Error('Failed to generate QR'); }
+                    $('#stockQRContainer').html(`<img src="data:image/png;base64,${data.qr_code_base64}" alt="QR" style="max-width:100%"/>`);
+                    $('#stockQRLinkWrap').text(data.qr_link);
+                    const m = new bootstrap.Modal(document.getElementById('generateStockQRModal'));
+                    m.show();
+                }).catch(err => {
+                    $('#addStockFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to generate QR. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                });
             });
 
             // Copy QR link
@@ -4253,11 +4256,11 @@
             })
             .then(response => response.json())
             .then(data => {
-        if (data.success) {
-            showPrintSuccessModal();
-        } else {
-            alert('Print failed: ' + (data.message || 'Unknown error'));
-        }
+                if (data.success) {
+                    showPrintSuccessModal();
+                } else {
+                    alert('Print failed: ' + (data.message || 'Unknown error'));
+                }
             })
             .catch(err => {
                 console.error('Thermal print error', err);

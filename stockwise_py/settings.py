@@ -309,7 +309,6 @@ THERMAL_PRINTER_NETWORK_PORT = int(os.getenv('THERMAL_PRINTER_NETWORK_PORT', 910
 # The printer name should match exactly as it appears in Windows Settings → Printers & scanners
 THERMAL_PRINTER_NAME = os.getenv('THERMAL_PRINTER_NAME', 'POS58 Printer')
 # Optional: HTTP print bridge URL; if set, server will POST receipt/test jobs
-PRINTER_WEBHOOK_URL = _clean_val(os.getenv('PRINTER_WEBHOOK_URL', ''))
 # IPROG_API_TOKEN = 'your_token_here'  # Get from https://sms.iprogtech.com
 
 GOOGLE_OAUTH_SCOPES = ['openid', 'email', 'profile']
@@ -350,6 +349,9 @@ except Exception:
 GOOGLE_CLIENT_ID = _clean_val(_GOOGLE_CLIENT_ID)
 GOOGLE_CLIENT_SECRET = _clean_val(_GOOGLE_CLIENT_SECRET)
 GOOGLE_REDIRECT_BASE = _clean_val(_GOOGLE_REDIRECT_BASE)
+
+# Optional: HTTP print bridge URL; if set, server will POST receipt/test jobs
+PRINTER_WEBHOOK_URL = _clean_val(os.getenv('PRINTER_WEBHOOK_URL', ''))
 
 # Allow only the temporary admin+secretary Google accounts unless overridden
 GOOGLE_ALLOWED_ACCOUNTS = {

@@ -674,6 +674,7 @@ const formatCurrency = (value) => {
   const num = Number(value || 0);
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+const DISABLE_VARIANTS = SALE_PAGE_CONFIG.isQRMode;
 
 const RECEIPT_WIDTH = 32;
 const DESC_WIDTH = 18;
@@ -851,6 +852,7 @@ function updateProductSelects(){
 }
 
 function updateVariantButtons(){
+  if(DISABLE_VARIANTS){ $('.add-variant-row-btn').hide(); return; }
   const baseLastRowMap = {};
   const rows = [];
   $('.item-row').each(function(){

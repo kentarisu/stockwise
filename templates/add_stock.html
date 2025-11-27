@@ -358,7 +358,7 @@ const PAGE_CONFIG={
   preselectedProductId:(cfgEl?.dataset.preselectedProductId||'')||null,
   inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
-const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId && !PAGE_CONFIG.isQRMode;
+const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId || PAGE_CONFIG.isQRMode;
 </script>
 <script>
 const csrftoken=window.getCookie('csrftoken');

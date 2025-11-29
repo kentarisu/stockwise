@@ -676,7 +676,7 @@ const formatCurrency = (value) => {
 };
 const DISABLE_VARIANTS = SALE_PAGE_CONFIG.isQRMode;
 
-const RECEIPT_WIDTH = 32;
+const RECEIPT_WIDTH = parseInt(localStorage.getItem('thermalReceiptColumns')||'30',10);
 const DESC_WIDTH = 18;
 const QTY_COL_WIDTH = 4;
 const AMOUNT_WIDTH = RECEIPT_WIDTH - DESC_WIDTH - QTY_COL_WIDTH;
@@ -1057,7 +1057,6 @@ function printReceipt(){
     });
 }
  
- // Regular browser print for mobile/tablet devices (no pop-up required)
 function printRegularReceipt() {
      const receiptContent = document.getElementById('thermalReceiptPreview').textContent;
      
@@ -1083,30 +1082,33 @@ function printRegularReceipt() {
      // Write the receipt content to the iframe
      const doc = printFrame.contentWindow.document;
      doc.open();
-     doc.write(`
+    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
+    const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
+    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
+    doc.write(`
          <!DOCTYPE html>
          <html>
          <head>
              <title>Print Receipt</title>
              <meta name="viewport" content="width=device-width, initial-scale=1.0">
              <style>
-                 @media print {
-                     body { margin: 0; padding: 10mm; }
-                     @page { size: 80mm auto; margin: 0; }
-                 }
+                @media print {
+                    @page { size: ${PAPER_MM}mm auto; margin: 0; }
+                    html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; }
+                }
                 body {
                     font-family: 'Courier New', Courier, monospace;
-                    font-size: 12px;
+                    font-size: ${FONT_PX}px;
                     line-height: 1.4;
                     white-space: pre-wrap;
                     margin: 0;
-                    padding: 10mm;
+                    padding: ${MARGIN_MM}mm;
                     display: flex;
                     justify-content: center;
                 }
                 .receipt-print { text-align: center; }
-                .receipt-print pre { display: inline-block; text-align: left; }
-             </style>
+                .receipt-print pre { display: inline-block; text-align: left; max-width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); }
+              </style>
         </head>
         <body class="print-body"><div class="receipt-print"><pre>${receiptContent}</pre></div></body>
         </html>
@@ -1120,8 +1122,6 @@ function printRegularReceipt() {
      }, 500);
 }
 
-// Try printing via a local bridge service running on the client machine
-// Expects a POST endpoint that accepts JSON: { content, printer_name }
 function tryLocalBridgePrint(receiptContent){
   try{
     const bridgeUrl = localStorage.getItem('localBridgeUrl') || 'http://localhost:9100/print';
@@ -1143,19 +1143,16 @@ function tryLocalBridgePrint(receiptContent){
 }
 
 function printThermalReceipt(saleId) {
-    // Prefer local bridge if available; otherwise fall back
     const receiptContent = document.getElementById('thermalReceiptPreview')?.textContent || '';
     tryLocalBridgePrint(receiptContent)
       .then(function(res){
         if(res && res.success !== false){
           showPrintSuccessModal();
         } else {
-          // Fallback to regular browser print if bridge returns failure
           printRegularReceipt();
         }
       })
       .catch(function(){
-        // Final fallback: regular browser print
         printRegularReceipt();
       });
 }

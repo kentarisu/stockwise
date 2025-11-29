@@ -468,15 +468,19 @@
         const iframe = document.getElementById('stickerPrintFrame');
         const doc = iframe.contentWindow.document;
         doc.open();
+        const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
+        const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
+        const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
         doc.write(`
             <html>
             <head>
                 <style>
-                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
-                    .sticker-container { border: 2px solid #4F46E5; border-radius: 12px; padding: 20px; width: 320px; }
-                    .product-name { font-size: 24px; margin: 0 0 8px 0; }
+                    @media print { @page { size: ${PAPER_MM}mm auto; margin: 0; } html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; } }
+                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: ${MARGIN_MM}mm; }
+                    .sticker-container { border: 2px solid #4F46E5; border-radius: 12px; padding: 6mm; width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); }
+                    .product-name { font-size: ${Math.max(12, FONT_PX+8)}px; margin: 0 0 8px 0; }
                     .product-variant, .product-size { margin: 0 0 4px 0; color: #555; }
-                    .qr-code img { width: 140px; height: 140px; }
+                    .qr-code img { width: ${Math.round(0.6*PAPER_MM)}mm; height: ${Math.round(0.6*PAPER_MM)}mm; }
                 </style>
             </head>
             <body>

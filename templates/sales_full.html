@@ -3345,49 +3345,20 @@
             modal.show();
         }
 
-        function printThermalReceipt(saleId) {
-            const formData = new FormData();
-            
-            // Get printer settings from localStorage or use defaults
-            const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
+        function tryLocalBridgePrintSale(){
+            const bridgeUrl = localStorage.getItem('localBridgeUrl') || 'http://localhost:9100/print';
             const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
-            
-            formData.append('connection_type', connectionType);
-            
-            if (connectionType === 'windows') {
-                formData.append('printer_name', printerName);
-            } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
-                formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
-                formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
-            } else if (connectionType === 'usb') {
-                const vendorId = localStorage.getItem('thermalPrinterVendorId');
-                const productId = localStorage.getItem('thermalPrinterProductId');
-                if (vendorId) formData.append('vendor_id', vendorId);
-                if (productId) formData.append('product_id', productId);
-            }
-            
-            // Add CSRF token
-            const csrftoken = window.getCookie('csrftoken');
-            
-        fetch(`/api/printer/receipt/${saleId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrftoken
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showPrintSuccessModal();
-                } else {
-                    showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
-                }
-            })
-            .catch(err => {
-                console.error('Thermal print error', err);
-                showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
-            });
+            const content = document.querySelector('.receipt-container')?.innerText || '';
+            if(!content.trim()) return Promise.reject(new Error('No content'));
+            return fetch(bridgeUrl, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, printer_name: printerName })
+            }).then(r=>{ if(!r.ok) throw new Error('Bridge HTTP error '+r.status); return r.json().catch(()=>({success:true})); });
+        }
+        function printThermalReceipt(saleId) {
+            tryLocalBridgePrintSale()
+              .then(res=>{ if(!res || res.success===false){ printRegularReceipt(saleId); } else { showPrintSuccessModal(); } })
+              .catch(()=>{ printRegularReceipt(saleId); });
         }
 
         // Detect if device is mobile/tablet or desktop
@@ -3524,21 +3495,28 @@
                     if (rDL) rDL.textContent = pctStr2 ? `Discount (${pctStr2}%)` : 'Discount:';
                     
                     // Print with proper styling (matching record_sale.html)
+                    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
+                    const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
+                    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
                     const content = document.querySelector('.receipt-container').outerHTML;
                     const html = `<!doctype html>
 <html>
 <head>
     <title>Receipt</title>
     <style>
+        @media print {
+            @page { size: ${PAPER_MM}mm auto; margin: 0; }
+            html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; }
+        }
         body {
             font-family: "Courier New", monospace;
-            font-size: 12px;
+            font-size: ${FONT_PX}px;
             margin: 0;
-            padding: 20px;
+            padding: ${MARGIN_MM}mm;
             background: #fff;
         }
         .receipt-container {
-            max-width: 300px;
+            max-width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm);
             margin: 0 auto;
             border: 1px solid #ddd;
             padding: 1rem;
@@ -3592,14 +3570,7 @@
         .receipt-footer p {
             margin-bottom: 2px;
         }
-        @media print {
-            body {
-                width: 302px;
-            }
-            .receipt-container {
-                border: none;
-            }
-        }
+        @media print { .receipt-container { border: none; } }
     </style>
     <style>
         /* Step 1: Make Sales header title size/spacing match Inventory */

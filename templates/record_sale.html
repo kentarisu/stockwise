@@ -1058,7 +1058,7 @@ function printReceipt(){
 }
  
  // Regular browser print for mobile/tablet devices (no pop-up required)
- function printRegularReceipt() {
+function printRegularReceipt() {
      const receiptContent = document.getElementById('thermalReceiptPreview').textContent;
      
      if (!receiptContent || receiptContent === 'Generate a receipt preview after filling the sale details.') {
@@ -1118,45 +1118,46 @@ function printReceipt(){
          printFrame.contentWindow.focus();
          printFrame.contentWindow.print();
      }, 500);
- }
+}
+
+// Try printing via a local bridge service running on the client machine
+// Expects a POST endpoint that accepts JSON: { content, printer_name }
+function tryLocalBridgePrint(receiptContent){
+  try{
+    const bridgeUrl = localStorage.getItem('localBridgeUrl') || 'http://localhost:9100/print';
+    const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
+    if(!receiptContent || receiptContent === 'Generate a receipt preview after filling the sale details.'){
+      return Promise.reject(new Error('No receipt content to print'));
+    }
+    return fetch(bridgeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: receiptContent, printer_name: printerName })
+    }).then(function(resp){
+      if(!resp.ok) throw new Error('Bridge HTTP error '+resp.status);
+      return resp.json().catch(function(){ return { success:true }; });
+    });
+  }catch(e){
+    return Promise.reject(e);
+  }
+}
 
 function printThermalReceipt(saleId) {
-    const formData = new FormData();
-    
-    // Get printer settings from localStorage or use defaults
-    const connectionType = localStorage.getItem('thermalPrinterConnectionType') || 'windows';
-    const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
-    
-    formData.append('connection_type', connectionType);
-    
-    if (connectionType === 'windows') {
-        formData.append('printer_name', printerName);
-    } else if (connectionType === 'serial' || connectionType === 'bluetooth') {
-        formData.append('port', localStorage.getItem('thermalPrinterPort') || 'COM3');
-        formData.append('baudrate', localStorage.getItem('thermalPrinterBaudrate') || '9600');
-    }
-    
-    const csrftoken = window.getCookie('csrftoken');
-    
-    fetch(`/api/printer/receipt/${saleId}/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrftoken
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showPrintSuccessModal();
+    // Prefer local bridge if available; otherwise fall back
+    const receiptContent = document.getElementById('thermalReceiptPreview')?.textContent || '';
+    tryLocalBridgePrint(receiptContent)
+      .then(function(res){
+        if(res && res.success !== false){
+          showPrintSuccessModal();
         } else {
-            showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
+          // Fallback to regular browser print if bridge returns failure
+          printRegularReceipt();
         }
-    })
-    .catch(err => {
-        console.error('Thermal print error', err);
-        showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
-    });
+      })
+      .catch(function(){
+        // Final fallback: regular browser print
+        printRegularReceipt();
+      });
 }
 
 function showPrintSuccessModal(){

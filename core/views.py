@@ -3271,10 +3271,12 @@ def fetch_reports(request):
                 last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
 
                 # Format product display as "Name (Variant) (Quantity/Unit)"
-                product_display = inv.name or ''
-                if inv.quantity_unit:
-                    product_display = f"{product_display} ({inv.quantity_unit})"
-                product_display = product_display.strip()
+                base_name = (inv.name or '').strip()
+                variant = (getattr(inv, 'variant', '') or '').strip()
+                unit = (getattr(inv, 'quantity_unit', '') or '').strip()
+                variant_part = f" ({variant})" if variant else ""
+                unit_part = f" ({unit})" if unit else ""
+                product_display = f"{base_name}{variant_part}{unit_part}".strip()
 
                 low_stock.append({
                     'product_id': inv.product_id,
@@ -3336,10 +3338,12 @@ def fetch_reports(request):
             # Format product display as "Name (Variant) (Quantity/Unit)"
             product_display = None
             if row.product:
-                product_display = row.product.name or ''
-                if row.product.quantity_unit:
-                    product_display = f"{product_display} ({row.product.quantity_unit})"
-                product_display = product_display.strip() if product_display else None
+                base_name = (row.product.name or '').strip()
+                variant = (getattr(row.product, 'variant', '') or '').strip()
+                unit = (getattr(row.product, 'quantity_unit', '') or '').strip()
+                variant_part = f" ({variant})" if variant else ""
+                unit_part = f" ({unit})" if unit else ""
+                product_display = f"{base_name}{variant_part}{unit_part}".strip() if base_name else None
             
             if not g:
                 # Initialize new transaction
@@ -3405,10 +3409,12 @@ def fetch_reports(request):
             # Format product display as "Name (Variant) (Quantity/Unit)"
             product_display = None
             if row.product:
-                product_display = row.product.name or ''
-                if row.product.quantity_unit:
-                    product_display = f"{product_display} ({row.product.quantity_unit})"
-                product_display = product_display.strip() if product_display else None
+                base_name = (row.product.name or '').strip()
+                variant = (getattr(row.product, 'variant', '') or '').strip()
+                unit = (getattr(row.product, 'quantity_unit', '') or '').strip()
+                variant_part = f" ({variant})" if variant else ""
+                unit_part = f" ({unit})" if unit else ""
+                product_display = f"{base_name}{variant_part}{unit_part}".strip() if base_name else None
             
             if not vg:
                 voided_grouped[key] = {
@@ -3768,6 +3774,20 @@ def export_report(request):
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
     
     elems = []
+
+    def _fmt_prod(name, variant=None, unit=None):
+        try:
+            import re as _re
+            base = (_re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "")).strip())
+        except Exception:
+            base = str(name or "").strip()
+        v = str(variant or "").strip()
+        u = str(unit or "").strip()
+        if v:
+            base = f"{base} ({v})"
+        if u:
+            base = f"{base} ({u})"
+        return base
 
     # Calculate available width (portrait letter width minus margins)
     # Letter portrait: 612 points wide, minus 0.5 inch (36 points) on each side
@@ -7053,9 +7073,22 @@ def sms_settings_view(request):
     if not low_stock_products.exists() and not out_of_stock_products.exists():
         stock_preview_msg += "All products have sufficient stock.\n\n"
 
-    # Get SMS notification settings
     from core.models import SMSNotificationSettings
-    sms_settings = SMSNotificationSettings.get_settings()
+    try:
+        sms_settings = SMSNotificationSettings.get_settings()
+    except Exception:
+        from types import SimpleNamespace
+        sms_settings = SimpleNamespace(
+            sales_enabled=True,
+            sales_time='20:00',
+            stock_enabled=True,
+            stock_threshold=10,
+            pricing_enabled=True,
+            pricing_sensitivity='moderate',
+            pricing_time='08:00',
+            pricing_frequency_days=3,
+            updated_at=timezone.localtime()
+        )
 
     pricing_preview_msg = ""
     try:

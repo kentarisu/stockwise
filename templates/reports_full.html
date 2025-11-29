@@ -3406,8 +3406,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <div class="position-fixed top-0 end-0 p-3" style="z-index:1200;">
-        <div id="reportToastContainer" class="toast-container"></div>
+    <div class="position-fixed top-0 start-50 translate-middle-x w-100 p-3" style="z-index:1200;">
+        <div id="reportToastContainer" class="toast-container d-flex flex-column align-items-center" style="gap:.5rem; width:100%; pointer-events:auto;"></div>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
@@ -3580,14 +3580,18 @@
             if (!container) { alert(message); return; }
             const bg = type === 'success' ? 'bg-success' : type === 'warning' ? 'bg-warning' : 'bg-danger';
             const text = type === 'warning' ? 'text-dark' : 'text-white';
+            const closeClass = type === 'warning' ? 'btn-close' : 'btn-close btn-close-white';
             const el = document.createElement('div');
-            el.className = `toast align-items-center ${bg} ${text}`;
+            el.className = `toast align-items-center ${bg} ${text} shadow`;
+            el.style.minWidth = '320px';
+            el.style.maxWidth = 'min(480px, 92vw)';
+            el.style.borderRadius = '0.5rem';
             el.setAttribute('role','alert');
             el.setAttribute('aria-live','assertive');
             el.setAttribute('aria-atomic','true');
-            el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}${details?`<br><small class='opacity-75'>${details}</small>`:''}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+            el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}${details?`<br><small class='opacity-75'>${details}</small>`:''}</div><button type="button" class="${closeClass} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
             container.appendChild(el);
-            try { new bootstrap.Toast(el, {delay: 4000}).show(); } catch(e) { }
+            try { new bootstrap.Toast(el, {autohide: true, delay: 6000}).show(); } catch(e) { }
         }
 
         // Pagination helpers for reports tables

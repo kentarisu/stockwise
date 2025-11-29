@@ -7480,7 +7480,7 @@ def update_notification_settings(request):
         sales_time = request.POST.get('sales_time', '20:00')
         stock_threshold = int(request.POST.get('stock_threshold', 10))
         pricing_sensitivity = request.POST.get('pricing_sensitivity', 'moderate')
-        pricing_time = (request.POST.get('pricing_time') or settings.sales_time or '08:00')
+        pricing_time = (request.POST.get('pricing_time') or '08:00')
         try:
             pricing_frequency_days = int(request.POST.get('pricing_frequency_days', 3))
         except Exception:
@@ -7503,32 +7503,70 @@ def update_notification_settings(request):
         if pricing_sensitivity not in ['conservative', 'moderate', 'aggressive']:
             return JsonResponse({'success': False, 'message': 'Invalid pricing sensitivity value'})
         
-        # Get or create settings
-        settings = SMSNotificationSettings.get_settings()
-        
-        # Track what changed for audit logging
-        changes = []
-        if settings.sales_enabled != sales_enabled:
-            changes.append(f"Sales notifications: {'Enabled' if sales_enabled else 'Disabled'}")
-        if settings.stock_enabled != stock_enabled:
-            changes.append(f"Stock alerts: {'Enabled' if stock_enabled else 'Disabled'}")
-        if settings.pricing_enabled != pricing_enabled:
-            changes.append(f"Pricing recommendations: {'Enabled' if pricing_enabled else 'Disabled'}")
-        if getattr(settings, 'pricing_time', None) != pricing_time:
-            changes.append(f"Pricing time: {pricing_time}")
-        if getattr(settings, 'pricing_frequency_days', None) != pricing_frequency_days:
-            changes.append(f"Pricing frequency: every {pricing_frequency_days} day(s)")
-        
-        # Update settings
-        settings.sales_enabled = sales_enabled
-        settings.stock_enabled = stock_enabled
-        settings.pricing_enabled = pricing_enabled
-        settings.sales_time = sales_time
-        settings.stock_threshold = stock_threshold
-        settings.pricing_sensitivity = pricing_sensitivity
-        settings.pricing_time = pricing_time
-        settings.pricing_frequency_days = pricing_frequency_days
-        settings.save()
+        # Detect available DB columns to avoid errors on deployments missing recent migrations
+        from django.db import connection
+        table = SMSNotificationSettings._meta.db_table
+        try:
+            with connection.cursor() as cursor:
+                cols = [c.name for c in connection.introspection.get_table_description(cursor, table)]
+        except Exception:
+            cols = []
+
+        # If pricing columns exist, use ORM normally; otherwise, perform a safe partial update via SQL
+        if 'pricing_time' in cols and 'pricing_frequency_days' in cols:
+            settings = SMSNotificationSettings.get_settings()
+            changes = []
+            if settings.sales_enabled != sales_enabled:
+                changes.append(f"Sales notifications: {'Enabled' if sales_enabled else 'Disabled'}")
+            if settings.stock_enabled != stock_enabled:
+                changes.append(f"Stock alerts: {'Enabled' if stock_enabled else 'Disabled'}")
+            if settings.pricing_enabled != pricing_enabled:
+                changes.append(f"Pricing recommendations: {'Enabled' if pricing_enabled else 'Disabled'}")
+            if getattr(settings, 'pricing_time', None) != pricing_time:
+                changes.append(f"Pricing time: {pricing_time}")
+            if getattr(settings, 'pricing_frequency_days', None) != pricing_frequency_days:
+                changes.append(f"Pricing frequency: every {pricing_frequency_days} day(s)")
+
+            settings.sales_enabled = sales_enabled
+            settings.stock_enabled = stock_enabled
+            settings.pricing_enabled = pricing_enabled
+            settings.sales_time = sales_time
+            settings.stock_threshold = stock_threshold
+            settings.pricing_sensitivity = pricing_sensitivity
+            settings.pricing_time = pricing_time
+            settings.pricing_frequency_days = pricing_frequency_days
+            settings.save(update_fields=[
+                'sales_enabled','stock_enabled','pricing_enabled','sales_time','stock_threshold','pricing_sensitivity','pricing_time','pricing_frequency_days'
+            ])
+        else:
+            # Partial update path: update only supported columns
+            updates = {
+                'sales_enabled': sales_enabled,
+                'stock_enabled': stock_enabled,
+                'pricing_enabled': pricing_enabled,
+                'sales_time': sales_time,
+                'stock_threshold': stock_threshold,
+                'pricing_sensitivity': pricing_sensitivity,
+            }
+            available = {k: v for k, v in updates.items() if k in cols}
+            # Ensure there is at least one row; create minimal if empty
+            with connection.cursor() as cursor:
+                cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cursor.fetchone()[0]
+                if count == 0:
+                    columns = list(available.keys()) + (['setting_id'] if 'setting_id' in cols else [])
+                    values = list(available.values()) + ([1] if 'setting_id' in cols else [])
+                    placeholders = ','.join(['%s'] * len(values))
+                    cols_sql = ','.join(columns)
+                    cursor.execute(f"INSERT INTO {table} ({cols_sql}) VALUES ({placeholders})", values)
+                else:
+                    set_sql = ', '.join([f"{k}=%s" for k in available.keys()])
+                    params = list(available.values())
+                    if 'setting_id' in cols:
+                        cursor.execute(f"UPDATE {table} SET {set_sql} WHERE setting_id=1", params)
+                    else:
+                        cursor.execute(f"UPDATE {table} SET {set_sql}", params)
+            changes = []
         
         # Log the action with specific changes
         if changes:

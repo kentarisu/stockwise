@@ -4892,9 +4892,19 @@ def profile_view(request):
                 user_obj.password = bcrypt.hash(new_pw)
             # Save picture if provided
             if picture_file:
-                filename = f"profile_{user_id}{os.path.splitext(picture_file.name)[1]}"
-                path = default_storage.save(os.path.join('uploads', filename), ContentFile(picture_file.read()))
-                user_obj.profile_picture = default_storage.url(path)
+                import time
+                from django.conf import settings as _settings
+                from django.core.files.storage import FileSystemStorage
+                ext = os.path.splitext(picture_file.name)[1]
+                filename = f"profile_{user_id}_{int(time.time())}{ext}"
+                upload_dir = os.path.join(_settings.MEDIA_ROOT, 'uploads')
+                try:
+                    os.makedirs(upload_dir, exist_ok=True)
+                except Exception:
+                    pass
+                fs = FileSystemStorage(location=_settings.MEDIA_ROOT, base_url=_settings.MEDIA_URL)
+                path = fs.save(os.path.join('uploads', filename), picture_file)
+                user_obj.profile_picture = fs.url(path)
             user_obj.save()
             
             # Log profile update
@@ -5221,7 +5231,7 @@ def admin_verify_secretary_email_change(request):
 @require_app_login
 def action_logs_view(request):
     if (request.session.get('app_role') or '').lower() != 'admin':
-        messages.error(request, 'Only admins can view the audit logs.')
+        messages.error(request, 'Only admins can view the logs.')
         return redirect('dashboard')
     
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
@@ -5480,11 +5490,19 @@ def update_secretary_account(request):
         # Handle profile picture if provided
         picture_file = request.FILES.get('profile_picture')
         if picture_file:
-            from django.core.files.storage import default_storage
-            from django.core.files.base import ContentFile
-            filename = f"profile_{user_id}{os.path.splitext(picture_file.name)[1]}"
-            path = default_storage.save(os.path.join('uploads', filename), ContentFile(picture_file.read()))
-            user.profile_picture = default_storage.url(path)
+            from django.core.files.storage import FileSystemStorage
+            from django.conf import settings as _settings
+            import time
+            ext = os.path.splitext(picture_file.name)[1]
+            filename = f"profile_{user_id}_{int(time.time())}{ext}"
+            upload_dir = os.path.join(_settings.MEDIA_ROOT, 'uploads')
+            try:
+                os.makedirs(upload_dir, exist_ok=True)
+            except Exception:
+                pass
+            fs = FileSystemStorage(location=_settings.MEDIA_ROOT, base_url=_settings.MEDIA_URL)
+            path = fs.save(os.path.join('uploads', filename), picture_file)
+            user.profile_picture = fs.url(path)
         
         # Enable account if it was disabled
         user.is_active = True

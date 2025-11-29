@@ -1391,7 +1391,7 @@
                 </button>
                 {% endif %}
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -1469,8 +1469,8 @@
                             <a href="{% url 'action_logs' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
                                aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
-                                <i class="bi bi-journal-text" aria-hidden="true"></i>
-                                <span>Audit Logs</span>
+                               <i class="bi bi-journal-text" aria-hidden="true"></i>
+                                <span>Logs</span>
                             </a>
                         </li>
                         <li class="nav-item">

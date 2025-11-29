@@ -11,8 +11,10 @@ from pathlib import Path
 
 # Setup Django
 import django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'stockwise_py.settings')
-django.setup()
+from django.conf import settings as _dj_settings
+if not getattr(_dj_settings, 'configured', False):
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'stockwise_py.settings')
+    django.setup()
 
 from django.core.management import call_command
 from core.models import SMSNotificationSettings

@@ -1232,7 +1232,7 @@
             </div>
             <div class="header-right">
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='https://via.placeholder.com/40';">
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -1294,7 +1294,7 @@
                     <div class="nav-item">
                         <a href="{% url 'action_logs' %}" class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}">
                             <i class="bi bi-journal-text"></i>
-                            <span>Audit Logs</span>
+                            <span>Logs</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -1351,8 +1351,8 @@
                         </div>
                         <div class="profile-card-body">
                             <div class="profile-avatar-section">
-                                <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/120' }}" 
-                                     alt="Profile Picture" class="profile-avatar-large">
+                                <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/120' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                     alt="Profile Picture" class="profile-avatar-large" onerror="this.src='https://via.placeholder.com/120';">
                                 <h4 class="fw-bold text-gray-900">{{ user_obj.full_name|default:user_obj.username }}</h4>
                                 <p class="text-muted">{% if user_obj.role == 'user' %}Secretary{% else %}{{ user_obj.role|capfirst }}{% endif %}</p>
                             </div>
@@ -1453,8 +1453,8 @@
                             {% for u in all_users %}
                                 <div class="secretary-card" data-user-id="{{ u.user_id }}">
                                 <div class="secretary-header">
-                                    <img src="{{ u.profile_picture|default:'https://via.placeholder.com/60' }}" 
-                                         alt="Profile" class="secretary-avatar">
+                                    <img src="{{ u.profile_picture|default:'https://via.placeholder.com/60' }}{% if u.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                          alt="Profile" class="secretary-avatar" onerror="this.src='https://via.placeholder.com/60';">
                                     <div class="secretary-info">
                                             <h6>{{ u.full_name|default:u.username }}</h6>
                                             <p>Secretary Account</p>
@@ -1627,8 +1627,8 @@
                     </div>
                     <div class="modal-body">
                         <div class="text-center mb-3">
-                            <img id="profilePreview" src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/100' }}" 
-                                 class="profile-avatar-large mb-2" style="width: 100px; height: 100px;">
+                            <img id="profilePreview" src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/100' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                 class="profile-avatar-large mb-2" style="width: 100px; height: 100px;" onerror="this.src='https://via.placeholder.com/100';">
                             <div>
                                 <label for="profile_picture" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-camera me-1"></i>

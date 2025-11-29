@@ -16,7 +16,12 @@ import json
 from dotenv import load_dotenv
 import ssl
 import certifi
-import dj_database_url
+try:
+    import dj_database_url  # Optional; used when available
+    _HAS_DJ_DATABASE_URL = True
+except Exception:
+    dj_database_url = None
+    _HAS_DJ_DATABASE_URL = False
 try:
     import whitenoise  # noqa: F401
     _HAS_WHITENOISE = True
@@ -168,13 +173,14 @@ DATABASES = {
 
 # Override database from DATABASE_URL if provided (e.g., DigitalOcean Managed DB)
 _db_url = (os.getenv('DATABASE_URL') or '').strip()
-try:
-    # Only attempt parse when value looks like a real URL (scheme present)
-    if _db_url and not _db_url.startswith('${'):
-        DATABASES['default'] = dj_database_url.config(default=_db_url, conn_max_age=600)
-except Exception:
-    # Fallback to SQLite if DATABASE_URL is invalid during build
-    pass
+if _HAS_DJ_DATABASE_URL:
+    try:
+        # Only attempt parse when value looks like a real URL (scheme present)
+        if _db_url and not _db_url.startswith('${'):
+            DATABASES['default'] = dj_database_url.config(default=_db_url, conn_max_age=600)
+    except Exception:
+        # Fallback to SQLite if DATABASE_URL is invalid during build
+        pass
 
 
 # Password validation

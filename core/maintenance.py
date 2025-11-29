@@ -124,8 +124,6 @@ class AuditMiddleware:
         finally:
             try:
                 path = request.path or ''
-                if path.startswith('/static/'):
-                    return
                 method = (request.method or '').upper()
                 role = (request.session.get('app_role') or '').strip()
                 action = f"{method} {path}"
@@ -162,8 +160,10 @@ class AuditMiddleware:
                     'body': _redact(body),
                     'referer': request.META.get('HTTP_REFERER', ''),
                 }
-                from core.views import log_action
-                log_action(request, action, json.dumps(details_obj))
+                should_log = not path.startswith('/static/') and method not in ('GET', 'HEAD', 'OPTIONS')
+                if should_log:
+                    from core.views import log_action
+                    log_action(request, action, json.dumps(details_obj))
             except Exception:
                 pass
 

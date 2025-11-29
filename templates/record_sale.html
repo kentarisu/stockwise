@@ -476,24 +476,6 @@
         </p>
       </div>
       {% endif %}
-      <div class="modal fade" id="printSuccessModal" tabindex="-1" aria-labelledby="printSuccessLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <div class="modal-header border-0">
-              <h5 class="modal-title" id="printSuccessLabel">
-                <i class="bi bi-check-circle-fill text-success me-2"></i>Receipt Printed
-              </h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              Receipt printed successfully. Please hand it to the customer.
-            </div>
-            <div class="modal-footer border-0">
-              <button type="button" class="btn btn-success" data-bs-dismiss="modal">Done</button>
-            </div>
-          </div>
-        </div>
-      </div>
       <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
@@ -633,7 +615,7 @@
 
       <div id="saleStep3" style="display:none;">
         <div id="saleSuccessMessage" class="alert alert-success w-100 mb-3" style="display:none;"><i class="bi bi-check-circle-fill text-success me-2"></i>Sale recorded successfully!</div>
-        <div class="receipt-container border p-3" style="max-width:320px;margin:0 auto;background:#fff;">
+        <div class="receipt-container border p-3" style="width:320px;margin:0 auto;background:#fff;">
           <pre id="thermalReceiptPreview" class="thermal-receipt-preview">Generate a receipt preview after filling the sale details.</pre>
         </div>
       </div>
@@ -676,7 +658,7 @@ const formatCurrency = (value) => {
 };
 const DISABLE_VARIANTS = SALE_PAGE_CONFIG.isQRMode;
 
-const RECEIPT_WIDTH = parseInt(localStorage.getItem('thermalReceiptColumns')||'30',10);
+const RECEIPT_WIDTH = parseInt(localStorage.getItem('thermalReceiptColumns')||'32',10);
 const DESC_WIDTH = 18;
 const QTY_COL_WIDTH = 4;
 const AMOUNT_WIDTH = RECEIPT_WIDTH - DESC_WIDTH - QTY_COL_WIDTH;
@@ -1082,9 +1064,9 @@ function printRegularReceipt() {
      // Write the receipt content to the iframe
      const doc = printFrame.contentWindow.document;
      doc.open();
-    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
+    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'58',10);
     const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
-    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
+    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'13',10);
     doc.write(`
          <!DOCTYPE html>
          <html>
@@ -1099,15 +1081,21 @@ function printRegularReceipt() {
                 body {
                     font-family: 'Courier New', Courier, monospace;
                     font-size: ${FONT_PX}px;
-                    line-height: 1.4;
-                    white-space: pre-wrap;
+                    line-height: 1.35;
                     margin: 0;
-                    padding: ${MARGIN_MM}mm;
+                    padding: ${Math.max(1, MARGIN_MM)}mm;
                     display: flex;
                     justify-content: center;
+                    box-sizing: border-box;
                 }
                 .receipt-print { text-align: center; }
-                .receipt-print pre { display: inline-block; text-align: left; max-width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); }
+                .receipt-print pre {
+                    display: inline-block;
+                    text-align: left;
+                    max-width: calc(${PAPER_MM}mm - ${Math.max(1, MARGIN_MM)*2}mm);
+                    white-space: pre;
+                    letter-spacing: 0;
+                }
               </style>
         </head>
         <body class="print-body"><div class="receipt-print"><pre>${receiptContent}</pre></div></body>
@@ -1116,10 +1104,11 @@ function printRegularReceipt() {
      doc.close();
      
      // Wait for content to load, then trigger print
-     setTimeout(function() {
-         printFrame.contentWindow.focus();
-         printFrame.contentWindow.print();
-     }, 500);
+   setTimeout(function() {
+       printFrame.contentWindow.focus();
+       printFrame.contentWindow.print();
+       try { showPrintSuccessModal(); } catch(_) {}
+   }, 500);
 }
 
 function tryLocalBridgePrint(receiptContent){
@@ -1158,13 +1147,20 @@ function printThermalReceipt(saleId) {
 }
 
 function showPrintSuccessModal(){
-  const modalEl = document.getElementById('printSuccessModal');
-  if (!modalEl) {
-    alert('Receipt printed successfully.');
+  if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
+    window.modernInventorySystem.showNotification('Receipt Printed', 'success', 3500);
     return;
   }
-  const modal = new bootstrap.Modal(modalEl);
-  modal.show();
+  try { 
+    const containerId='simpleToastContainer';
+    let c=document.getElementById(containerId);
+    if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
+    const t=document.createElement('div');
+    t.textContent='Receipt Printed';
+    t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
+    c.appendChild(t);
+    setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
+  } catch(_) {}
 }
 
 function showPrinterErrorModal(message){

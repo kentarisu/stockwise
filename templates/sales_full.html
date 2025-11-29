@@ -1,19 +1,3 @@
-<div class="modal fade" id="printSuccessModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header border-0">
-          <h5 class="modal-title text-success"><i class="bi bi-check-circle-fill me-2"></i>Receipt Printed</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          Receipt printed successfully. Please hand it to the customer.
-        </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-success" data-bs-dismiss="modal">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -2315,7 +2299,7 @@
 
     <!-- Printable Receipt Area -->
     <div id="printArea" style="display:none">
-        <div class="receipt-container border p-3" style="max-width:300px;margin:0 auto;">
+        <div class="receipt-container border p-3" style="width:58mm;margin:0 auto;">
             <div class="receipt-header text-center mb-2">
                 <div class="company-name fw-bold">FruitMaster Marketing</div>
                 <div class="company-details small">Mabini Street - Libertad, Bacolod City, Negros Occidental</div>
@@ -3320,16 +3304,37 @@
 
         // Thermal printer settings are now loaded directly from localStorage in printThermalReceipt()
 
+        const RECEIPT_WIDTH = parseInt(localStorage.getItem('thermalReceiptColumns')||'32',10);
+        const DESC_WIDTH = 18;
+        const QTY_COL_WIDTH = 4;
+        const GAP_WIDTH = 2;
+        const AMOUNT_WIDTH = RECEIPT_WIDTH - DESC_WIDTH - QTY_COL_WIDTH - GAP_WIDTH;
+        function padLine(left, right) { left = (left||'').toString(); right = (right||'').toString(); if (left.length + right.length > RECEIPT_WIDTH) { left = left.slice(0, RECEIPT_WIDTH - right.length); } return left.padEnd(RECEIPT_WIDTH - right.length) + right; }
+        function centerLine(text) { const t=(text||'').toString().trim(); if(!t) return ''.padStart(RECEIPT_WIDTH,' '); if(t.length>=RECEIPT_WIDTH) return t.slice(0,RECEIPT_WIDTH); const p=Math.floor((RECEIPT_WIDTH-t.length)/2); return ' '.repeat(p)+t+' '.repeat(RECEIPT_WIDTH-t.length-p); }
+        function wrapLine(text, width){ const maxWidth=width||RECEIPT_WIDTH; const words=(text||'').toString().trim().split(/\s+/); const lines=[]; let cur=''; words.forEach(function(w){ if(!w) return; if((cur+' '+w).trim().length>maxWidth){ if(cur) lines.push(cur.trim()); cur=w; } else { cur=cur? (cur+' '+w): w; } }); if(cur) lines.push(cur.trim()); if(!lines.length) lines.push(''); return lines; }
+        function formatAmount(value){ return Number(value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+        function peso(value){ return '₱'+formatAmount(value); }
+        function formatReceiptDate(d){ const date=d? new Date(d): new Date(); const pad=n=>String(n).padStart(2,'0'); return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+' '+pad(date.getHours())+':'+pad(date.getMinutes())+':'+pad(date.getSeconds()); }
+        function buildThermalPreview(data){ const lines=[]; lines.push(centerLine(data.company_name||'')); wrapLine(data.company_address||'', RECEIPT_WIDTH).forEach(l=>lines.push(centerLine(l))); if(data.company_phone) lines.push(centerLine('Tel: '+data.company_phone)); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('SALES RECEIPT')); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push('Transaction No.: '+(data.transaction_number||'')); lines.push('OR No.: '+(data.or_number||'')); lines.push('Date: '+(data.date||'')); lines.push('Processed by: '+(data.processed_by||'')); lines.push('Customer: '+(data.customer_name||'')); lines.push('Contact: '+(data.customer_contact||'')); if(data.customer_address){ const wa=wrapLine(data.customer_address, RECEIPT_WIDTH-10); wa.forEach((line,idx)=>{ lines.push((idx===0?'Address:':'        ')+' '+line); }); } else { lines.push('Address:'); } lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push('Description'.padEnd(DESC_WIDTH)+'Qty'.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+'Amount'.padStart(AMOUNT_WIDTH)); lines.push('-'.repeat(RECEIPT_WIDTH)); (data.items||[]).forEach(item=>{ const nameLines=wrapLine(item.name||'', DESC_WIDTH); const quantity=String(item.quantity||0); const amount=peso(item.amount||0); lines.push(nameLines[0].padEnd(DESC_WIDTH)+quantity.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+amount.padStart(AMOUNT_WIDTH)); nameLines.slice(1).forEach(line=>lines.push(line.padEnd(RECEIPT_WIDTH))); lines.push(padLine('', '@ '+peso(item.price||0))); }); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(padLine('Subtotal:', peso(data.subtotal||0))); if(data.vat) lines.push(padLine('VAT 12%:', peso(data.vat||0))); if(data.discount && Number(data.discount)>0){ const pctVal=Number(data.discount_pct||0); const pctStr=pctVal>0? ((pctVal%1===0)? String(pctVal.toFixed(0)) : String(pctVal.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : ''; const pct=pctStr? (' ('+pctStr+'%)') : ''; lines.push(padLine('Discount'+pct+':', '-'+peso(data.discount))); } lines.push(padLine('TOTAL:', peso(data.total||0))); lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push(padLine('Amount Paid:', peso(data.amount_paid||0))); lines.push(padLine('Change:', peso(data.change||0))); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('Thank you for your purchase!')); lines.push(centerLine('This is not an official receipt')); return lines.join('\n'); }
+
         // Print to thermal printer
-        function showPrintSuccessModal(){
-            const modalEl = document.getElementById('printSuccessModal');
-            if (!modalEl) {
-                alert('Receipt printed successfully.');
-                return;
-            }
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-        }
+function showPrintSuccessModal(){
+    if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
+        window.modernInventorySystem.showNotification('Receipt Printed', 'success', 3500);
+        return;
+    }
+    if(typeof showSimpleToast === 'function'){ showSimpleToast('Receipt Printed','success'); return; }
+    try { 
+        const containerId='simpleToastContainer';
+        let c=document.getElementById(containerId);
+        if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
+        const t=document.createElement('div');
+        t.textContent='Receipt Printed';
+        t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
+        c.appendChild(t);
+        setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
+    } catch(_) { /* no-op */ }
+}
 
         function showPrinterErrorModal(message){
             const modalEl = document.getElementById('printerErrorModal');
@@ -3345,18 +3350,55 @@
             modal.show();
         }
 
-        function tryLocalBridgePrintSale(){
+        function tryLocalBridgePrintSale(content){
             const bridgeUrl = localStorage.getItem('localBridgeUrl') || 'http://localhost:9100/print';
             const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
-            const content = document.querySelector('.receipt-container')?.innerText || '';
-            if(!content.trim()) return Promise.reject(new Error('No content'));
+            if(!content || !content.trim()) return Promise.reject(new Error('No content'));
             return fetch(bridgeUrl, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content, printer_name: printerName })
             }).then(r=>{ if(!r.ok) throw new Error('Bridge HTTP error '+r.status); return r.json().catch(()=>({success:true})); });
         }
         function printThermalReceipt(saleId) {
-            tryLocalBridgePrintSale()
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
+              .then(r=>r.json())
+              .then(data=>{
+                const flat = data.data || data.sale || data;
+                const s = flat;
+                const itemsSrc = (data.items || flat.items || data.data?.items || []);
+                const items = itemsSrc.map(it=>{ const qty=Number(it.quantity||0); const price=Number(it.price||0); const amount=qty*price; const base=(it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,''); const variant = it.variant ? (' ('+String(it.variant)+')') : ''; const sizeVal = it.quantity_unit || it.product__size; const size = sizeVal ? (' ('+String(sizeVal)+')') : ''; return { name: base+variant+size, quantity: qty, price, amount };});
+                const subtotalCalc = items.reduce((a,b)=>a+(b.amount||0),0);
+                const discount = Number(s.discount || s.discount_amount || 0);
+                const dpct = Number(s.discount_pct || 0);
+                const gross = Number(s.total || subtotalCalc);
+                const preDiscountGross = gross + discount;
+                const net = preDiscountGross / 1.12;
+                const vat = preDiscountGross - net;
+                const paid = Number(s.amount_paid ?? gross);
+                const change = paid - gross;
+                const previewData = {
+                  company_name: 'FruitMaster Marketing',
+                  company_address: 'Mabini Street - Libertad, Bacolod City, Negros Occidental',
+                  company_phone: '434-7680, 213-5681, 213-5682',
+                  transaction_number: String(s.transaction_number || s.sale_id || ''),
+                  or_number: String(s.or_number || ''),
+                  date: formatReceiptDate(s.recorded_at),
+                  processed_by: String(s.recorded_by || s.username || ''),
+                  customer_name: String(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name || s.customer_info.full_name)) || ''),
+                  customer_contact: String(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || ''),
+                  customer_address: String(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || ''),
+                  items,
+                  subtotal: net,
+                  vat,
+                  discount,
+                  discount_pct: dpct,
+                  total: gross,
+                  amount_paid: paid,
+                  change
+                };
+                const text = buildThermalPreview(previewData);
+                return tryLocalBridgePrintSale(text);
+              })
               .then(res=>{ if(!res || res.success===false){ printRegularReceipt(saleId); } else { showPrintSuccessModal(); } })
               .catch(()=>{ printRegularReceipt(saleId); });
         }
@@ -3395,227 +3437,50 @@
             
         // Regular browser print for mobile/tablet devices
         function printRegularReceipt(saleId) {
-            // Regular print (styled like record_sale.html)
             fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
-                .then(r => r.json())
-                .then(data => {
-                    const s = data.data || data;
-                    
-                    // Fill receipt data
-                    document.getElementById('rTxn').textContent = safeText(s.transaction_number || s.sale_id, 'N/A');
-                    document.getElementById('rOr').textContent = safeText(s.or_number, 'N/A');
-                    
-                    // Format date properly
-                    const dateStr = safeText(s.recorded_at, '');
-                    let formattedDate = dateStr;
-                    if (dateStr && dateStr !== 'N/A') {
-                        try {
-                            const date = new Date(dateStr);
-                            formattedDate = date.toLocaleString('en-US', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true
-                            });
-                        } catch(e) {
-                            formattedDate = dateStr;
-                        }
-                    }
-                    document.getElementById('rDate').textContent = formattedDate;
-                    
-                    // Customer info
-                    const customerName = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || '', '');
-                    const customerContact = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || '', '');
-                    const customerAddress = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || '', '');
-                    
-                    document.getElementById('rCustomer').textContent = customerName;
-                    document.getElementById('rContact').textContent = customerContact;
-                    document.getElementById('rAddress').textContent = customerAddress;
-
-                    // Keep receipt fields visible; blank values remain blank
-                    
-                    // Processed by
-                    const processedBy = safeText(s.username || '', '');
-                    if (processedBy && processedBy !== 'N/A') {
-                        document.getElementById('rProcessedBy').textContent = processedBy;
-                        document.getElementById('rProcessedByRow').style.display = 'block';
-                    } else {
-                        document.getElementById('rProcessedByRow').style.display = 'none';
-                    }
-                    
-                    // Items - match record_sale format (Description, Boxes, Price, Amount - NO Batch ID)
-                    const rItems = document.getElementById('rItems');
-                    rItems.innerHTML = '';
-                    let subtotal = 0;
-                    (data.items || s.items || []).forEach(it => {
-                        const qty = safeNum(it.quantity, 0);
-                        const price = safeNum(it.price, 0);
-                        const amount = qty * price;
-                        subtotal += amount;
-                        
-                        // Build description like record_sale.html
-                        const fullName2 = safeText(it.product__name || it.product_name || '', '');
-                        let description = fullName2.replace(/\s*\(.*?\)\s*$/, '');
-                        const variant = it.variant ? ` (${safeText(it.variant)})` : '';
-                        const sizeVal = it.quantity_unit || it.product__size;
-                        const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
-                        description += variant + size;
-                        
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${description}</td>
-                            <td class="text-end">${qty}</td>
-                            <td class="text-end">${currency(price)}</td>
-                            <td class="text-end">${currency(amount)}</td>
-                        `;
-                        rItems.appendChild(tr);
-                    });
-                    
-                    // Calculate totals using sale.gross total from backend (already discount-applied)
-                    const discount = safeNum(s.discount || s.discount_amount, 0);
-                    const dpct2 = safeNum(s.discount_pct, 0);
-                    const pctStr2 = dpct2 > 0 ? ((dpct2 % 1 === 0) ? String(dpct2.toFixed(0)) : String(dpct2.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
-                    const gross = safeNum(s.total, subtotal);
+                .then(r=>r.json())
+                .then(data=>{
+                    const flat = data.data || data.sale || data;
+                    const s = flat;
+                    const itemsSrc = (data.items || flat.items || data.data?.items || []);
+                    const items = itemsSrc.map(it=>{ const qty=Number(it.quantity||0); const price=Number(it.price||0); const amount=qty*price; const base=(it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,''); const variant = it.variant ? (' ('+String(it.variant)+')') : ''; const sizeVal = it.quantity_unit || it.product__size; const size = sizeVal ? (' ('+String(sizeVal)+')') : ''; return { name: base+variant+size, quantity: qty, price, amount };});
+                    const subtotalCalc = items.reduce((a,b)=>a+(b.amount||0),0);
+                    const discount = Number(s.discount || s.discount_amount || 0);
+                    const dpct = Number(s.discount_pct || 0);
+                    const gross = Number(s.total || subtotalCalc);
                     const preDiscountGross = gross + discount;
                     const net = preDiscountGross / 1.12;
                     const vat = preDiscountGross - net;
-                    const total = gross;
-                    const paid = Number(s.amount_paid ?? total);
-                    const change = paid - total;
-                    
-                    document.getElementById('rSub').textContent = currency(net);
-                    document.getElementById('rVat').textContent = currency(vat);
-                    document.getElementById('rTotal').textContent = currency(total);
-                    document.getElementById('rPaid').textContent = currency(paid);
-                    document.getElementById('rChange').textContent = currency(change);
-                    document.getElementById('rDiscount').textContent = currency(discount);
-                    const rDL = document.getElementById('rDiscountLabel');
-                    if (rDL) rDL.textContent = pctStr2 ? `Discount (${pctStr2}%)` : 'Discount:';
-                    
-                    // Print with proper styling (matching record_sale.html)
-                    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
+                    const paid = Number(s.amount_paid ?? gross);
+                    const change = paid - gross;
+                    const previewData = {
+                      company_name: 'FruitMaster Marketing',
+                      company_address: 'Mabini Street - Libertad, Bacolod City, Negros Occidental',
+                      company_phone: '434-7680, 213-5681, 213-5682',
+                      transaction_number: String(s.transaction_number || s.sale_id || ''),
+                      or_number: String(s.or_number || ''),
+                      date: formatReceiptDate(s.recorded_at),
+                      processed_by: String(s.recorded_by || s.username || ''),
+                      customer_name: String(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name || s.customer_info.full_name)) || ''),
+                      customer_contact: String(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || ''),
+                      customer_address: String(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || ''),
+                      items,
+                      subtotal: net,
+                      vat,
+                      discount,
+                      discount_pct: dpct,
+                      total: gross,
+                      amount_paid: paid,
+                      change
+                    };
+                    const text = buildThermalPreview(previewData);
+                    const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'58',10);
                     const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
-                    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
-                    const content = document.querySelector('.receipt-container').outerHTML;
-                    const html = `<!doctype html>
-<html>
-<head>
-    <title>Receipt</title>
-    <style>
-        @media print {
-            @page { size: ${PAPER_MM}mm auto; margin: 0; }
-            html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; }
-        }
-        body {
-            font-family: "Courier New", monospace;
-            font-size: ${FONT_PX}px;
-            margin: 0;
-            padding: ${MARGIN_MM}mm;
-            background: #fff;
-        }
-        .receipt-container {
-            max-width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm);
-            margin: 0 auto;
-            border: 1px solid #ddd;
-            padding: 1rem;
-        }
-        .receipt-header {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-        .company-name {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-        .company-details {
-            font-size: 10px;
-            margin-bottom: 2px;
-        }
-        .receipt-title {
-            text-align: center;
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        .receipt-divider {
-            border-top: 1px dashed #000;
-            margin: 10px 0;
-        }
-        .receipt-info {
-            margin-bottom: 3px;
-            font-size: 11px;
-        }
-        .receipt-table {
-            width: 100%;
-            margin: 10px 0;
-            font-size: 11px;
-        }
-        .receipt-table th, .receipt-table td {
-            padding: 2px 5px;
-            font-size: 11px;
-        }
-        .receipt-table th {
-            border-bottom: 1px solid #000;
-            font-weight: bold;
-        }
-        .receipt-footer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 10px;
-        }
-        .receipt-footer p {
-            margin-bottom: 2px;
-        }
-        @media print { .receipt-container { border: none; } }
-    </style>
-    <style>
-        /* Step 1: Make Sales header title size/spacing match Inventory */
-        #salesHeader .header-title-section { padding-left: 3rem !important; }
-        #salesHeader .header-left h1 { font-size: 1.5rem !important; font-weight: 700 !important; line-height: 1.25 !important; margin: 0 !important; }
-        #salesHeader .burger-menu-btn { display: flex !important; width: 0.875rem !important; height: 0.875rem !important; margin-right: 0.25rem !important; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; }
-        #salesHeader .burger-menu-btn span { height: 1px !important; background: var(--gray-700) !important; border-radius: 1px !important; }
-        @media (max-width: 768px) {
-            #salesHeader .header-title-section { padding-left: 0.75rem !important; }
-            #salesHeader .header-left h1 { font-size: 1.25rem !important; }
-            #salesHeader .header-brand span { display: none !important; }
-        }
-    </style>
-</head>
-<body>
-    ${content}
-</body>
-</html>`;
-                    
-                    // Use hidden iframe instead of pop-up window (no pop-up blocker)
-                    let printFrame = document.getElementById('hiddenPrintFrame');
-                    if (!printFrame) {
-                        printFrame = document.createElement('iframe');
-                        printFrame.id = 'hiddenPrintFrame';
-                        printFrame.style.position = 'fixed';
-                        printFrame.style.right = '0';
-                        printFrame.style.bottom = '0';
-                        printFrame.style.width = '0';
-                        printFrame.style.height = '0';
-                        printFrame.style.border = '0';
-                        document.body.appendChild(printFrame);
-                    }
-                    
-                    const doc = printFrame.contentWindow.document;
-                    doc.open();
-                    doc.write(html);
-                    doc.close();
-                    
-                    // Wait for content to load, then trigger print
-                    setTimeout(() => {
-                        printFrame.contentWindow.focus();
-                        printFrame.contentWindow.print();
-                    }, 500);
+                    const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'13',10);
+                    const html = `<!doctype html><html><head><title>Receipt</title><style>@media print{@page{size:${PAPER_MM}mm auto;margin:0}html,body{width:${PAPER_MM}mm;margin:0;padding:0}}body{font-family:"Courier New",monospace;font-size:${FONT_PX}px;margin:0;padding:${Math.max(1, MARGIN_MM)}mm;background:#fff;box-sizing:border-box}.receipt-print{text-align:center}pre{display:inline-block;text-align:left;white-space:pre;letter-spacing:0;max-width:calc(${PAPER_MM}mm - ${Math.max(1, MARGIN_MM)*2}mm)}</style></head><body><div class="receipt-print"><pre>${text}</pre></div></body></html>`;
+                    let printFrame=document.getElementById('hiddenPrintFrame'); if(!printFrame){ printFrame=document.createElement('iframe'); printFrame.id='hiddenPrintFrame'; printFrame.style.position='fixed'; printFrame.style.right='0'; printFrame.style.bottom='0'; printFrame.style.width='0'; printFrame.style.height='0'; printFrame.style.border='0'; document.body.appendChild(printFrame);} const doc=printFrame.contentWindow.document; doc.open(); doc.write(html); doc.close(); setTimeout(()=>{ printFrame.contentWindow.focus(); printFrame.contentWindow.print(); try { showPrintSuccessModal(); } catch(_) {} }, 500);
                 })
-                .catch(err => console.error('Print error', err));
+                .catch(()=>{});
         }
 
         

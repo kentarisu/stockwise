@@ -252,11 +252,8 @@
                 Scan this QR to quickly <strong>record a sale</strong> or <strong>add stock</strong>.
               </div>
               <div class="button-group w-100">
-                <button class="scan-button w-100 d-flex justify-content-center align-items-center gap-2" id="regularPrintBtn">
-                  <i class="bi bi-printer"></i> Print on Regular Printer
-                </button>
-                <button class="scan-button secondary w-100 d-flex justify-content-center align-items-center gap-2" id="thermalPrintBtn">
-                  <i class="bi bi-printer-fill"></i> Print on Thermal Printer
+                <button class="scan-button w-100 d-flex justify-content-center align-items-center gap-2" id="printStickerBtn">
+                  <i class="bi bi-printer"></i> Print QR Code Sticker
                 </button>
               </div>
             </div>
@@ -266,22 +263,6 @@
     </div>
   </div>
   
-  <div class="modal fade" id="stickerPrintSuccessModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header border-0">
-          <h5 class="modal-title"><i class="bi bi-check-circle-fill text-success me-2"></i>Sticker Printed</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          Sticker printed successfully. Attach it to the product batch.
-        </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-success" data-bs-dismiss="modal">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
   
   <div class="modal fade" id="printerErrorModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -452,7 +433,6 @@
  
     let currentStickerData = null;
     const stickerModal = new bootstrap.Modal(document.getElementById('stickerPreviewModal'));
-    const stickerSuccessModal = new bootstrap.Modal(document.getElementById('stickerPrintSuccessModal'));
     
     function populateStickerModal(data){
         currentStickerData = data;
@@ -460,7 +440,7 @@
         document.getElementById('previewVariant').textContent = `Variant: ${data.variant || 'Standard'}`;
         document.getElementById('previewQuantity').textContent = `Quantity: ${data.quantity || 'N/A'}`;
         document.getElementById('previewQrImage').src = `data:image/png;base64,${data.qr_code_base64}`;
-        document.getElementById('thermalPrintBtn').dataset.productId = data.product_id;
+        // Unified single-button printing
     }
     
     function printStickerViaIframe(){
@@ -471,28 +451,39 @@
         const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
         const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
         const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
+        const displayName = (currentStickerData.product_name || 'Product').replace(/\s*\(.*?\)\s*$/, '');
         doc.write(`
             <html>
             <head>
                 <style>
                     @media print { @page { size: ${PAPER_MM}mm auto; margin: 0; } html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; } }
-                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: ${MARGIN_MM}mm; }
-                    .sticker-container { border: 2px solid #4F46E5; border-radius: 12px; padding: 6mm; width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); }
-                    .product-name { font-size: ${Math.max(12, FONT_PX+8)}px; margin: 0 0 8px 0; }
-                    .product-variant, .product-size { margin: 0 0 4px 0; color: #555; }
-                    .qr-code img { width: ${Math.round(0.6*PAPER_MM)}mm; height: ${Math.round(0.6*PAPER_MM)}mm; }
+                    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: ${MARGIN_MM}mm; background: #fff; display:flex; justify-content:center; }
+                    .sticker-container { width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 5mm; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+                    .sticker-header { text-align: center; }
+                    .sticker-label { color: #4F46E5; font-weight: 700; font-size: ${Math.max(10, FONT_PX-1)}px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 4px 0; }
+                    .product-name { font-size: ${Math.max(14, FONT_PX+6)}px; font-weight: 700; margin: 0 0 2px 0; }
+                    .product-variant, .product-size { font-size: ${Math.max(11, FONT_PX)}px; color: #6b7280; margin: 0 0 2px 0; text-align: center; }
+                    .divider { height: 1px; background: #e5e7eb; margin: 4mm 0 4mm 0; }
+                    .qr-code { display: flex; justify-content: center; }
+                    .qr-code img { width: ${Math.round(0.58*PAPER_MM)}mm; height: ${Math.round(0.58*PAPER_MM)}mm; border-radius: 6px; }
+                    .sticker-footer { font-size: ${Math.max(10, FONT_PX-1)}px; color: #6b7280; text-align: center; margin-top: 3mm; }
+                    .brand { font-size: ${Math.max(10, FONT_PX-1)}px; font-weight: 700; letter-spacing: 0.08em; text-align: center; margin-top: 2mm; }
                 </style>
             </head>
             <body>
                 <div class="sticker-container">
-                    <div class="product-header">
-                        <h1 class="product-name">${currentStickerData.product_name || 'Product'}</h1>
-                        <p class="product-variant">Variant: ${currentStickerData.variant || 'Standard'}</p>
-                        <p class="product-size">Quantity: ${currentStickerData.quantity || 'N/A'}</p>
+                    <div class="sticker-header">
+                        <div class="sticker-label">Product Sticker</div>
+                        <h1 class="product-name">${displayName}</h1>
+                        <div class="product-variant">Variant: ${currentStickerData.variant || 'Standard'}</div>
+                        <div class="product-size">Quantity: ${currentStickerData.quantity || 'N/A'}</div>
+                        <div class="divider"></div>
                     </div>
                     <div class="qr-code">
                         <img src="data:image/png;base64,${currentStickerData.qr_code_base64}" alt="QR Code">
                     </div>
+                    <div class="sticker-footer">Scan this QR to quickly record a sale or add stock.</div>
+                    <div class="brand">STOCKWISE</div>
                 </div>
             </body>
             </html>
@@ -500,7 +491,7 @@
         doc.close();
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-        stickerSuccessModal.show();
+        try { showStickerSuccess(); } catch(_) {}
     }
     
     function printStickerThermal(productId){
@@ -534,6 +525,7 @@
         .then(data => {
             if (data.success) {
                 stickerSuccessModal.show();
+                try { showStickerSuccess(); } catch(_) {}
             } else {
                 showPrinterErrorModal(data.message || 'Unable to connect to the thermal printer. Please check that it is connected and powered on.');
             }
@@ -543,14 +535,24 @@
             showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
         });
     }
+    function showStickerSuccess(){
+      if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
+        window.modernInventorySystem.showNotification('Sticker Printed', 'success', 3500);
+        return;
+      }
+      try {
+        const containerId='simpleToastContainer';
+        let c=document.getElementById(containerId);
+        if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
+        const t=document.createElement('div');
+        t.textContent='Sticker Printed';
+        t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
+        c.appendChild(t);
+        setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
+      } catch(_){ }
+    }
     
-    document.getElementById('regularPrintBtn').addEventListener('click', printStickerViaIframe);
-    document.getElementById('thermalPrintBtn').addEventListener('click', function(){
-        const productId = this.dataset.productId;
-        if (productId) {
-            printStickerThermal(productId);
-        }
-    });
+    document.getElementById('printStickerBtn').addEventListener('click', printStickerViaIframe);
     
     function showPrinterErrorModal(message){
         document.getElementById('printerErrorMessage').textContent = message || 'Please connect your thermal printer to this device and make sure it is powered on.';

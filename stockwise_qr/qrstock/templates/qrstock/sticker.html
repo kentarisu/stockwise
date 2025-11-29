@@ -167,8 +167,7 @@
                 <p class="batch-info">Batch: Set when scanned</p>
                 <p class="date-info">Date: Set when scanned</p>
                 <div class="button-group">
-                    <button class="scan-button" onclick="window.print()">Print on Regular Printer</button>
-                    <button class="scan-button secondary" id="thermalPrintBtn" data-product-id="{{ product.product_id }}">Print on Thermal Printer</button>
+                    <button class="scan-button" onclick="window.print()">Print QR Code Sticker</button>
                 </div>
             </div>
         </div>
@@ -218,10 +217,7 @@
             });
         }
         
-        document.getElementById('thermalPrintBtn').addEventListener('click', function(){
-            const pid = document.getElementById('thermalPrintBtn').dataset.productId;
-            printStickerThermal(pid);
-        });
+        // Single-button print: uses browser print
     </script>
 </body>
 </html>

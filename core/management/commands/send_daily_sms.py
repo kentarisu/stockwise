@@ -46,6 +46,17 @@ class Command(BaseCommand):
         if not settings.sales_enabled:
             self.stdout.write(self.style.WARNING('Sales SMS notifications are disabled in settings.'))
             return
+        # Idempotency guard: if already logged today, skip
+        try:
+            from core.models import ActionLog
+            from django.utils import timezone as _tz
+            _now = _tz.localtime()
+            _recent_cutoff = _now - timedelta(minutes=3)
+            if ActionLog.objects.filter(action='Automatic SMS: Daily Sales Summary', created_at__gte=_recent_cutoff).exists():
+                self.stdout.write(self.style.WARNING('Daily sales summary recently logged; skipping duplicate send.'))
+                return
+        except Exception:
+            pass
         
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
@@ -97,6 +108,19 @@ class Command(BaseCommand):
                 code = result.get('message_code')
                 if code:
                     message_codes.append(code)
+                try:
+                    from core.models import Product
+                    product = Product.objects.filter(status='active').first() or Product.objects.first()
+                    if product:
+                        SMS.objects.create(
+                            product=product,
+                            user=u,
+                            message_type='sales_summary_daily',
+                            demand_level='mid',
+                            message_content=message[:500]
+                        )
+                except Exception:
+                    pass
                 self.stdout.write(self.style.SUCCESS(f'Daily summary sent to {u.username} at {u.phone_number}'))
             else:
                 msg = result.get('message')

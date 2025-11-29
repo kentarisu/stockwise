@@ -3848,19 +3848,19 @@ def export_report(request):
     # Enhanced summary cards (3x3 grid for comprehensive metrics - adjusted for portrait)
     summary_cards = [
         [
-            Paragraph("<b>TOTAL REVENUE</b><br/><font size=12 color='#10b981'>₱{:,}</font><br/><font size=5>Growth: {:.1f}%</font>".format(int(total_revenue), revenue_growth_pct), card_style),
-            Paragraph("<b>GROSS PROFIT</b><br/><font size=12 color='#10b981'>₱{:,}</font><br/><font size=5>Margin: {:.1f}%</font>".format(int(gross_profit), gross_margin_pct), card_style),
-            Paragraph("<b>COGS</b><br/><font size=12 color='#ef4444'>₱{:,}</font>".format(int(total_cogs)), card_style),
+            Paragraph("<b>TOTAL REVENUE</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5>Growth: {:.1f}%</font><br/><font size=5 color='#6b7280'>Total money earned from sales</font>".format(int(total_revenue), revenue_growth_pct), card_style),
+            Paragraph("<b>GROSS PROFIT</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5>Margin: {:.1f}%</font><br/><font size=5 color='#6b7280'>Revenue minus cost of goods</font>".format(int(gross_profit), gross_margin_pct), card_style),
+            Paragraph("<b>COGS</b><br/><font size=12 color='#ef4444'>PHP {:,}</font><br/><font size=5 color='#6b7280'>Cost to acquire sold items</font>".format(int(total_cogs)), card_style),
         ],
         [
-            Paragraph("<b>TOTAL TRANSACTIONS</b><br/><font size=12 color='#6366f1'>{}</font><br/><font size=5>Growth: {:.1f}%</font>".format(transaction_count, transaction_growth_pct), card_style),
-            Paragraph("<b>AVG ORDER VALUE</b><br/><font size=12 color='#f59e0b'>₱{:,}</font>".format(int(avg_order)), card_style),
-            Paragraph("<b>TOTAL BOXES</b><br/><font size=12 color='#f59e0b'>{}</font>".format(total_boxes), card_style),
+            Paragraph("<b>TOTAL TRANSACTIONS</b><br/><font size=12 color='#6366f1'>{}</font><br/><font size=5>Growth: {:.1f}%</font><br/><font size=5 color='#6b7280'>Number of completed sales</font>".format(transaction_count, transaction_growth_pct), card_style),
+            Paragraph("<b>AVG ORDER VALUE</b><br/><font size=12 color='#f59e0b'>PHP {:,}</font><br/><font size=5 color='#6b7280'>Average money per transaction</font>".format(int(avg_order)), card_style),
+            Paragraph("<b>TOTAL BOXES</b><br/><font size=12 color='#f59e0b'>{}</font><br/><font size=5 color='#6b7280'>Boxes sold in selected period</font>".format(total_boxes), card_style),
         ],
         [
-            Paragraph("<b>VAT (12%)</b><br/><font size=12 color='#8b5cf6'>₱{:,}</font>".format(int(vat_total)), card_style),
-            Paragraph("<b>NET PROFIT</b><br/><font size=12 color='#10b981'>₱{:,}</font>".format(int(net_profit)), card_style),
-            Paragraph("<b>TOTAL BOXES SOLD</b><br/><font size=12 color='#6366f1'>{}</font>".format(total_items), card_style),
+            Paragraph("<b>VAT (12%)</b><br/><font size=12 color='#8b5cf6'>PHP {:,}</font><br/><font size=5 color='#6b7280'>Estimated VAT component</font>".format(int(vat_total)), card_style),
+            Paragraph("<b>NET PROFIT</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5 color='#6b7280'>Profit before operating costs</font>".format(int(net_profit)), card_style),
+            Paragraph("<b>TOTAL BOXES SOLD</b><br/><font size=12 color='#6366f1'>{}</font><br/><font size=5 color='#6b7280'>Sum of quantities sold</font>".format(total_items), card_style),
         ]
     ]
     
@@ -3887,6 +3887,7 @@ def export_report(request):
     elems.append(summary_grid)
     elems.append(Spacer(1, 10))
 
+
     # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
     elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
     elems.append(Spacer(1, 8))
@@ -3896,6 +3897,7 @@ def export_report(request):
         sales_queryset.values(
             'product__product_id',
             'product__name',
+            'product__variant',
             'product__quantity_unit',
             'product__cost'
         ).annotate(
@@ -3926,7 +3928,19 @@ def export_report(request):
     total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
     
     if summary:
-        sales_summary_rows = [['Product', 'Boxes Sold', 'Unit Price', 'Unit Cost', 'Revenue', 'COGS', 'Profit', 'Gross Margin %', 'Sales Growth %', 'Transactions']]
+        header_style = ParagraphStyle('TableHeader', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        sales_summary_rows = [[
+            Paragraph('Product', header_style),
+            Paragraph('Boxes Sold', header_style),
+            Paragraph('Unit Price', header_style),
+            Paragraph('Unit Cost', header_style),
+            Paragraph('Revenue', header_style),
+            Paragraph('COGS', header_style),
+            Paragraph('Profit', header_style),
+            Paragraph('Gross Margin<br/>%', header_style),
+            Paragraph('Sales Growth<br/>%', header_style),
+            Paragraph('Transactions', header_style),
+        ]]
         for s in summary:
             product_id = s['product__product_id']
             boxes = s['boxes_sold'] or 0
@@ -3943,6 +3957,9 @@ def export_report(request):
             
             # Format product name with variant and quantity_unit
             product_name = str(s['product__name'] or 'N/A')
+            variant = (s.get('product__variant') or '').strip()
+            if variant:
+                product_name = f"{product_name} ({variant})"
             if s['product__quantity_unit']:
                 product_name = f"{product_name} ({s['product__quantity_unit']})"
 
@@ -4046,18 +4063,18 @@ def export_report(request):
             sales_summary_rows.append([
                 product_name[:35],
                 str(boxes),
-                f"₱{unit_price:,.2f}",
-                f"₱{unit_cost:,.2f}",
-                f"₱{float(revenue):,.2f}",
-                f"₱{float(cogs):,.2f}",
-                f"₱{float(profit):,.2f}",
+                f"PHP {unit_price:,.2f}",
+                f"PHP {unit_cost:,.2f}",
+                f"PHP {float(revenue):,.2f}",
+                f"PHP {float(cogs):,.2f}",
+                f"PHP {float(profit):,.2f}",
                 f"{gross_margin:.1f}%",
                 f"{sales_growth_pct:+.1f}%",
                 str(transaction_count)
             ])
         
-        # Column widths optimized for portrait letter (removed separate quantity column)
-        col_widths = [120, 40, 45, 45, 55, 55, 55, 50, 50, 45]
+        # Column widths optimized with line-break headers to prevent overlap
+        col_widths = [110, 40, 45, 45, 50, 50, 45, 55, 55, 50]
         sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
         sales_summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
@@ -4073,6 +4090,7 @@ def export_report(request):
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(sales_summary_table)
     else:
@@ -4112,6 +4130,9 @@ def export_report(request):
             
             # Format product name with variant and quantity_unit
             product_name = str(t['product__name'] or 'N/A')
+            variant = (t.get('product__variant') or '').strip()
+            if variant:
+                product_name = f"{product_name} ({variant})"
             if t['product__quantity_unit']:
                 product_name = f"{product_name} ({t['product__quantity_unit']})"
             
@@ -4119,8 +4140,8 @@ def export_report(request):
                 str(idx),
                 product_name[:30],
                 str(boxes),
-                f"₱{avg_price:,.2f}",
-                f"₱{float(revenue):,.2f}",
+                f"PHP {avg_price:,.2f}",
+                f"PHP {float(revenue):,.2f}",
                 f"{profit_margin_pct:.1f}%",
                 f"{growth_rate:+.1f}%",
                 f"{market_share_pct:.1f}%",
@@ -4145,6 +4166,7 @@ def export_report(request):
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(top_table)
     else:
@@ -4218,14 +4240,14 @@ def export_report(request):
             })
     
     if low_stock_data:
-        low_rows = [['Product', 'Quantity', 'Current Stock', 'Stock Value', 'Avg Daily Sales', 'Days of Supply', 'Reorder Point', 'Reorder Qty', 'Lead Time', 'Last Sale', 'Status', 'Action']]
+        low_rows = [['Product', 'Current Stock', 'Stock Value', 'Avg Daily Sales', 'Days of Supply', 'Reorder Point', 'Reorder Qty', 'Lead Time', 'Last Sale', 'Status', 'Action']]
         for item in low_stock_data:
             days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
+            label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
             low_rows.append([
-                str(item['product_name'])[:18],
-                str(item['quantity_unit'] or ''),
+                label[:30],
                 str(int(item['current_stock'])),
-                f"₱{item['stock_value']:,.0f}",
+                f"PHP {item['stock_value']:,.0f}",
                 f"{item['average_daily_sales']:.1f}",
                 days_supply_str,
                 str(item['reorder_point']),
@@ -4236,8 +4258,8 @@ def export_report(request):
                 item['action_required']
             ])
         
-        # Column widths for low stock (optimized for portrait with full headers)
-        low_col_widths = [75, 40, 45, 50, 50, 45, 45, 40, 40, 60, 40, 40]
+        # Column widths fit portrait letter exactly (540pt)
+        low_col_widths = [110, 45, 50, 50, 45, 45, 40, 40, 60, 30, 25]
         low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
         low_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
@@ -4245,8 +4267,8 @@ def export_report(request):
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('FONTSIZE', (0,0), (-1,0), 7),
             ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (2,1), (8,-1), 'RIGHT'),  # Right align numbers
-            ('ALIGN', (10,1), (11,-1), 'CENTER'),  # Center status/action
+            ('ALIGN', (1,1), (7,-1), 'RIGHT'),  # Right align numbers
+            ('ALIGN', (9,1), (10,-1), 'CENTER'),  # Center status/action
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -4254,6 +4276,7 @@ def export_report(request):
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(low_table)
     else:
@@ -4276,6 +4299,9 @@ def export_report(request):
         product_display_name = ''
         if row.product:
             product_display_name = row.product.name or ''
+            variant = (row.product.variant or '').strip()
+            if variant:
+                product_display_name = f"{product_display_name} ({variant})"
             if row.product.quantity_unit:
                 product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
         
@@ -4323,7 +4349,7 @@ def export_report(request):
             str(tx['customer_name'])[:20],
             products_str,
             str(tx['total_boxes']),
-            f"₱{tx['total']:,.2f}"
+            f"PHP {tx['total']:,.2f}"
         ])
     
     # Column widths optimized for portrait letter - 6 columns with better spacing
@@ -4360,7 +4386,7 @@ def export_report(request):
             '', '', '',
             Paragraph('<b>Total:</b>', footer_style),
             Paragraph(f'<b>{total_boxes_all}</b>', footer_style),
-            Paragraph(f'<b>₱{total_all:,.2f}</b>', footer_style)
+            Paragraph(f'<b>PHP {total_all:,.2f}</b>', footer_style)
         ]
     ]
     footer_table = Table(footer_data, colWidths=[80, 60, 100, 160, 50, 90])
@@ -4399,8 +4425,16 @@ def export_report(request):
                 category = 'B'
             else:
                 category = 'C'
+            # Format product name with variant and quantity_unit for ABC table
+            pn = str(entry.get('product__name') or 'N/A')
+            pv = (entry.get('product__variant') or '').strip()
+            if pv:
+                pn = f"{pn} ({pv})"
+            qu = entry.get('product__quantity_unit')
+            if qu:
+                pn = f"{pn} ({qu})"
             abc_data.append({
-                'product_name': entry['product__name'] or 'N/A',
+                'product_name': pn,
                 'revenue': float(revenue_value),
                 'revenue_share_pct': float(share_pct),
                 'cumulative_pct': float(cumulative_share),
@@ -4408,12 +4442,19 @@ def export_report(request):
             })
     
     if abc_data:
-        abc_rows = [['Category', 'Product', 'Revenue', 'Revenue Share %', 'Cumulative %']]
+        header_style_abc = ParagraphStyle('TableHeaderABC', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        abc_rows = [[
+            Paragraph('Category', header_style_abc),
+            Paragraph('Product', header_style_abc),
+            Paragraph('Revenue', header_style_abc),
+            Paragraph('Revenue Share<br/>%', header_style_abc),
+            Paragraph('Cumulative<br/>%', header_style_abc)
+        ]]
         for item in abc_data:
             abc_rows.append([
                 item['category'],
                 str(item['product_name'])[:25],
-                f"₱{item['revenue']:,.2f}",
+                f"PHP {item['revenue']:,.2f}",
                 f"{item['revenue_share_pct']:.2f}%",
                 f"{item['cumulative_pct']:.2f}%"
             ])
@@ -4434,6 +4475,7 @@ def export_report(request):
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
             ('TOPPADDING', (0,0), (-1,-1), 4),
             ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(abc_table)
     else:
@@ -4471,6 +4513,8 @@ def export_report(request):
             avg_daily_sales = round(float(boxes) / float(period_days_calc), 2) if period_days_calc else 0.0
             slow_movers_data.append({
                 'product_name': entry.get('product__name') or 'N/A',
+                'variant': entry.get('product__variant'),
+                'unit': entry.get('product__quantity_unit'),
                 'boxes_sold': boxes,
                 'revenue': float(revenue),
                 'avg_daily_sales': avg_daily_sales
@@ -4480,9 +4524,9 @@ def export_report(request):
         slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
         for item in slow_movers_data:
             slow_rows.append([
-                str(item['product_name'])[:30],
+                _fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit'))[:30],
                 str(item['boxes_sold']),
-                f"₱{item['revenue']:,.2f}",
+                f"PHP {item['revenue']:,.2f}",
                 f"{item['avg_daily_sales']:.2f}"
             ])
         
@@ -4540,9 +4584,9 @@ def export_report(request):
         dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
         for item in dead_stock_data:
             dead_rows.append([
-                str(item['product_name'])[:30],
+                _fmt_prod(item.get('product_name'), None, None)[:30],
                 str(item['stock']),
-                f"₱{item['stock_value']:,.2f}",
+                f"PHP {item['stock_value']:,.2f}",
                 item['last_sale'],
                 str(item['days_idle'])
             ])
@@ -4598,6 +4642,9 @@ def export_report(request):
         product_display_name = ''
         if row.product:
             product_display_name = row.product.name or ''
+            variant = (row.product.variant or '').strip()
+            if variant:
+                product_display_name = f"{product_display_name} ({variant})"
             if row.product.quantity_unit:
                 product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
         
@@ -4630,11 +4677,11 @@ def export_report(request):
                 products_str = products_str[:37] + '...'
             voided_rows.append([
                 str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A',
-                tx['voided_at'][:10],  # Date only
+                tx['voided_at'][:10],
                 str(tx['customer_name'])[:20],
                 products_str,
                 str(tx['boxes_sold']),
-                f"₱{tx['total']:,.2f}"
+                f"PHP {tx['total']:,.2f}"
             ])
         
         voided_table = Table(voided_rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
@@ -4660,7 +4707,7 @@ def export_report(request):
         total_voided_boxes = sum(int(tx['boxes_sold']) for tx in voided_data_pdf)
         elems.append(Spacer(1, 8))
         voided_summary = Paragraph(
-            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, ₱{total_voided_amount:,.2f}",
+            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, PHP {total_voided_amount:,.2f}",
             ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
         )
         elems.append(voided_summary)
@@ -4719,8 +4766,8 @@ def export_report(request):
                 rows.append([
                     pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A',
                     name[:30],
-                    f"₱{float(pr.current_price or 0):,.2f}",
-                    f"₱{float(pr.suggested_price or 0):,.2f}",
+                    f"PHP {float(pr.current_price or 0):,.2f}",
+                    f"PHP {float(pr.suggested_price or 0):,.2f}",
                     change_label,
                     (pr.action or '—'),
                     _fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence)
@@ -7400,15 +7447,24 @@ def update_notification_settings(request):
         sales_time = request.POST.get('sales_time', '20:00')
         stock_threshold = int(request.POST.get('stock_threshold', 10))
         pricing_sensitivity = request.POST.get('pricing_sensitivity', 'moderate')
+        pricing_time = (request.POST.get('pricing_time') or settings.sales_time or '08:00')
+        try:
+            pricing_frequency_days = int(request.POST.get('pricing_frequency_days', 3))
+        except Exception:
+            pricing_frequency_days = 3
         
         # Validate sales_time format (HH:MM)
         import re
         if not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', sales_time):
             return JsonResponse({'success': False, 'message': 'Invalid time format. Use HH:MM (24-hour format)'})
+        if pricing_time and not re.match(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$', pricing_time):
+            return JsonResponse({'success': False, 'message': 'Invalid pricing time format. Use HH:MM (24-hour format)'})
         
         # Validate stock_threshold
         if stock_threshold < 1 or stock_threshold > 100:
             return JsonResponse({'success': False, 'message': 'Stock threshold must be between 1 and 100'})
+        if pricing_frequency_days < 1 or pricing_frequency_days > 30:
+            return JsonResponse({'success': False, 'message': 'Pricing frequency must be between 1 and 30 days'})
         
         # Validate pricing_sensitivity
         if pricing_sensitivity not in ['conservative', 'moderate', 'aggressive']:
@@ -7425,6 +7481,10 @@ def update_notification_settings(request):
             changes.append(f"Stock alerts: {'Enabled' if stock_enabled else 'Disabled'}")
         if settings.pricing_enabled != pricing_enabled:
             changes.append(f"Pricing recommendations: {'Enabled' if pricing_enabled else 'Disabled'}")
+        if getattr(settings, 'pricing_time', None) != pricing_time:
+            changes.append(f"Pricing time: {pricing_time}")
+        if getattr(settings, 'pricing_frequency_days', None) != pricing_frequency_days:
+            changes.append(f"Pricing frequency: every {pricing_frequency_days} day(s)")
         
         # Update settings
         settings.sales_enabled = sales_enabled
@@ -7433,6 +7493,8 @@ def update_notification_settings(request):
         settings.sales_time = sales_time
         settings.stock_threshold = stock_threshold
         settings.pricing_sensitivity = pricing_sensitivity
+        settings.pricing_time = pricing_time
+        settings.pricing_frequency_days = pricing_frequency_days
         settings.save()
         
         # Log the action with specific changes
@@ -7440,7 +7502,7 @@ def update_notification_settings(request):
             log_action(
                 request,
                 'SMS notification settings changed',
-                '; '.join(changes) + f' (Time: {sales_time}, Threshold: {stock_threshold}, Sensitivity: {pricing_sensitivity})'
+                '; '.join(changes) + f' (Sales time: {sales_time}, Stock threshold: {stock_threshold}, Pricing sensitivity: {pricing_sensitivity})'
             )
         else:
             # Still log if settings were saved (even if no status changes)
@@ -8678,10 +8740,11 @@ def send_pricing_notification(request):
                     proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
                     try:
                         from decimal import Decimal
-                        affected_ids = proposals['product_id'].tolist()
+                        unique_proposals = proposals.drop_duplicates(subset=['product_id'], keep='last')
+                        affected_ids = unique_proposals['product_id'].tolist()
                         PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
                         expires_at = timezone.now() + timedelta(days=3)
-                        for _, rec in proposals.iterrows():
+                        for _, rec in unique_proposals.iterrows():
                             try:
                                 p = Product.objects.get(product_id=rec['product_id'])
                             except Exception:

@@ -18,6 +18,8 @@ if not getattr(_dj_settings, 'configured', False):
 
 from django.core.management import call_command
 from core.models import SMSNotificationSettings
+from django.db import connection
+from django.db.utils import OperationalError
 
 # Setup logging
 logging.basicConfig(
@@ -89,11 +91,29 @@ class SMSScheduler:
             local_now = dj_tz.localtime(dj_tz.now())
         except Exception:
             pass
-        scheduled_hour, scheduled_minute = 8, 0
+        try:
+            # Prefer DB settings if available
+            st = (getattr(settings, 'pricing_time', None) or '08:00').strip()
+            scheduled_hour, scheduled_minute = [int(x) for x in st.split(':')]
+        except Exception:
+            try:
+                scheduled_hour = int(os.getenv('PRICING_HOUR', '8'))
+            except Exception:
+                scheduled_hour = 8
+            try:
+                scheduled_minute = int(os.getenv('PRICING_MINUTE', '0'))
+            except Exception:
+                scheduled_minute = 0
         current_time = local_now.time()
         is_after_scheduled = (current_time.hour * 60 + current_time.minute) >= (scheduled_hour * 60 + scheduled_minute)
-
-        is_eligible_day = (self.last_pricing_date is None) or ((today - self.last_pricing_date).days >= 3)
+        try:
+            frequency_days = int(getattr(settings, 'pricing_frequency_days', 3))
+        except Exception:
+            try:
+                frequency_days = int(os.getenv('PRICING_FREQUENCY_DAYS', '3'))
+            except Exception:
+                frequency_days = 3
+        is_eligible_day = (self.last_pricing_date is None) or ((today - self.last_pricing_date).days >= frequency_days)
         if is_eligible_day and is_after_scheduled:
             return True
         
@@ -103,8 +123,12 @@ class SMSScheduler:
         """Send daily sales summary"""
         try:
             logger.info("Sending daily sales summary...")
-            call_command('send_daily_sms')
-            self.last_sales_date = datetime.now().date()
+            call_command('send_daily_sms', '--now')
+            try:
+                from django.utils import timezone as dj_tz
+                self.last_sales_date = dj_tz.localtime(dj_tz.now()).date()
+            except Exception:
+                self.last_sales_date = datetime.now().date()
             logger.info("Daily sales summary sent successfully")
         except Exception as e:
             logger.error(f"Error sending daily sales summary: {e}")
@@ -132,7 +156,19 @@ class SMSScheduler:
         
         while True:
             try:
-                # Get current settings
+                # Ensure database is ready and table exists
+                try:
+                    tables = connection.introspection.table_names()
+                    if 'sms_notification_settings' not in tables:
+                        logger.warning('Scheduler: DB not ready (sms_notification_settings missing); retrying in 60s')
+                        time.sleep(60)
+                        continue
+                except OperationalError:
+                    logger.warning('Scheduler: database operational error; retrying in 60s')
+                    time.sleep(60)
+                    continue
+
+                # Get current settings (safe once table exists)
                 settings = SMSNotificationSettings.get_settings()
                 now = datetime.now()
                 

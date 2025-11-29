@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+from django.conf import settings
 
 
 class CoreConfig(AppConfig):
@@ -10,10 +11,10 @@ class CoreConfig(AppConfig):
         import os
         import threading
         try:
-            _enabled = os.getenv('ENABLE_INTERNAL_SCHEDULER', 'true').lower() == 'true'
+            _enabled = os.getenv('ENABLE_INTERNAL_SCHEDULER', 'false').lower() == 'true'
         except Exception:
-            _enabled = True
-        if _enabled:
+            _enabled = False
+        if _enabled and getattr(settings, 'DEBUG', True):
             try:
                 from sms_scheduler import SMSScheduler
                 def _run():
@@ -26,11 +27,3 @@ class CoreConfig(AppConfig):
                 t.start()
             except Exception:
                 pass
-        try:
-            from core.models import SMSNotificationSettings
-            s = SMSNotificationSettings.get_settings()
-            if (s.sales_time or '').strip() != '22:30':
-                s.sales_time = '22:30'
-                s.save()
-        except Exception:
-            pass

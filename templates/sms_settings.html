@@ -1619,15 +1619,7 @@
                         
                         <div class="setting-row">
                             <span class="setting-label">Send Time</span>
-                            <select class="form-select form-select-sm" id="sales_time" style="width: auto;" disabled data-fixed-value="{{ sms_settings.sales_time|default:'20:00' }}">
-                                <option value="20:00" {% if sms_settings.sales_time == '20:00' %}selected{% endif %}>8:00 PM</option>
-                                <option value="00:15" {% if sms_settings.sales_time == '00:15' %}selected{% endif %}>12:15 AM</option>
-                                <option value="21:00" {% if sms_settings.sales_time == '21:00' %}selected{% endif %}>9:00 PM</option>
-                                <option value="22:00" {% if sms_settings.sales_time == '22:00' %}selected{% endif %}>10:00 PM</option>
-                                <option value="23:00" {% if sms_settings.sales_time == '23:00' %}selected{% endif %}>11:00 PM</option>
-                                <option value="06:00" {% if sms_settings.sales_time == '06:00' %}selected{% endif %}>6:00 AM</option>
-                                <option value="07:00" {% if sms_settings.sales_time == '07:00' %}selected{% endif %}>7:00 AM</option>
-                            </select>
+                            <input type="time" class="form-control form-control-sm" id="sales_time" value="{{ sms_settings.sales_time|default:'20:00' }}" style="width: 140px;">
                         </div>
                         
                         <div class="setting-row">
@@ -1683,7 +1675,7 @@
                         <div class="setting-row">
                             <span class="setting-label">Threshold</span>
                             <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range" id="stock_threshold" min="1" max="50" value="{{ sms_settings.stock_threshold|default:10 }}" style="flex: 1;" disabled data-fixed-value="{{ sms_settings.stock_threshold|default:10 }}">
+                                <input type="range" class="form-range" id="stock_threshold" min="1" max="50" value="{{ sms_settings.stock_threshold|default:10 }}" style="flex: 1;">
                                 <span class="setting-value" id="thresholdValue">{{ sms_settings.stock_threshold|default:10 }}</span>
                             </div>
                         </div>
@@ -1740,7 +1732,7 @@
                         
                         <div class="setting-row">
                             <span class="setting-label">Sensitivity</span>
-                            <select class="form-select form-select-sm" id="pricing_sensitivity" style="width: auto;" disabled data-fixed-value="{{ sms_settings.pricing_sensitivity|default:'moderate' }}">
+                            <select class="form-select form-select-sm" id="pricing_sensitivity" style="width: auto;">
                                 <option value="conservative" {% if sms_settings.pricing_sensitivity == 'conservative' %}selected{% endif %}>Conservative</option>
                                 <option value="moderate" {% if sms_settings.pricing_sensitivity == 'moderate' or not sms_settings.pricing_sensitivity %}selected{% endif %}>Moderate</option>
                                 <option value="aggressive" {% if sms_settings.pricing_sensitivity == 'aggressive' %}selected{% endif %}>Aggressive</option>
@@ -1748,8 +1740,19 @@
                         </div>
                         
                         <div class="setting-row">
+                            <span class="setting-label">Send Time</span>
+                            <input type="time" class="form-control form-control-sm" id="pricing_time" value="{{ sms_settings.pricing_time|default:'08:00' }}" style="width: 140px;">
+                        </div>
+                        <div class="setting-row">
                             <span class="setting-label">Frequency</span>
-                            <span class="setting-value">Every 3 days</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" class="form-control form-control-sm" id="pricing_frequency_days" min="1" max="30" value="{{ sms_settings.pricing_frequency_days|default:3 }}" style="width: 100px;">
+                                <span class="setting-value">day(s)</span>
+                                <div class="form-check form-switch ms-3">
+                                    <input class="form-check-input" type="checkbox" id="pricing_daily" {% if sms_settings.pricing_frequency_days == 1 %}checked{% endif %}>
+                                    <label class="form-check-label" for="pricing_daily">Today</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -2112,19 +2115,15 @@
 
         // Save notification settings
         function saveNotificationSettings() {
-            // Get fixed values from database (these fields are disabled and cannot be changed)
-            // These values are stored in data attributes on the form elements
-            const fixedSalesTime = $('#sales_time').data('fixed-value') || '20:00';
-            const fixedStockThreshold = parseInt($('#stock_threshold').data('fixed-value') || '10');
-            const fixedPricingSensitivity = $('#pricing_sensitivity').data('fixed-value') || 'moderate';
-            
             const settings = {
-                sales_time: fixedSalesTime,  // Fixed value - cannot be changed
-                stock_threshold: fixedStockThreshold,  // Fixed value - cannot be changed
-                pricing_sensitivity: fixedPricingSensitivity,  // Fixed value - cannot be changed
-                sales_enabled: $('#sales_enabled').is(':checked') ? 'true' : 'false',  // Convert to string for POST
-                stock_enabled: $('#stock_enabled').is(':checked') ? 'true' : 'false',  // Convert to string for POST
-                pricing_enabled: $('#pricing_enabled').is(':checked') ? 'true' : 'false'  // Convert to string for POST
+                sales_time: $('#sales_time').val() || '20:00',
+                stock_threshold: parseInt($('#stock_threshold').val() || '10'),
+                pricing_sensitivity: $('#pricing_sensitivity').val() || 'moderate',
+                pricing_time: $('#pricing_time').val() || '08:00',
+                pricing_frequency_days: parseInt($('#pricing_frequency_days').val() || '3'),
+                sales_enabled: $('#sales_enabled').is(':checked') ? 'true' : 'false',
+                stock_enabled: $('#stock_enabled').is(':checked') ? 'true' : 'false',
+                pricing_enabled: $('#pricing_enabled').is(':checked') ? 'true' : 'false'
             };
             
             // Save to localStorage as backup
@@ -2203,6 +2202,26 @@
                 }
             });
         }
+
+        // Auto-save on changes to editable fields
+        $('#sales_time, #stock_threshold, #pricing_sensitivity, #pricing_time, #pricing_frequency_days').on('change input', function(){
+            if (this.id === 'stock_threshold') {
+                $('#thresholdValue').text(this.value);
+            }
+            try { saveNotificationSettings(); } catch (_) {}
+        });
+
+        // Toggle "Today" frequency (sets frequency_days=1 and locks the field)
+        $('#pricing_daily').on('change', function(){
+            const checked = $(this).is(':checked');
+            const $freq = $('#pricing_frequency_days');
+            if (checked) {
+                $freq.val('1').prop('disabled', true);
+            } else {
+                $freq.prop('disabled', false);
+            }
+            try { saveNotificationSettings(); } catch (_) {}
+        });
 
         // Load notification statistics
         function loadNotificationStats() {

@@ -165,6 +165,8 @@ class SMSNotificationSettings(models.Model):
 		('moderate', 'Moderate'),
 		('aggressive', 'Aggressive'),
 	])
+	pricing_time = models.CharField(max_length=5, default='08:00')
+	pricing_frequency_days = models.IntegerField(default=3)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -188,6 +190,8 @@ class SMSNotificationSettings(models.Model):
 				'stock_threshold': 10,
 				'pricing_enabled': True,
 				'pricing_sensitivity': 'moderate',
+				'pricing_time': '08:00',
+				'pricing_frequency_days': 3,
 			}
 		)
 		return settings

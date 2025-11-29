@@ -3004,7 +3004,7 @@
                             </ul>
                         </div>
                         <!-- Error Banner -->
-                        <div id="reportErrorBanner" class="alert alert-danger report-error-banner" role="alert">
+                        <div id="reportErrorBanner" class="alert alert-danger report-error-banner" role="alert" style="display:none;">
                             <div>
                                 <strong>Unable to load reports.</strong>
                                 <span id="reportErrorMsg">Please try again.</span>
@@ -3406,6 +3406,9 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="position-fixed top-0 end-0 p-3" style="z-index:1200;">
+        <div id="reportToastContainer" class="toast-container"></div>
+    </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
     <script>
@@ -3552,72 +3555,39 @@
                 populateAcceptedPricingTable(response.data.accepted_pricing || []);
 
             } catch (error) {
-                console.error('Error loading reports:', error);
                 const msg = (error && error.responseJSON && error.responseJSON.message) || (error && error.statusText) || 'Failed to load reports.';
                 const details = [];
                 if (error && typeof error.status !== 'undefined') details.push(`Status: ${error.status}`);
                 if (error && error.responseText) {
-                    try {
-                        const rt = String(error.responseText).slice(0, 300);
-                        details.push(rt);
-                    } catch (e) {}
+                    try { details.push(String(error.responseText).slice(0, 200)); } catch (e) {}
                 }
-                const banner = document.getElementById('reportErrorBanner');
-                const mEl = document.getElementById('reportErrorMsg');
-                const dEl = document.getElementById('reportErrorDetails');
-                const retryBtn = document.getElementById('reportErrorRetry');
-                if (banner && mEl && dEl) {
-                    mEl.textContent = msg;
-                    dEl.textContent = details.join(' · ');
-                    banner.classList.add('active');
-                    if (retryBtn) {
-                        retryBtn.disabled = false;
-                        retryBtn.onclick = () => {
-                            retryBtn.disabled = true;
-                            banner.classList.remove('active');
-                            try { clearTimeout(window._reportErrorTimer); } catch (e) {}
-                            setTimeout(() => { try { retryBtn.disabled = false; } catch (e) {} }, 1200);
-                            loadReports();
-                        };
-                    }
-                    try { clearTimeout(window._reportErrorTimer); } catch (e) {}
-                    window._reportErrorTimer = setTimeout(() => {
-                        try {
-                            banner.classList.remove('active');
-                        } catch (e) {}
-                    }, 4000);
-                }
+                showNotification(msg, 'danger', details.join(' · '));
             } finally {
                 $('#generateReport').prop('disabled', false).html('<i class="bi bi-bar-chart"></i> Generate Report');
             }
         }
 
         function clearReportErrorBanner() {
-            const banner = document.getElementById('reportErrorBanner');
-            const mEl = document.getElementById('reportErrorMsg');
-            const dEl = document.getElementById('reportErrorDetails');
-            if (banner) banner.classList.remove('active');
-            if (mEl) mEl.textContent = '';
-            if (dEl) dEl.textContent = '';
             try { clearTimeout(window._reportErrorTimer); } catch (e) {}
         }
 
         function showReportErrorBanner(message, details) {
-            const banner = document.getElementById('reportErrorBanner');
-            const mEl = document.getElementById('reportErrorMsg');
-            const dEl = document.getElementById('reportErrorDetails');
-            const retryBtn = document.getElementById('reportErrorRetry');
-            if (!banner || !mEl || !dEl) return;
-            mEl.textContent = message || 'An error occurred.';
-            dEl.textContent = details || '';
-            banner.classList.add('active');
-            if (retryBtn) {
-                retryBtn.disabled = false;
-            }
-            try { clearTimeout(window._reportErrorTimer); } catch (e) {}
-            window._reportErrorTimer = setTimeout(() => {
-                try { banner.classList.remove('active'); } catch (e) {}
-            }, 4000);
+            showNotification(message || 'An error occurred.', 'danger', details || '');
+        }
+
+        function showNotification(message, type='danger', details='') {
+            const container = document.getElementById('reportToastContainer');
+            if (!container) { alert(message); return; }
+            const bg = type === 'success' ? 'bg-success' : type === 'warning' ? 'bg-warning' : 'bg-danger';
+            const text = type === 'warning' ? 'text-dark' : 'text-white';
+            const el = document.createElement('div');
+            el.className = `toast align-items-center ${bg} ${text}`;
+            el.setAttribute('role','alert');
+            el.setAttribute('aria-live','assertive');
+            el.setAttribute('aria-atomic','true');
+            el.innerHTML = `<div class="d-flex"><div class="toast-body">${message}${details?`<br><small class='opacity-75'>${details}</small>`:''}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+            container.appendChild(el);
+            try { new bootstrap.Toast(el, {delay: 4000}).show(); } catch(e) { }
         }
 
         // Pagination helpers for reports tables
@@ -4448,10 +4418,7 @@
                 };
                 
             } catch (error) {
-                console.error('Print error:', error);
-                showReportErrorBanner('Failed to generate print report. Please try again.', String(error && error.message || ''));
-                
-                // Restore button on error
+                showNotification('Failed to generate print report. Please try again.', 'danger', String(error && error.message || ''));
                 const printBtn = $('#printReportBtn');
                 printBtn.prop('disabled', false).html('<i class="bi bi-printer"></i> Print Report');
             }

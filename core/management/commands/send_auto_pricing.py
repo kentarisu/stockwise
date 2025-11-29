@@ -100,11 +100,11 @@ class Command(BaseCommand):
                     from core.models import PricingRecommendation
                     from decimal import Decimal
                     from datetime import timedelta
-                    # Replace existing for affected products
-                    affected_ids = proposals['product_id'].tolist()
+                    unique_proposals = proposals.drop_duplicates(subset=['product_id'], keep='last')
+                    affected_ids = unique_proposals['product_id'].tolist()
                     PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
                     expires_at = timezone.now() + timezone.timedelta(days=3)
-                    for _, rec in proposals.iterrows():
+                    for _, rec in unique_proposals.iterrows():
                         try:
                             product = Product.objects.get(product_id=rec['product_id'])
                         except Exception:

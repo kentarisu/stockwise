@@ -1959,7 +1959,7 @@
             </div>
             <div class="header-right">
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='https://via.placeholder.com/40'">
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                         <li><hr class="dropdown-divider"></li>

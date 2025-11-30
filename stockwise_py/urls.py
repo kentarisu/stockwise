@@ -31,6 +31,8 @@ urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 # Extra fallback for media serving to prevent 404s in non-debug environments
 urlpatterns += [
     re_path(r'^media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^Media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^MEDIA/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

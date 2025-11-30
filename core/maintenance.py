@@ -160,7 +160,13 @@ class AuditMiddleware:
                     'body': _redact(body),
                     'referer': request.META.get('HTTP_REFERER', ''),
                 }
-                should_log = not path.startswith('/static/') and method not in ('GET', 'HEAD', 'OPTIONS')
+                p = (path or '').lower()
+                should_log = (
+                    not p.startswith('/static/') and
+                    not p.startswith('/media/') and
+                    not p.startswith('/uploads/') and
+                    method not in ('GET', 'HEAD', 'OPTIONS')
+                )
                 if should_log:
                     from core.views import log_action
                     log_action(request, action, json.dumps(details_obj))
@@ -169,10 +175,16 @@ class AuditMiddleware:
 
     def process_exception(self, request, exception):
         try:
+            from django.http import Http404
             path = request.path or ''
-            if path.startswith('/static/'):
+            p = (path or '').lower()
+            if p.startswith('/static/') or p.startswith('/media/') or p.startswith('/uploads/'):
                 return None
             method = (request.method or '').upper()
+            if method in ('GET', 'HEAD', 'OPTIONS'):
+                return None
+            if isinstance(exception, Http404):
+                return None
             action = f"{method} {path} (exception)"
             details_obj = {
                 'error': str(exception),

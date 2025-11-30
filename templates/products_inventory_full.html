@@ -2257,58 +2257,9 @@
                     </div>
                 </div>
 
-                <!-- Description & Legend Section -->
+                <!-- Legend: Keep only Stock Level Indicators -->
                 <div class="report-description mt-4" style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
-                    <h6 style="color: #4f46e5; font-weight: 600; margin-bottom: 1rem;">Understanding Your Inventory</h6>
-                    <p style="margin-bottom: 1rem; color: #4b5563;">This page displays all your products and their current stock levels. Use the tabs to view all products, items running low on stock, or items that are out of stock.</p>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
-                        <div>
-                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📋 Column Definitions</h6>
-                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
-                                <li><strong>Image:</strong> Product photo for visual identification. Click on any image to view it in full size.</li>
-                                <li><strong>Product ID:</strong> Unique identifier assigned to each product in your system.</li>
-                                <li><strong>Product:</strong> The name of the product (e.g., Apple, Mango, Orange).</li>
-                                <li><strong>Variant:</strong> Specific variety or type of the product (e.g., Fuji, Granny Smith, Red Delicious).</li>
-                                <li><strong>Quantity:</strong> Size specification or unit measurement (e.g., "125-138" for count per box, "kilo" for weight).</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">💡 Understanding Columns (cont.)</h6>
-                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
-                                <li><strong>Price:</strong> Current selling price per box for this product.</li>
-                                <li><strong>Stock:</strong> Total number of boxes currently available in inventory.</li>
-                                <li><strong>Status:</strong> 
-                                    <span class="badge bg-success" style="font-size: 0.75rem;">Available</span> = In stock and ready to sell, 
-                                    <span class="badge bg-danger" style="font-size: 0.75rem;">Discontinued</span> = No longer stocked
-                                </li>
-                                <li><strong>Options:</strong> Actions you can take - View details, Edit product info, Add stock, Change price, or Discontinue product.</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📊 Inventory Tabs Explained</h6>
-                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
-                            <li><strong>All Products:</strong> Complete list of every product in your inventory, regardless of stock level. Use this to get an overview of your entire catalog.</li>
-                            <li><strong>Low Stock:</strong> Products that are running low and need to be reordered soon. These items are close to their minimum stock threshold and require attention to avoid stockouts.</li>
-                            <li><strong>Out of Stock:</strong> Products with zero inventory. These items cannot be sold until new stock is added. Prioritize restocking these items to avoid missing sales opportunities.</li>
-                        </ul>
-                    </div>
-
-                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">🔍 Quick Tips</h6>
-                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                            <li><strong>Search Products:</strong> Use the search box to quickly find products by name, variant, or ID.</li>
-                            <li><strong>Filter by Type:</strong> Use the "Product Type" dropdown to view only specific product categories.</li>
-                            <li><strong>Add New Product:</strong> Click the "+ New Product" button to register a new item in your inventory.</li>
-                            <li><strong>Bulk Actions:</strong> Use the "Manage Prices" and "Manage Stock" buttons to update multiple products at once.</li>
-                            <li><strong>Stock Alerts:</strong> Keep an eye on the "Low Stock" tab to know when to reorder products.</li>
-                            <li><strong>Product Details:</strong> Click the eye icon (👁️) in the Options menu to view complete product information including sales history.</li>
-                        </ul>
-                    </div>
-
-                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                    <div>
                         <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">⚠️ Stock Level Indicators</h6>
                         <div style="font-size: 0.85rem; color: #4b5563;">
                             <p style="margin-bottom: 0.5rem;"><strong>Stock Status Colors:</strong></p>
@@ -2318,6 +2269,7 @@
                                 <li><strong style="color: #ef4444;">Red (Critical/Out):</strong> Stock is critically low or depleted. Reorder immediately to maintain sales.</li>
                             </ul>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>

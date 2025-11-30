@@ -260,6 +260,10 @@
             margin-top: 0.25rem;
             font-weight: 500;
         }
+
+        .stock-indicator-green { color: #10b981; }
+        .stock-indicator-yellow { color: #f59e0b; }
+        .stock-indicator-red { color: #ef4444; }
         
         .batches-to-sell {
             background: #f9fafb;
@@ -1182,14 +1186,14 @@ $(document).ready(function(){
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   loadActiveProducts();
   showStep(1);
-  $(document).on('change','.product-select',function(){
-    const $this=$(this);
-    const pid=$this.val();
-    const $row=$this.closest('.item-row');
-    const $qty=$row.find('.quantity-input');
-    const $qtyLabel=$row.find('.quantity-label');
-    const $info=$row.find('.stock-info');
-    const $variantBtn=$row.find('.add-variant-row-btn');
+    $(document).on('change','.product-select',function(){
+        const $this=$(this);
+        const pid=$this.val();
+        const $row=$this.closest('.item-row');
+        const $qty=$row.find('.quantity-input');
+        const $qtyLabel=$row.find('.quantity-label');
+        const $info=$row.find('.stock-info');
+        const $variantBtn=$row.find('.add-variant-row-btn');
     if(pid){
       let duplicate=false; $('.product-select').not($this).each(function(){ if($(this).val()==pid){ duplicate=true; }});
       if(duplicate){
@@ -1226,7 +1230,12 @@ $(document).ready(function(){
         $this.data('name',p.name);
         $this.data('variant',p.variant);
         $this.data('quantity_unit',p.quantity_unit);
-        $info.text(`Stock: ${p.stock||0} boxes`);
+        const st = p.stock||0;
+        $info.text(`Stock: ${st} boxes`);
+        $info.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red');
+        if(st<=0){ $info.addClass('stock-indicator-red'); }
+        else if(st<=10){ $info.addClass('stock-indicator-yellow'); }
+        else { $info.addClass('stock-indicator-green'); }
         $qty.attr('max',p.stock||999);
         const unit=(p.quantity_unit||'').toLowerCase();
         if(unit.includes('kilo')||unit==='kg'){ $qtyLabel.text('Kilo'); } else { $qtyLabel.text('Boxes'); }
@@ -1234,9 +1243,9 @@ $(document).ready(function(){
       }
     } else {
       $info.text('');
+      $info.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted');
       $qty.removeAttr('max');
       $qtyLabel.text('Boxes');
-      // Button visibility managed globally
     }
     updateTotal();
     updateBatchesToSell($row);
@@ -1265,8 +1274,8 @@ $(document).ready(function(){
     if(!base){ return; }
     const newRow=`<div class=\"item-row\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-6 col-lg-5\"><label class=\"form-label\">Product</label><div style=\"position: relative;\"><select class=\"form-select product-select\" required data-base-filter=\"${base}\"><option value=\"\">Select a product</option></select></div><div class=\"stock-info text-muted\"></div></div><div class=\"col-md-5 col-lg-4\"><label class=\"form-label quantity-label\">Boxes</label><input type=\"number\" class=\"form-control quantity-input stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-1 col-lg-3 d-flex align-items-end justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-sm remove-item\"><i class=\"bi bi-trash\"></i></button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batches to Sell (FIFO)</label><div class=\"batches-to-sell\"><span class=\"batches-display text-muted\">Select product and enter quantity to see which batches will be sold</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-variant-row-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`;
     $('#itemsContainer').append(newRow);
-    // Remove the variant button from the original row
-    $row.find('.add-variant-row-btn').remove();
+    // Hide the variant button in the original row (keeps it for future re-show)
+    $row.find('.add-variant-row-btn').hide();
     $('.remove-item').show();
     updateProductSelects();
     updateVariantButtons();

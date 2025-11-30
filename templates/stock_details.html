@@ -1054,7 +1054,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Decrease by</label>
-                        <input type="number" class="form-control" id="decreaseAmount" min="1" step="1">
+                        <input type="number" class="form-control" id="decreaseAmount" step="1" placeholder="Enter amount to decrease">
                         <div class="form-text" id="decreaseHelper"></div>
                     </div>
                     <div class="mb-2" id="removalPreview"></div>
@@ -1079,7 +1079,7 @@
             currentBatchAdded = parseInt(added||0);
             currentBatchIds = Array.isArray(batchList) ? batchList.slice() : [];
             const input = document.getElementById('decreaseAmount');
-            input.value = 1;
+            input.value = '';
             input.max = currentBatchAvailable;
             document.getElementById('modalBatchAdded').textContent = currentBatchAdded;
             document.getElementById('modalBatchAvailable').textContent = currentBatchAvailable;
@@ -1091,21 +1091,28 @@
             helper.textContent = `Available: ${currentBatchAvailable} ${stockWord}.`;
             const alertBox = document.getElementById('decreaseAlert');
             alertBox.innerHTML = '';
-            renderRemovalPreview(parseInt(input.value||'1'));
+            renderRemovalPreview(0);
             if (!decreaseModal){
                 decreaseModal = new bootstrap.Modal(document.getElementById('decreaseStockModal'));
             }
             decreaseModal.show();
         }
         function renderRemovalPreview(amount){
-            const amt = Math.max(1, Math.min(parseInt(amount||'1'), currentBatchAvailable||0));
+            const raw = parseInt(amount||'0');
+            if (isNaN(raw) || raw < 1) {
+                document.getElementById('removalPreview').innerHTML = '';
+                return;
+            }
+            const amt = Math.min(raw, currentBatchAvailable||0);
             const ids = currentBatchIds.slice(0, amt);
             const html = ids.length ? `<div class="small text-muted mb-1">Will remove ${ids.length} box(es):</div>` + ids.map(id=>`<span class="batch-id-badge" style="background:#fde68a;border-color:#f59e0b;color:#a16207;">${id}</span>`).join('') : '';
             document.getElementById('removalPreview').innerHTML = html;
         }
         document.getElementById('decreaseAmount').addEventListener('input', function(){
-            let v = parseInt(this.value || '0');
-            if (isNaN(v) || v < 1) v = 1;
+            const str = (this.value || '').trim();
+            if (!str) { renderRemovalPreview(0); return; }
+            let v = parseInt(str);
+            if (isNaN(v) || v < 1) { renderRemovalPreview(0); return; }
             const maxV = parseInt(this.max || currentBatchAvailable || 1);
             if (v > maxV) v = maxV;
             this.value = v;

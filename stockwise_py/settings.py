@@ -238,7 +238,17 @@ FRUIT_MASTER_PATH = str(FRUIT_MASTER_DIR / 'fruit_master_full.csv')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
+# Disable request audit logs from middleware by default
+AUDIT_MIDDLEWARE_ENABLED = False
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Session security: expire login sessions after 1 day
+SESSION_COOKIE_AGE = 60 * 60 * 24
+
+# Hosting maintenance mode toggle
+# Set environment variable MAINTENANCE_MODE=true to enable via env
+MAINTENANCE_MODE = True
 
 # iProg SMS API credentials – configured via env vars
 # Get your API token from: https://sms.iprogtech.com/

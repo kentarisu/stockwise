@@ -2065,7 +2065,7 @@
 
         .analytics-panels {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1rem;
             width: 100%;
             align-items: start;
@@ -2073,7 +2073,7 @@
 
         @media (max-width: 1200px) {
             .analytics-panels {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             }
         }
 
@@ -2092,9 +2092,8 @@
             display: flex;
             flex-direction: column;
             min-height: 200px;
-            max-height: 400px;
-            overflow: hidden;
             width: 100%;
+            min-width: 0;
         }
 
         .analytics-card h5 {
@@ -2117,7 +2116,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            max-height: 100%;
+            max-height: 340px;
         }
 
         .mini-table table {

@@ -139,9 +139,9 @@ class Command(BaseCommand):
                     )
                 )
         
+        from core.views import log_system_action
+        date_str = target_date.strftime('%B %d, %Y')
         if recipients:
-            from core.views import log_system_action
-            date_str = target_date.strftime('%B %d, %Y')
             details = (
                 f'Date: {date_str}\n'
                 f'Revenue: ₱{total_revenue:,.2f}\n'
@@ -153,6 +153,19 @@ class Command(BaseCommand):
                 details += f'\nMessage Codes: {", ".join(message_codes)}'
             log_system_action(
                 action='Automatic SMS: Daily Sales Summary',
+                details=details
+            )
+        else:
+            status = 'No recipients or already sent today'
+            details = (
+                f'Date: {date_str}\n'
+                f'Revenue: ₱{total_revenue:,.2f}\n'
+                f'Transactions: {total_sales}\n'
+                f'Boxes Sold: {total_boxes}\n'
+                f'Status: {status}'
+            )
+            log_system_action(
+                action='Automatic SMS: Daily Sales Summary (Skipped)',
                 details=details
             )
         

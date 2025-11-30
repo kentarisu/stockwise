@@ -165,8 +165,8 @@ class Command(BaseCommand):
                         logger.error(f"Failed to send to {admin.username}: {result['message']}")
                 
                 # Log to audit trail
+                from core.views import log_system_action
                 if recipients:
-                    from core.views import log_system_action
                     if actionable.empty:
                         details = 'Status: No changes recommended - all products optimally priced'
                     else:
@@ -175,9 +175,19 @@ class Command(BaseCommand):
                             action_symbol = "↑" if r.action == 'INCREASE' else "↓"
                             details += f'{idx}. {r.product.name}: ₱{float(r.current_price):.0f} → ₱{float(r.suggested_price):.0f} ({action_symbol}{abs(float(r.change_pct)):.0f}%)\n'
                     details += f'Recipients: {", ".join(recipients)}'
-                    
                     log_system_action(
                         action='Automatic SMS: Pricing Recommendations',
+                        details=details
+                    )
+                else:
+                    status = 'No recipients or feature disabled'
+                    if actionable.empty:
+                        details = 'Status: No changes recommended - all products optimally priced\n'
+                    else:
+                        details = f'Recommendations: {len(actionable)} products\n'
+                    details += f'Status: {status}'
+                    log_system_action(
+                        action='Automatic SMS: Pricing Recommendations (Skipped)',
                         details=details
                     )
                 

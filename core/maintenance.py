@@ -123,6 +123,8 @@ class AuditMiddleware:
             return response
         finally:
             try:
+                if not getattr(settings, 'AUDIT_MIDDLEWARE_ENABLED', False):
+                    pass
                 path = request.path or ''
                 method = (request.method or '').upper()
                 role = (request.session.get('app_role') or '').strip()
@@ -168,6 +170,7 @@ class AuditMiddleware:
                     '/api/sms/',
                 )
                 should_log = (
+                    getattr(settings, 'AUDIT_MIDDLEWARE_ENABLED', False) and
                     not p.startswith('/static/') and
                     not p.startswith('/media/') and
                     not p.startswith('/uploads/') and
@@ -182,6 +185,8 @@ class AuditMiddleware:
 
     def process_exception(self, request, exception):
         try:
+            if not getattr(settings, 'AUDIT_MIDDLEWARE_ENABLED', False):
+                return None
             from django.http import Http404
             path = request.path or ''
             p = (path or '').lower()

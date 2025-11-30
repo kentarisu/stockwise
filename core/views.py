@@ -224,7 +224,7 @@ def _send_two_factor_email(user: AppUser, code: str):
     )
     email.attach_alternative(html_body, 'text/html')
     email.send(fail_silently=False)
-
+    
 
 def _store_two_factor_session(request, user: AppUser, code: str):
     expires = timezone.now() + timezone.timedelta(minutes=settings.TWO_FACTOR_CODE_EXPIRY_MINUTES)
@@ -232,6 +232,37 @@ def _store_two_factor_session(request, user: AppUser, code: str):
     request.session['pending_2fa_code'] = code
     request.session['pending_2fa_expiry'] = expires.timestamp()
     request.session['pending_2fa_attempts'] = 0
+
+def _is_network_error(exc) -> bool:
+    try:
+        import smtplib
+        import socket
+    except Exception:
+        smtplib = None
+        socket = None
+    text = str(exc).lower()
+    signals = [
+        'temporary failure in name resolution',
+        'name or service not known',
+        'getaddrinfo failed',
+        'network is unreachable',
+        'connection refused',
+        'timed out',
+        'failed to establish a new connection'
+    ]
+    if any(s in text for s in signals):
+        return True
+    try:
+        if smtplib and isinstance(exc, smtplib.SMTPException):
+            return True
+    except Exception:
+        pass
+    try:
+        if isinstance(exc, (ConnectionError, OSError)) and ('network' in text or 'connection' in text):
+            return True
+    except Exception:
+        pass
+    return False
 
 
 def _clear_two_factor_session(request):
@@ -307,25 +338,57 @@ def format_log_details(details: str) -> str:
     except Exception:
         obj = None
     lines = []
+
+    def _friendly_label(key: str) -> str:
+        k = (key or '').strip().lower()
+        mapping = {
+            'statuscode': 'Status',
+            'status': 'Status',
+            'durations': 'Duration (ms)',
+            'duration': 'Duration (ms)',
+            'referer': 'Page',
+            'referrer': 'Page',
+            'path': 'Page',
+            'body': 'Input',
+            'query': 'Request',
+            'useragent': 'Device',
+            'ip': 'IP',
+            'ip_address': 'IP',
+            'method': 'Method',
+        }
+        return mapping.get(k, sanitize_text(key, 60))
+
+    def _normalize_value(key: str, value: str) -> str:
+        val_raw = str(value).strip()
+        if '@' in val_raw:
+            val_raw = _mask_email(val_raw)
+        # Simplify full URLs to path only
+        import re as _re
+        if key.lower() in ('referer', 'referrer', 'path', 'page'):
+            val_raw = _re.sub(r'^https?://[^/]+', '', val_raw, flags=_re.IGNORECASE)
+        val = sanitize_text(val_raw, 200)
+        # Append units for duration
+        if _friendly_label(key) == 'Duration (ms)':
+            try:
+                if val.isdigit():
+                    val = f"{val} ms"
+            except Exception:
+                pass
+        return val
+
     if isinstance(obj, dict):
         for k, v in obj.items():
-            key = sanitize_text(str(k), 60)
-            val_raw = str(v).strip()
-            if '@' in val_raw:
-                val_raw = _mask_email(val_raw)
-            val = sanitize_text(val_raw, 200)
-            lines.append(f"{key}: {val}")
+            label = _friendly_label(str(k))
+            val = _normalize_value(str(k), v)
+            lines.append(f"{label}: {val}")
     elif isinstance(obj, list):
         for it in obj:
             if isinstance(it, dict):
                 parts = []
                 for k, v in it.items():
-                    key = sanitize_text(str(k), 60)
-                    val_raw = str(v).strip()
-                    if '@' in val_raw:
-                        val_raw = _mask_email(val_raw)
-                    val = sanitize_text(val_raw, 200)
-                    parts.append(f"{key}={val}")
+                    label = _friendly_label(str(k))
+                    val = _normalize_value(str(k), v)
+                    parts.append(f"{label}={val}")
                 lines.append(", ".join(parts))
             else:
                 val_raw = str(it).strip()
@@ -340,7 +403,14 @@ def format_log_details(details: str) -> str:
         text = _re.sub(r'([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})', _mask_email_in_text, text)
         parts = [p.strip() for p in _re.split(r'[;\n]+', text) if p.strip()]
         for p in parts:
-            lines.append(sanitize_text(p, 200))
+            # If looks like key:value, map the key
+            if ':' in p:
+                key, val = p.split(':', 1)
+                label = _friendly_label(key)
+                norm = _normalize_value(key, val)
+                lines.append(f"{label}: {norm}")
+            else:
+                lines.append(sanitize_text(p, 200))
     result = "\n".join(lines)
     if len(result) > 2000:
         result = result[:2000]
@@ -442,7 +512,12 @@ def forgot_password(request):
                         messages.success(request, f'Recovery code sent to {masked}.')
                         return redirect('password_reset_verify')
                     except Exception as exc:
-                        if settings.DEBUG:
+                        if _is_network_error(exc):
+                            msg = 'Unable to send recovery code: No internet connection. Please check your network and try again.'
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return JsonResponse({'ok': False, 'error': msg}, status=503)
+                            messages.error(request, msg)
+                        elif settings.DEBUG:
                             masked = _mask_email(user.email or '')
                             request.session['pending_reset_email'] = user.email
                             request.session['pending_reset_sent_at'] = timezone.now().timestamp()
@@ -450,11 +525,12 @@ def forgot_password(request):
                             request.session['reset_attempts'] = 0
                             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                                 return JsonResponse({'ok': True, 'email': user.email, 'masked': masked, 'expires_in': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES * 60, 'dev_code': code})
-                            messages.info(request, 'Development mode: email not configured.')
+                            messages.info(request, 'Development mode: email not sent.')
                             return redirect('password_reset_verify')
-                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                            return JsonResponse({'ok': False, 'error': f'Unable to send recovery code: {exc}'}, status=500)
-                        messages.error(request, f'Unable to send recovery code: {exc}')
+                        else:
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                                return JsonResponse({'ok': False, 'error': f'Unable to send recovery code: {exc}'}, status=500)
+                            messages.error(request, f'Unable to send recovery code: {exc}')
             except ValidationError:
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'ok': False, 'error': 'Please enter a valid email address.'}, status=400)
@@ -677,13 +753,8 @@ def login_view(request):
                     pass
                 _persist_user_session(request, user)
                 try:
-                    remember = request.POST.get('remember_me') in ['on', 'true', '1']
-                    if remember:
-                        # Persistent session: 30 days
-                        request.session.set_expiry(60*60*24*30)
-                    else:
-                        # Session expires on browser close
-                        request.session.set_expiry(0)
+                    # Always expire login sessions after 1 day for security
+                    request.session.set_expiry(60*60*24)
                 except Exception:
                     pass
                 log_action(request, 'Login success', f'User logged in with username/password ({user.username})', user=user)
@@ -691,7 +762,12 @@ def login_view(request):
                 if qr_redirect_url:
                     return redirect(qr_redirect_url)
                 
-                return redirect('dashboard')
+                resp = redirect('dashboard')
+                try:
+                    resp.set_cookie('was_logged_in', '1', max_age=60*60*24, samesite='Lax')
+                except Exception:
+                    pass
+                return resp
             else:
                 messages.error(request, 'Password is incorrect.')
             return render(request, 'login_modern.html')
@@ -768,11 +844,29 @@ def two_factor_verify(request):
                     )
                     next_url = request.session.pop('google_oauth_next', None)
                     if next_url:
-                        return redirect(next_url)
+                        resp = redirect(next_url)
+                        try:
+                            request.session.set_expiry(60*60*24)
+                            resp.set_cookie('was_logged_in', '1', max_age=60*60*24, samesite='Lax')
+                        except Exception:
+                            pass
+                        return resp
                     qr_redirect_url = request.session.pop('qr_redirect_url', None)
                     if qr_redirect_url:
-                        return redirect(qr_redirect_url)
-                    return redirect('dashboard')
+                        resp = redirect(qr_redirect_url)
+                        try:
+                            request.session.set_expiry(60*60*24)
+                            resp.set_cookie('was_logged_in', '1', max_age=60*60*24, samesite='Lax')
+                        except Exception:
+                            pass
+                        return resp
+                    resp = redirect('dashboard')
+                    try:
+                        request.session.set_expiry(60*60*24)
+                        resp.set_cookie('was_logged_in', '1', max_age=60*60*24, samesite='Lax')
+                    except Exception:
+                        pass
+                    return resp
 
     return render(request, 'login_two_factor.html', {
         'masked_email': _mask_email(user.email or ''),
@@ -942,8 +1036,13 @@ def logout_view(request):
     # Clear all session data
     request.session.flush()
     
-    # Redirect to login page
-    return redirect('login')
+    # Redirect to login page and clear helper cookie
+    resp = redirect('login')
+    try:
+        resp.delete_cookie('was_logged_in')
+    except Exception:
+        pass
+    return resp
 
 
 from functools import wraps
@@ -961,6 +1060,11 @@ def require_app_login(view_func):
         if not (request.session.get('app_user_id') or request.session.get('user_id')):
             # Save the current URL (with query parameters) to redirect back after login
             request.session['qr_redirect_url'] = request.get_full_path()
+            try:
+                if request.COOKIES.get('was_logged_in') == '1':
+                    messages.info(request, 'Login session expired. Please log in again.')
+            except Exception:
+                pass
             return redirect('login')
         
         # Normalize into 'app_user_id' so downstream code works
@@ -1459,7 +1563,7 @@ def product_add(request):
             cost = Decimal(cost_str)
         except Exception:
             cost = Decimal('0')
-        supplier = request.POST.get('supplier', '').strip()
+        supplier = sanitize_text(request.POST.get('supplier', '').strip(), 60)
 
         # Enhanced validation
         if not name:
@@ -1514,7 +1618,7 @@ def product_add(request):
                 date_added=date_added,
                 price=price,
                 cost=cost,
-                supplier=supplier,
+                supplier=(supplier or '') or None,
                 image=image_url or '',
                 is_built_in=False,
             )
@@ -1639,19 +1743,27 @@ def product_edit(request, product_id):
         data = json.loads(request.body)
         with transaction.atomic():
             product = Product.objects.get(product_id=product_id)
-            product.name = data['name']
-            product.quantity_unit = data.get('quantity_unit', '')
-            product.status = data.get('status', 'active')
+            product.name = sanitize_text(data.get('name', ''), 120)
+            unit_val = sanitize_text(data.get('quantity_unit', ''), 20).lower()
+            product.quantity_unit = unit_val
+            status_val = (data.get('status', 'active') or 'active').strip().lower()
+            if status_val not in ['active', 'disabled', 'inactive', 'voided']:
+                status_val = 'active'
+            product.status = status_val
             role = request.session.get('app_role')
             if role == 'secretary':
                 pass
             else:
-                product.price = data['price']
-                product.cost = data.get('cost', 0)
+                product.price = clamp_decimal(str(data.get('price', '0')), '0', '0.01')
+                product.cost = clamp_decimal(str(data.get('cost', '0')), '0', '0.01')
             product.save()
 
             if 'stock' in data:
-                product.stock = data['stock']
+                try:
+                    stock_val = int(data.get('stock', 0))
+                except Exception:
+                    stock_val = 0
+                product.stock = max(0, stock_val)
                 product.save()
 
         log_action(
@@ -1760,8 +1872,8 @@ def add_stock(request):
                     # Expiry/manufacturing dates were removed from schema in migration 0036.
                     # Ignore any provided values to maintain compatibility.
                     
-                    # Convert empty string to None for supplier
-                    supplier_to_save = supplier.strip() if supplier and supplier.strip() else None
+                    # Convert empty string to None and sanitize supplier
+                    supplier_to_save = sanitize_text(supplier, 60) if supplier and supplier.strip() else None
                     
                     StockAddition.objects.create(
                         product=product,
@@ -1786,7 +1898,7 @@ def add_stock(request):
                     
                     # Update product supplier if provided
                     if supplier:
-                        product.supplier = supplier
+                        product.supplier = sanitize_text(supplier, 60)
                         product.save()
                     
                     added_items.append({
@@ -1860,7 +1972,7 @@ def stock_qr_apply(request):
                 product_id = item.get('product_id')
                 quantity = item.get('quantity')
                 supplier_raw = item.get('supplier', '')
-                supplier = supplier_raw.strip() if supplier_raw and supplier_raw.strip() else None
+                supplier = sanitize_text(supplier_raw, 60) if supplier_raw and supplier_raw.strip() else None
                 if not product_id or not quantity:
                     continue
                 try:
@@ -3820,7 +3932,17 @@ def export_report(request):
     elems.append(Paragraph(title_text, title_style))
     
     # Report metadata - compact formatting
-    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
+    if start_date and end_date:
+        try:
+            s_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            e_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            period_text = f"{s_dt.strftime('%B %d, %Y')} - {e_dt.strftime('%B %d, %Y')}"
+        except Exception:
+            period_text = f"{start_date} to {end_date}"
+    elif current_start and current_end:
+        period_text = f"{timezone.localtime(current_start).strftime('%B %d, %Y')} - {timezone.localtime(current_end).strftime('%B %d, %Y')}"
+    else:
+        period_text = filter_type.replace('_', ' ').title()
     generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
     
     # Add filter info if applied
@@ -4372,22 +4494,19 @@ def export_report(request):
         Paragraph('Total', table_header_style)
     ]]
     for tx in tx_data:
-        # Format products list better
-        products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
-        if len(products_str) > 40:
-            products_str = products_str[:37] + '...'
+        products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
         
         rows.append([
             Paragraph(str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A', cell_small_style),
             Paragraph(tx['recorded_at'][:10], cell_small_style),
             Paragraph(str(tx['customer_name'])[:20], cell_small_style),
-            Paragraph(products_str, cell_style),
+            Paragraph(products_html, cell_style),
             Paragraph(str(tx['total_boxes']), cell_small_style),
             Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
         ])
     
     # Column widths optimized for portrait letter - 6 columns with better spacing
-    table = Table(rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
+    table = Table(rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -4423,7 +4542,7 @@ def export_report(request):
             Paragraph(f'<b>PHP {total_all:,.2f}</b>', footer_style)
         ]
     ]
-    footer_table = Table(footer_data, colWidths=[80, 60, 100, 160, 50, 90])
+    footer_table = Table(footer_data, colWidths=[70, 60, 90, 220, 45, 55])
     footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
         ('FONTNAME', (3,0), (5,0), 'Helvetica-Bold'),
@@ -4700,19 +4819,17 @@ def export_report(request):
             Paragraph('Total', table_header_style)
         ]]
         for tx in voided_data_pdf:
-            products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
-            if len(products_str) > 40:
-                products_str = products_str[:37] + '...'
+            products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
             voided_rows.append([
                 Paragraph(str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A', cell_small_style),
                 Paragraph(tx['voided_at'][:10], cell_small_style),
                 Paragraph(str(tx['customer_name'])[:20], cell_small_style),
-                Paragraph(products_str, cell_style),
+                Paragraph(products_html, cell_style),
                 Paragraph(str(tx['boxes_sold']), cell_small_style),
                 Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
             ])
         
-        voided_table = Table(voided_rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
+        voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
         voided_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6137,7 +6254,7 @@ def record_sale(request):
             year = timezone.now().year
             created_sales = []
             # All sales in a single POST are part of one transaction
-            transaction_number = (request.POST.get('transaction_number') or '').strip()
+            transaction_number = sanitize_text((request.POST.get('transaction_number') or '').strip(), 40)
             if not transaction_number:
                 transaction_number = f"TXN-{int(timezone.now().timestamp())}-{random.randint(1000, 9999)}"
             total_amount = Decimal('0')
@@ -6188,7 +6305,7 @@ def record_sale(request):
 
             discounted_total = pre_total - discount_amount
             change_value = amount_paid - discounted_total
-            or_number = (request.POST.get('or_number', '') or '').strip()
+            or_number = sanitize_text((request.POST.get('or_number', '') or '').strip(), 32)
 
             for entry in prepared:
                 product = entry['product']
@@ -6197,15 +6314,25 @@ def record_sale(request):
                 line_total = entry['line_total']
                 share = (discount_amount * line_total / pre_total) if pre_total > 0 else Decimal('0')
                 line_total_after = line_total - share
+                # Sanitize customer fields to avoid dirty data
+                customer_name = sanitize_text(request.POST.get('customer_name', ''), 50)
+                address = sanitize_text(request.POST.get('address', request.POST.get('customer_address', '')), 60)
+                contact_raw = request.POST.get('contact_number', request.POST.get('customer_contact', ''))
+                try:
+                    import re as _re
+                    contact_digits = _re.sub(r'\D+', '', str(contact_raw or ''))[:20]
+                    contact_int = int(contact_digits or '0')
+                except Exception:
+                    contact_int = 0
                 sale_row = Sale.objects.create(
                     product=product,
                     quantity=quantity,
                     price=unit_price,
                     transaction_number=transaction_number,
                     or_number=or_number,
-                    customer_name=request.POST.get('customer_name', ''),
-                    address=request.POST.get('address', request.POST.get('customer_address', '')),
-                    contact_number=int(request.POST.get('contact_number', request.POST.get('customer_contact', 0)) or 0),
+                    customer_name=customer_name,
+                    address=address,
+                    contact_number=contact_int,
                     recorded_at=timezone.localtime(),
                     total=line_total_after,
                     amount_paid=amount_paid,

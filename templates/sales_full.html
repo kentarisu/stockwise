@@ -2053,46 +2053,7 @@
                     </div>
                 </div>
 
-                <!-- Description & Legend Section -->
-                <div class="report-description mt-4" style="background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
-                    <h6 style="color: #4f46e5; font-weight: 600; margin-bottom: 1rem;">Understanding Your Sales Data</h6>
-                    <p style="margin-bottom: 1rem; color: #4b5563;">This page shows all your completed and voided transactions. Use the filters above to narrow down your search by date, user, or product type.</p>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
-                        <div>
-                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">📋 Column Definitions</h6>
-                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
-                                <li><strong>Sale No.:</strong> Unique identifier for each transaction. Use this when searching for specific sales.</li>
-                                <li><strong>Date & Time:</strong> When the transaction was recorded in the system.</li>
-                                <li><strong>Customer:</strong> Name of the customer who made the purchase.</li>
-                                <li><strong>Products:</strong> List of items sold, shown as "Product Name (Quantity/Unit)" - e.g., "Apple (125-138)" or "Mango (kilo)".</li>
-                                <li><strong>Items:</strong> Total number of different product types in this sale.</li>
-                                <li><strong>Boxes:</strong> Total quantity of boxes sold in this transaction.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">💡 Understanding Columns (cont.)</h6>
-                            <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0;">
-                                <li><strong>Total:</strong> The final amount the customer paid for this transaction.</li>
-                                <li><strong>Recorded By:</strong> Username of the staff member who processed this sale.</li>
-                                <li><strong>Status:</strong> 
-                                    <span class="badge bg-success" style="font-size: 0.75rem;">Completed</span> = Sale was successful, 
-                                    <span class="badge bg-danger" style="font-size: 0.75rem;">Voided</span> = Sale was cancelled by admin
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                        <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.5rem;">🔍 Quick Tips</h6>
-                        <ul style="font-size: 0.85rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                            <li><strong>View Details:</strong> Click the three-dot menu (⋮) and select "View Details" to see full transaction information including payment breakdown.</li>
-                            <li><strong>Print Receipt:</strong> Generate a receipt for any completed transaction from the options menu.</li>
-                            <li><strong>Void Sale:</strong> Admins can cancel completed sales if there's an error or customer return (this action is logged in audit).</li>
-                            <li><strong>Filter by Date:</strong> Use "Today"{% if app_role == 'admin' %}, "This Week", "This Month", or set a custom date range{% else %} or "This Week"{% endif %} to analyze specific periods.</li>
-                        </ul>
-                    </div>
-                </div>
+                
             </div>
         </main>
     </div>

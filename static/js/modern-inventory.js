@@ -11,6 +11,7 @@ class ModernInventorySystem {
         this.setupInteractions();
         this.setupTheme();
         this.setupNotifications();
+        try { window.__mis = this; } catch(e) {}
     }
 
     init() {
@@ -293,6 +294,61 @@ class ModernInventorySystem {
         // Enhanced notification system
         this.notificationQueue = [];
         this.createNotificationContainer();
+        try {
+            window.addEventListener('error', (e) => {
+                const msg = (e && e.message) || 'An unexpected error occurred';
+                this.showNotification(msg, 'error', 6000);
+            });
+            window.addEventListener('unhandledrejection', (e) => {
+                const r = e && e.reason;
+                const msg = (r && r.message) || String(r || '') || 'Unexpected error';
+                this.showNotification(msg, 'error', 6000);
+            });
+        } catch(e) {}
+        try {
+            if (!window.__fetch_patched && typeof window.fetch === 'function') {
+                const origFetch = window.fetch.bind(window);
+                window.fetch = function(input, init) {
+                    return origFetch(input, init).then(function(res){
+                        try {
+                            if (!res.ok) {
+                                const url = (typeof input === 'string') ? input : (input && input.url) || '';
+                                const status = res.status;
+                                const m = `Request failed${status ? ' ('+status+')' : ''}${url ? ' - '+url : ''}`;
+                                if (window.__mis && typeof window.__mis.showNotification === 'function') {
+                                    window.__mis.showNotification(m, 'error', 5000);
+                                }
+                            }
+                        } catch(e) {}
+                        return res;
+                    }).catch(function(err){
+                        try {
+                            const m = `Network error: ${(err && err.message) || 'Request failed'}`;
+                            if (window.__mis && typeof window.__mis.showNotification === 'function') {
+                                window.__mis.showNotification(m, 'error', 6000);
+                            }
+                        } catch(e2) {}
+                        throw err;
+                    });
+                };
+                window.__fetch_patched = true;
+            }
+        } catch(e) {}
+        try {
+            if (window.jQuery) {
+                window.jQuery(document).ajaxError(function(event, jqxhr, settings, thrownError){
+                    try {
+                        const status = jqxhr && jqxhr.status;
+                        const url = settings && settings.url;
+                        const base = thrownError || (jqxhr && jqxhr.statusText) || 'Request failed';
+                        const m = `${base}${status ? ' ('+status+')' : ''}${url ? ' - '+url : ''}`;
+                        if (window.__mis && typeof window.__mis.showNotification === 'function') {
+                            window.__mis.showNotification(m, 'error', 6000);
+                        }
+                    } catch(e2) {}
+                });
+            }
+        } catch(e) {}
     }
 
     createNotificationContainer() {

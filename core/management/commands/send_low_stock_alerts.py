@@ -110,11 +110,11 @@ class Command(BaseCommand):
         )
         
         # Log to audit logs
-        if recipients:
-            try:
-                from core.views import log_system_action
-                total_low_stock = low_stock_products.count()
-                total_out_of_stock = out_of_stock_products.count()
+        try:
+            from core.views import log_system_action
+            total_low_stock = low_stock_products.count()
+            total_out_of_stock = out_of_stock_products.count()
+            if recipients:
                 details = f'Threshold: {threshold} boxes\n'
                 details += f'Low Stock Items: {total_low_stock}\n'
                 details += f'Out of Stock Items: {total_out_of_stock}\n'
@@ -125,8 +125,18 @@ class Command(BaseCommand):
                     action='Automatic SMS: Low Stock Alert (Scheduled)',
                     details=details
                 )
-            except Exception as e:
-                self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
+            else:
+                status = 'No recipients or no qualifying products'
+                details = f'Threshold: {threshold} boxes\n'
+                details += f'Low Stock Items: {total_low_stock}\n'
+                details += f'Out of Stock Items: {total_out_of_stock}\n'
+                details += f'Status: {status}'
+                log_system_action(
+                    action='Automatic SMS: Low Stock Alert (Skipped)',
+                    details=details
+                )
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products, threshold):
         message = "STOCKWISE Stock Alert\n\n"

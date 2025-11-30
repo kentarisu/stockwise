@@ -247,6 +247,14 @@ def qr_confirm_view(request, token):
         # Check if this is a new QR scan or an existing session
         current_time = datetime.now()
         session_key = f'qr_scan_{token}'
+        expired_key = f'qr_expired_{token}'
+        
+        if request.session.get(expired_key):
+            context = {
+                'session_expired': True,
+                'product': product,
+            }
+            return render(request, 'qrstock/confirm.html', context)
         
         if session_key not in request.session:
             # New QR scan - set the scan timestamp
@@ -255,16 +263,17 @@ def qr_confirm_view(request, token):
             request.session['qr_token'] = token
             request.session['qr_product_id'] = product_id
         else:
-            # Existing session - check if it's expired (1 hour)
+            # Existing session - check if it's expired
             scan_time_str = request.session.get(session_key)
             scan_time = datetime.fromisoformat(scan_time_str)
             
-            if current_time - scan_time > timedelta(hours=1):
-                # Session expired - clear the session and show error
+            if current_time - scan_time > timedelta(minutes=30):
                 request.session.pop(session_key, None)
                 request.session.pop('qr_scan_active', None)
                 request.session.pop('qr_token', None)
                 request.session.pop('qr_product_id', None)
+                request.session[expired_key] = True
+                request.session.modified = True
                 
                 context = {
                     'session_expired': True,
@@ -283,8 +292,8 @@ def qr_confirm_view(request, token):
         # Calculate time remaining for display
         scan_time_str = request.session.get(session_key)
         scan_time = datetime.fromisoformat(scan_time_str)
-        time_remaining = timedelta(hours=1) - (current_time - scan_time)
-        minutes_remaining = int(time_remaining.total_seconds() / 60)
+        time_remaining = timedelta(minutes=30) - (current_time - scan_time)
+        minutes_remaining = max(0, int(time_remaining.total_seconds() / 60))
         
         context = {
             'product': product,

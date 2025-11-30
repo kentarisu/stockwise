@@ -7758,12 +7758,16 @@ def get_pricing_recommendations(request):
         
         # Check for valid (non-expired) stored recommendations
         now = timezone.now()
-        valid_recommendations = PricingRecommendation.objects.filter(expires_at__gt=now).select_related('product')
+        valid_qs = PricingRecommendation.objects.filter(expires_at__gt=now).select_related('product').order_by('-created_at', '-recommendation_id')
         
-        if valid_recommendations.exists():
-            # Return stored recommendations
+        if valid_qs.exists():
             recommendations = []
-            for rec in valid_recommendations:
+            seen = set()
+            for rec in valid_qs:
+                key = (rec.product.product_id, float(rec.suggested_price))
+                if key in seen:
+                    continue
+                seen.add(key)
                 cur = float(rec.product.price)
                 sug = float(rec.suggested_price)
                 delta = abs(cur - sug)
@@ -7784,9 +7788,8 @@ def get_pricing_recommendations(request):
                     'r2': float(rec.r2) if rec.r2 else None,
                     'confidence': rec.confidence
                 })
-            # Batch timestamp for client reset detection
             try:
-                last_rec = valid_recommendations.order_by('-created_at').first()
+                last_rec = valid_qs.first()
                 batch_created_at = format_local_datetime(last_rec.created_at, '%Y-%m-%d %H:%M:%S') if last_rec else ''
             except Exception:
                 batch_created_at = ''
@@ -7848,6 +7851,15 @@ def get_pricing_recommendations(request):
             for r in recommendations
             if count_map.get(r['product_id'], 0) <= threshold
         ]
+        deduped = []
+        _seen = set()
+        for r in recommendations:
+            k = (r['product_id'], float(r['suggested_price']))
+            if k in _seen:
+                continue
+            _seen.add(k)
+            deduped.append(r)
+        recommendations = deduped
         actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
         
         # Only log if explicitly requested (not auto-loaded from dashboard)

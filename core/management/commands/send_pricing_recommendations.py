@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from core.models import Sale, AppUser, Product
+from core.models import Sale, AppUser, Product, SMSNotificationSettings, SMS
 from core.pricing_ai import DemandPricingAI, PolicyConfig
 import pandas as pd
 
@@ -44,6 +44,29 @@ class Command(BaseCommand):
 
     def send_pricing_recommendations(self, days=30):
         """Send pricing recommendations based on real sales data"""
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.pricing_enabled:
+            self.stdout.write(self.style.WARNING('Pricing SMS notifications are disabled in settings.'))
+            return
+        now = timezone.localtime()
+        try:
+            phh, pmm = [int(x) for x in str(getattr(settings, 'pricing_time', '08:00')).split(':')]
+        except Exception:
+            phh, pmm = 8, 0
+        scheduled_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
+        if now < scheduled_dt:
+            self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
+            return
+        try:
+            freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
+        except Exception:
+            freq_days = 3
+        last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+        if last:
+            next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
+            if now < next_allowed:
+                self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
+                return
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))

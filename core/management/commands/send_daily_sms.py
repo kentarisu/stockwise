@@ -46,6 +46,15 @@ class Command(BaseCommand):
         if not settings.sales_enabled:
             self.stdout.write(self.style.WARNING('Sales SMS notifications are disabled in settings.'))
             return
+        now = timezone.localtime()
+        try:
+            hh, mm = [int(x) for x in str(getattr(settings, 'sales_time', '20:00')).split(':')]
+        except Exception:
+            hh, mm = 20, 0
+        scheduled_dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if now < scheduled_dt:
+            self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
+            return
         # Idempotency guard: if already logged today, skip
         try:
             from core.models import ActionLog

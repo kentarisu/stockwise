@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Sum
 from datetime import datetime, timedelta
-from core.models import Sale, Product, AppUser
+from core.models import Sale, Product, AppUser, SMSNotificationSettings, SMS
 from core.sms_service import sms_service
 import logging
 
@@ -51,6 +51,19 @@ class Command(BaseCommand):
     def send_daily_sales_summary(self, force=False):
         """Send daily sales summary"""
         try:
+            settings = SMSNotificationSettings.get_settings()
+            if not settings.sales_enabled and not force:
+                self.stdout.write(self.style.WARNING('Sales SMS notifications are disabled in settings.'))
+                return
+            now = timezone.localtime()
+            try:
+                hh, mm = [int(x) for x in str(getattr(settings, 'sales_time', '20:00')).split(':')]
+            except Exception:
+                hh, mm = 20, 0
+            scheduled_dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+            if not force and now < scheduled_dt:
+                self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
+                return
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 # Still consider as completed for test expectations
@@ -85,7 +98,6 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
-            from core.models import SMS
             today = timezone.localtime().date()
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='sales_summary_daily', sent_at__date=today).exists():
@@ -105,6 +117,11 @@ class Command(BaseCommand):
     def send_low_stock_alerts(self, force=False):
         """Send low stock alerts"""
         try:
+            settings = SMSNotificationSettings.get_settings()
+            if not settings.stock_enabled and not force:
+                self.stdout.write(self.style.WARNING('Stock SMS notifications are disabled in settings.'))
+                return
+            threshold = getattr(settings, 'stock_threshold', 10)
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -112,7 +129,7 @@ class Command(BaseCommand):
 
             # Get products with low stock
             low_stock_products = Product.objects.filter(
-                stock__lte=10,
+                stock__lte=threshold,
                 stock__gt=0,
                 status__iexact='active'
             ).order_by('stock')
@@ -140,7 +157,6 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
-            from core.models import SMS
             now = timezone.localtime()
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='stock_alert', sent_at__gte=now - timezone.timedelta(minutes=30)).exists():
@@ -160,6 +176,29 @@ class Command(BaseCommand):
     def send_pricing_recommendations(self, force=False):
         """Send pricing recommendations"""
         try:
+            settings = SMSNotificationSettings.get_settings()
+            if not settings.pricing_enabled and not force:
+                self.stdout.write(self.style.WARNING('Pricing SMS notifications are disabled in settings.'))
+                return
+            now = timezone.localtime()
+            try:
+                phh, pmm = [int(x) for x in str(getattr(settings, 'pricing_time', '08:00')).split(':')]
+            except Exception:
+                phh, pmm = 8, 0
+            scheduled_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
+            if not force and now < scheduled_dt:
+                self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
+                return
+            try:
+                freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
+            except Exception:
+                freq_days = 3
+            last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+            if last and not force:
+                next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
+                if now < next_allowed:
+                    self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
+                    return
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -181,7 +220,6 @@ class Command(BaseCommand):
 
             # Check if we have valid stored recommendations, if not generate them
             from core.models import PricingRecommendation
-            from django.utils import timezone
             now = timezone.now()
             valid_recommendations = PricingRecommendation.objects.filter(expires_at__gt=now)
             
@@ -201,7 +239,6 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
-            from core.models import SMS
             now = timezone.localtime()
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='pricing_alert', sent_at__gte=now - timezone.timedelta(hours=6)).exists():

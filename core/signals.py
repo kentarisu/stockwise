@@ -158,9 +158,19 @@ def send_daily_sales_summary():
     Send daily sales summary (called by cron job)
     """
     try:
-        from core.management.commands.send_daily_sms import Command
-        command = Command()
-        command.send_daily_summary(use_today=True)
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.sales_enabled:
+            return
+        now = timezone.localtime()
+        try:
+            hh, mm = [int(x) for x in str(getattr(settings, 'sales_time', '20:00')).split(':')]
+        except Exception:
+            hh, mm = 20, 0
+        scheduled_dt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if now >= scheduled_dt:
+            from core.management.commands.send_daily_sms import Command
+            command = Command()
+            command.send_daily_summary(use_today=True)
     except Exception as e:
         logger.error(f"Error sending daily sales summary: {str(e)}")
 
@@ -170,9 +180,30 @@ def send_pricing_recommendations():
     Send pricing recommendations (called by cron job)
     """
     try:
-        from core.management.commands.send_pricing_recommendations import Command
-        command = Command()
-        command.send_pricing_recommendations(days=30)
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.pricing_enabled:
+            return
+        now = timezone.localtime()
+        try:
+            phh, pmm = [int(x) for x in str(getattr(settings, 'pricing_time', '08:00')).split(':')]
+        except Exception:
+            phh, pmm = 8, 0
+        scheduled_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
+        if now >= scheduled_dt:
+            try:
+                freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
+            except Exception:
+                freq_days = 3
+            from core.models import SMS
+            last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+            allow = True
+            if last:
+                next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
+                allow = now >= next_allowed
+            if allow:
+                from core.management.commands.send_pricing_recommendations import Command
+                command = Command()
+                command.send_pricing_recommendations(days=30)
     except Exception as e:
         logger.error(f"Error sending pricing recommendations: {str(e)}")
 
@@ -182,8 +213,12 @@ def send_low_stock_alerts():
     Send low stock alerts (called by cron job)
     """
     try:
+        settings = SMSNotificationSettings.get_settings()
+        if not settings.stock_enabled:
+            return
+        threshold = getattr(settings, 'stock_threshold', 10)
         from core.management.commands.send_low_stock_alerts import Command
         command = Command()
-        command.send_low_stock_alerts(threshold=10)
+        command.send_low_stock_alerts(threshold=threshold)
     except Exception as e:
         logger.error(f"Error sending low stock alerts: {str(e)}")

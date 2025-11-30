@@ -142,7 +142,7 @@ class IPROGSMSService:
             return {'success': False, 'message': 'iProg API token not configured'}
 
         normalized_phone = self.normalize_phone_number(phone_number)
-        if not normalized_phone or not normalized_phone.startswith('63') or len(normalized_phone) != 12:
+        if (not normalized_phone) or (not normalized_phone.startswith('63')) or (len(normalized_phone) not in (11, 12)):
             return {'success': False, 'message': f'Invalid phone number: {phone_number}'}
 
         # Clean & optionally segment message

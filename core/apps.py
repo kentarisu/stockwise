@@ -2,6 +2,8 @@ from django.apps import AppConfig
 from django.conf import settings
 
 
+_SCHEDULER_STARTED = False
+
 class CoreConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'core'
@@ -14,7 +16,8 @@ class CoreConfig(AppConfig):
             _enabled = os.getenv('ENABLE_INTERNAL_SCHEDULER', 'false').lower() == 'true'
         except Exception:
             _enabled = False
-        if _enabled and getattr(settings, 'DEBUG', True):
+        global _SCHEDULER_STARTED
+        if _enabled and not _SCHEDULER_STARTED:
             try:
                 from sms_scheduler import SMSScheduler
                 def _run():
@@ -25,5 +28,6 @@ class CoreConfig(AppConfig):
                         pass
                 t = threading.Thread(target=_run, daemon=True)
                 t.start()
+                _SCHEDULER_STARTED = True
             except Exception:
                 pass

@@ -3864,6 +3864,9 @@ def export_report(request):
     avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
     card_style = ParagraphStyle('Card', fontSize=7, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=10)
     card_small_style = ParagraphStyle('CardSmall', fontSize=6, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=8)
+    table_header_style = ParagraphStyle('TableHeaderDefault', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    cell_style = ParagraphStyle('CellDefault', fontSize=7, leading=9)
+    cell_small_style = ParagraphStyle('CellSmallDefault', fontSize=6, leading=8)
     
     # Enhanced summary cards (3x3 grid for comprehensive metrics - adjusted for portrait)
     summary_cards = [
@@ -3975,13 +3978,7 @@ def export_report(request):
             prev_revenue = prev['revenue']
             sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
             
-            # Format product name with variant and quantity_unit
-            product_name = str(s['product__name'] or 'N/A')
-            variant = (s.get('product__variant') or '').strip()
-            if variant:
-                product_name = f"{product_name} ({variant})"
-            if s['product__quantity_unit']:
-                product_name = f"{product_name} ({s['product__quantity_unit']})"
+            product_name = _fmt_prod(s.get('product__name'), s.get('product__variant'), s.get('product__quantity_unit'))
 
             # Accepted price from frontend (optional)
             raw_ap = accepted_prices.get(str(product_id))
@@ -4129,7 +4126,17 @@ def export_report(request):
     ).in_bulk(field_name='product_id')
     
     if top_summary_sorted:
-        top_rows = [['Rank', 'Product', 'Boxes Sold', 'Avg Price', 'Revenue', 'Profit Margin %', 'Growth %', 'Market Share %', 'Inv Turnover']]
+        top_rows = [[
+            Paragraph('Rank', table_header_style),
+            Paragraph('Product', table_header_style),
+            Paragraph('Boxes Sold', table_header_style),
+            Paragraph('Avg Price', table_header_style),
+            Paragraph('Revenue', table_header_style),
+            Paragraph('Profit Margin %', table_header_style),
+            Paragraph('Growth %', table_header_style),
+            Paragraph('Market Share %', table_header_style),
+            Paragraph('Inv Turnover', table_header_style)
+        ]]
         for idx, t in enumerate(top_summary_sorted, start=1):
             product_id = t['product__product_id']
             revenue = Decimal(t['revenue'] or 0)
@@ -4148,24 +4155,18 @@ def export_report(request):
             average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
             inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
             
-            # Format product name with variant and quantity_unit
-            product_name = str(t['product__name'] or 'N/A')
-            variant = (t.get('product__variant') or '').strip()
-            if variant:
-                product_name = f"{product_name} ({variant})"
-            if t['product__quantity_unit']:
-                product_name = f"{product_name} ({t['product__quantity_unit']})"
+            product_name = _fmt_prod(t.get('product__name'), t.get('product__variant'), t.get('product__quantity_unit'))
             
             top_rows.append([
-                str(idx),
-                product_name[:30],
-                str(boxes),
-                f"PHP {avg_price:,.2f}",
-                f"PHP {float(revenue):,.2f}",
-                f"{profit_margin_pct:.1f}%",
-                f"{growth_rate:+.1f}%",
-                f"{market_share_pct:.1f}%",
-                f"{inventory_turnover:.2f}"
+                Paragraph(str(idx), cell_small_style),
+                Paragraph(product_name[:30], cell_style),
+                Paragraph(str(boxes), cell_small_style),
+                Paragraph(f"PHP {avg_price:,.2f}", cell_small_style),
+                Paragraph(f"PHP {float(revenue):,.2f}", cell_small_style),
+                Paragraph(f"{profit_margin_pct:.1f}%", cell_small_style),
+                Paragraph(f"{growth_rate:+.1f}%", cell_small_style),
+                Paragraph(f"{market_share_pct:.1f}%", cell_small_style),
+                Paragraph(f"{inventory_turnover:.2f}", cell_small_style)
             ])
         
         # Column widths for top products (portrait, removed separate quantity column)
@@ -4184,8 +4185,8 @@ def export_report(request):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('LEFTPADDING', (0,0), (-1,-1), 4),
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(top_table)
@@ -4260,22 +4261,34 @@ def export_report(request):
             })
     
     if low_stock_data:
-        low_rows = [['Product', 'Current Stock', 'Stock Value', 'Avg Daily Sales', 'Days of Supply', 'Reorder Point', 'Reorder Qty', 'Lead Time', 'Last Sale', 'Status', 'Action']]
+        low_rows = [[
+            Paragraph('Product', table_header_style),
+            Paragraph('Current Stock', table_header_style),
+            Paragraph('Stock Value', table_header_style),
+            Paragraph('Avg Daily Sales', table_header_style),
+            Paragraph('Days of Supply', table_header_style),
+            Paragraph('Reorder Point', table_header_style),
+            Paragraph('Reorder Qty', table_header_style),
+            Paragraph('Lead Time', table_header_style),
+            Paragraph('Last Sale', table_header_style),
+            Paragraph('Status', table_header_style),
+            Paragraph('Action', table_header_style)
+        ]]
         for item in low_stock_data:
             days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
             label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
             low_rows.append([
-                label[:30],
-                str(int(item['current_stock'])),
-                f"PHP {item['stock_value']:,.0f}",
-                f"{item['average_daily_sales']:.1f}",
-                days_supply_str,
-                str(item['reorder_point']),
-                str(item['reorder_quantity']),
-                f"{item['lead_time_days']}d",
-                item['last_sale_date'][:10] if item['last_sale_date'] != 'N/A' else 'N/A',
-                item['status'],
-                item['action_required']
+                Paragraph(label[:30], cell_style),
+                Paragraph(str(int(item['current_stock'])), cell_small_style),
+                Paragraph(f"PHP {item['stock_value']:,.0f}", cell_small_style),
+                Paragraph(f"{item['average_daily_sales']:.1f}", cell_small_style),
+                Paragraph(days_supply_str, cell_small_style),
+                Paragraph(str(item['reorder_point']), cell_small_style),
+                Paragraph(str(item['reorder_quantity']), cell_small_style),
+                Paragraph(f"{item['lead_time_days']}d", cell_small_style),
+                Paragraph(item['last_sale_date'][:10] if item['last_sale_date'] != 'N/A' else 'N/A', cell_small_style),
+                Paragraph(item['status'], cell_small_style),
+                Paragraph(item['action_required'], cell_small_style)
             ])
         
         # Column widths fit portrait letter exactly (540pt)
@@ -4294,8 +4307,8 @@ def export_report(request):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('LEFTPADDING', (0,0), (-1,-1), 4),
             ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(low_table)
@@ -4315,15 +4328,9 @@ def export_report(request):
         key = row.transaction_number or f"ORD{row.sale_id:06d}"
         g = grouped.get(key)
         
-        # Format product name with variant and quantity_unit
         product_display_name = ''
         if row.product:
-            product_display_name = row.product.name or ''
-            variant = (row.product.variant or '').strip()
-            if variant:
-                product_display_name = f"{product_display_name} ({variant})"
-            if row.product.quantity_unit:
-                product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
+            product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
         
         if not g:
             grouped[key] = {
@@ -4356,7 +4363,14 @@ def export_report(request):
     tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
 
     # Simplified transactions table with better spacing (portrait)
-    rows = [['OR No.', 'Date', 'Customer', 'Products', 'Boxes Sold', 'Total']]
+    rows = [[
+        Paragraph('OR No.', table_header_style),
+        Paragraph('Date', table_header_style),
+        Paragraph('Customer', table_header_style),
+        Paragraph('Products', table_header_style),
+        Paragraph('Boxes Sold', table_header_style),
+        Paragraph('Total', table_header_style)
+    ]]
     for tx in tx_data:
         # Format products list better
         products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
@@ -4364,12 +4378,12 @@ def export_report(request):
             products_str = products_str[:37] + '...'
         
         rows.append([
-            str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A',
-            tx['recorded_at'][:10],  # Date only
-            str(tx['customer_name'])[:20],
-            products_str,
-            str(tx['total_boxes']),
-            f"PHP {tx['total']:,.2f}"
+            Paragraph(str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A', cell_small_style),
+            Paragraph(tx['recorded_at'][:10], cell_small_style),
+            Paragraph(str(tx['customer_name'])[:20], cell_small_style),
+            Paragraph(products_str, cell_style),
+            Paragraph(str(tx['total_boxes']), cell_small_style),
+            Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
         ])
     
     # Column widths optimized for portrait letter - 6 columns with better spacing
@@ -4386,8 +4400,8 @@ def export_report(request):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('LEFTPADDING', (0,0), (-1,-1), 8),
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
         ('WORDWRAP', (0,0), (-1,-1), True),
     ]))
     elems.append(table)
@@ -4445,14 +4459,7 @@ def export_report(request):
                 category = 'B'
             else:
                 category = 'C'
-            # Format product name with variant and quantity_unit for ABC table
-            pn = str(entry.get('product__name') or 'N/A')
-            pv = (entry.get('product__variant') or '').strip()
-            if pv:
-                pn = f"{pn} ({pv})"
-            qu = entry.get('product__quantity_unit')
-            if qu:
-                pn = f"{pn} ({qu})"
+            pn = _fmt_prod(entry.get('product__name'), entry.get('product__variant'), entry.get('product__quantity_unit'))
             abc_data.append({
                 'product_name': pn,
                 'revenue': float(revenue_value),
@@ -4658,15 +4665,9 @@ def export_report(request):
         key = row.transaction_number or f"VOID{row.sale_id:06d}"
         vg = voided_grouped_pdf.get(key)
         
-        # Format product name with variant and quantity_unit
         product_display_name = ''
         if row.product:
-            product_display_name = row.product.name or ''
-            variant = (row.product.variant or '').strip()
-            if variant:
-                product_display_name = f"{product_display_name} ({variant})"
-            if row.product.quantity_unit:
-                product_display_name = f"{product_display_name} ({row.product.quantity_unit})"
+            product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
         
         if not vg:
             voided_grouped_pdf[key] = {
@@ -4690,18 +4691,25 @@ def export_report(request):
     voided_data_pdf = list(voided_grouped_pdf.values())
     
     if voided_data_pdf:
-        voided_rows = [['OR No.', 'Voided Date', 'Customer', 'Products', 'Boxes Sold', 'Total']]
+        voided_rows = [[
+            Paragraph('OR No.', table_header_style),
+            Paragraph('Voided Date', table_header_style),
+            Paragraph('Customer', table_header_style),
+            Paragraph('Products', table_header_style),
+            Paragraph('Boxes Sold', table_header_style),
+            Paragraph('Total', table_header_style)
+        ]]
         for tx in voided_data_pdf:
             products_str = ', '.join(tx['products']) if tx['products'] else 'N/A'
             if len(products_str) > 40:
                 products_str = products_str[:37] + '...'
             voided_rows.append([
-                str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A',
-                tx['voided_at'][:10],
-                str(tx['customer_name'])[:20],
-                products_str,
-                str(tx['boxes_sold']),
-                f"PHP {tx['total']:,.2f}"
+                Paragraph(str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A', cell_small_style),
+                Paragraph(tx['voided_at'][:10], cell_small_style),
+                Paragraph(str(tx['customer_name'])[:20], cell_small_style),
+                Paragraph(products_str, cell_style),
+                Paragraph(str(tx['boxes_sold']), cell_small_style),
+                Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
             ])
         
         voided_table = Table(voided_rows, repeatRows=1, colWidths=[80, 60, 100, 160, 50, 90])
@@ -4717,8 +4725,9 @@ def export_report(request):
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('LEFTPADDING', (0,0), (-1,-1), 8),
             ('RIGHTPADDING', (0,0), (-1,-1), 8),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
         elems.append(voided_table)
         
@@ -4776,21 +4785,26 @@ def export_report(request):
             return (t + suffix).strip()
 
         if prs:
-            rows = [['Date', 'Product', 'Previous Price', 'New Price', 'Change %', 'Action', 'Reason']]
+            rows = [[
+                Paragraph('Date', table_header_style),
+                Paragraph('Product', table_header_style),
+                Paragraph('Previous Price', table_header_style),
+                Paragraph('New Price', table_header_style),
+                Paragraph('Change %', table_header_style),
+                Paragraph('Action', table_header_style),
+                Paragraph('Reason', table_header_style)
+            ]]
             for pr in prs:
-                name = pr.product.name if pr.product else 'Unknown'
-                q = getattr(pr.product, 'quantity_unit', '') if pr.product else ''
-                if q:
-                    name = f"{name} ({q})"
+                name = _fmt_prod(pr.product.name if pr.product else 'Unknown', getattr(pr.product, 'variant', None) if pr.product else None, getattr(pr.product, 'quantity_unit', None) if pr.product else None)
                 change_label = f"{float(pr.change_pct):.1f}%" if pr.change_pct is not None else '—'
                 rows.append([
-                    pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A',
-                    name[:30],
-                    f"PHP {float(pr.current_price or 0):,.2f}",
-                    f"PHP {float(pr.suggested_price or 0):,.2f}",
-                    change_label,
-                    (pr.action or '—'),
-                    _fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence)
+                    Paragraph(pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A', cell_small_style),
+                    Paragraph(name[:30], cell_style),
+                    Paragraph(f"PHP {float(pr.current_price or 0):,.2f}", cell_small_style),
+                    Paragraph(f"PHP {float(pr.suggested_price or 0):,.2f}", cell_small_style),
+                    Paragraph(change_label, cell_small_style),
+                    Paragraph((pr.action or '—'), cell_small_style),
+                    Paragraph(_fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence), cell_style)
                 ])
 
             price_col_widths = [60, 120, 70, 70, 50, 60, available_width - (60+120+70+70+50+60) - 10]
@@ -4807,8 +4821,9 @@ def export_report(request):
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('LEFTPADDING', (0,0), (-1,-1), 4),
                 ('RIGHTPADDING', (0,0), (-1,-1), 4),
-                ('TOPPADDING', (0,0), (-1,-1), 4),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('WORDWRAP', (0,0), (-1,-1), True),
             ]))
             elems.append(pricing_table)
         else:

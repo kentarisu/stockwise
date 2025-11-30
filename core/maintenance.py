@@ -143,7 +143,7 @@ class AuditMiddleware:
                         body = {k: request.POST.get(k, '') for k in request.POST.keys()}
                 except Exception:
                     pass
-                redacted_keys = {'password', 'new_password', 'confirm_password', 'token', 'authorization'}
+                redacted_keys = {'password', 'new_password', 'confirm_password', 'token', 'authorization', 'csrfmiddlewaretoken', 'csrf_token'}
                 def _redact(d):
                     out = {}
                     for k, v in (d or {}).items():
@@ -161,11 +161,18 @@ class AuditMiddleware:
                     'referer': request.META.get('HTTP_REFERER', ''),
                 }
                 p = (path or '').lower()
+                excluded_fragments = (
+                    '/sms-settings/',
+                    '/api/sms/settings',
+                    '/api/sms/test',
+                    '/api/sms/',
+                )
                 should_log = (
                     not p.startswith('/static/') and
                     not p.startswith('/media/') and
                     not p.startswith('/uploads/') and
-                    method not in ('GET', 'HEAD', 'OPTIONS')
+                    method not in ('GET', 'HEAD', 'OPTIONS') and
+                    all(frag not in p for frag in excluded_fragments)
                 )
                 if should_log:
                     from core.views import log_action
@@ -182,6 +189,8 @@ class AuditMiddleware:
                 return None
             method = (request.method or '').upper()
             if method in ('GET', 'HEAD', 'OPTIONS'):
+                return None
+            if ('/sms-settings/' in p) or ('/api/sms/' in p):
                 return None
             if isinstance(exception, Http404):
                 return None

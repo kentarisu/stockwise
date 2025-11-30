@@ -248,15 +248,9 @@ IPROG_SENDER_ID = os.getenv('IPROG_SENDER_ID', 'STOCKWISE')  # Custom sender nam
 IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
 
 CRONJOBS = [
-    # Daily sales SMS at 20:00 (8:00 PM) server local time
-    ('0 20 * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
-    # Low stock alerts DISABLED - prevent excessive SMS usage
-    # ('0 6,12,18,0 * * *', 'django.core.management.call_command', ['send_notifications', '--type=low_stock']),
-    # AI Pricing recommendations automatically every 3 days at 8 PM
-    ('0 20 */3 * *', 'django.core.management.call_command', ['send_auto_pricing']),
-    # Daily backup at 2:00 AM
+    ('*/5 * * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
+    ('*/5 * * * *', 'django.core.management.call_command', ['send_pricing_recommendations']),
     ('0 2 * * *', 'django.core.management.call_command', ['backup_system']),
-    # Cleanup old backups at 3:00 AM (keep last 7 days)
     ('0 3 * * *', 'django.core.management.call_command', ['cleanup_old_backups', '--keep-days=7']),
 ]
 

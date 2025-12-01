@@ -259,7 +259,6 @@ IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
 
 CRONJOBS = [
     ('*/5 * * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
-    ('*/5 * * * *', 'django.core.management.call_command', ['send_pricing_recommendations']),
     ('0 2 * * *', 'django.core.management.call_command', ['backup_system']),
     ('0 3 * * *', 'django.core.management.call_command', ['cleanup_old_backups', '--keep-days=7']),
 ]

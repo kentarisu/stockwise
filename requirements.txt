@@ -8,7 +8,7 @@ reportlab==4.0.7
 passlib==1.7.4
 # Pin NumPy/Pandas to avoid NDArray typing import issues on hosting
 numpy==2.1.2
-pandas==2.2.2
+pandas==2.2.3
 python-escpos==3.1
 pyserial==3.5
 pywin32==311; sys_platform == "win32"

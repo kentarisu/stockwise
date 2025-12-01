@@ -10433,12 +10433,14 @@ def get_scheduler_health(request):
             return timezone.localtime(dt) if dt else None
         last_sales = pick_dt(last_sales_log, last_sales_sms)
         last_pricing = pick_dt(last_pricing_log, last_pricing_sms)
-        base_pricing_date = now.date() if last_pricing is None else (last_pricing.date() + timedelta(days=freq))
-        next_pricing_dt = timezone.localtime().replace(hour=phh, minute=pmm, second=0, microsecond=0)
-        if next_pricing_dt.date() != base_pricing_date:
-            next_pricing_dt = next_pricing_dt.replace(year=base_pricing_date.year, month=base_pricing_date.month, day=base_pricing_date.day)
+        earliest_allowed_date = now.date() if last_pricing is None else (last_pricing.date() + timedelta(days=freq))
+        today_pricing_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
+        if earliest_allowed_date > now.date():
+            next_pricing_dt = today_pricing_dt.replace(year=earliest_allowed_date.year, month=earliest_allowed_date.month, day=earliest_allowed_date.day)
+        else:
+            next_pricing_dt = today_pricing_dt if now <= today_pricing_dt else (today_pricing_dt + timedelta(days=1))
         eligible_sales = now >= sales_today
-        eligible_pricing = (last_pricing is None) or ((now.date() - last_pricing.date()).days >= freq)
+        eligible_pricing = (last_pricing is None) or (now.date() >= earliest_allowed_date)
         return JsonResponse({
             'success': True,
             'settings': {

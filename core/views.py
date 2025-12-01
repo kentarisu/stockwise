@@ -10399,3 +10399,75 @@ def auto_backup_before_critical_operation(request, operation_name='Critical Oper
         logger = logging.getLogger(__name__)
         logger.error(f"Auto-backup failed: {str(e)}", exc_info=True)
         return False
+@require_app_login
+def get_scheduler_health(request):
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        from core.models import SMSNotificationSettings, SMS, ActionLog
+        settings = SMSNotificationSettings.get_settings()
+        now = timezone.localtime()
+        def parse_hhmm(s):
+            try:
+                hh, mm = [int(x) for x in str(s or '00:00').split(':')]
+                return hh, mm
+            except Exception:
+                return 0, 0
+        shh, smm = parse_hhmm(getattr(settings, 'sales_time', '20:00'))
+        phh, pmm = parse_hhmm(getattr(settings, 'pricing_time', '08:00'))
+        sales_today = now.replace(hour=shh, minute=smm, second=0, microsecond=0)
+        next_sales_dt = sales_today if now <= sales_today else (sales_today + timedelta(days=1))
+        freq = int(getattr(settings, 'pricing_frequency_days', 3))
+        last_sales_log = ActionLog.objects.filter(action='Automatic SMS: Daily Sales Summary').order_by('-created_at').first()
+        last_pricing_log = ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations').order_by('-created_at').first()
+        last_sales_sms = SMS.objects.filter(message_type='sales_summary_daily').order_by('-sent_at').first()
+        last_pricing_sms = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+        def pick_dt(log_obj, sms_obj):
+            dt = None
+            if log_obj:
+                dt = log_obj.created_at
+            if sms_obj and (dt is None or sms_obj.sent_at > dt):
+                dt = sms_obj.sent_at
+            return timezone.localtime(dt) if dt else None
+        last_sales = pick_dt(last_sales_log, last_sales_sms)
+        last_pricing = pick_dt(last_pricing_log, last_pricing_sms)
+        base_pricing_date = now.date() if last_pricing is None else (last_pricing.date() + timedelta(days=freq))
+        next_pricing_dt = timezone.localtime().replace(hour=phh, minute=pmm, second=0, microsecond=0)
+        if next_pricing_dt.date() != base_pricing_date:
+            next_pricing_dt = next_pricing_dt.replace(year=base_pricing_date.year, month=base_pricing_date.month, day=base_pricing_date.day)
+        eligible_sales = now >= sales_today
+        eligible_pricing = (last_pricing is None) or ((now.date() - last_pricing.date()).days >= freq)
+        return JsonResponse({
+            'success': True,
+            'settings': {
+                'sales_enabled': bool(getattr(settings, 'sales_enabled', True)),
+                'pricing_enabled': bool(getattr(settings, 'pricing_enabled', True)),
+                'sales_time': str(getattr(settings, 'sales_time', '20:00')),
+                'pricing_time': str(getattr(settings, 'pricing_time', '08:00')),
+                'pricing_frequency_days': freq,
+            },
+            'last_sales': None if last_sales is None else {
+                'date': last_sales.strftime('%b %d, %Y'),
+                'time': last_sales.strftime('%I:%M %p')
+            },
+            'last_pricing': None if last_pricing is None else {
+                'date': last_pricing.strftime('%b %d, %Y'),
+                'time': last_pricing.strftime('%I:%M %p')
+            },
+            'next_sales': {
+                'date': next_sales_dt.strftime('%b %d, %Y'),
+                'time': next_sales_dt.strftime('%I:%M %p')
+            },
+            'next_pricing': {
+                'date': next_pricing_dt.strftime('%b %d, %Y'),
+                'time': next_pricing_dt.strftime('%I:%M %p')
+            },
+            'eligible_now': {
+                'sales': eligible_sales,
+                'pricing': eligible_pricing
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})

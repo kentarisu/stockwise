@@ -88,6 +88,7 @@ path('api/stock/add/', views.add_stock, name='add_stock_api'),
     path('api/sms/send-all/', views.send_all_notifications_now, name='send_all_notifications_now'),
     path('api/sms/status/', views.check_sms_status, name='check_sms_status'),
     path('api/sms/credits/', views.check_sms_credits, name='check_sms_credits'),
+    path('api/scheduler/health/', views.get_scheduler_health, name='get_scheduler_health'),
     
     # Pricing AI URLs
     path('api/pricing/recommendations/', views.get_pricing_recommendations, name='get_pricing_recommendations'),

@@ -1862,6 +1862,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Scheduler Status -->
+        <div class="settings-card">
+            <h5 class="mb-4">
+                <i class="bi bi-activity me-2"></i>
+                Scheduler Status
+            </h5>
+            <div class="d-flex justify-content-end mb-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="checkSchedulerStatusBtn">
+                    <i class="bi bi-search"></i> Check Status
+                </button>
+            </div>
+            <div id="schedulerStatusPanel" class="small text-muted">
+                <div class="py-2">Click "Check Status" to view last sent times and next schedules.</div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -2229,9 +2245,12 @@
             const checked = $(this).is(':checked');
             const $freq = $('#pricing_frequency_days');
             if (checked) {
+                const prev = parseInt($freq.val() || '3');
+                $freq.data('prev', isNaN(prev) ? 3 : prev);
                 $freq.val('1').prop('disabled', true);
             } else {
-                $freq.prop('disabled', false);
+                const prev = parseInt($freq.data('prev'));
+                $freq.prop('disabled', false).val(isNaN(prev) ? '3' : String(prev));
             }
             try { saveNotificationSettings(); } catch (_) {}
         });
@@ -2283,6 +2302,57 @@
                 },
                 error: function() {
                     console.log('Failed to load notification statistics');
+                }
+            });
+        }
+
+        // Scheduler Health Check
+        function checkSchedulerStatus() {
+            const panel = document.getElementById('schedulerStatusPanel');
+            if (panel) {
+                panel.innerHTML = '<div class="py-2"><i class="bi bi-arrow-repeat"></i> Checking…</div>';
+            }
+            $.ajax({
+                url: "{% url 'get_scheduler_health' %}",
+                method: 'GET',
+                success: function(res) {
+                    if (!panel) return;
+                    if (!res || !res.success) {
+                        panel.innerHTML = '<div class="text-danger">Failed to get status</div>';
+                        return;
+                    }
+                    const s = res.settings || {};
+                    const fmt = (o) => (o ? (o.date + ' ' + o.time) : '—');
+                    const lastSales = fmt(res.last_sales);
+                    const lastPricing = fmt(res.last_pricing);
+                    const nextSales = fmt(res.next_sales);
+                    const nextPricing = fmt(res.next_pricing);
+                    const eligibleSales = res.eligible_now && res.eligible_now.sales ? 'Yes' : 'No';
+                    const eligiblePricing = res.eligible_now && res.eligible_now.pricing ? 'Yes' : 'No';
+                    panel.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div><strong>Sales</strong></div>
+                                <div>Enabled: ${s.sales_enabled ? 'Yes' : 'No'}</div>
+                                <div>Send Time: ${s.sales_time || '—'}</div>
+                                <div>Last Sent: ${lastSales}</div>
+                                <div>Next Scheduled: ${nextSales}</div>
+                                <div>Eligible Now: ${eligibleSales}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div><strong>Pricing</strong></div>
+                                <div>Enabled: ${s.pricing_enabled ? 'Yes' : 'No'}</div>
+                                <div>Send Time: ${s.pricing_time || '—'}</div>
+                                <div>Frequency: ${s.pricing_frequency_days || '—'} day(s)</div>
+                                <div>Last Sent: ${lastPricing}</div>
+                                <div>Next Scheduled: ${nextPricing}</div>
+                                <div>Eligible Now: ${eligiblePricing}</div>
+                            </div>
+                        </div>
+                    `;
+                },
+                error: function() {
+                    if (panel) panel.innerHTML = '<div class="text-danger">Error querying status</div>';
                 }
             });
         }
@@ -2439,6 +2509,7 @@
         $(document).ready(function() {
             loadNotificationSettings();
             loadNotificationStats();
+            $('#checkSchedulerStatusBtn').on('click', checkSchedulerStatus);
         });
     </script>
 

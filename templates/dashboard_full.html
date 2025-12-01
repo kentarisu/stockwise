@@ -2200,7 +2200,8 @@
                                 status: status || i.status || 'read',
                                 originalAction: item.action || i.originalAction,
                                 timestamp: Date.now(),
-                                date: new Date().toISOString().split('T')[0]
+                                date: new Date().toISOString().split('T')[0],
+                                created_at_display: item.created_at_display || i.created_at_display
                             };
                         }
                         return i;
@@ -2211,7 +2212,8 @@
                             status: status || 'read',
                             originalAction: item.action,
                             timestamp: Date.now(),
-                            date: new Date().toISOString().split('T')[0]
+                            date: new Date().toISOString().split('T')[0],
+                            created_at_display: item.created_at_display
                         });
                     }
                     localStorage.setItem(readRecommendationsKey, JSON.stringify(readItems));
@@ -2291,7 +2293,8 @@
                                     suggested_price: suggestedPrice,
                                     action: listItem.getAttribute('data-action'),
                                     change_pct: parseFloat(listItem.getAttribute('data-change-pct')) || 0,
-                                    reason: listItem.getAttribute('data-reason') || ''
+                                    reason: listItem.getAttribute('data-reason') || '',
+                                    created_at_display: listItem.getAttribute('data-created-at-display') || ''
                                 };
                                 
                                 // Record decision in Read tab
@@ -2404,7 +2407,8 @@
                                     suggested_price: suggestedPrice,
                                     action: listItem.getAttribute('data-action'),
                                     change_pct: parseFloat(listItem.getAttribute('data-change-pct')) || 0,
-                                    reason: listItem.getAttribute('data-reason') || ''
+                                    reason: listItem.getAttribute('data-reason') || '',
+                                    created_at_display: listItem.getAttribute('data-created-at-display') || ''
                                 };
                                 
                                 // Record decision in Read tab
@@ -2477,7 +2481,7 @@
                 }
             };
 
-            const renderRecommendationItem = (item, isReadTab = false, recommendedDate = null) => {
+            const renderRecommendationItem = (item, isReadTab = false) => {
                 const originalAction = item.originalAction || item.action;
                 const actionClass = originalAction && originalAction.toLowerCase() === 'decrease' ? 'decrease' : '';
                 const changeLabel = typeof item.change_pct === 'number'
@@ -2503,7 +2507,7 @@
                 }
                 const displayDateTime = (item.created_at_display && String(item.created_at_display).trim())
                     ? String(item.created_at_display).trim()
-                    : (recommendedDate || (item.date ? new Date(item.date).toLocaleString('en-US', {
+                    : ((item.date ? new Date(item.date).toLocaleString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -2547,6 +2551,7 @@
                         data-reason="${(item.reason || '').replace(/"/g, '&quot;')}"
                         data-variant="${(item.variant || '').replace(/"/g, '&quot;')}"
                         data-quantity-unit="${(item.quantity_unit || '').replace(/"/g, '&quot;')}"
+                        data-created-at-display="${String(displayDateTime).replace(/"/g, '&quot;')}"
                         ${item.recommendation_id ? `data-recommendation-id="${item.recommendation_id}"` : ''}>
                         <div style="flex: 1; width: 100%;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
@@ -2607,16 +2612,9 @@
                         unreadListEl.classList.remove('d-none');
                         if (unreadEmptyEl) unreadEmptyEl.classList.add('d-none');
                         
-                        const currentDateTime = new Date().toLocaleString('en-US', { 
-                            year: 'numeric', 
-                            month: 'short', 
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit'
-                        });
                         
                         unreadListEl.innerHTML = pageItems.map(item => 
-                            renderRecommendationItem(item, false, currentDateTime)
+                            renderRecommendationItem(item, false)
                         ).join('');
                         
                         attachRecommendationHandlers(false);

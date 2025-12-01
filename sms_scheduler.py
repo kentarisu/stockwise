@@ -18,6 +18,7 @@ if not getattr(_dj_settings, 'configured', False):
 
 from django.core.management import call_command
 from core.models import SMSNotificationSettings
+from types import SimpleNamespace
 from django.db import connection
 from django.db.utils import OperationalError
 
@@ -168,8 +169,31 @@ class SMSScheduler:
                     time.sleep(60)
                     continue
 
-                # Get current settings (safe once table exists)
-                settings = SMSNotificationSettings.get_settings()
+                # Verify required columns exist; if missing, use safe defaults
+                try:
+                    with connection.cursor() as cursor:
+                        cols = [c.name for c in connection.introspection.get_table_description(cursor, 'sms_notification_settings')]
+                except Exception:
+                    cols = []
+
+                required_cols = {'pricing_time', 'pricing_frequency_days'}
+                has_required = required_cols.issubset(set(cols))
+
+                if not has_required:
+                    logger.error('Scheduler: sms_notification_settings missing pricing columns; using defaults. Apply database migrations to add pricing_time and pricing_frequency_days.')
+                    settings = SimpleNamespace(
+                        sales_enabled=True,
+                        sales_time=os.getenv('SALES_TIME', '20:00'),
+                        stock_enabled=True,
+                        stock_threshold=int(os.getenv('STOCK_THRESHOLD', '10')),
+                        pricing_enabled=True,
+                        pricing_sensitivity=os.getenv('PRICING_SENSITIVITY', 'moderate'),
+                        pricing_time=os.getenv('PRICING_TIME', '08:00'),
+                        pricing_frequency_days=int(os.getenv('PRICING_FREQUENCY_DAYS', '3')),
+                    )
+                else:
+                    # Get current settings (safe once schema matches model)
+                    settings = SMSNotificationSettings.get_settings()
                 now = datetime.now()
                 
                 # Check each notification type

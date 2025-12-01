@@ -62,6 +62,29 @@ class Command(BaseCommand):
                     return
             except Exception:
                 pass
+
+            # Cooperative lock: only one process proceeds for this minute
+            lock_id = None
+            try:
+                from core.models import ActionLog
+                from django.utils import timezone as _tz
+                minute_key = _tz.localtime(_tz.now()).strftime('%Y%m%d%H%M')
+                lock = ActionLog.objects.create(
+                    action='Automatic SMS: Pricing Recommendations (LOCK)',
+                    details=f'minute={minute_key}',
+                    metadata='{}'
+                )
+                lock_id = lock.action_id
+                # Determine the earliest lock in this minute
+                earliest = ActionLog.objects.filter(
+                    action='Automatic SMS: Pricing Recommendations (LOCK)',
+                    details=f'minute={minute_key}'
+                ).order_by('action_id').first()
+                if earliest and earliest.action_id != lock_id and not force:
+                    self.stdout.write(self.style.WARNING('Skip: Another process holds pricing send lock for this minute'))
+                    return
+            except Exception:
+                pass
             
             # Generate pricing recommendations using AI
             try:
@@ -195,6 +218,19 @@ class Command(BaseCommand):
                     if result['success']:
                         sent_count += 1
                         recipients.append(admin.username)
+                        try:
+                            from core.models import Product, SMS
+                            product = Product.objects.filter(status='active').first() or Product.objects.first()
+                            if product:
+                                SMS.objects.create(
+                                    product=product,
+                                    user=admin,
+                                    message_type='pricing_alert',
+                                    demand_level='mid',
+                                    message_content=message[:500]
+                                )
+                        except Exception:
+                            pass
                         logger.info(f"Pricing recommendations sent to {admin.username}")
                     else:
                         logger.error(f"Failed to send to {admin.username}: {result['message']}")

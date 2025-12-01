@@ -10433,14 +10433,24 @@ def get_scheduler_health(request):
             return timezone.localtime(dt) if dt else None
         last_sales = pick_dt(last_sales_log, last_sales_sms)
         last_pricing = pick_dt(last_pricing_log, last_pricing_sms)
-        earliest_allowed_date = now.date() if last_pricing is None else (last_pricing.date() + timedelta(days=freq))
+        # Compute next pricing schedule aligned to freq-day cycles from last send
         today_pricing_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
-        if earliest_allowed_date > now.date():
-            next_pricing_dt = today_pricing_dt.replace(year=earliest_allowed_date.year, month=earliest_allowed_date.month, day=earliest_allowed_date.day)
-        else:
+        if last_pricing is None:
+            # No previous sends: next is today at pricing time or tomorrow if passed
             next_pricing_dt = today_pricing_dt if now <= today_pricing_dt else (today_pricing_dt + timedelta(days=1))
+            eligible_pricing = now >= today_pricing_dt
+        else:
+            days_since_last = (now.date() - last_pricing.date()).days
+            remainder = days_since_last % freq
+            if remainder == 0:
+                # Exact cycle day
+                next_pricing_dt = today_pricing_dt if now <= today_pricing_dt else (today_pricing_dt + timedelta(days=freq))
+            else:
+                days_until_next = freq - remainder
+                next_date = now.date() + timedelta(days=days_until_next)
+                next_pricing_dt = today_pricing_dt.replace(year=next_date.year, month=next_date.month, day=next_date.day)
+            eligible_pricing = (remainder == 0) and (now >= today_pricing_dt)
         eligible_sales = now >= sales_today
-        eligible_pricing = (last_pricing is None) or (now.date() >= earliest_allowed_date)
         return JsonResponse({
             'success': True,
             'settings': {

@@ -1661,8 +1661,8 @@
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ total_boxes|default:0 }}</div>
-                            <div class="stat-label">Total Boxes Sold</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes sold across all sales</div>
+                            <div class="stat-label">Total Quantity Sold</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity sold across all sales</div>
                         </div>
                     </a>
                 </div>
@@ -1760,7 +1760,7 @@
                                             <th>Customer</th>
                                             <th>Products</th>
                                             <th>Items</th>
-                                            <th>Boxes</th>
+                                            <th>Quantity</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
                                             <th>Status</th>
@@ -1855,7 +1855,7 @@
                                             <th>Customer</th>
                                             <th>Products</th>
                                             <th>Items</th>
-                                            <th>Boxes</th>
+                                            <th>Quantity</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
                                             <th>Status</th>
@@ -1894,7 +1894,7 @@
                                             <th>Customer</th>
                                             <th>Products</th>
                                             <th>Items</th>
-                                            <th>Boxes</th>
+                                            <th>Quantity</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
                                             <th>Status</th>
@@ -1990,7 +1990,7 @@
                                             <th>Customer</th>
                                             <th>Products</th>
                                             <th>Items</th>
-                                            <th>Boxes</th>
+                                            <th>Quantity</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
                                             <th>Status</th>
@@ -2200,7 +2200,7 @@
                                 <tr>
                                     <th>Description</th>
                                     <th class="text-end">Qty</th>
-                                            <th>Batch ID(s)</th>
+                                            <th id="detailBatchHeader">Batch ID(s)</th>
                                     <th class="text-end">Price</th>
                                     <th class="text-end">Amount</th>
                                 </tr>
@@ -2242,7 +2242,7 @@
                                 <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Itemized Details</h6>
                                 <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
                                     <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and quantity/unit (e.g., 125-138 or kilo) in parentheses.</li>
-                                    <li><strong>Qty:</strong> Number of boxes of this product sold.</li>
+                                    <li><strong>Qty:</strong> Number of units sold (boxes or kilos).</li>
                                     <li><strong>Batch ID(s):</strong> Inventory batch identifiers for stock tracking and traceability.</li>
                                     <li><strong>Price:</strong> Price per box for this product.</li>
                                     <li><strong>Amount:</strong> Total for this item (Qty × Price).</li>
@@ -2280,7 +2280,7 @@
                 <thead>
                     <tr>
                         <th>Description</th>
-                        <th class="text-end">Boxes</th>
+                        <th class="text-end">Quantity</th>
                         <th class="text-end">Price</th>
                         <th class="text-end">Amount</th>
                     </tr>
@@ -3203,62 +3203,109 @@
                     document.getElementById('detailCustContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || 'N/A');
                     document.getElementById('detailCustAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || 'N/A');
 
-                    // Items
                     const tbody = document.getElementById('detailItems');
                     tbody.innerHTML = '';
                     const items = itemsResp || [];
-                    let subtotal = 0;
-                    items.forEach(it => {
-                        const qty = safeNum(it.quantity, 0);
-                        const price = safeNum(it.price, 0);
-                        const amount = qty * price;
-                        subtotal += amount;
-                        const tr = document.createElement('tr');
-                        // Support both product_name and product__name, etc.
-                        const fullName = it.product_name || it['product__name'] || '';
-                        const prodName = fullName.replace(/\s*\(.*?\)\s*$/, '');
-                        const sizeVal = it.quantity_unit || it['product__size'] || '';
-                        const variant = it.variant ? ` (${safeText(it.variant)})` : '';
-                        const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
-                        // Batch IDs: accept arrays (batch_ids, batches, boxes) or single field (batch_id, batch)
-                        const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
-                                        : Array.isArray(it.batches) ? it.batches
-                                        : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
-                                        : null;
-                        const batchHtml = batchArr && batchArr.length
-                            ? formatBatchIdRange(batchArr).map(b=>`<span class="badge bg-secondary me-1 mb-1">${safeText(b)}</span>`).join(' ')
-                            : safeText(it.batch_id || it.batch, 'N/A');
-                        tr.innerHTML = `
-                            <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
-                            <td class="text-end">${qty}</td>
-                            <td>${batchHtml}</td>
-                            <td class="text-end">${currency(price)}</td>
-                            <td class="text-end">${currency(amount)}</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
 
-                    const discount = safeNum(s.discount || s.discount_amount, 0);
-                    const dpct = safeNum(s.discount_pct, 0);
-                    const pctStr = dpct > 0 ? ((dpct % 1 === 0) ? String(dpct.toFixed(0)) : String(dpct.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
-                    const gross = safeNum(s.total, subtotal);
-                    const preDiscountGross = gross + discount;
-                    const net = preDiscountGross / 1.12;
-                    const vat = preDiscountGross - net;
-                    const total = gross;
-                    const amountPaid = safeNum(s.amount_paid, total);
-                    const change = amountPaid - total;
-                    
-                    document.getElementById('detailSubtotal').textContent = currency(net);
-                    document.getElementById('detailVAT').textContent = currency(vat);
-                    document.getElementById('detailDiscount').textContent = currency(discount);
-                    const ddLabel = document.getElementById('detailDiscountLabel');
-                    if (ddLabel) ddLabel.textContent = pctStr ? `Discount (${pctStr}%)` : 'Discount';
-                    document.getElementById('detailTotal').textContent = currency(total);
-                    document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
-                    document.getElementById('detailChange').textContent = currency(change);
+                    function renderWithMap(pMap){
+                        tbody.innerHTML = '';
+                        let subtotal = 0;
+                        const getUnit = (it)=>{ const sv = it.quantity_unit || it['product__size'] || (pMap[it.product_id]?.quantity_unit) || ''; return String(sv||'').toLowerCase(); };
+                        const allKilo = (items||[]).length>0 && (items||[]).every(it=>{ const u=getUnit(it); return u.includes('kilo') || u==='kg'; });
+                        const batchHeaderEl = document.getElementById('detailBatchHeader');
+                        if (batchHeaderEl) { batchHeaderEl.classList.toggle('d-none', !!allKilo); }
+                        items.forEach(it=>{
+                            const qty = safeNum(it.quantity, 0);
+                            const price = safeNum(it.price, 0);
+                            const amount = qty * price;
+                            subtotal += amount;
+                            const tr = document.createElement('tr');
+                            const fullName = it.product_name || it['product__name'] || '';
+                            const prodName = fullName.replace(/\s*\(.*?\)\s*$/, '');
+                            const variantSrc = it.variant || (pMap[it.product_id]?.variant) || '';
+                            const sizeVal = it.quantity_unit || it['product__size'] || (pMap[it.product_id]?.quantity_unit) || '';
+                            const variant = variantSrc ? ` (${safeText(variantSrc)})` : '';
+                            const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
+                            const unit = getUnit(it);
+                            const isKiloRow = unit.includes('kilo') || unit === 'kg';
+                            const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
+                                            : Array.isArray(it.batches) ? it.batches
+                                            : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
+                                            : null;
+                            const batchHtml = batchArr && batchArr.length
+                                ? formatBatchIdRange(batchArr).map(b=>`<span class="badge bg-secondary me-1 mb-1">${safeText(b)}</span>`).join(' ')
+                                : safeText(it.batch_id || it.batch, 'N/A');
+                            if (allKilo) {
+                                tr.innerHTML = `
+                                    <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
+                                    <td class="text-end">${qty}</td>
+                                    <td class="text-end">${currency(price)}</td>
+                                    <td class="text-end">${currency(amount)}</td>
+                                `;
+                            } else {
+                                tr.innerHTML = `
+                                    <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
+                                    <td class="text-end">${qty}</td>
+                                    <td>${isKiloRow ? '' : batchHtml}</td>
+                                    <td class="text-end">${currency(price)}</td>
+                                    <td class="text-end">${currency(amount)}</td>
+                                `;
+                            }
+                            tbody.appendChild(tr);
+                        });
+                        return subtotal;
+                    }
 
-                    new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
+                    fetch('/api/products/active/', { headers: { 'X-Requested-With':'XMLHttpRequest' } })
+                        .then(r=>r.json())
+                        .then(prod=>{
+                            const pMap = {};
+                            if (prod && prod.success && Array.isArray(prod.data)) {
+                                prod.data.forEach(p=>{ pMap[p.product_id]=p; });
+                            }
+                            const subtotal = renderWithMap(pMap);
+                            const discount = safeNum(s.discount || s.discount_amount, 0);
+                            const dpct = safeNum(s.discount_pct, 0);
+                            const pctStr = dpct > 0 ? ((dpct % 1 === 0) ? String(dpct.toFixed(0)) : String(dpct.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
+                            const gross = safeNum(s.total, subtotal);
+                            const preDiscountGross = gross + discount;
+                            const net = preDiscountGross / 1.12;
+                            const vat = preDiscountGross - net;
+                            const total = gross;
+                            const amountPaid = safeNum(s.amount_paid, total);
+                            const change = amountPaid - total;
+                            document.getElementById('detailSubtotal').textContent = currency(net);
+                            document.getElementById('detailVAT').textContent = currency(vat);
+                            document.getElementById('detailDiscount').textContent = currency(discount);
+                            const ddLabel = document.getElementById('detailDiscountLabel');
+                            if (ddLabel) ddLabel.textContent = pctStr ? `Discount (${pctStr}%)` : 'Discount';
+                            document.getElementById('detailTotal').textContent = currency(total);
+                            document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
+                            document.getElementById('detailChange').textContent = currency(change);
+                            new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
+                        })
+                        .catch(()=>{
+                            const subtotal = renderWithMap({});
+                            const discount = safeNum(s.discount || s.discount_amount, 0);
+                            const dpct = safeNum(s.discount_pct, 0);
+                            const pctStr = dpct > 0 ? ((dpct % 1 === 0) ? String(dpct.toFixed(0)) : String(dpct.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : '';
+                            const gross = safeNum(s.total, subtotal);
+                            const preDiscountGross = gross + discount;
+                            const net = preDiscountGross / 1.12;
+                            const vat = preDiscountGross - net;
+                            const total = gross;
+                            const amountPaid = safeNum(s.amount_paid, total);
+                            const change = amountPaid - total;
+                            document.getElementById('detailSubtotal').textContent = currency(net);
+                            document.getElementById('detailVAT').textContent = currency(vat);
+                            document.getElementById('detailDiscount').textContent = currency(discount);
+                            const ddLabel = document.getElementById('detailDiscountLabel');
+                            if (ddLabel) ddLabel.textContent = pctStr ? `Discount (${pctStr}%)` : 'Discount';
+                            document.getElementById('detailTotal').textContent = currency(total);
+                            document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
+                            document.getElementById('detailChange').textContent = currency(change);
+                            new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
+                        });
                 })
                 .catch(err => console.error('Details error', err));
         }

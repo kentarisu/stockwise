@@ -674,6 +674,17 @@
         const productId = urlParams.get('product_id');
         let currentPage = 1;
         const pageSize = 10;
+        let quantityUnit = '';
+
+        function updateUnitLabels(){
+            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
+            const totalAddedSubtitle = document.querySelector('#summaryStats a.summary-stat-card.clickable .summary-stat-subtitle');
+            const totalAvailableSubtitle = document.querySelector('#summaryStats div.summary-stat-card .summary-stat-subtitle');
+            const soldSubtitle = document.querySelector('#soldCard .summary-stat-subtitle');
+            if(totalAddedSubtitle){ totalAddedSubtitle.textContent = isKilo ? 'All kilos added since first stock-in' : 'All boxes added since first stock-in'; }
+            if(totalAvailableSubtitle){ totalAvailableSubtitle.textContent = isKilo ? 'Kilos ready for sale right now' : 'Boxes ready for sale right now'; }
+            if(soldSubtitle){ soldSubtitle.textContent = isKilo ? 'Total kilos sold across all transactions' : 'Total boxes sold across all transactions'; }
+        }
 
         if (!productId) {
             showError('No product ID provided.');
@@ -706,12 +717,18 @@
                     
                     // Update product info and summary (only on first page load or if needed)
                     if (page === 1 && resp.data && resp.data.length > 0) {
-                    updateProductInfo(resp.data[0]);
+                        updateProductInfo(resp.data[0]);
+                        quantityUnit = (resp.data[0].quantity_unit || '').toLowerCase();
+                        updateUnitLabels();
                     }
                     updateSummaryStats(resp);
                     
-                    // Render stock additions as table rows with pagination
-                    renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
+                    // Ensure unit known before render
+                    const ensureUnit = quantityUnit ? Promise.resolve() : fetch(`/api/products/active/`).then(ar=>ar.json()).then(data=>{ if(data && data.success && Array.isArray(data.data)){ const p = data.data.find(pp=>pp.product_id == productId); if(p){ quantityUnit = (p.quantity_unit||'').toLowerCase(); updateUnitLabels(); } } }).catch(()=>{});
+                    ensureUnit.then(()=>{
+                        // Render stock additions as table rows with pagination
+                        renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
+                    });
                 })
                 .catch(() => {
                     // Fallback to simple endpoint
@@ -727,12 +744,17 @@
                             
                             // Update product info and summary (only on first page load or if needed)
                             if (page === 1 && resp.data && resp.data.length > 0) {
-                            updateProductInfo(resp.data[0]);
+                                updateProductInfo(resp.data[0]);
+                                quantityUnit = (resp.data[0].quantity_unit || '').toLowerCase();
+                                updateUnitLabels();
                             }
                             updateSummaryStats(resp);
                             
-                            // Render stock additions as table rows with pagination
-                            renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
+                            const ensureUnit = quantityUnit ? Promise.resolve() : fetch(`/api/products/active/`).then(ar=>ar.json()).then(data=>{ if(data && data.success && Array.isArray(data.data)){ const p = data.data.find(pp=>pp.product_id == productId); if(p){ quantityUnit = (p.quantity_unit||'').toLowerCase(); updateUnitLabels(); } } }).catch(()=>{});
+                            ensureUnit.then(()=>{
+                                // Render stock additions as table rows with pagination
+                                renderStockAdditionsTable(resp.groups || [], resp.pagination || {});
+                            });
                         })
                         .catch(() => {
                             showError('Failed to load stock details.');
@@ -754,6 +776,8 @@
                             const displayName = variant && !hasVariantInName ? `${baseName} (${variant})` : baseName;
                             document.getElementById('productName').textContent = displayName;
                             document.getElementById('productDetails').textContent = `Quantity: ${product.quantity_unit} • Price: ₱${parseFloat(product.price).toFixed(2)}`;
+                            quantityUnit = (product.quantity_unit || '').toLowerCase();
+                            updateUnitLabels();
                         }
                     }
                 })
@@ -871,6 +895,8 @@
             // Calculate the starting addition number for this page
             const startNumber = ((currentPage - 1) * pageSize) + 1;
 
+            const pdText = (document.getElementById('productDetails')?.textContent||'').toLowerCase();
+            const isKilo = (quantityUnit && (quantityUnit.includes('kilo') || quantityUnit === 'kg')) || (pdText.includes('quantity: kilo'));
             const tableHtml = `
                 <table class="table stock-additions-table">
                     <thead>
@@ -882,7 +908,7 @@
                             <th>Sold</th>
                             <th>Supplier</th>
                             <th>Status</th>
-                            <th>Batch IDs</th>
+                            ${isKilo ? '' : '<th>Batch IDs</th>'}
                             <th>Options</th>
                         </tr>
                     </thead>
@@ -902,7 +928,7 @@
                             const statusText = group.available_total > 0 ? 'Available' : 'Sold Out';
                             const statusIcon = group.available_total > 0 ? 'check-circle' : 'x-circle';
                             
-                            const batchIds = formatBatchIdRange(group.batch_ids || []).map(id => 
+                            const batchIds = isKilo ? '' : formatBatchIdRange(group.batch_ids || []).map(id => 
                                 `<span class="batch-id-badge">${id}</span>`
                             ).join('');
                             
@@ -922,11 +948,7 @@
                                             ${statusText}
                                         </span>
                                     </td>
-                                    <td>
-                                        <div class="batch-ids-container">
-                                            ${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}
-                                        </div>
-                                    </td>
+                                    ${isKilo ? '' : `<td><div class="batch-ids-container">${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}</div></td>`}
                                     <td>
                                         ${group.available_total > 0 ? `<button class="btn btn-outline-secondary btn-sm edit-stock-btn" data-addition-id="${group.addition_id}" data-available="${group.available_total}" data-added="${group.added_total}" data-batch="${(group.batch_ids||[]).join(',')}"><i class="bi bi-pencil"></i> Edit Stock</button>` : `<span class="text-muted small">No actions</span>`}
                                     </td>
@@ -1084,14 +1106,17 @@
             document.getElementById('modalBatchAdded').textContent = currentBatchAdded;
             document.getElementById('modalBatchAvailable').textContent = currentBatchAvailable;
             const rangeEl = document.getElementById('modalBatchRange');
-            const rangeText = formatBatchIdRange(currentBatchIds).join(', ');
+            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
+            const rangeText = isKilo ? '' : formatBatchIdRange(currentBatchIds).join(', ');
             rangeEl.textContent = rangeText ? `Remaining batch IDs: ${rangeText}` : '';
             const helper = document.getElementById('decreaseHelper');
-            const stockWord = currentBatchAvailable === 1 ? 'stock' : 'stocks';
-            helper.textContent = `Available: ${currentBatchAvailable} ${stockWord}.`;
+            const unitWord = isKilo ? (currentBatchAvailable === 1 ? 'kilo' : 'kilos') : (currentBatchAvailable === 1 ? 'box' : 'boxes');
+            helper.textContent = `Available: ${currentBatchAvailable} ${unitWord}.`;
             const alertBox = document.getElementById('decreaseAlert');
             alertBox.innerHTML = '';
             renderRemovalPreview(0);
+            const warnEl = document.getElementById('decreaseWarning');
+            if (warnEl){ warnEl.textContent = isKilo ? 'This will permanently deduct kilos from this batch.' : 'This will permanently deduct boxes from this batch and remove the earliest batch IDs listed. This action cannot be undone.'; }
             if (!decreaseModal){
                 decreaseModal = new bootstrap.Modal(document.getElementById('decreaseStockModal'));
             }
@@ -1103,6 +1128,8 @@
                 document.getElementById('removalPreview').innerHTML = '';
                 return;
             }
+            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
+            if (isKilo){ document.getElementById('removalPreview').innerHTML = ''; return; }
             const amt = Math.min(raw, currentBatchAvailable||0);
             const ids = currentBatchIds.slice(0, amt);
             const html = ids.length ? `<div class="small text-muted mb-1">Will remove ${ids.length} box(es):</div>` + ids.map(id=>`<span class="batch-id-badge" style="background:#fde68a;border-color:#f59e0b;color:#a16207;">${id}</span>`).join('') : '';

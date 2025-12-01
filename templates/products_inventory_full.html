@@ -3311,7 +3311,9 @@
                     // Find the product in the products array
                     const product = products.find(p => p.product_id == productId);
                     if (product) {
-                        stockDisplay.text(`Current Stock: ${product.stock || 0} boxes`);
+                        const unit = String(product.quantity_unit||'').toLowerCase();
+                        const unitLabel = (unit.includes('kilo')||unit==='kg') ? 'kilo' : 'boxes';
+                        stockDisplay.text(`Current Stock: ${product.stock || 0} ${unitLabel}`);
                     }
                 } else {
                     stockDisplay.text('');
@@ -3563,6 +3565,14 @@
             // Handle product selection change
             $(document).on('change', '.stock-product-select', function() {
                 updateCurrentStock(this);
+                // Update quantity label based on unit
+                const pid = $(this).val();
+                const p = products.find(pp=>String(pp.product_id)===String(pid));
+                const unit = (p && p.quantity_unit ? String(p.quantity_unit).toLowerCase() : '');
+                const isKilo = unit.includes('kilo') || unit==='kg';
+                const $row = $(this).closest('.stock-item');
+                const $qtyLabel = $row.find('.stock-quantity').closest('.col-md-3').find('.form-label');
+                $qtyLabel.text(isKilo ? 'Kilo to Add' : 'Boxes to Add');
                 validateStockItems();
             });
 
@@ -4009,6 +4019,17 @@
                 }
             });
         }
+
+        // Update sale modal quantity label when product changes
+        $(document).on('change', '.product-select', function(){
+            const $row = $(this).closest('.item-row');
+            const pid = $(this).val();
+            const p = products.find(pp=>String(pp.product_id)===String(pid));
+            const unit = (p && p.quantity_unit ? String(p.quantity_unit).toLowerCase() : '');
+            const isKilo = unit.includes('kilo') || unit==='kg';
+            const $qtyLabel = $row.find('.quantity-input').closest('.col-md-4').find('.form-label');
+            $qtyLabel.text(isKilo ? 'Kilos' : 'Boxes');
+        });
 
         function updateTotal() {
             let total = 0;

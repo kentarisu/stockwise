@@ -281,7 +281,7 @@
                 <div style="height: 18px; visibility: hidden;">&nbsp;</div>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Supplier</label>
+              <label class="form-label">Supplier (optional)</label>
               <input type="text" class="form-control stock-supplier" placeholder="Enter supplier name">
                 <div style="height: 18px; visibility: hidden;">&nbsp;</div>
             </div>
@@ -509,15 +509,34 @@ function populateProductSelect(sel){
   console.log('Product select populated with', products.length, 'products');
 }
 function validateStockItems(){ let ok=true; $('.stock-item').each(function(){ const p=$(this).find('.stock-product-select').val(); const q=$(this).find('.stock-quantity').val(); if(!p||!q||q<1){ ok=false; return false; } }); $('#saveStockBtn').prop('disabled', !ok); return ok; }
-function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const st=product.stock||0; $disp.text(`Current Stock: ${st} boxes`); $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); if(st<=0){ $disp.addClass('stock-indicator-red'); } else if(st<=10){ $disp.addClass('stock-indicator-yellow'); } else { $disp.addClass('stock-indicator-green'); } } } else { $disp.text(''); $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); } }
+function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const st=product.stock||0; const unit=(product.quantity_unit||'').toLowerCase(); const unitLabel=(unit.includes('kilo')||unit==='kg')?'kilo':'boxes'; $disp.text(`Current Stock: ${st} ${unitLabel}`); $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); if(st<=0){ $disp.addClass('stock-indicator-red'); } else if(st<=10){ $disp.addClass('stock-indicator-yellow'); } else { $disp.addClass('stock-indicator-green'); } } } else { $disp.text(''); $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); } }
 
 async function updateBatchIdPreview(stockItem) {
   const $item = $(stockItem);
   const productId = $item.find('.stock-product-select').val();
   const quantity = parseInt($item.find('.stock-quantity').val()) || 0;
   const $batchDisplay = $item.find('.batch-id-display');
-  
-  if (!productId || quantity <= 0) {
+  const $previewBox = $item.find('.batch-id-preview');
+  const $previewLabel = $previewBox.prev('label');
+  if (!productId) {
+    $previewBox.removeClass('d-none');
+    $previewLabel.removeClass('d-none');
+    $batchDisplay.text('Select a product and enter quantity to see batch ID');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
+    return;
+  }
+  const product = products.find(p=>p.product_id==productId);
+  const unit = (product?.quantity_unit||'').toLowerCase();
+  const isKilo = unit.includes('kilo') || unit==='kg';
+  if (isKilo) {
+    $previewBox.addClass('d-none');
+    $previewLabel.addClass('d-none');
+    return;
+  } else {
+    $previewBox.removeClass('d-none');
+    $previewLabel.removeClass('d-none');
+  }
+  if (quantity <= 0) {
     $batchDisplay.text('Select a product and enter quantity to see batch ID');
     $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
     return;
@@ -611,7 +630,7 @@ $(document).ready(function(){
     e.stopPropagation();
     if(DISABLE_ADDITIONS){ return; }
     console.log('Add Another Product button clicked - Event received!'); // Debug log
-    const html=`<div class="stock-item"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Product</label><select class="form-select stock-product-select" required><option value="">Select a product</option></select><div class="stock-indicator text-muted"></div></div><div class="col-md-3"><label class="form-label quantity-label">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-3"><label class="form-label">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-2"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batch ID Preview</label><div class="batch-id-preview p-2" style="font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class="mt-2"><button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;"><i class="bi bi-plus-circle me-1"></i> Add Another Variant</button></div>'}</div></div></div>`;
+    const html=`<div class="stock-item"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Product</label><select class="form-select stock-product-select" required><option value="">Select a product</option></select><div class="stock-indicator text-muted"></div></div><div class="col-md-3"><label class="form-label quantity-label">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-3"><label class="form-label">Supplier (optional)</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-2"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batch ID Preview</label><div class="batch-id-preview p-2" style="font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class="mt-2"><button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;"><i class="bi bi-plus-circle me-1"></i> Add Another Variant</button></div>'}</div></div></div>`;
     $('#stockItemsContainer').append(html); 
     console.log('New item added, populating product select'); // Debug log
     updateStockProductSelects();
@@ -634,7 +653,7 @@ $(document).ready(function(){
     const p=products.find(pp=>pp.product_id==pid);
     const base=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : '';
     if(!base){ return; }
-    const html=`<div class="stock-item"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Product</label><select class="form-select stock-product-select" required data-base-filter="${base}"><option value="">Select a product</option></select><div class="stock-indicator text-muted"></div></div><div class="col-md-3"><label class="form-label quantity-label">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-3"><label class="form-label">Supplier</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-2"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batch ID Preview</label><div class="batch-id-preview p-2" style="font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class="mt-2"><button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;"><i class="bi bi-plus-circle me-1"></i> Add Another Variant</button></div>'}</div></div></div>`;
+    const html=`<div class="stock-item"><div class="row g-3 align-items-end"><div class="col-md-4"><label class="form-label">Product</label><select class="form-select stock-product-select" required data-base-filter="${base}"><option value="">Select a product</option></select><div class="stock-indicator text-muted"></div></div><div class="col-md-3"><label class="form-label quantity-label">Boxes to Add</label><input type="number" class="form-control stock-quantity" min="1" required><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-3"><label class="form-label">Supplier (optional)</label><input type="text" class="form-control stock-supplier" placeholder="Enter supplier name"><div style="height: 18px; visibility: hidden;">&nbsp;</div></div><div class="col-md-2"><label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label><button type="button" class="btn btn-danger btn-sm d-block w-100 remove-stock-item"><i class="bi bi-trash"></i> Remove</button></div></div><div class="row mt-2"><div class="col-12"><label class="form-label small fw-semibold">Batch ID Preview</label><div class="batch-id-preview p-2" style="font-size: 0.8rem;"><span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span></div>${DISABLE_ADDITIONS?'':'<div class="mt-2"><button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;"><i class="bi bi-plus-circle me-1"></i> Add Another Variant</button></div>'}</div></div></div>`;
     $('#stockItemsContainer').append(html);
     $row.find('.add-stock-variant-btn').hide();
     updateStockProductSelects();

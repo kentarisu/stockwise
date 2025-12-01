@@ -597,7 +597,7 @@
       <div id="saleStep2" style="display:none;">
         <div class="payment-summary-table mb-3">
           <table class="table table-bordered mb-0">
-            <thead><tr><th id="descHeader">Description</th><th class="text-center">Boxes</th><th class="text-center">Price</th><th class="text-end">Amount</th></tr></thead>
+            <thead><tr><th id="descHeader">Description</th><th class="text-center" id="qtyHeader">Boxes</th><th class="text-center">Price</th><th class="text-end">Amount</th></tr></thead>
             <tbody id="paymentTableItems"></tbody>
           </table>
         </div>
@@ -776,6 +776,15 @@ $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 let products=[]; let currentStep=1; window.saleItems=[]; window.lastRecordedSaleId=null; let transactionNumber=''; let orNumber='';
 const processedBy = "{{ app_username|default:'' }}";
 
+function updateReceiptQuantityHeader(){
+  const units = $('.item-row').map(function(){ const pid=$(this).find('.product-select').val(); if(!pid) return null; const p=products.find(pp=>pp.product_id==pid); return (p && p.quantity_unit ? String(p.quantity_unit).toLowerCase() : null); }).get().filter(Boolean);
+  const allKilo = units.length>0 && units.every(u=>u.includes('kilo')||u==='kg');
+  const allBox = units.length>0 && units.every(u=>!(u.includes('kilo')||u==='kg'));
+  const header = document.getElementById('qtyHeader');
+  if(!header) return;
+  header.textContent = allKilo ? 'Kilos' : allBox ? 'Boxes' : 'Quantity';
+}
+
 function loadActiveProducts(){
   return fetch("{% url 'get_active_products' %}")
     .then(r=>r.json())
@@ -863,8 +872,27 @@ async function updateBatchesToSell(itemRow) {
   const productId = $row.find('.product-select').val();
   const quantity = parseInt($row.find('.quantity-input').val()) || 0;
   const $batchDisplay = $row.find('.batches-display');
-  
-  if (!productId || quantity <= 0) {
+  const $container = $row.find('.batches-to-sell');
+  const $label = $container.prev('label');
+  if (!productId) {
+    $container.removeClass('d-none');
+    $label.removeClass('d-none');
+    $batchDisplay.text('Select product and enter quantity to see which batches will be sold');
+    $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
+    return;
+  }
+  const prod = products.find(pp=>pp.product_id==productId);
+  const unit = (prod && prod.quantity_unit ? prod.quantity_unit : '').toLowerCase();
+  const isKilo = unit.includes('kilo') || unit==='kg';
+  if (isKilo) {
+    $container.addClass('d-none');
+    $label.addClass('d-none');
+    return;
+  } else {
+    $container.removeClass('d-none');
+    $label.removeClass('d-none');
+  }
+  if (quantity <= 0) {
     $batchDisplay.text('Select product and enter quantity to see which batches will be sold');
     $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
     return;
@@ -885,7 +913,8 @@ async function updateBatchesToSell(itemRow) {
       const totalAvailable = availableBatches.length;
       
       if (quantity > totalAvailable) {
-        $batchDisplay.text(`Only ${totalAvailable} boxes available`);
+    const unitLabelMsg = (unit.includes('kilo')||unit==='kg') ? 'kilos' : 'boxes';
+    $batchDisplay.text(`Only ${totalAvailable} ${unitLabelMsg} available`);
         $batchDisplay.removeClass('text-muted text-success').addClass('text-warning fw-bold');
       } else if (quantity === 1) {
         // Single batch
@@ -1186,7 +1215,7 @@ $(document).ready(function(){
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   loadActiveProducts();
   showStep(1);
-    $(document).on('change','.product-select',function(){
+  $(document).on('change','.product-select',function(){
         const $this=$(this);
         const pid=$this.val();
         const $row=$this.closest('.item-row');
@@ -1231,13 +1260,14 @@ $(document).ready(function(){
         $this.data('variant',p.variant);
         $this.data('quantity_unit',p.quantity_unit);
         const st = p.stock||0;
-        $info.text(`Stock: ${st} boxes`);
+        const unit=(p.quantity_unit||'').toLowerCase();
+        const unitLabel = (unit.includes('kilo')||unit==='kg') ? 'kilo' : 'boxes';
+        $info.text(`Stock: ${st} ${unitLabel}`);
         $info.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red');
         if(st<=0){ $info.addClass('stock-indicator-red'); }
         else if(st<=10){ $info.addClass('stock-indicator-yellow'); }
         else { $info.addClass('stock-indicator-green'); }
         $qty.attr('max',p.stock||999);
-        const unit=(p.quantity_unit||'').toLowerCase();
         if(unit.includes('kilo')||unit==='kg'){ $qtyLabel.text('Kilo'); } else { $qtyLabel.text('Boxes'); }
         // Button visibility managed globally
       }
@@ -1251,10 +1281,12 @@ $(document).ready(function(){
     updateBatchesToSell($row);
     updateProductSelects();
     updateVariantButtons();
+    updateReceiptQuantityHeader();
   });
   $(document).on('input','.quantity-input',function(){
     updateTotal();
     updateBatchesToSell($(this).closest('.item-row'));
+    updateReceiptQuantityHeader();
   });
   $('#addProductBtn').on('click',function(){ 
     const row=`<div class=\"item-row\"><div class=\"row g-3 align-items-end\"><div class=\"col-md-6 col-lg-5\"><label class=\"form-label\">Product</label><div style=\"position: relative;\"><select class=\"form-select product-select\" required><option value=\"\">Select a product</option></select></div><div class=\"stock-info text-muted\"></div></div><div class=\"col-md-5 col-lg-4\"><label class=\"form-label quantity-label\">Boxes</label><input type=\"number\" class=\"form-control quantity-input stock-quantity\" min=\"1\" required><div style=\"height: 18px; visibility: hidden;\">&nbsp;</div></div><div class=\"col-md-1 col-lg-3 d-flex align-items-end justify-content-end\"><button type=\"button\" class=\"btn btn-outline-danger btn-sm remove-item\"><i class=\"bi bi-trash\"></i></button></div></div><div class=\"row mt-2\"><div class=\"col-12\"><label class=\"form-label small fw-semibold\">Batches to Sell (FIFO)</label><div class=\"batches-to-sell\"><span class=\"batches-display text-muted\">Select product and enter quantity to see which batches will be sold</span></div><div class=\"mt-2\"><button type=\"button\" class=\"btn btn-outline-secondary btn-sm add-variant-row-btn\" style=\"display:none;\"><i class=\"bi bi-plus-circle me-1\"></i> Add Another Variant</button></div></div></div></div>`; 
@@ -1264,6 +1296,7 @@ $(document).ready(function(){
     // Update all dropdowns with categorized options (using the same function)
     updateProductSelects();
     updateVariantButtons();
+    updateReceiptQuantityHeader();
   });
   $(document).on('click','.add-variant-row-btn',function(){
     const $row=$(this).closest('.item-row');

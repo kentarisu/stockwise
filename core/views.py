@@ -6406,7 +6406,11 @@ def get_sale_details(request, sale_id):
             items_data.append({
                 'product_id': row.product.product_id if row.product else None,
                 'product__name': row.product.name if row.product else 'Unknown',
+                'name': row.product.name if row.product else 'Unknown',
+                'variant': (row.product.variant or '') if row.product else '',
+                'quantity_unit': (row.product.quantity_unit or '') if row.product else '',
                 'product__quantity_unit': row.product.quantity_unit if row.product else '',
+                'product__size': row.product.quantity_unit if row.product else '',
                 'quantity': int(row.quantity or 0),
                 'price': float(row.price or 0),
                 'batch_ids': batch_ids
@@ -6659,10 +6663,9 @@ def add_product(request):
                 # Save file
                 default_storage.save(image_path, uploaded_file)
             
-            # Build full name and create product
-            full_name = f"{name} ({variant})" if variant else name
+            # Create product with name stored without variant (normalized)
             product = Product.objects.create(
-                name=full_name,
+                name=name,
                 variant=variant,
                 quantity_unit=size,
                 cost=cost,
@@ -6691,7 +6694,7 @@ def add_product(request):
             log_action(
                 request,
                 'Product added',
-                f'Added product {full_name} (ID {product.product_id}) with stock {stock}.'
+                f'Added product {name}{(" ("+variant+")") if variant else ""} (ID {product.product_id}) with stock {stock}.'
             )
             try:
                 csv_path = getattr(settings, 'FRUIT_MASTER_PATH', os.path.join(settings.BASE_DIR, 'fruit_master_full.csv'))
@@ -6847,9 +6850,8 @@ def edit_product(request):
                 default_storage.save(image_path, uploaded_file)
                 product.image = image_path
             
-            # Update product
-            full_name = f"{name} ({variant})" if variant else name
-            product.name = full_name
+            # Update product (keep name normalized without variant)
+            product.name = name
             product.variant = variant
             product.quantity_unit = size
             product.cost = cost
@@ -6894,7 +6896,7 @@ def edit_product(request):
             log_action(
                 request,
                 'Product updated',
-                f'Updated product {product_id} ({full_name})' + (f': {", ".join(changes)}' if changes else '.')
+                f'Updated product {product_id} ({name}{(" ("+variant+")") if variant else ""})' + (f': {", ".join(changes)}' if changes else '.')
             )
             
             return JsonResponse({'success': True, 'message': 'Product updated successfully.'})

@@ -7930,7 +7930,8 @@ def get_pricing_recommendations(request):
                     'reason': rec.reason,
                     'elasticity': float(rec.elasticity) if rec.elasticity else None,
                     'r2': float(rec.r2) if rec.r2 else None,
-                    'confidence': rec.confidence
+                    'confidence': rec.confidence,
+                    'created_at_display': format_local_datetime(rec.created_at)
                 })
             try:
                 last_rec = valid_qs.first()
@@ -8023,6 +8024,16 @@ def get_pricing_recommendations(request):
             batch_created_at = format_local_datetime(last_rec.created_at, '%Y-%m-%d %H:%M:%S') if last_rec else ''
         except Exception:
             batch_created_at = ''
+
+        # Attach timestamp for display
+        try:
+            now_display = format_local_datetime(timezone.now())
+            recommendations = [
+                {**r, 'created_at_display': now_display}
+                for r in recommendations
+            ]
+        except Exception:
+            pass
 
         return JsonResponse({
             'success': True,

@@ -2501,15 +2501,21 @@
                 if (reasonText.toLowerCase().includes('boost profit margin')) {
                     reasonText = reasonText.replace(/boost profit margin/gi, 'increase profitability');
                 }
-                const displayDate = recommendedDate || (item.date ? new Date(item.date).toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                }) : new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                }));
+                const displayDateTime = (item.created_at_display && String(item.created_at_display).trim())
+                    ? String(item.created_at_display).trim()
+                    : (recommendedDate || (item.date ? new Date(item.date).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                    }) : new Date().toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                    })));
                 const statusBadge = isReadTab ? 
                     `<span class="badge ${item.status === 'accepted' ? 'bg-success' : 'bg-secondary'} ms-2" style="font-size: 0.7rem;">
                         ${item.status === 'accepted' ? 'Accepted' : 'Rejected'}
@@ -2555,7 +2561,7 @@
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
                                 <small style="color: var(--gray-500); font-size: 0.7rem;">
-                                    <i class="bi bi-calendar3"></i> Suggested on ${displayDate}
+                                    <i class="bi bi-calendar3"></i> Suggested on ${displayDateTime}
                                 </small>
                                 ${(!isReadTab && originalAction !== 'HOLD') ? `
                                 <div style="display: flex; gap: 0.4rem;">
@@ -2601,14 +2607,16 @@
                         unreadListEl.classList.remove('d-none');
                         if (unreadEmptyEl) unreadEmptyEl.classList.add('d-none');
                         
-                        const currentDate = new Date().toLocaleDateString('en-US', { 
+                        const currentDateTime = new Date().toLocaleString('en-US', { 
                             year: 'numeric', 
                             month: 'short', 
-                            day: 'numeric' 
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
                         });
                         
                         unreadListEl.innerHTML = pageItems.map(item => 
-                            renderRecommendationItem(item, false, currentDate)
+                            renderRecommendationItem(item, false, currentDateTime)
                         ).join('');
                         
                         attachRecommendationHandlers(false);

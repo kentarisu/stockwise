@@ -178,44 +178,43 @@ class SMSNotificationSettings(models.Model):
 		verbose_name_plural = 'SMS Notification Settings'
 
 	def __str__(self):
-		return f"SMS Settings (Updated: {self.updated_at.strftime('%Y-%m-%d %H:%M')})"
+		return f"SMS Settings (Updated: {self.updated_at.strftime('%Y-%m-%d %H:%M')} )"
 
-    @classmethod
-    def get_settings(cls):
-        """Get or create the singleton settings instance"""
-        try:
-            settings, created = cls.objects.get_or_create(
-                setting_id=1,
-                defaults={
-                    'sales_enabled': True,
-                    'sales_time': '20:00',
-                    'stock_enabled': True,
-                    'stock_threshold': 10,
-                    'pricing_enabled': True,
-                    'pricing_sensitivity': 'moderate',
-                    'pricing_time': '08:00',
-                    'pricing_frequency_days': 3,
-                }
-            )
-            return settings
-        except Exception:
-            try:
-                with connection.cursor() as cursor:
-                    tables = connection.introspection.table_names()
-                    if 'sms_notification_settings' not in tables:
-                        pass
-            except Exception:
-                pass
-            return SimpleNamespace(
-                sales_enabled=True,
-                sales_time='20:00',
-                stock_enabled=True,
-                stock_threshold=10,
-                pricing_enabled=True,
-                pricing_sensitivity='moderate',
-                pricing_time='08:00',
-                pricing_frequency_days=3,
-            )
+	@classmethod
+	def get_settings(cls):
+		"""Get or create the singleton settings instance"""
+		try:
+			settings, created = cls.objects.get_or_create(
+				setting_id=1,
+				defaults={
+					'sales_enabled': True,
+					'sales_time': '20:00',
+					'stock_enabled': True,
+					'stock_threshold': 10,
+					'pricing_enabled': True,
+					'pricing_sensitivity': 'moderate',
+					'pricing_time': '08:00',
+					'pricing_frequency_days': 3,
+				}
+			)
+			return settings
+		except Exception:
+			try:
+				with connection.cursor() as cursor:
+					tables = connection.introspection.table_names()
+					_ = 'sms_notification_settings' in tables
+			except Exception:
+				pass
+			return SimpleNamespace(
+				sales_enabled=True,
+				sales_time='20:00',
+				stock_enabled=True,
+				stock_threshold=10,
+				pricing_enabled=True,
+				pricing_sensitivity='moderate',
+				pricing_time='08:00',
+				pricing_frequency_days=3,
+			)
 
 
 class ReportProductSummary(models.Model):

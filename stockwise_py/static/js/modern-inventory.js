@@ -293,6 +293,20 @@ class ModernInventorySystem {
         // Enhanced notification system
         this.notificationQueue = [];
         this.createNotificationContainer();
+        // Global AJAX error handler (if jQuery present)
+        try {
+            if (window.jQuery) {
+                $(document).ajaxError((event, jqxhr, settings, thrownError) => {
+                    if (settings && settings.suppressGlobalError) return;
+                    let msg = 'Request failed. Please try again.';
+                    try {
+                        const resp = jqxhr.responseJSON || JSON.parse(jqxhr.responseText || '{}');
+                        if (resp && resp.message) msg = resp.message;
+                    } catch(_) {}
+                    this.showNotification(msg, 'error', 5000);
+                });
+            }
+        } catch(_) {}
     }
 
     createNotificationContainer() {
@@ -338,6 +352,13 @@ class ModernInventorySystem {
         }, duration);
         
         return notification;
+    }
+
+    showFriendlyError(error, context = '') {
+        const base = 'Something went wrong.';
+        const hint = context ? `${context}: ` : '';
+        const msg = typeof error === 'string' ? error : (error && error.message) ? error.message : base;
+        this.showNotification(hint + msg, 'error', 6000);
     }
 
     getNotificationIcon(type) {
@@ -775,6 +796,14 @@ document.head.appendChild(style);
 // Initialize the system when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.modernInventorySystem = new ModernInventorySystem();
+    window.showMessage = function(type, title, message) {
+        const t = type === 'error' ? 'error' : (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info'));
+        const msg = title ? (title + ': ' + (message || '')) : (message || '');
+        window.modernInventorySystem.showNotification(msg, t, 5000);
+    };
+    window.notifyUser = function(type, message) {
+        window.modernInventorySystem.showNotification(message, type, 5000);
+    };
 });
 
 // Export for use in other files

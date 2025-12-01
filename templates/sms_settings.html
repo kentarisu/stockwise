@@ -1901,6 +1901,19 @@
     </div>
     
     <script>
+        function showNotice(type, message) {
+            try {
+                const area = document.querySelector('.content-area');
+                const icon = type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'info' ? 'info-circle' : 'x-circle';
+                const el = document.createElement('div');
+                el.className = `alert alert-${type} alert-dismissible fade show`;
+                el.role = 'alert';
+                el.innerHTML = `<i class="bi bi-${icon} me-2"></i>${message}` +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                if (area) area.prepend(el);
+                setTimeout(() => { try { el.classList.remove('show'); el.remove(); } catch(_){} }, 5000);
+            } catch(_){ alert(message); }
+        }
         $(document).ready(function() {
             // Send All Now functionality
             $('#sendAllNowBtn').on('click', function() {
@@ -2170,12 +2183,9 @@
                             }
                         }
                         // Show save indicator
-                        const $indicator = $('<small class="text-success ms-2"><i class="bi bi-check-circle me-1"></i>Saved</small>');
-                        $indicator.fadeIn().delay(2000).fadeOut(function() {
-                            $(this).remove();
-                        });
+                        showNotice('success', 'Settings saved');
                     } else {
-                        alert('Failed to save: ' + (response.message || 'Unknown error'));
+                        showNotice('danger', 'Failed to save: ' + (response.message || 'Unknown error'));
                     }
                 },
                 error: function(xhr) {
@@ -2183,11 +2193,7 @@
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMsg = xhr.responseJSON.message;
                     }
-                    // Show error indicator
-                    const $indicator = $('<small class="text-danger ms-2"><i class="bi bi-exclamation-circle me-1"></i>' + errorMsg + '</small>');
-                    $indicator.fadeIn().delay(3000).fadeOut(function() {
-                        $(this).remove();
-                    });
+                    showNotice('danger', errorMsg);
                 }
             });
         }
@@ -2496,11 +2502,12 @@
                             loadPricingRecommendations();
                         }, 1000);
                     } else {
-                        alert('Failed to apply pricing recommendation: ' + response.message);
+                        showNotice('danger', 'Failed to apply pricing recommendation: ' + (response.message || 'Unknown error'));
                     }
                 },
-                error: function() {
-                    alert('Error applying pricing recommendation. Please try again.');
+                error: function(xhr) {
+                    const resp = xhr.responseJSON || {};
+                    showNotice('danger', resp.message || 'Error applying pricing recommendation. Please try again.');
                 }
             });
         }

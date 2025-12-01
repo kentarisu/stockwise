@@ -209,3 +209,62 @@ class AuditMiddleware:
             pass
         return None
 
+
+class FriendlyErrorMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        try:
+            from django.http import JsonResponse, HttpResponse
+            from django.utils import timezone
+            import html
+            accepts_json = 'application/json' in (request.META.get('HTTP_ACCEPT', '') or '').lower() or (
+                request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
+            ) or (request.path or '').startswith('/api/')
+            err_id = timezone.now().strftime('%Y%m%d%H%M%S')
+            msg = 'Something went wrong. Please try again or refresh the page.'
+            details = 'If the problem persists, check Logs for details.'
+            if accepts_json:
+                return JsonResponse({
+                    'success': False,
+                    'message': msg,
+                    'error_id': err_id
+                }, status=500)
+            safe = html.escape(str(exception))
+            html_body = f"""
+            <!DOCTYPE html>
+            <html lang=\"en\">
+            <head>
+              <meta charset=\"utf-8\">
+              <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+              <title>StockWise – Error</title>
+              <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css\">
+            </head>
+            <body class=\"bg-light\">
+              <div class=\"container py-5\">
+                <div class=\"alert alert-danger\">
+                  <i class=\"bi bi-exclamation-triangle me-2\"></i>
+                  {msg}
+                  <div class=\"small text-muted mt-2\">Error ID: {err_id}</div>
+                </div>
+                <div class=\"card\">
+                  <div class=\"card-body\">
+                    <div class=\"mb-2\">{details}</div>
+                    <div class=\"small text-muted\">Technical info: {safe}</div>
+                    <a href=\"/logs\" class=\"btn btn-outline-secondary btn-sm mt-3\">View Logs</a>
+                    <a href=\"/\" class=\"btn btn-primary btn-sm mt-3 ms-2\">Go to Dashboard</a>
+                  </div>
+                </div>
+              </div>
+              <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js\"></script>
+            </body>
+            </html>
+            """
+            return HttpResponse(html_body, status=500)
+        except Exception:
+            return None
+

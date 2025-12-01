@@ -7783,6 +7783,16 @@ def get_notification_stats(request):
         last_sales = SMS.objects.filter(message_type='sales_summary_daily').order_by('-sent_at').first()
         last_stock = SMS.objects.filter(message_type='stock_alert').order_by('-sent_at').first()
         last_pricing = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+        if not last_pricing:
+            try:
+                from core.models import ActionLog
+                last_log = ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations').order_by('-created_at').first()
+                if last_log:
+                    class _Tmp:
+                        sent_at = last_log.created_at
+                    last_pricing = _Tmp()
+            except Exception:
+                pass
         
         def format_datetime(sms_obj):
             if sms_obj:

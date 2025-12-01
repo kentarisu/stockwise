@@ -182,29 +182,20 @@ class SMSNotificationSettings(models.Model):
 
 	@classmethod
 	def get_settings(cls):
-		"""Get or create the singleton settings instance"""
+		"""Get or create the singleton settings instance with schema preflight"""
 		try:
-			settings, created = cls.objects.get_or_create(
-				setting_id=1,
-				defaults={
-					'sales_enabled': True,
-					'sales_time': '20:00',
-					'stock_enabled': True,
-					'stock_threshold': 10,
-					'pricing_enabled': True,
-					'pricing_sensitivity': 'moderate',
-					'pricing_time': '08:00',
-					'pricing_frequency_days': 3,
-				}
-			)
-			return settings
+			with connection.cursor() as cursor:
+				tables = connection.introspection.table_names()
+				if cls._meta.db_table not in tables:
+					raise RuntimeError('settings table missing')
+				cols = [c.name for c in connection.introspection.get_table_description(cursor, cls._meta.db_table)]
+			required = {
+				'sales_enabled','sales_time','stock_enabled','stock_threshold',
+				'pricing_enabled','pricing_sensitivity','pricing_time','pricing_frequency_days'
+			}
+			if not required.issubset(set(cols)):
+				raise RuntimeError('settings columns missing')
 		except Exception:
-			try:
-				with connection.cursor() as cursor:
-					tables = connection.introspection.table_names()
-					_ = 'sms_notification_settings' in tables
-			except Exception:
-				pass
 			return SimpleNamespace(
 				sales_enabled=True,
 				sales_time='20:00',
@@ -215,6 +206,20 @@ class SMSNotificationSettings(models.Model):
 				pricing_time='08:00',
 				pricing_frequency_days=3,
 			)
+		settings, _ = cls.objects.get_or_create(
+			setting_id=1,
+			defaults={
+				'sales_enabled': True,
+				'sales_time': '20:00',
+				'stock_enabled': True,
+				'stock_threshold': 10,
+				'pricing_enabled': True,
+				'pricing_sensitivity': 'moderate',
+				'pricing_time': '08:00',
+				'pricing_frequency_days': 3,
+			}
+		)
+		return settings
 
 
 class ReportProductSummary(models.Model):

@@ -7736,7 +7736,9 @@ def update_notification_settings(request):
                 'pricing_enabled': pricing_enabled,
                 'sales_time': sales_time,
                 'stock_threshold': stock_threshold,
-                'pricing_sensitivity': pricing_sensitivity
+                'pricing_sensitivity': pricing_sensitivity,
+                'pricing_time': pricing_time,
+                'pricing_frequency_days': pricing_frequency_days
             }
         })
         

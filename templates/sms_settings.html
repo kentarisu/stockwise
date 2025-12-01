@@ -2139,13 +2139,26 @@
                 },
                 success: function(response) {
                     if (response.success) {
+                        // Sync UI with server values
+                        const s = response.settings || {};
+                        if (typeof s.pricing_time === 'string') {
+                            $('#pricing_time').val(s.pricing_time);
+                        }
+                        if (typeof s.pricing_frequency_days !== 'undefined') {
+                            const days = parseInt(s.pricing_frequency_days);
+                            $('#pricing_frequency_days').prop('disabled', false).val(days);
+                            const isDaily = days === 1;
+                            $('#pricing_daily').prop('checked', isDaily);
+                            if (isDaily) {
+                                $('#pricing_frequency_days').val('1').prop('disabled', true);
+                            }
+                        }
                         // Show save indicator
                         const $indicator = $('<small class="text-success ms-2"><i class="bi bi-check-circle me-1"></i>Saved</small>');
                         $indicator.fadeIn().delay(2000).fadeOut(function() {
                             $(this).remove();
                         });
                     } else {
-                        // Show error message
                         alert('Failed to save: ' + (response.message || 'Unknown error'));
                     }
                 },

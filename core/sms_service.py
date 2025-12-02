@@ -122,17 +122,28 @@ class IPROGSMSService:
         }
         if self.sender_name:
             params['sender_name'] = self.sender_name
-        response = requests.post(self.api_url, params=params, timeout=30)
-        if response.status_code == 200:
-            data = response.json()
-            msg = data.get('message', '')
-            ok = (
-                data.get('status') in ('success', 200)
-                or data.get('success') is True
-                or 'successfully' in msg.lower()
-            )
-            return ok, data
-        return False, {'status_code': response.status_code, 'text': response.text}
+        urls = [self.api_url, 'https://www.iprogsms.com/api/v1/sms_messages']
+        last_error = None
+        for url in urls:
+            try:
+                response = requests.post(url, params=params, json=params, timeout=30)
+                if response.status_code == 200:
+                    data = response.json()
+                    msg = data.get('message', '')
+                    ok = (
+                        data.get('status') in ('success', 200)
+                        or data.get('success') is True
+                        or 'successfully' in msg.lower()
+                    )
+                    if ok:
+                        return True, data
+                    last_error = data
+                    continue
+                last_error = {'status_code': response.status_code, 'text': response.text}
+            except Exception as e:
+                last_error = {'success': False, 'message': str(e)}
+                continue
+        return False, last_error or {'success': False, 'message': 'Unknown error'}
 
     def send_sms(self, phone_number, message, allow_multipart: bool = False, max_retries: int = 3, retry_delay: float = 2.0):
         """

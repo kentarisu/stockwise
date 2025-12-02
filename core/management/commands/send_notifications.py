@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Expose a simple wrapper for SMS sending so tests can patch it easily
 def send_sms(phone_number, message):
-    return sms_service.send_sms(phone_number, message, allow_multipart=False)
+    return sms_service.send_sms(phone_number, message, allow_multipart=True)
 
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'
@@ -104,6 +104,16 @@ class Command(BaseCommand):
                     continue
                 result = send_sms(admin.phone_number, message)
                 if result['success']:
+                    try:
+                        code = result.get('message_code')
+                        if code:
+                            from core.sms_service import sms_service as _svc
+                            st = _svc.check_sms_status(code)
+                            if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                                self.stdout.write(self.style.ERROR(f'Daily sales summary delivery failed for {admin.username}'))
+                                continue
+                    except Exception:
+                        pass
                     success_count += 1
                     self.stdout.write(self.style.SUCCESS(f'Daily sales summary sent to {admin.username}'))
                 else:
@@ -163,6 +173,16 @@ class Command(BaseCommand):
                     continue
                 result = send_sms(admin.phone_number, message)
                 if result['success']:
+                    try:
+                        code = result.get('message_code')
+                        if code:
+                            from core.sms_service import sms_service as _svc
+                            st = _svc.check_sms_status(code)
+                            if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                                self.stdout.write(self.style.ERROR(f'Low stock alert delivery failed for {admin.username}'))
+                                continue
+                    except Exception:
+                        pass
                     success_count += 1
                     self.stdout.write(self.style.SUCCESS(f'Low stock alert sent to {admin.username}'))
                 else:
@@ -245,6 +265,16 @@ class Command(BaseCommand):
                     continue
                 result = send_sms(admin.phone_number, message)
                 if result['success']:
+                    try:
+                        code = result.get('message_code')
+                        if code:
+                            from core.sms_service import sms_service as _svc
+                            st = _svc.check_sms_status(code)
+                            if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                                self.stdout.write(self.style.ERROR(f'Pricing recommendations delivery failed for {admin.username}'))
+                                continue
+                    except Exception:
+                        pass
                     success_count += 1
                     self.stdout.write(self.style.SUCCESS(f'Pricing recommendations sent to {admin.username}'))
                 else:

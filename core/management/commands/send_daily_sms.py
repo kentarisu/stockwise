@@ -110,8 +110,17 @@ class Command(BaseCommand):
         for u in admins:
             if SMS.objects.filter(user=u, message_type='sales_summary_daily', sent_at__date=today).exists():
                 continue
-            result = sms_service.send_sms(u.phone_number, message, allow_multipart=False)
+            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
             if result.get('success'):
+                try:
+                    code = result.get('message_code')
+                    if code:
+                        st = sms_service.check_sms_status(code)
+                        if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                            self.stdout.write(self.style.ERROR(f'Daily summary delivery failed for {u.username} at {u.phone_number}'))
+                            continue
+                except Exception:
+                    pass
                 success_count += 1
                 recipients.append(u.username)
                 code = result.get('message_code')

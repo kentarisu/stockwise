@@ -7549,9 +7549,22 @@ def test_notification_type(request):
         
         try:
             from core.sms_service import sms_service as _svc
-            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=False)
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
             ok = isinstance(send_result, dict) and send_result.get('success') or bool(send_result)
             if ok:
+                try:
+                    code = send_result.get('message_code') if isinstance(send_result, dict) else None
+                    if code:
+                        st = _svc.check_sms_status(code)
+                        if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                            log_action(
+                                request,
+                                'Notification failed',
+                                f'Delivery failed for {notification_type} to {user_obj.phone_number}.'
+                            )
+                            return JsonResponse({'success': False, 'message': 'Delivery failed (provider status).'})
+                except Exception:
+                    pass
                 try:
                     if product:
                         msg_type = 'sales_summary_daily' if notification_type == 'sales' else 'stock_alert' if notification_type == 'stock' else 'pricing_alert'
@@ -7637,6 +7650,7 @@ def check_sms_credits(request):
 
 
 @require_app_login
+@csrf_exempt
 def update_notification_settings(request):
     """Update notification settings for different types"""
     if request.session.get('app_role') != 'admin':
@@ -9086,7 +9100,16 @@ def send_pricing_notification(request):
 
         try:
             from core.sms_service import sms_service as _svc
-            if _svc.send_sms(user_obj.phone_number, message, allow_multipart=False):
+            sr = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            if isinstance(sr, dict) and sr.get('success'):
+                try:
+                    code = sr.get('message_code')
+                    if code:
+                        st = _svc.check_sms_status(code)
+                        if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
+                            return JsonResponse({'success': False, 'message': 'Delivery failed (provider status).'})
+                except Exception:
+                    pass
                 try:
                     product = Product.objects.filter(status='active').first() or Product.objects.first()
                     if product:

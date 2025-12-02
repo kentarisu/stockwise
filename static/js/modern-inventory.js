@@ -613,10 +613,7 @@ class ModernInventorySystem {
 
     preloadAssets() {
         // Preload critical assets
-        const criticalAssets = [
-            '/static/css/modern-inventory.css',
-            'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css'
-        ];
+        const criticalAssets = ['/static/css/modern-inventory.css'];
         
         criticalAssets.forEach(asset => {
             const link = document.createElement('link');

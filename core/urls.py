@@ -15,6 +15,7 @@ urlpatterns = [
 	path('stock_details/', views.stock_details_view, name='stock_details'),
 path('products/add/', views.add_product_page, name='add_product_page'),
 path('sales/record/', views.record_sale_page, name='record_sale'),
+path('sales/record/main/', views.record_sale_main, name='record_sale_main'),
 path('stock/add/', views.add_stock_page, name='add_stock_page'),
 path('stickers/print/', views.print_stickers_page, name='print_stickers'),
 	path('products_inventory/post/', views.handle_product_post, name='handle_product_post'),

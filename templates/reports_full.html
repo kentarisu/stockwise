@@ -328,8 +328,8 @@
         .header-title-section {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
-            padding-left: 3rem;
+            gap: 0.5rem;
+            padding-left: 3rem !important;
         }
 
         .header-left h1 {
@@ -379,7 +379,7 @@
             cursor: pointer;
             padding: 0;
             z-index: 1001;
-            margin-right: 0.5rem;
+            margin-right: 1.9rem;
             flex-shrink: 0;
         }
 
@@ -880,10 +880,9 @@
             color: var(--primary-dark);
         }
 
-        @media (max-width: 768px) {
-            .header-title-section {
-                padding-left: 1.5rem;
-            }
+@media (max-width: 768px) {
+            .header-title-section { padding-left: 3rem; }
+            .burger-menu-btn { margin-right: 0.5rem !important; }
             
             .pagination-container {
                 flex-direction: column;
@@ -2718,7 +2717,7 @@
             </div>
             <div class="header-right">
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='https://via.placeholder.com/40'">
+                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -2751,6 +2750,22 @@
                                aria-current="false">
                                 <i class="bi bi-basket" aria-hidden="true"></i>
                                 <span>Inventory</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'add_product_page' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'add_product_page' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-plus-square" aria-hidden="true"></i>
+                                <span>Product Registration</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'record_sale' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'record_sale' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'record_sale' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-receipt" aria-hidden="true"></i>
+                                <span>Record Transaction</span>
                             </a>
                         </li>
                         <li class="nav-item">

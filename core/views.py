@@ -1387,11 +1387,17 @@ def add_product_page(request):
                                 .exclude(supplier='')
                                 .values_list('supplier', flat=True)
                                 .distinct())
+        user_id = request.session.get('app_user_id') or request.session.get('user_id')
+        try:
+            user_obj = AppUser.objects.get(user_id=user_id)
+        except Exception:
+            user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
         context = {
             'app_role': role,
             'show_cost': role == 'admin',
             'today': timezone.now().date(),
             'suppliers': unique_suppliers,
+            'user_obj': user_obj,
         }
         return render(request, 'add_product.html', context)
     except Exception as e:
@@ -1444,6 +1450,24 @@ def record_sale_page(request):
         'app_username': app_username,
     }
     return render(request, 'record_sale.html', context)
+
+@require_app_login
+def record_sale_main(request):
+    """Full-page Record Transaction view using base layout, without affecting QR flow."""
+    role = request.session.get('app_role', 'user')
+    # Provide user_obj for avatar in header
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+    context = {
+        'app_role': role,
+        'today': timezone.now().date(),
+        'show_cost': role == 'admin',
+        'user_obj': user_obj,
+    }
+    return render(request, 'record_transaction_full.html', context)
 
 @require_app_login
 @require_http_methods(["GET", "POST"])

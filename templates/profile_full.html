@@ -308,27 +308,18 @@
 
         .burger-menu-btn span {
             width: 100%;
-            height: 2px;
+            height: 1.5px;
             background: var(--gray-700);
-            border-radius: 2px;
-            transition: all 0.3s ease;
+            border-radius: 1.5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
         }
 
         .burger-menu-btn:hover span {
             background: var(--primary);
         }
 
-        .burger-menu-btn.active span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-
-        .burger-menu-btn.active span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .burger-menu-btn.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(7px, -6px);
-        }
+        /* Active state (handled below with consistent values) */
 
         .header-brand {
             display: flex;
@@ -339,6 +330,7 @@
             text-decoration: none;
             color: var(--gray-900);
             flex-shrink: 0;
+            margin-left: 0.6rem !important;
         }
 
         .header-brand i {
@@ -353,8 +345,8 @@
         .header-title-section {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
-            padding-left: 3rem;
+            gap: 0.5rem;
+            padding-left: 3rem !important;
         }
 
         .header-left h1 {
@@ -375,7 +367,7 @@
         .header-right {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: var(--space-sm);
         }
 
         .btn-filter-action {
@@ -423,7 +415,7 @@
             cursor: pointer;
             padding: 0;
             z-index: 1001;
-            margin-right: 0.5rem;
+            margin-right: 1.2rem !important;
             flex-shrink: 0;
         }
 
@@ -824,7 +816,7 @@
             :root {
                 --content-padding: 1rem;
                 --sidebar-width: 280px;
-                --header-height: 90px;
+                --header-height: 72px;
             }
 
             .sidebar {
@@ -847,9 +839,8 @@
                 min-height: var(--header-height);
             }
             
-            .header-title-section {
-                padding-left: 1.5rem;
-            }
+            .header-brand span { display: none !important; }
+            .header-title-section { flex: 1; min-width: 0; padding-left: 0.75rem !important; }
 
             .header-left h1 {
                 font-size: 1.5rem;
@@ -862,7 +853,7 @@
             }
 
             .header-right {
-                gap: 0.75rem;
+                gap: 0.5rem;
                 flex-wrap: wrap;
             }
 
@@ -878,8 +869,9 @@
                 align-items: center;
                 flex: 1;
                 min-width: 0;
-                gap: 1.5rem;
+                gap: 0.5rem;
             }
+            .user-avatar { width: 1.75rem; height: 1.75rem; }
 
             .header-left h1 {
                 font-size: 1.25rem;
@@ -1034,7 +1026,7 @@
         }
 
         .header-left {
-            gap: 2.5rem;
+            gap: 0;
         }
 
         .header-left h1 {
@@ -1051,8 +1043,8 @@
         }
 
         .user-avatar {
-            width: 1.75rem;
-            height: 1.75rem;
+            width: 2.75rem;
+            height: 2.75rem;
         }
 
         .sidebar {
@@ -1214,7 +1206,7 @@
 <body>
     <div class="app-container">
         <!-- Unified Header -->
-        <header class="header">
+        <header class="header" role="banner">
             <div class="header-left">
                 <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
                     <span></span>
@@ -1232,7 +1224,7 @@
             </div>
             <div class="header-right">
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/40' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='https://via.placeholder.com/40';">
+                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E';">
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
                         <li><hr class="dropdown-divider"></li>
@@ -1245,7 +1237,7 @@
         <!-- Sidebar Overlay -->
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <!-- Sidebar -->
-        <nav class="sidebar active">
+        <nav class="sidebar active" id="sidebar">
             
             <div class="sidebar-nav">
                 <div class="nav-section">
@@ -1260,6 +1252,18 @@
                         <a href="{% url 'products_inventory' %}" class="nav-link">
                             <i class="bi bi-basket"></i>
                             Inventory
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'add_product_page' %}" class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}">
+                            <i class="bi bi-plus-square"></i>
+                            <span>Product Registration</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="{% url 'record_sale' %}" class="nav-link {% if request.resolver_match.url_name == 'record_sale' %}active{% endif %}">
+                            <i class="bi bi-receipt"></i>
+                            <span>Record Transaction</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -1351,8 +1355,8 @@
                         </div>
                         <div class="profile-card-body">
                             <div class="profile-avatar-section">
-                                <img src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/120' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
-                                     alt="Profile Picture" class="profile-avatar-large" onerror="this.src='https://via.placeholder.com/120';">
+                                <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22 viewBox=%220 0 120 120%22%3E%3Ccircle cx=%2260%22 cy=%2260%22 r=%2256%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2216%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                     alt="Profile Picture" class="profile-avatar-large" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22 viewBox=%220 0 120 120%22%3E%3Ccircle cx=%2260%22 cy=%2260%22 r=%2256%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2216%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E';">
                                 <h4 class="fw-bold text-gray-900">{{ user_obj.full_name|default:user_obj.username }}</h4>
                                 <p class="text-muted">{% if user_obj.role == 'user' %}Secretary{% else %}{{ user_obj.role|capfirst }}{% endif %}</p>
                             </div>
@@ -1453,8 +1457,8 @@
                             {% for u in all_users %}
                                 <div class="secretary-card" data-user-id="{{ u.user_id }}">
                                 <div class="secretary-header">
-                                    <img src="{{ u.profile_picture|default:'https://via.placeholder.com/60' }}{% if u.profile_picture %}?v={% now 'U' %}{% endif %}" 
-                                          alt="Profile" class="secretary-avatar" onerror="this.src='https://via.placeholder.com/60';">
+                                    <img src="{{ u.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%2226%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2211%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if u.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                          alt="Profile" class="secretary-avatar" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%2226%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2211%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E';">
                                     <div class="secretary-info">
                                             <h6>{{ u.full_name|default:u.username }}</h6>
                                             <p>Secretary Account</p>
@@ -1627,8 +1631,8 @@
                     </div>
                     <div class="modal-body">
                         <div class="text-center mb-3">
-                            <img id="profilePreview" src="{{ user_obj.profile_picture|default:'https://via.placeholder.com/100' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
-                                 class="profile-avatar-large mb-2" style="width: 100px; height: 100px;" onerror="this.src='https://via.placeholder.com/100';">
+                            <img id="profilePreview" src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2246%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2214%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" 
+                                 class="profile-avatar-large mb-2" style="width: 100px; height: 100px;" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2246%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2214%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E';">
                             <div>
                                 <label for="profile_picture" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-camera me-1"></i>
@@ -2186,26 +2190,26 @@
         // Burger menu button toggle
         if (burgerMenuBtn && sidebar) {
             burgerMenuBtn.addEventListener('click', function() {
-                sidebar.classList.toggle('active');
+                const isOpen = sidebar.classList.toggle('active');
+                if (isOpen) {
+                    sidebar.classList.add('show');
+                } else {
+                    sidebar.classList.remove('show');
+                }
                 burgerMenuBtn.classList.toggle('active');
                 const mainContent = document.querySelector('.main-content');
-                
+
                 if (window.innerWidth > 768) {
-                    // Desktop: toggle sidebar and adjust main content
-                    if (sidebar.classList.contains('active')) {
-                        if (mainContent) mainContent.classList.add('sidebar-open');
-                    } else {
-                        if (mainContent) mainContent.classList.remove('sidebar-open');
-                    }
+                    if (mainContent) mainContent.classList.toggle('sidebar-open', isOpen);
                 } else {
-                    // Mobile: show overlay and prevent body scroll
                     if (sidebarOverlay) {
-                        sidebarOverlay.classList.toggle('active');
-                    }
-                    if (sidebar.classList.contains('active')) {
-                        document.body.style.overflow = 'hidden';
-                    } else {
-                        document.body.style.overflow = '';
+                        if (isOpen) {
+                            sidebarOverlay.classList.add('active');
+                            document.body.style.overflow = 'hidden';
+                        } else {
+                            sidebarOverlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        }
                     }
                 }
             });
@@ -2216,6 +2220,7 @@
             sidebarOverlay.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
                     sidebar.classList.remove('active');
+                    sidebar.classList.remove('show');
                     sidebarOverlay.classList.remove('active');
                     if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
                     document.body.style.overflow = '';
@@ -2229,18 +2234,20 @@
             navLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     const mainContent = document.querySelector('.main-content');
-                    if (window.innerWidth <= 768) {
-                        sidebar.classList.remove('active');
-                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-                        document.body.style.overflow = '';
-                    } else {
-                        // Desktop: close sidebar when navigating
-                        sidebar.classList.remove('active');
-                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-                        if (mainContent) mainContent.classList.remove('sidebar-open');
-                    }
-                });
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                            sidebar.classList.remove('show');
+                            if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                            document.body.style.overflow = '';
+                        } else {
+                            // Desktop: close sidebar when navigating
+                            sidebar.classList.remove('active');
+                            sidebar.classList.remove('show');
+                            if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                            if (mainContent) mainContent.classList.remove('sidebar-open');
+                        }
+                    });
             });
         }
 
@@ -2266,6 +2273,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
                 sidebar.classList.remove('active');
+                sidebar.classList.remove('show');
                 if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
                 const mainContent = document.querySelector('.main-content');
                 if (window.innerWidth > 768) {
@@ -2276,6 +2284,14 @@
                 }
             }
         });
+
+        // Ensure sidebar starts closed on mobile
+        if (window.innerWidth <= 768 && sidebar) {
+            sidebar.classList.remove('active');
+            sidebar.classList.remove('show');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
 
         // Handle logout confirmation
         document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
@@ -2298,7 +2314,10 @@
                     e.stopPropagation();
                     if (profileRefreshSpinner) profileRefreshSpinner.classList.remove('d-none');
                     profileRefreshBtn.disabled = true;
-                    setTimeout(() => { window.location.reload(); }, 200);
+                    setTimeout(() => {
+                        if (profileRefreshSpinner) profileRefreshSpinner.classList.add('d-none');
+                        profileRefreshBtn.disabled = false;
+                    }, 600);
                 });
             }
         });

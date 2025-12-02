@@ -218,6 +218,12 @@
               <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Product Name</small>
               <p class="mb-0 fw-semibold" style="color: #111827;">{{ product.name }}</p>
             </div>
+            {% if product.variant %}
+            <div class="mb-2">
+              <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Variant</small>
+              <p class="mb-0 fw-semibold" style="color: #111827;">{{ product.variant }}</p>
+            </div>
+            {% endif %}
             <div class="mb-2">
               <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Unit Specification</small>
               <p class="mb-0 fw-semibold" style="color: #111827;">{{ product.quantity_unit }}</p>
@@ -228,12 +234,14 @@
               <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Arrival Date</small>
               <p class="mb-0 fw-semibold" style="color: #111827;">{{ date_arrived }}</p>
             </div>
+            {% if product.quantity_unit|lower != 'kilo' %}
             <div class="mb-2">
               <small class="text-muted d-block mb-1" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Batch Reference</small>
               <p class="mb-0">
                 <span class="badge" style="background: #fce7f3; color: #be185d; font-weight: 600; font-size: 0.875rem; padding: 0.375rem 0.75rem;">{{ batch_id }}</span>
               </p>
             </div>
+            {% endif %}
           </div>
         </div>
       </div>

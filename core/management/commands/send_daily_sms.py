@@ -98,11 +98,10 @@ class Command(BaseCommand):
         today = _tz.localtime().date()
         for u in admins:
             try:
-                from django.utils import timezone
-                scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+                scheduled_at = _tz.localtime(_tz.now()).strftime('%Y-%m-%d %I:%M%p')
             except Exception:
-                from datetime import datetime
-                scheduled_at = datetime.now().strftime('%Y-%m-%d %I:%M%p')
+                from datetime import datetime as _dt
+                scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
             result = sms_service.schedule_sms_reminder(u.phone_number, message, scheduled_at)
             if result.get('success'):
                 try:

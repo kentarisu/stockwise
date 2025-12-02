@@ -7286,9 +7286,9 @@ def sms_settings_view(request):
         if actionable:
             pricing_preview_msg = format_pricing_sms_from_queryset(actionable)
         else:
-            pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+            pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
     except Exception as _:
-        pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+        pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
 
     context = {
         'sms_notification': type('Obj', (), {
@@ -7499,7 +7499,7 @@ def test_notification_type(request):
                 if actionable:
                     message = format_pricing_sms_from_queryset(actionable)
                 else:
-                    message = 'No pricing recommendations available at this time.'
+                    message = 'STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today.'
             except Exception as e:
                 message = f"Error generating pricing recommendations: {str(e)}"
         else:

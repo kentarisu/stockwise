@@ -38,6 +38,8 @@ class SMSScheduler:
     def __init__(self):
         self.last_sales_date = None
         self.last_pricing_date = None
+        self.last_sales_time_sent = None
+        self.last_pricing_time_sent = None
         logger.info("StockWise SMS Scheduler initialized")
         logger.info("Note: Low stock alerts are sent IMMEDIATELY when stock drops, not on schedule")
     
@@ -50,21 +52,19 @@ class SMSScheduler:
             return dt_time(20, 0)  # Default to 8:00 PM
     
     def should_send_daily_sales(self, settings, now):
-        """Check if daily sales summary should be sent"""
         if not settings.sales_enabled:
             return False
-        
-        # Check if current time matches scheduled time
+        today = now.date()
         scheduled_time = self.parse_time(settings.sales_time)
         current_time = now.time()
-        
-        # Send if current time is within 1 minute of scheduled time
-        time_diff = abs((current_time.hour * 60 + current_time.minute) - 
-                       (scheduled_time.hour * 60 + scheduled_time.minute))
-        
-        if time_diff <= 1:
+        if self.last_sales_date == today:
+            last_tuple = self.last_sales_time_sent
+            changed = (last_tuple is None) or ((scheduled_time.hour, scheduled_time.minute) != last_tuple)
+            if changed and (current_time.hour * 60 + current_time.minute) >= (scheduled_time.hour * 60 + scheduled_time.minute):
+                return True
+            return False
+        if (current_time.hour * 60 + current_time.minute) >= (scheduled_time.hour * 60 + scheduled_time.minute):
             return True
-        
         return False
     
     # NOTE: Low stock alerts are REAL-TIME (event-driven), not scheduled
@@ -72,20 +72,16 @@ class SMSScheduler:
     # No scheduled check needed here
     
     def should_send_pricing(self, settings, now):
-        """Check if pricing recommendations should be sent"""
         if not settings.pricing_enabled:
             return False
-        
         today = now.date()
-        
-        local_now = now  # naive fallback
+        local_now = now
         try:
             from django.utils import timezone as dj_tz
             local_now = dj_tz.localtime(dj_tz.now())
         except Exception:
             pass
         try:
-            # Prefer DB settings if available
             st = (getattr(settings, 'pricing_time', None) or '08:00').strip()
             scheduled_hour, scheduled_minute = [int(x) for x in st.split(':')]
         except Exception:
@@ -106,22 +102,50 @@ class SMSScheduler:
                 frequency_days = int(os.getenv('PRICING_FREQUENCY_DAYS', '3'))
             except Exception:
                 frequency_days = 3
-        # Allow repeat same day when time is reached; otherwise respect frequency
-        is_eligible_day = (
-            self.last_pricing_date is None
-            or (today == self.last_pricing_date)
-            or ((today - self.last_pricing_date).days >= frequency_days)
-        )
-        if is_eligible_day and is_after_scheduled:
+        if self.last_pricing_date is None:
+            eligible = True
+        else:
+            eligible = ((today - self.last_pricing_date).days >= frequency_days)
+        if self.last_pricing_date == today:
+            last_tuple = self.last_pricing_time_sent
+            changed = (last_tuple is None) or ((scheduled_hour, scheduled_minute) != last_tuple)
+            if changed and is_after_scheduled:
+                return True
+            return False
+        if eligible and is_after_scheduled:
             return True
-        
         return False
     
     def send_daily_sales(self):
         """Send daily sales summary"""
         try:
             logger.info("Sending daily sales summary...")
-            call_command('send_daily_sms', '--now')
+            # Determine if we should allow re-send today due to modified time
+            allow_resend = False
+            try:
+                settings = SMSNotificationSettings.get_settings()
+                hh, mm = [int(x) for x in str(getattr(settings, 'sales_time', '20:00')).split(':')]
+                if self.last_sales_date is not None:
+                    from django.utils import timezone as dj_tz
+                    today_local = dj_tz.localtime(dj_tz.now()).date()
+                    if self.last_sales_date == today_local:
+                        last_tuple = self.last_sales_time_sent
+                        if (last_tuple is None) or (last_tuple != (hh, mm)):
+                            allow_resend = True
+                cmd_args = ['--type', 'daily_sales']
+                if allow_resend:
+                    cmd_args.append('--allow-resend-today')
+                call_command('send_notifications', *cmd_args)
+                self.last_sales_time_sent = (hh, mm)
+            except Exception:
+                call_command('send_notifications', '--type', 'daily_sales')
+                self.last_sales_time_sent = None
+            try:
+                settings = SMSNotificationSettings.get_settings()
+                hh, mm = [int(x) for x in str(getattr(settings, 'sales_time', '20:00')).split(':')]
+                self.last_sales_time_sent = (hh, mm)
+            except Exception:
+                self.last_sales_time_sent = None
             try:
                 from django.utils import timezone as dj_tz
                 self.last_sales_date = dj_tz.localtime(dj_tz.now()).date()
@@ -137,7 +161,34 @@ class SMSScheduler:
         """Send pricing recommendations"""
         try:
             logger.info("Sending pricing recommendations...")
-            call_command('send_auto_pricing')
+            # Determine if we should allow re-send today due to modified time
+            allow_resend = False
+            try:
+                settings = SMSNotificationSettings.get_settings()
+                st = (getattr(settings, 'pricing_time', None) or '08:00').strip()
+                phh, pmm = [int(x) for x in st.split(':')]
+                if self.last_pricing_date is not None:
+                    from django.utils import timezone as dj_tz
+                    today_local = dj_tz.localtime(dj_tz.now()).date()
+                    if self.last_pricing_date == today_local:
+                        last_tuple = self.last_pricing_time_sent
+                        if (last_tuple is None) or (last_tuple != (phh, pmm)):
+                            allow_resend = True
+                cmd_args = ['--type', 'pricing']
+                if allow_resend:
+                    cmd_args.append('--allow-resend-today')
+                call_command('send_notifications', *cmd_args)
+                self.last_pricing_time_sent = (phh, pmm)
+            except Exception:
+                call_command('send_notifications', '--type', 'pricing')
+                self.last_pricing_time_sent = None
+            try:
+                settings = SMSNotificationSettings.get_settings()
+                st = (getattr(settings, 'pricing_time', None) or '08:00').strip()
+                phh, pmm = [int(x) for x in st.split(':')]
+                self.last_pricing_time_sent = (phh, pmm)
+            except Exception:
+                self.last_pricing_time_sent = None
             try:
                 from django.utils import timezone as dj_tz
                 self.last_pricing_date = dj_tz.localtime(dj_tz.now()).date()

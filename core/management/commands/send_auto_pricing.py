@@ -5,7 +5,7 @@ Runs every 3 days to analyze sales and suggest optimal prices
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db.models import Sum
-from core.models import Sale, Product, AppUser, SMSNotificationSettings
+from core.models import Sale, Product, AppUser, SMSNotificationSettings, SMS
 from core.sms_service import sms_service
 import logging
 
@@ -202,7 +202,6 @@ class Command(BaseCommand):
                         sent_count += 1
                         recipients.append(admin.username)
                         try:
-                            from core.models import Product, SMS
                             product = Product.objects.filter(status='active').first() or Product.objects.first()
                             if product:
                                 SMS.objects.create(

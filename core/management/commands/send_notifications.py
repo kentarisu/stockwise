@@ -41,13 +41,19 @@ class Command(BaseCommand):
             action='store_true',
             help='Force send even if conditions are not met',
         )
+        parser.add_argument(
+            '--allow-resend-today',
+            action='store_true',
+            help='Allow resend today even if already sent earlier (used when schedule time is modified)',
+        )
 
     def handle(self, *args, **options):
         notification_type = options['type']
         force = options['force']
+        allow_resend_today = options.get('allow_resend_today', False)
         
         if notification_type == 'daily_sales' or notification_type == 'all':
-            self.send_daily_sales_summary(force)
+            self.send_daily_sales_summary(force, allow_resend_today)
             
         if notification_type == 'low_stock' or notification_type == 'all':
             self.send_low_stock_alerts(force)
@@ -56,12 +62,12 @@ class Command(BaseCommand):
                 self.stdout.write('Low stock alerts sent')
             
         if notification_type == 'pricing' or notification_type == 'all':
-            self.send_pricing_recommendations(force)
+            self.send_pricing_recommendations(force, allow_resend_today)
 
         # Always print a completion line so tests can assert a generic success
         self.stdout.write('Completed')
 
-    def send_daily_sales_summary(self, force=False):
+    def send_daily_sales_summary(self, force=False, allow_resend_today=False):
         """Send daily sales summary"""
         try:
             settings = SMSNotificationSettings.get_settings()
@@ -88,9 +94,7 @@ class Command(BaseCommand):
             today = timezone.localtime().date()
             today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
             
-            if not today_sales.exists() and not force:
-                self.stdout.write(self.style.WARNING('No sales data for today. Use --force to send anyway.'))
-                return
+            # Always send, even when there are no sales today
 
             total_sales = today_sales.count()
             total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
@@ -111,10 +115,45 @@ class Command(BaseCommand):
             
             # Send SMS to all admins
             success_count = 0
-            today = timezone.localtime().date()
+            now_local = timezone.localtime()
+            today = now_local.date()
+            today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
             for admin in admins:
-                if SMS.objects.filter(user=admin, message_type='sales_summary_daily', sent_at__date=today).exists():
-                    continue
+                existing_today = SMS.objects.filter(
+                    user=admin,
+                    message_type='sales_summary_daily',
+                    sent_at__gte=today_start,
+                    sent_at__lt=today_end
+                ).order_by('-sent_at').first()
+                if existing_today and not force and not allow_resend_today:
+                    override_today = False
+                    try:
+                        # Allow re-send once today if the scheduled sales_time is later than the last send time and the scheduled time has arrived
+                        shh, smm = hh, mm
+                        scheduled_mins = shh * 60 + smm
+                        last_local = timezone.localtime(existing_today.sent_at)
+                        last_mins = last_local.time().hour * 60 + last_local.time().minute
+                        now_mins = now_local.time().hour * 60 + now_local.time().minute
+                        if (scheduled_mins > last_mins) and (now_mins >= scheduled_mins):
+                            override_today = True
+                    except Exception:
+                        override_today = False
+                    if not override_today:
+                        try:
+                            from core.models import ActionLog
+                            changed = ActionLog.objects.filter(
+                                action='SMS notification settings changed',
+                                details__icontains='Sales time:',
+                                created_at__gt=existing_today.sent_at
+                            ).exists() or ActionLog.objects.filter(
+                                action='SMS notification settings updated',
+                                created_at__gt=existing_today.sent_at
+                            ).exists()
+                        except Exception:
+                            changed = False
+                        if not changed:
+                            continue
                 result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
@@ -125,6 +164,30 @@ class Command(BaseCommand):
                             if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
                                 self.stdout.write(self.style.ERROR(f'Daily sales summary delivery failed for {admin.username}'))
                                 continue
+                    except Exception:
+                        pass
+                    try:
+                        from core.views import log_system_action
+                        product = Product.objects.filter(status='active').first() or Product.objects.first()
+                        if product:
+                            from django.utils import timezone as _tz
+                            existing = SMS.objects.filter(product=product, user=admin, message_type='sales_summary_daily').first()
+                            if existing:
+                                existing.message_content = message[:500]
+                                existing.sent_at = _tz.now()
+                                existing.save(update_fields=['message_content','sent_at'])
+                            else:
+                                SMS.objects.create(
+                                    product=product,
+                                    user=admin,
+                                    message_type='sales_summary_daily',
+                                    demand_level='mid',
+                                    message_content=message[:500]
+                                )
+                        log_system_action(
+                            action='Automatic SMS: Daily Sales Summary',
+                            details=f'Recipient: {admin.username}'
+                        )
                     except Exception:
                         pass
                     success_count += 1
@@ -206,30 +269,84 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error sending low stock alerts: {str(e)}'))
 
-    def send_pricing_recommendations(self, force=False):
+    def send_pricing_recommendations(self, force=False, allow_resend_today=False):
         """Send pricing recommendations"""
         try:
             settings = SMSNotificationSettings.get_settings()
             if not settings.pricing_enabled and not force:
                 self.stdout.write(self.style.WARNING('Pricing SMS notifications are disabled in settings.'))
                 return
-            now = timezone.localtime()
+            now_local = timezone.localtime()
             try:
                 phh, pmm = [int(x) for x in str(getattr(settings, 'pricing_time', '08:00')).split(':')]
             except Exception:
                 phh, pmm = 8, 0
-            scheduled_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
-            if not force and now < scheduled_dt:
+            scheduled_dt = now_local.replace(hour=phh, minute=pmm, second=0, microsecond=0)
+            if not force and now_local < scheduled_dt:
                 self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
                 return
+            # Robust local day range
+            today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
             try:
                 freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
             except Exception:
                 freq_days = 3
             last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-            if last and not force:
+            # Allow re-send today if pricing time changed OR if the configured time is later than the last send time today and has arrived
+            override_today = False
+            try:
+                from core.models import ActionLog
+                changed_today = ActionLog.objects.filter(
+                    action='SMS notification settings changed',
+                    details__icontains='Pricing time:',
+                    created_at__gte=today_start,
+                    created_at__lt=today_end
+                ).exists() or ActionLog.objects.filter(
+                    action='SMS notification settings updated',
+                    created_at__gte=today_start,
+                    created_at__lt=today_end
+                ).filter(details__icontains='Pricing').exists()
+                if changed_today and now_local >= scheduled_dt:
+                    override_today = True
+                # Compare scheduled time vs last send/log today
+                sms_last_today = SMS.objects.filter(
+                    message_type='pricing_alert',
+                    sent_at__gte=today_start,
+                    sent_at__lt=today_end
+                ).order_by('-sent_at').first()
+                log_last_today = ActionLog.objects.filter(
+                    action='Automatic SMS: Pricing Recommendations',
+                    created_at__gte=today_start,
+                    created_at__lt=today_end
+                ).order_by('-created_at').first()
+                last_dt = None
+                if log_last_today:
+                    last_dt = log_last_today.created_at
+                if sms_last_today and (last_dt is None or sms_last_today.sent_at > last_dt):
+                    last_dt = sms_last_today.sent_at
+                if last_dt is not None:
+                    last_local = timezone.localtime(last_dt)
+                    last_mins = last_local.time().hour * 60 + last_local.time().minute
+                    now_mins = now_local.time().hour * 60 + now_local.time().minute
+                    scheduled_mins = phh * 60 + pmm
+                    if (scheduled_mins > last_mins) and (now_mins >= scheduled_mins):
+                        override_today = True
+            except Exception:
+                override_today = False
+            if last and not force and not allow_resend_today and not override_today:
+                allow_due_to_time_change = False
+                try:
+                    from core.models import ActionLog
+                    allow_due_to_time_change = ActionLog.objects.filter(
+                        action='SMS notification settings changed',
+                        details__icontains='Pricing time:',
+                        created_at__gt=last.sent_at
+                    ).exists()
+                except Exception:
+                    allow_due_to_time_change = False
                 next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
-                if now < next_allowed:
+                if (now_local < next_allowed) and (not allow_due_to_time_change):
                     self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
                     return
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
@@ -247,9 +364,7 @@ class Command(BaseCommand):
                 status='completed'
             ).select_related('product')
 
-            if not sales.exists() and not force:
-                self.stdout.write(self.style.WARNING('No sales data for pricing analysis. Use --force to send anyway.'))
-                return
+            # Always send, even when there are no recent sales
 
             # Check if we have valid stored recommendations, if not generate them
             from core.models import PricingRecommendation
@@ -263,19 +378,33 @@ class Command(BaseCommand):
 
             from core.models import PricingRecommendation
             from core.pricing_ai import format_pricing_sms_from_queryset
-            qs = PricingRecommendation.objects.filter(expires_at__gt=timezone.now()).select_related('product')
+            now_aware = timezone.now()
+            qs = PricingRecommendation.objects.filter(expires_at__gt=now_aware).select_related('product')
             actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
             if actionable_qs.exists():
                 message = format_pricing_sms_from_queryset(actionable_qs)
             else:
-                message = "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+                message = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
             
             # Send SMS to all admins
             success_count = 0
-            now = timezone.localtime()
+            now_local = timezone.localtime()
             for admin in admins:
-                if SMS.objects.filter(user=admin, message_type='pricing_alert', sent_at__gte=now - timezone.timedelta(hours=6)).exists():
-                    continue
+                recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
+                if recent and not force and not allow_resend_today:
+                    within6h = recent.sent_at >= (now_local - timezone.timedelta(hours=6))
+                    if within6h:
+                        try:
+                            from core.models import ActionLog
+                            changed = ActionLog.objects.filter(
+                                action='SMS notification settings changed',
+                                details__icontains='Pricing time:',
+                                created_at__gt=recent.sent_at
+                            ).exists()
+                        except Exception:
+                            changed = False
+                        if not changed:
+                            continue
                 result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
@@ -286,6 +415,30 @@ class Command(BaseCommand):
                             if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
                                 self.stdout.write(self.style.ERROR(f'Pricing recommendations delivery failed for {admin.username}'))
                                 continue
+                    except Exception:
+                        pass
+                    try:
+                        from core.views import log_system_action
+                        product = Product.objects.filter(status='active').first() or Product.objects.first()
+                        if product:
+                            from django.utils import timezone as _tz
+                            existing = SMS.objects.filter(product=product, user=admin, message_type='pricing_alert').first()
+                            if existing:
+                                existing.message_content = message[:500]
+                                existing.sent_at = _tz.now()
+                                existing.save(update_fields=['message_content','sent_at'])
+                            else:
+                                SMS.objects.create(
+                                    product=product,
+                                    user=admin,
+                                    message_type='pricing_alert',
+                                    demand_level='mid',
+                                    message_content=message[:500]
+                                )
+                        log_system_action(
+                            action='Automatic SMS: Pricing Recommendations',
+                            details=f'Recipient: {admin.username}'
+                        )
                     except Exception:
                         pass
                     success_count += 1

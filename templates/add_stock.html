@@ -253,7 +253,7 @@
         <h5 class="alert-heading mt-3 mb-3 fw-bold">
           <i class="bi bi-exclamation-triangle me-2"></i>QR Session Expired
         </h5>
-        <p class="mb-3">Your QR code scan session has expired after 1 hour of inactivity for security reasons.</p>
+        <p class="mb-3">Your QR code scan session has expired after 30 minutes of inactivity for security reasons.</p>
         <div class="p-3 mb-3" style="background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
           <p class="mb-0 fw-bold" style="color: #856404;">
             <i class="bi bi-qr-code-scan me-2"></i>Please scan the QR code again to continue
@@ -261,7 +261,7 @@
         </div>
         <p class="mb-0 small text-muted">
           <i class="bi bi-info-circle me-1"></i>
-          For security, QR scan sessions automatically expire after 1 hour. 
+          For security, QR scan sessions automatically expire after 30 minutes. 
           Simply scan the QR code on the product sticker again to restart the session and access Add Stock.
         </p>
       </div>
@@ -369,12 +369,14 @@ const PAGE_CONFIG={
   inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
 const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId || PAGE_CONFIG.isQRMode;
-<script>
-if({{ minutes_remaining|default:'null' }} !== null && {{ minutes_remaining|default:'null' }} >= 0 && {{ qr_session_expired|yesno:'false,true' }} === 'false'){
+
+// QR countdown (real-time)
+var MINUTES_REMAINING = {{ minutes_remaining|default:'null' }};
+var QR_EXPIRED = {{ qr_session_expired|yesno:'true,false' }} === 'true';
+if(MINUTES_REMAINING !== null && !QR_EXPIRED){
   (function(){
     var totalSeconds=Math.max(0,parseInt('{{ minutes_remaining }}',10))*60;
     var txt=document.getElementById('qrCountdownText');
-    var alertEl=document.getElementById('qrCountdownAlert');
     function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
     function expire(){
       var div=document.getElementById('addStockFormAlert');

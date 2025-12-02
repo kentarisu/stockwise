@@ -54,11 +54,6 @@ class SMSScheduler:
         if not settings.sales_enabled:
             return False
         
-        # Check if already sent today
-        today = now.date()
-        if self.last_sales_date == today:
-            return False
-        
         # Check if current time matches scheduled time
         scheduled_time = self.parse_time(settings.sales_time)
         current_time = now.time()
@@ -81,10 +76,7 @@ class SMSScheduler:
         if not settings.pricing_enabled:
             return False
         
-        # Check if already sent today
         today = now.date()
-        if self.last_pricing_date == today:
-            return False
         
         local_now = now  # naive fallback
         try:
@@ -114,7 +106,12 @@ class SMSScheduler:
                 frequency_days = int(os.getenv('PRICING_FREQUENCY_DAYS', '3'))
             except Exception:
                 frequency_days = 3
-        is_eligible_day = (self.last_pricing_date is None) or ((today - self.last_pricing_date).days >= frequency_days)
+        # Allow repeat same day when time is reached; otherwise respect frequency
+        is_eligible_day = (
+            self.last_pricing_date is None
+            or (today == self.last_pricing_date)
+            or ((today - self.last_pricing_date).days >= frequency_days)
+        )
         if is_eligible_day and is_after_scheduled:
             return True
         
@@ -194,7 +191,11 @@ class SMSScheduler:
                 else:
                     # Get current settings (safe once schema matches model)
                     settings = SMSNotificationSettings.get_settings()
-                now = datetime.now()
+                try:
+                    from django.utils import timezone as dj_tz
+                    now = dj_tz.localtime(dj_tz.now())
+                except Exception:
+                    now = datetime.now()
                 
                 # Check each notification type
                 if self.should_send_daily_sales(settings, now):

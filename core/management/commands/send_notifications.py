@@ -20,7 +20,11 @@ def schedule_now(phone_number, message):
     except Exception:
         from datetime import datetime
         scheduled_at = datetime.now().strftime('%Y-%m-%d %I:%M%p')
-    return sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
+    res = sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
+    msg = str(res.get('message','')) if isinstance(res, dict) else ''
+    if (not res.get('success')) and (('403' in msg) or ('approved sender name' in msg.lower())):
+        return sms_service.send_sms(phone_number, message, allow_multipart=True)
+    return res
 
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'

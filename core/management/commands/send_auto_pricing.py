@@ -38,24 +38,11 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured'))
                 return
 
-            # Persistent cadence guard: respect frequency across scheduler restarts
+            # Idempotency guard limited to same-minute only; allow multiple sends in the same day
             try:
                 from core.models import ActionLog
                 from django.utils import timezone as _tz
                 now_local = _tz.localtime(_tz.now())
-                freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
-                last_log = ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations').order_by('-created_at').first()
-                if last_log and not force:
-                    last_dt = last_log.created_at
-                    try:
-                        last_dt_local = _tz.localtime(last_dt)
-                    except Exception:
-                        last_dt_local = last_dt
-                    elapsed_days = (now_local.date() - last_dt_local.date()).days
-                    if elapsed_days < freq_days:
-                        self.stdout.write(self.style.WARNING(f'Skip: Pricing recommendations sent {elapsed_days} day(s) ago; frequency={freq_days} day(s)'))
-                        return
-                # Same-minute idempotency guard: skip if logged within last 3 minutes
                 recent_cutoff = now_local - _tz.timedelta(minutes=3)
                 if ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations', created_at__gte=recent_cutoff).exists() and not force:
                     self.stdout.write(self.style.WARNING('Skip: Pricing recommendations recently logged (≤3 min); preventing duplicate send'))
@@ -205,17 +192,12 @@ class Command(BaseCommand):
                 if actionable_qs.exists() and not validate_pricing_sms_parity(actionable_qs, message):
                     logger.warning('Parity validation failed: SMS content does not match persisted recommendations')
                 for admin in admins:
-                    # Per-recipient guard: only one pricing alert per day
                     try:
-                        from core.models import SMS
-                        today = _tz.localtime(_tz.now()).date()
-                        already_sent = SMS.objects.filter(user=admin, message_type='pricing_alert', sent_at__date=today).exists()
-                        if already_sent and not force:
-                            logger.info(f"Skip sending to {admin.username}: pricing alert already sent today")
-                            continue
+                        scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
                     except Exception:
-                        pass
-                    result = sms_service.send_sms(admin.phone_number, message, allow_multipart=False)
+                        from datetime import datetime as _dt
+                        scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
+                    result = sms_service.schedule_sms_reminder(admin.phone_number, message, scheduled_at)
                     if result['success']:
                         sent_count += 1
                         recipients.append(admin.username)

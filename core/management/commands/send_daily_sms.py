@@ -55,17 +55,6 @@ class Command(BaseCommand):
         if now < scheduled_dt:
             self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
             return
-        # Idempotency guard: if already logged today, skip
-        try:
-            from core.models import ActionLog
-            from django.utils import timezone as _tz
-            _now = _tz.localtime()
-            _recent_cutoff = _now - timedelta(minutes=3)
-            if ActionLog.objects.filter(action='Automatic SMS: Daily Sales Summary', created_at__gte=_recent_cutoff).exists():
-                self.stdout.write(self.style.WARNING('Daily sales summary recently logged; skipping duplicate send.'))
-                return
-        except Exception:
-            pass
         
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
@@ -108,8 +97,6 @@ class Command(BaseCommand):
         from django.utils import timezone as _tz
         today = _tz.localtime().date()
         for u in admins:
-            if SMS.objects.filter(user=u, message_type='sales_summary_daily', sent_at__date=today).exists():
-                continue
             try:
                 from django.utils import timezone
                 scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')

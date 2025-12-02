@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.views.static import serve as static_serve
+from core.views import safe_media_serve
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -30,9 +31,9 @@ urlpatterns = [
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 # Extra fallback for media serving to prevent 404s in non-debug environments
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
-    re_path(r'^Media/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
-    re_path(r'^MEDIA/(?P<path>.*)$', static_serve, {'document_root': settings.MEDIA_ROOT}),
+    re_path(r'^media/(?P<path>.*)$', safe_media_serve),
+    re_path(r'^Media/(?P<path>.*)$', safe_media_serve),
+    re_path(r'^MEDIA/(?P<path>.*)$', safe_media_serve),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

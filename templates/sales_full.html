@@ -1776,7 +1776,7 @@
                                     </colgroup>
                                     <thead>
                                         <tr>
-                                            <th>Sale No.</th>
+                                            <th>Transaction No.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
@@ -1791,7 +1791,7 @@
                                     <tbody>
                                         {% for sale in sales %}
                                         <tr>
-                                            <td>#{{ sale.sale_id }}</td>
+                                            <td>{{ sale.transaction_number|upper }}</td>
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
@@ -1818,7 +1818,7 @@
                                                 <div class="dropdown">
                             <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
                                                         <i class="bi bi-three-dots-vertical"></i>
-                                                        <span class="visually-hidden">More options for sale #{{ sale.sale_id }}</span>
+                                                        <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-end">
                                                         <li>
@@ -1871,7 +1871,7 @@
                                     </colgroup>
                                     <thead>
                                         <tr>
-                                            <th>Sale No.</th>
+                                            <th>Transaction No.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
@@ -1910,7 +1910,7 @@
                                     </colgroup>
                                     <thead>
                                         <tr>
-                                            <th>Sale No.</th>
+                                            <th>Transaction No.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
@@ -1925,7 +1925,7 @@
                                     <tbody>
                                         {% for sale in sales %}
                                         <tr>
-                                            <td>#{{ sale.sale_id }}</td>
+                                            <td>{{ sale.transaction_number|upper }}</td>
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
@@ -1952,7 +1952,7 @@
                                                 <div class="dropdown">
                                                     <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
                                                         <i class="bi bi-three-dots-vertical"></i>
-                                                        <span class="visually-hidden">More options for sale #{{ sale.sale_id }}</span>
+                                                        <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-end">
                                                         <li>
@@ -2006,7 +2006,7 @@
                                     </colgroup>
                                     <thead>
                                         <tr>
-                                            <th>Sale no.</th>
+                                            <th>Transaction no.</th>
                                             <th>Date & Time</th>
                                             <th>Customer</th>
                                             <th>Products</th>
@@ -2021,7 +2021,7 @@
                                     <tbody>
                                         {% for sale in voided_sales %}
                                         <tr>
-                                            <td>#{{ sale.sale_id }}</td>
+                                            <td>{{ sale.transaction_number|upper }}</td>
                                             <td>{{ sale.recorded_at }}</td>
                                             <td>{{ sale.customer_name }}</td>
                                             <td class="products-column">{{ sale.products }}</td>
@@ -2040,7 +2040,7 @@
                                                 <div class="dropdown">
                                                     <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
                                                         <i class="bi bi-three-dots-vertical"></i>
-                                                        <span class="visually-hidden">More options for sale #{{ sale.sale_id }}</span>
+                                                        <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
                                                     <ul class="dropdown-menu dropdown-menu-end">
                                                         <li>
@@ -2504,7 +2504,7 @@
                                 </li>` : '';
 
                 tr.innerHTML = `
-                    <td>#${safeText(row.sale_id,'N/A')}</td>
+                    <td>${safeText(String(row.transaction_number || ('SID'+row.sale_id)).toUpperCase(),'N/A')}</td>
                     <td>${safeText(row.recorded_at,'N/A')}</td>
                     <td>${safeText(row.customer_name || row.customer || '')}</td>
                     <td class="products-column">${safeText(row.products || (row.items && row.items[0]?.product_name) || '')}</td>
@@ -2517,7 +2517,7 @@
                         <div class="dropdown">
                             <button class="btn btn-sm btn-icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More options">
                                 <i class="bi bi-three-dots-vertical"></i>
-                                <span class="visually-hidden">More options for sale #${row.sale_id}</span>
+                                <span class="visually-hidden">More options for transaction ${safeText(String(row.transaction_number || ('SID'+row.sale_id)).toUpperCase(),'N/A')}</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li>

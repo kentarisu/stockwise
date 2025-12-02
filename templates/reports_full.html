@@ -2881,7 +2881,7 @@
 
                 <!-- Summary Cards Section - Only Essential Metrics -->
                     <div class="stats-grid">
-                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('sales-summary-tab').click();">
+                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); var el=document.getElementById('sales-tab'); if(el) el.click();">
                             <div class="stat-icon primary">
                                 <i class="bi bi-currency-dollar"></i>
                             </div>
@@ -2911,7 +2911,7 @@
                                 <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity sold in selected period</div>
                             </div>
                         </a>
-                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('sales-summary-tab').click();">
+                        <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); var el=document.getElementById('sales-tab'); if(el) el.click();">
                             <div class="stat-icon info">
                                 <i class="bi bi-graph-up"></i>
                             </div>

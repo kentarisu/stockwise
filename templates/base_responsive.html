@@ -1416,7 +1416,7 @@
                     </ul>
                 </div>
 
-{% if request.session.app_role|default:''|lower == 'secretary' or request.session.app_role|default:''|lower == 'admin' %}
+{% if request.session.app_role|default:''|lower == 'admin' %}
                 <div class="nav-section">
                     <h2 class="nav-section-title">Reports</h2>
                     <ul class="nav-list" role="list">
@@ -1435,7 +1435,7 @@
                 <div class="nav-section">
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
-{% if request.session.app_role|default:''|lower == 'secretary' or request.session.app_role|default:''|lower == 'admin' %}
+{% if request.session.app_role|default:''|lower == 'admin' %}
                         <li class="nav-item">
                             <a href="{% url 'sms_settings' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'sms_settings' %}active{% endif %}"

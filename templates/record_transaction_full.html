@@ -21,8 +21,8 @@
   .header-brand i { font-size: 1.25rem !important; }
   .header-brand span { font-size: var(--font-size-lg) !important; font-weight: 700 !important; }
   .header-left h1 { font-size: var(--font-size-2xl) !important; }
-  .iframe-wrap { width: 100%; min-height: calc(100vh - var(--header-height)); }
-  .iframe-wrap iframe { width: 100%; border: none; min-height: calc(100vh - var(--header-height)); background: transparent; }
+  .iframe-wrap { width: 100%; }
+  .iframe-wrap iframe { display: block; width: 100%; border: none; background: transparent; height: auto; }
 </style>
 {% endblock %}
 
@@ -75,13 +75,28 @@
       try {
         const doc = iframe.contentDocument || iframe.contentWindow.document;
         if (!doc) return;
-        const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-        iframe.style.height = h + 'px';
+        const container = doc.querySelector('.page-container') || doc.body;
+        const measuredH = Math.max(container.scrollHeight, container.offsetHeight);
+        iframe.style.height = measuredH + 'px';
       } catch(e) {}
     }
     iframe.addEventListener('load', function(){
       resize();
       try { iframe.contentWindow.addEventListener('resize', resize); } catch(e) {}
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (doc) {
+          try {
+            const style = doc.createElement('style');
+            style.textContent = `html, body { height: auto !important; min-height: 0 !important; }
+              .page-container { min-height: auto !important; padding-bottom: 0 !important; }
+              .content-area, .main-content { min-height: auto !important; height: auto !important; }`;
+            doc.head.appendChild(style);
+          } catch(e) {}
+          const mo = new MutationObserver(function(){ resize(); });
+          mo.observe(doc.documentElement, { childList: true, subtree: true, attributes: true });
+        }
+      } catch(e) {}
       setTimeout(resize, 200);
       setTimeout(resize, 600);
 

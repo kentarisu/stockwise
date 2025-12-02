@@ -27,7 +27,8 @@ import random
 from datetime import datetime, timedelta
 from decimal import Decimal
 from io import StringIO, BytesIO
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse, Http404
+import mimetypes
 from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -306,6 +307,24 @@ def format_local_datetime(dt, fmt='%b %d, %Y %I:%M %p'):
     except Exception:
         return dt.strftime(fmt)
     return dt.strftime(fmt)
+
+def safe_media_serve(request, path):
+    base = str(settings.MEDIA_ROOT)
+    full = os.path.abspath(os.path.join(base, path))
+    if not full.startswith(os.path.abspath(base)):
+        raise Http404()
+    if not os.path.exists(full):
+        placeholder = (
+            "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'>"
+            "<rect width='120' height='120' fill='#f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='12' fill='#9ca3af'>No Image</text>"
+            "</svg>"
+        )
+        return HttpResponse(placeholder, content_type='image/svg+xml')
+    try:
+        ctype = mimetypes.guess_type(full)[0] or 'application/octet-stream'
+        return FileResponse(open(full, 'rb'), content_type=ctype)
+    except Exception:
+        raise Http404()
 
 def sanitize_text(value: str, max_len: int = 120) -> str:
     """Return a cleaned, human-friendly string.
@@ -2310,7 +2329,7 @@ def sales_view(request):
     )
     grouped = {}
     for row in rows:
-        key = row.transaction_number or f"SID{row.sale_id}"
+        key = (row.transaction_number or f"SID{row.sale_id}")
         g = grouped.get(key)
         
         
@@ -2332,7 +2351,7 @@ def sales_view(request):
         if not g:
             grouped[key] = {
                 'sale_id': row.sale_id,  # representative id
-                'transaction_number': key,
+                'transaction_number': (key or '').upper(),
                 'recorded_at': format_local_datetime(row.recorded_at),
                 'items': [item],
                 'items_json': [item],
@@ -2382,17 +2401,36 @@ def sales_view(request):
         # Get remaining voided sales
         voided_query = Sale.objects.filter(status='voided')
         if search:
-            if search.isdigit():
-                voided_query = voided_query.filter(sale_id=search)
+            s = (search or '').strip()
+            s_upper = s.upper()
+            if s_upper.startswith('TXN'):
+                voided_query = voided_query.filter(transaction_number__istartswith=s_upper)
+            elif s_upper.startswith('OR'):
+                voided_query = voided_query.filter(or_number__istartswith=s_upper)
+            elif s.startswith('#') and s[1:].isdigit():
+                voided_query = voided_query.filter(sale_id=s[1:])
+            elif s.isdigit():
+                voided_query = voided_query.filter(sale_id=s)
             else:
                 try:
-                    search_date = datetime.strptime(search, '%B %d, %Y').date()
+                    search_date = datetime.strptime(s, '%B %d, %Y').date()
                     voided_query = voided_query.filter(recorded_at__date=search_date)
                 except ValueError:
-                    voided_query = voided_query.filter(
-                        Q(product__name__icontains=search) |
-                        Q(product__quantity_unit__icontains=search)
-                    ).distinct()
+                    import re
+                    base = s.split('(')[0].strip()
+                    parts = re.findall(r'\((.*?)\)', s)
+                    q = (
+                        Q(product__name__icontains=s) |
+                        Q(product__variant__icontains=s) |
+                        Q(product__quantity_unit__icontains=s)
+                    )
+                    if base:
+                        q = q | Q(product__name__istartswith=base)
+                    for p in parts:
+                        p = p.strip()
+                        if p:
+                            q = q | Q(product__variant__icontains=p) | Q(product__quantity_unit__icontains=p)
+                    voided_query = voided_query.filter(q).distinct()
 
         for sale in voided_query.select_related('user', 'product'):
             # Build a single-item representation to align with the frontend shape
@@ -2415,6 +2453,7 @@ def sales_view(request):
 
             voided_sales.append({
                 'sale_id': sale.sale_id,
+                'transaction_number': ((sale.transaction_number or f"SID{sale.sale_id}") or '').upper(),
                 'recorded_at': format_local_datetime(sale.recorded_at),
                 'items': items_data,
                 'items_json': items_data,
@@ -2557,7 +2596,12 @@ def fetch_sales(request):
         # Apply search: supports sale number, product name, and flexible dates
         if search:
             s = (search or '').strip()
-            if s.startswith('#') and s[1:].isdigit():
+            s_upper = s.upper()
+            if s_upper.startswith('TXN'):
+                sales_query = sales_query.filter(transaction_number__istartswith=s_upper)
+            elif s_upper.startswith('OR'):
+                sales_query = sales_query.filter(or_number__istartswith=s_upper)
+            elif s.startswith('#') and s[1:].isdigit():
                 sales_query = sales_query.filter(sale_id=s[1:])
             elif s.isdigit():
                 # treat pure digits as sale id or year
@@ -2572,32 +2616,46 @@ def fetch_sales(request):
             else:
                 # Try flexible date parsing - month day, optional year
                 parsed = None
+                fmt_used = ''
                 for fmt in ('%B %d, %Y', '%b %d, %Y', '%B %d', '%b %d', '%B %Y', '%b %Y', '%Y-%m-%d'):
                     try:
                         parsed = datetime.strptime(s, fmt)
+                        fmt_used = fmt
                         break
                     except ValueError:
                         continue
                 if parsed:
-                    if '%d' in fmt and '%Y' in fmt:
+                    if '%d' in fmt_used and '%Y' in fmt_used:
                         sales_query = sales_query.filter(recorded_at__date=parsed.date())
-                    elif '%d' in fmt:
+                    elif '%d' in fmt_used:
                         sales_query = sales_query.filter(recorded_at__month=parsed.month, recorded_at__day=parsed.day)
-                    elif '%Y' in fmt and ('%B' in fmt or '%b' in fmt):
+                    elif '%Y' in fmt_used and ('%B' in fmt_used or '%b' in fmt_used):
                         sales_query = sales_query.filter(recorded_at__year=parsed.year, recorded_at__month=parsed.month)
                     else:
                         sales_query = sales_query.filter(recorded_at__year=parsed.year)
                 else:
-                    sales_query = sales_query.filter(
-                        Q(items__product__name__icontains=s) |
-                        Q(items__product__quantity_unit__icontains=s)
-                    ).distinct()
+                    # Product text search; supports combined "Name (Variant) (Unit)"
+                    import re
+                    base = s.split('(')[0].strip()
+                    parts = re.findall(r'\((.*?)\)', s)
+                    q = (
+                        Q(product__name__icontains=s) |
+                        Q(product__variant__icontains=s) |
+                        Q(product__quantity_unit__icontains=s)
+                    )
+                    if base:
+                        q = q | Q(product__name__istartswith=base)
+                    for p in parts:
+                        p = p.strip()
+                        if p:
+                            q = q | Q(product__variant__icontains=p) | Q(product__quantity_unit__icontains=p)
+                    sales_query = sales_query.filter(q).distinct()
 
         # Get sales rows and group by transaction_number
         rows = sales_query.select_related('user','product').order_by('-recorded_at','transaction_number','sale_id')
         grouped = {}
         for row in rows:
-            key = row.transaction_number or f"SID{row.sale_id}"
+            key = (row.transaction_number or f"SID{row.sale_id}")
             g = grouped.get(key)
             
             
@@ -2628,7 +2686,7 @@ def fetch_sales(request):
             if not g:
                 grouped[key] = {
                     'sale_id': row.sale_id,
-                    'transaction_number': key,
+                    'transaction_number': (key or '').upper(),
                     'recorded_at': format_local_datetime(row.recorded_at),
                     'items': [item],
                     'items_json': [item],
@@ -3633,13 +3691,10 @@ def fetch_reports(request):
         try:
             import re
             from core.models import PricingRecommendation
-            prs_q = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at'))
+            prs_q = PricingRecommendation.objects.select_related('product')
             if date_range:
                 start_dt, end_dt = date_range
-                prs_q = prs_q.filter(
-                    created_at__date__gte=start_dt.date(),
-                    created_at__date__lte=end_dt.date()
-                )
+                prs_q = prs_q.filter(created_at__range=(start_dt, end_dt))
             # Product (fruit) filter
             if fruit_filter and fruit_filter != 'all':
                 prs_q = prs_q.filter(
@@ -3655,7 +3710,7 @@ def fetch_reports(request):
                 )
             prs = prs_q.order_by('-created_at')[:200]
             if not prs:
-                prs = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at')).order_by('-created_at')[:50]
+                prs = PricingRecommendation.objects.select_related('product').order_by('-created_at')[:50]
 
             def humanize_reason(text: str, action: str, change_pct=None, confidence=None) -> str:
                 raw = (text or '').strip()
@@ -3742,6 +3797,10 @@ def fetch_reports(request):
         except Exception:
             accepted_pricing = []
 
+        try:
+            print(f"REPORTS COUNTS => sales_summary_rows:{len(sales_summary_data)} top_products:{len(top_fruits)} low_stock:{len(low_stock)} tx:{len(tx_data)} voided:{len(voided_data)} accepted_pricing:{len(accepted_pricing)}")
+        except Exception:
+            pass
         return JsonResponse({
             'success': True,
             'data': {

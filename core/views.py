@@ -1416,21 +1416,25 @@ def record_sale_page(request):
     
     # Check if this is from a QR scan and if the session is still valid
     qr_session_expired = False
+    minutes_remaining = None
     if product_id and request.session.get('qr_scan_active'):
         from datetime import datetime, timedelta
+        now = datetime.now()
         qr_token = request.session.get('qr_token')
         if qr_token:
             session_key = f'qr_scan_{qr_token}'
             scan_time_str = request.session.get(session_key)
             if scan_time_str:
                 scan_time = datetime.fromisoformat(scan_time_str)
-                if datetime.now() - scan_time > timedelta(hours=1):
-                    # Session expired
+                if now - scan_time > timedelta(minutes=30):
                     qr_session_expired = True
                     request.session.pop(session_key, None)
                     request.session.pop('qr_scan_active', None)
                     request.session.pop('qr_token', None)
                     request.session.pop('qr_product_id', None)
+                else:
+                    time_remaining = timedelta(minutes=30) - (now - scan_time)
+                    minutes_remaining = max(0, int(time_remaining.total_seconds() // 60))
     
     # Resolve current username for preview "Processed by"
     try:
@@ -1448,6 +1452,7 @@ def record_sale_page(request):
         'product_locked': bool(product_id),  # Lock product selection when accessed via QR
         'qr_session_expired': qr_session_expired,
         'app_username': app_username,
+        'minutes_remaining': minutes_remaining,
     }
     return render(request, 'record_sale.html', context)
 
@@ -1508,23 +1513,28 @@ def add_stock_page(request):
 
     # Check QR session expiration only when a QR session is active
     qr_session_expired = False
+    minutes_remaining = None
     if is_qr_session_active:
         from datetime import datetime, timedelta
+        now = datetime.now()
         qr_token_session = request.session.get('qr_token')
         if qr_token_session:
             session_key = f'qr_scan_{qr_token_session}'
             scan_time_str = request.session.get(session_key)
             if scan_time_str:
                 scan_time = datetime.fromisoformat(scan_time_str)
-                if datetime.now() - scan_time > timedelta(hours=1):
-                    # Session expired
+                if now - scan_time > timedelta(minutes=30):
                     qr_session_expired = True
                     request.session.pop(session_key, None)
                     request.session.pop('qr_scan_active', None)
                     request.session.pop('qr_token', None)
                     request.session.pop('qr_product_id', None)
+                else:
+                    time_remaining = timedelta(minutes=30) - (now - scan_time)
+                    minutes_remaining = max(0, int(time_remaining.total_seconds() // 60))
 
     context['qr_session_expired'] = qr_session_expired
+    context['minutes_remaining'] = minutes_remaining
 
     # Only set QR product context if truly in QR flow and not expired
     if product_id_from_qr and not qr_session_expired:

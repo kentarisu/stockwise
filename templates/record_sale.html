@@ -505,6 +505,13 @@
         <div class="sale-step" id="stepIndicator3"><i class="bi bi-receipt"></i><div class="sale-step-label">Receipt</div></div>
       </div>
 
+      {% if minutes_remaining is not None and not qr_session_expired %}
+      <div class="alert alert-info mx-3" id="qrCountdownAlert" role="alert" style="padding: 0.5rem 0.75rem;">
+        <i class="bi bi-clock me-2"></i>
+        <span id="qrCountdownText">QR session expires in {{ minutes_remaining|default:30 }}m 00s</span>
+      </div>
+      {% endif %}
+
       <div id="saleStep1">
         <form id="buyForm" novalidate>
           <div class="form-section customer-info-section">
@@ -1398,6 +1405,29 @@ document.addEventListener('blur', function(e){
   }
 }, true);
 </script>
+{% if minutes_remaining is not None and not qr_session_expired %}
+<script>
+  (function(){
+    var totalSeconds=Math.max(0,parseInt('{{ minutes_remaining }}',10))*60;
+    var txt=document.getElementById('qrCountdownText');
+    function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
+    function expire(){
+      var wrap=document.querySelector('.card-modern');
+      var div=document.createElement('div');
+      div.className='alert alert-danger mx-3';
+      div.innerHTML='<i class="bi bi-clock-history me-2"></i>QR session expired. Please scan the QR code again.';
+      if(wrap){wrap.insertBefore(div, wrap.firstChild);}    
+      document.querySelectorAll('input, select, button').forEach(function(el){el.disabled=true;});
+    }
+    function tick(){
+      if(txt){txt.textContent='QR session expires in '+fmt(totalSeconds);}    
+      if(totalSeconds<=0){expire();clearInterval(tmr);} else {totalSeconds--;}
+    }
+    tick();
+    var tmr=setInterval(tick,1000);
+  })();
+</script>
+{% endif %}
 </body>
 </html>
 

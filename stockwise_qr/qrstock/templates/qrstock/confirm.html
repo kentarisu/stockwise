@@ -212,6 +212,9 @@
         <h6 class="mb-3 fw-bold" style="color: #1f2937; font-size: 1rem;">
           <i class="bi bi-box-seam me-2"></i>Product Details
         </h6>
+        <div class="mb-3">
+          <span id="sessionCountdown" class="badge" style="background:#eef2ff;color:#4338ca;font-weight:600;font-size:0.8rem;padding:0.4rem 0.6rem;">Session expires in {{ minutes_remaining|default:30 }}m 00s</span>
+        </div>
         <div class="row g-3">
           <div class="col-md-6">
             <div class="mb-2">
@@ -255,7 +258,7 @@
       </div>
 
       <!-- Add Stock Action -->
-      <a href="{% url 'add_stock_page' %}?product_id={{ product.product_id }}" class="action-card add-stock">
+      <a href="{% url 'add_stock_page' %}?product_id={{ product.product_id }}" class="action-card add-stock" id="addStockAction">
         <div class="d-flex align-items-center">
         <div class="action-icon add-stock">
             <i class="bi bi-box-arrow-in-down"></i>
@@ -269,7 +272,7 @@
       </a>
 
       <!-- Record Transaction Action -->
-      <a href="{% url 'record_sale' %}?product_id={{ product.product_id }}" class="action-card record-sale">
+      <a href="{% url 'record_sale' %}?product_id={{ product.product_id }}" class="action-card record-sale" id="recordSaleAction">
         <div class="d-flex align-items-center">
         <div class="action-icon record-sale">
             <i class="bi bi-receipt"></i>
@@ -288,19 +291,30 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-{% if not session_expired and minutes_remaining %}
+{% if not session_expired and minutes_remaining is not None %}
 <script>
-// Display session timer
-document.addEventListener('DOMContentLoaded', function() {
-  var minutesRemaining = parseInt('{{ minutes_remaining|default:60 }}', 10);
-  
-  // Only show warning if less than 15 minutes remain
-  if (minutesRemaining < 15) {
-    var alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-warning mt-3';
-    alertDiv.innerHTML = '<i class="bi bi-clock me-2"></i><strong>Session Reminder:</strong> This QR scan session will expire in ' + minutesRemaining + ' minutes. Please complete your action soon.';
-    document.querySelector('.p-4').insertBefore(alertDiv, document.querySelector('.product-info-card'));
+document.addEventListener('DOMContentLoaded',function(){
+  var totalSeconds = Math.max(0, parseInt('{{ minutes_remaining }}',10))*60;
+  var cdEl = document.getElementById('sessionCountdown');
+  var addEl = document.getElementById('addStockAction');
+  var recEl = document.getElementById('recordSaleAction');
+  function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
+  function disableActions(){
+    if(addEl){addEl.classList.add('disabled');addEl.removeAttribute('href');}
+    if(recEl){recEl.classList.add('disabled');recEl.removeAttribute('href');}
+    var alertDiv=document.createElement('div');
+    alertDiv.className='alert alert-danger mt-3';
+    alertDiv.innerHTML='<i class="bi bi-clock-history me-2"></i><strong>QR Session Expired.</strong> Please scan the QR code again to continue.';
+    var container=document.querySelector('.p-4');
+    var ref=document.querySelector('.product-info-card');
+    if(container&&ref){container.insertBefore(alertDiv,ref.nextSibling);}    
   }
+  function tick(){
+    if(cdEl){cdEl.textContent='Session expires in '+fmt(totalSeconds);}    
+    if(totalSeconds<=0){disableActions();clearInterval(tmr);} else {totalSeconds--;}
+  }
+  tick();
+  var tmr=setInterval(tick,1000);
 });
 </script>
 {% endif %}

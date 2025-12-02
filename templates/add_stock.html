@@ -241,6 +241,12 @@
     </div>
     <div class="p-3">
       <div id="addStockFormAlert"></div>
+      {% if minutes_remaining is not None and not qr_session_expired %}
+      <div class="alert alert-info" id="qrCountdownAlert" role="alert" style="padding: 0.75rem 1rem;">
+        <i class="bi bi-clock me-2"></i>
+        <span id="qrCountdownText">QR session expires in {{ minutes_remaining|default:30 }}m 00s</span>
+      </div>
+      {% endif %}
       {% if qr_session_expired %}
       <div class="alert alert-danger text-center" role="alert" style="padding: 2rem 1.5rem;">
         <i class="bi bi-clock-history" style="font-size: 3.5rem; color: #dc3545; opacity: 0.8;"></i>
@@ -363,8 +369,27 @@ const PAGE_CONFIG={
   inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
 const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId || PAGE_CONFIG.isQRMode;
-</script>
 <script>
+if({{ minutes_remaining|default:'null' }} !== null && {{ minutes_remaining|default:'null' }} >= 0 && {{ qr_session_expired|yesno:'false,true' }} === 'false'){
+  (function(){
+    var totalSeconds=Math.max(0,parseInt('{{ minutes_remaining }}',10))*60;
+    var txt=document.getElementById('qrCountdownText');
+    var alertEl=document.getElementById('qrCountdownAlert');
+    function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
+    function expire(){
+      var div=document.getElementById('addStockFormAlert');
+      if(div){div.innerHTML='<div class="alert alert-danger"><i class="bi bi-clock-history me-2"></i>QR session expired. Please scan the QR code again.</div>';}
+      document.querySelectorAll('input, select, button').forEach(function(el){el.disabled=true;});
+    }
+    function tick(){
+      if(txt){txt.textContent='QR session expires in '+fmt(totalSeconds);}    
+      if(totalSeconds<=0){expire();clearInterval(tmr);} else {totalSeconds--;}
+    }
+    tick();
+    var tmr=setInterval(tick,1000);
+  })();
+}
+</script>
 const csrftoken=window.getCookie('csrftoken');
 $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 

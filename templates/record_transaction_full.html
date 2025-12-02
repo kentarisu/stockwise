@@ -5,7 +5,11 @@
   :root { --sidebar-width: 212px; --header-height: 72px; --content-padding: 2rem; }
   html { font-size: 16px; }
   body { font-size: 1rem; }
+  body, .app-container, .content-area, .main-content { background: #ffffff !important; }
   .sidebar { overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: #ffffff !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-right: 1px solid var(--gray-200) !important; }
+  .sidebar { box-shadow: none !important; }
+  .sidebar .nav-link, .sidebar .nav-link.active { border-right: 0 !important; }
+  .sidebar .nav-link::before, .sidebar .nav-link:hover::before { width: 0 !important; }
   .sidebar-nav { padding-bottom: 4rem !important; }
   .header-brand { margin-left: 1.2rem !important; }
   .header-title-section { padding-left: 3rem !important; gap: 1rem !important; }
@@ -92,4 +96,5 @@
     });
   })();
 </script>
+<!-- burger handled by base script -->
 {% endblock %}

@@ -330,9 +330,19 @@
             flex: 1;
             margin-left: var(--sidebar-width);
             min-height: 100vh;
-            background: var(--secondary);
+            background: #ffffff;
             position: relative;
             padding-top: var(--header-height);
+        }
+
+        /* Desktop collapsed rail */
+        @media (min-width: 769px) {
+            :root { --sidebar-rail-width: 60px; }
+            .sidebar.collapsed { width: var(--sidebar-rail-width); }
+            .main-content.collapsed { margin-left: var(--sidebar-rail-width); }
+            .sidebar.collapsed .nav-section-title { display: none; }
+            .sidebar.collapsed .nav-link { justify-content: center; padding: 0.6rem var(--space-2); }
+            .sidebar.collapsed .nav-link span { display: none; }
         }
 
         .header {
@@ -1406,7 +1416,7 @@
                     </ul>
                 </div>
 
-{% if request.session.app_role|default:''|lower == 'secretary' %}
+{% if request.session.app_role|default:''|lower == 'secretary' or request.session.app_role|default:''|lower == 'admin' %}
                 <div class="nav-section">
                     <h2 class="nav-section-title">Reports</h2>
                     <ul class="nav-list" role="list">
@@ -1425,7 +1435,7 @@
                 <div class="nav-section">
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
-{% if request.session.app_role|default:''|lower == 'secretary' %}
+{% if request.session.app_role|default:''|lower == 'secretary' or request.session.app_role|default:''|lower == 'admin' %}
                         <li class="nav-item">
                             <a href="{% url 'sms_settings' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'sms_settings' %}active{% endif %}"
@@ -1537,6 +1547,7 @@
             function closeMobileMenu() {
                 if (sidebar && sidebarOverlay) {
                     sidebar.classList.remove('active');
+                    sidebar.classList.remove('show');
                     sidebarOverlay.classList.remove('active');
                 }
                 body.classList.remove('sidebar-open');
@@ -1551,18 +1562,48 @@
                 });
             }
 
-            // If page already provides its own burger button, hide base toggle to avoid duplication
-            if (pageBurger && mobileMenuToggle) {
-                mobileMenuToggle.style.display = 'none';
+            // If page provides its own burger button, use it and hide base toggle
+            if (pageBurger) {
+                if (mobileMenuToggle) mobileMenuToggle.style.display = 'none';
+                pageBurger.addEventListener('click', function() {
+                    if (window.innerWidth > 768) {
+                        // Desktop: toggle collapsed rail
+                        if (sidebar) sidebar.classList.toggle('collapsed');
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) mainContent.classList.toggle('collapsed');
+                        return;
+                    }
+                    // Mobile: toggle overlay menu
+                    const isOpen = sidebar && sidebar.classList.contains('active');
+                    if (isOpen) {
+                        closeMobileMenu();
+                    } else if (sidebar) {
+                        sidebar.classList.add('active');
+                        sidebar.classList.add('show');
+                        if (sidebarOverlay) sidebarOverlay.classList.add('active');
+                        body.classList.add('sidebar-open');
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) mainContent.classList.add('sidebar-open');
+                    }
+                });
             }
 
             if (mobileMenuToggle && sidebar) {
                 mobileMenuToggle.addEventListener('click', function() {
+                    if (window.innerWidth > 768) {
+                        // Desktop: toggle collapsed rail
+                        sidebar.classList.toggle('collapsed');
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) mainContent.classList.toggle('collapsed');
+                        return;
+                    }
+                    // Mobile: overlay
                     const isOpen = sidebar.classList.contains('active');
                     if (isOpen) {
                         closeMobileMenu();
                     } else {
                         sidebar.classList.add('active');
+                        sidebar.classList.add('show');
                         if (sidebarOverlay) sidebarOverlay.classList.add('active');
                         body.classList.add('sidebar-open');
                         const mainContent = document.querySelector('.main-content');

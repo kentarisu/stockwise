@@ -110,7 +110,13 @@ class Command(BaseCommand):
         for u in admins:
             if SMS.objects.filter(user=u, message_type='sales_summary_daily', sent_at__date=today).exists():
                 continue
-            result = sms_service.send_sms(u.phone_number, message, allow_multipart=True)
+            try:
+                from django.utils import timezone
+                scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+            except Exception:
+                from datetime import datetime
+                scheduled_at = datetime.now().strftime('%Y-%m-%d %I:%M%p')
+            result = sms_service.schedule_sms_reminder(u.phone_number, message, scheduled_at)
             if result.get('success'):
                 try:
                     code = result.get('message_code')

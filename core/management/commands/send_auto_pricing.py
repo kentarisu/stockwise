@@ -149,8 +149,9 @@ class Command(BaseCommand):
                     from decimal import Decimal
                     from datetime import timedelta
                     unique_proposals = proposals.drop_duplicates(subset=['product_id'], keep='last')
+                    from core.models import PricingRecommendation as _PR
+                    _PR.objects.filter(expires_at__gt=timezone.now()).delete()
                     affected_ids = unique_proposals['product_id'].tolist()
-                    PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
                     expires_at = timezone.now() + timezone.timedelta(days=3)
                     for _, rec in unique_proposals.iterrows():
                         try:

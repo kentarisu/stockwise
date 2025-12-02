@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 def send_sms(phone_number, message):
     return sms_service.send_sms(phone_number, message, allow_multipart=True)
 
+def schedule_now(phone_number, message):
+    try:
+        from django.utils import timezone
+        scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+    except Exception:
+        from datetime import datetime
+        scheduled_at = datetime.now().strftime('%Y-%m-%d %I:%M%p')
+    return sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
+
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'
 
@@ -102,7 +111,7 @@ class Command(BaseCommand):
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='sales_summary_daily', sent_at__date=today).exists():
                     continue
-                result = send_sms(admin.phone_number, message)
+                result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')
@@ -263,7 +272,7 @@ class Command(BaseCommand):
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='pricing_alert', sent_at__gte=now - timezone.timedelta(hours=6)).exists():
                     continue
-                result = send_sms(admin.phone_number, message)
+                result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')

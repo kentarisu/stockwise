@@ -7549,7 +7549,15 @@ def test_notification_type(request):
         
         try:
             from core.sms_service import sms_service as _svc
-            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            if notification_type == 'stock':
+                send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            else:
+                try:
+                    scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+                except Exception:
+                    from datetime import datetime as _dt
+                    scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
+                send_result = _svc.schedule_sms_reminder(user_obj.phone_number, message, scheduled_at)
             ok = isinstance(send_result, dict) and send_result.get('success') or bool(send_result)
             if ok:
                 try:
@@ -9039,8 +9047,8 @@ def send_pricing_notification(request):
                     try:
                         from decimal import Decimal
                         unique_proposals = proposals.drop_duplicates(subset=['product_id'], keep='last')
+                        PricingRecommendation.objects.filter(expires_at__gt=timezone.now()).delete()
                         affected_ids = unique_proposals['product_id'].tolist()
-                        PricingRecommendation.objects.filter(product_id__in=affected_ids).delete()
                         expires_at = timezone.now() + timedelta(days=3)
                         for _, rec in unique_proposals.iterrows():
                             try:
@@ -9100,7 +9108,12 @@ def send_pricing_notification(request):
 
         try:
             from core.sms_service import sms_service as _svc
-            sr = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            try:
+                scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+            except Exception:
+                from datetime import datetime as _dt
+                scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
+            sr = _svc.schedule_sms_reminder(user_obj.phone_number, message, scheduled_at)
             if isinstance(sr, dict) and sr.get('success'):
                 try:
                     code = sr.get('message_code')

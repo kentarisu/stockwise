@@ -1406,7 +1406,7 @@
                     </ul>
                 </div>
 
-                {% if user.is_authenticated and user.is_staff %}
+{% if request.session.app_role|default:''|lower == 'secretary' %}
                 <div class="nav-section">
                     <h2 class="nav-section-title">Reports</h2>
                     <ul class="nav-list" role="list">
@@ -1425,7 +1425,7 @@
                 <div class="nav-section">
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
-                        {% if user.is_authenticated and user.is_staff %}
+{% if request.session.app_role|default:''|lower == 'secretary' %}
                         <li class="nav-item">
                             <a href="{% url 'sms_settings' %}" 
                                class="nav-link {% if request.resolver_match.url_name == 'sms_settings' %}active{% endif %}"
@@ -1434,7 +1434,6 @@
                                 <span>SMS Settings</span>
                             </a>
                         </li>
-                        {% if request.session.app_role|default:''|lower == 'admin' %}
                         <li class="nav-item">
                             <a href="{% url 'action_logs' %}"
                                class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
@@ -1451,7 +1450,6 @@
                                 <span>Backups</span>
                             </a>
                         </li>
-                        {% endif %}
                         {% endif %}
                         <li class="nav-item">
                             <a href="{% url 'profile' %}" 

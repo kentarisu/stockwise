@@ -257,6 +257,7 @@ IPROG_API_TOKEN = os.getenv('IPROG_API_TOKEN', '')
 IPROG_SENDER_ID = os.getenv('IPROG_SENDER_ID', 'STOCKWISE')  # Custom sender name (max 11 characters)
 # Route selector for iProg (0 or 1). We'll switch to 1 for delivery testing.
 IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
+IPROG_SENDER_NAME = os.getenv('IPROG_SENDER_NAME', 'Ka Prets')
 
 CRONJOBS = [
     ('*/5 * * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),

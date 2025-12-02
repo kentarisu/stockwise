@@ -19,6 +19,10 @@ class IPROGSMSService:
         # NOTE: IPROG SMS does not support custom sender IDs - all messages use system sender route
         # Keeping this for future when custom sender IDs are supported
         self.sender_id = os.getenv('IPROG_SENDER_ID') or getattr(settings, 'IPROG_SENDER_ID', 'PHILSMS')
+        try:
+            self.sender_name = os.getenv('IPROG_SENDER_NAME') or getattr(settings, 'IPROG_SENDER_NAME', None)
+        except Exception:
+            self.sender_name = None
         # App display name (used in message content, not sender ID)
         self.app_name = 'STOCKWISE'
         # Optional provider selector (0 or 1)
@@ -116,6 +120,8 @@ class IPROGSMSService:
             'message': self._to_gsm_plaintext(text, max_len=None),
             'sms_provider': self.sms_provider
         }
+        if self.sender_name:
+            params['sender_name'] = self.sender_name
         response = requests.post(self.api_url, params=params, timeout=30)
         if response.status_code == 200:
             data = response.json()
@@ -287,6 +293,31 @@ class IPROGSMSService:
                 'message': f'Error checking credits: {str(e)}'
             }
 
+    def schedule_sms_reminder(self, phone_number: str, message: str, scheduled_at: str):
+        try:
+            if not self.api_token:
+                return {'success': False, 'message': 'iProg API token not configured'}
+            normalized_phone = self.normalize_phone_number(phone_number)
+            if (not normalized_phone) or (not normalized_phone.startswith('63')) or (len(normalized_phone) not in (11, 12)):
+                return {'success': False, 'message': f'Invalid phone number: {phone_number}'}
+            payload = {
+                'api_token': self.api_token,
+                'phone_number': normalized_phone,
+                'scheduled_at': scheduled_at,
+                'message': self._to_gsm_plaintext(message, max_len=None)
+            }
+            if self.sender_name:
+                payload['sender_name'] = self.sender_name
+            url = 'https://www.iprogsms.com/api/v1/message-reminders'
+            resp = requests.post(url, params=payload, json=payload, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                ok = (data.get('status') == 'success') or (data.get('success') is True)
+                return {'success': bool(ok), 'response': data, 'message': data.get('message', '')}
+            return {'success': False, 'message': f'{resp.status_code}: {resp.text}'}
+        except Exception as e:
+            return {'success': False, 'message': str(e)}
+
 
 # Singleton instance for easy importing
 sms_service = IPROGSMSService()
@@ -305,3 +336,6 @@ def send_sms(phone_number, message, allow_multipart: bool = False):
             print(f'Failed: {result["message"]}')
     """
     return sms_service.send_sms(phone_number, message, allow_multipart=allow_multipart)
+
+def schedule_sms_reminder(phone_number: str, message: str, scheduled_at: str):
+    return sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)

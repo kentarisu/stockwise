@@ -10362,7 +10362,7 @@ def upload_and_restore_backup(request):
             # Accept SQLite files (development) or database dumps (production: PostgreSQL, MySQL, etc.)
             db_file = database_files[0]
             valid_sqlite_extensions = ('.sqlite3', '.db', '.sqlite')
-            valid_dump_extensions = ('.sql', '.dump', '.pgdump', '.mysqldump', '.backup')
+            valid_dump_extensions = ('.sql', '.dump', '.pgdump', '.mysqldump', '.backup', '.json')
             db_file_lower = db_file.lower()
             
             is_valid = (

@@ -75,8 +75,21 @@ class Command(BaseCommand):
                     
                     dump_ext = '.sql'
                     if 'postgresql' in db_engine.lower() or 'postgres' in db_engine.lower():
-                        dump_ext = '.pgdump'
-                        dump_cmd = ['pg_dump', db_name]
+                        dump_ext = '.sql'
+                        db_user = settings.DATABASES['default'].get('USER', '')
+                        db_pass = settings.DATABASES['default'].get('PASSWORD', '')
+                        db_host = settings.DATABASES['default'].get('HOST', 'localhost')
+                        db_port = settings.DATABASES['default'].get('PORT', '5432')
+                        # Allow override of pg_dump path via env
+                        import shutil
+                        pg_dump_bin = os.getenv('PG_DUMP_BIN') or 'pg_dump'
+                        if shutil.which(pg_dump_bin) is None and shutil.which('pg_dump') is not None:
+                            pg_dump_bin = 'pg_dump'
+                        dump_cmd = [pg_dump_bin, '-h', db_host, '-p', str(db_port)]
+                        if db_user:
+                            dump_cmd.extend(['-U', db_user])
+                        # Plain SQL format for easier restore via psql
+                        dump_cmd.extend(['-Fp', '-d', db_name])
                     elif 'mysql' in db_engine.lower():
                         dump_ext = '.mysqldump'
                         # Extract connection details for MySQL
@@ -95,7 +108,11 @@ class Command(BaseCommand):
                     if dump_cmd:
                         try:
                             with tempfile.NamedTemporaryFile(mode='w+b', suffix=dump_ext, delete=False) as dump_file:
-                                result = subprocess.run(dump_cmd, stdout=dump_file, stderr=subprocess.PIPE, text=True)
+                                env = os.environ.copy()
+                                if 'postgresql' in db_engine.lower() or 'postgres' in db_engine.lower():
+                                    if db_pass:
+                                        env['PGPASSWORD'] = db_pass
+                                result = subprocess.run(dump_cmd, env=env, stdout=dump_file, stderr=subprocess.PIPE, text=True)
                                 if result.returncode == 0:
                                     dump_filename = f'database_backup{dump_ext}'
                                     backup_zip.write(dump_file.name, f'database/{dump_filename}')

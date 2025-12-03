@@ -1248,7 +1248,12 @@
                 document.querySelectorAll('.details-chips').forEach(function(el){
                     const raw = (el.getAttribute('data-details') || '').trim();
                     if (!raw) { el.textContent = '-'; return; }
-                    const parts = raw.split(/\n|;+/).map(s=>s.trim()).filter(Boolean);
+                    const dec = raw
+                        .replace(/\\u000a/ig, '\n')
+                        .replace(/\\u000d/ig, '\r')
+                        .replace(/\\r\\n/g, '\n')
+                        .replace(/\\n/g, '\n');
+                    const parts = dec.split(/\n|;+/).map(s=>s.trim()).filter(Boolean);
                     el.innerHTML = '';
                     parts.forEach(function(p){
                         let label = '', value = '';

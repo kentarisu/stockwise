@@ -174,12 +174,23 @@ def log_system_action(action: str, details: str = ''):
     try:
         action_safe = sanitize_text(action, 150)
         details_safe = format_log_details(details or '')
+        ip_env = (os.getenv('SERVER_IP') or os.getenv('PUBLIC_IP') or '').strip()
+        host_env = (os.getenv('HOSTNAME') or os.getenv('COMPUTERNAME') or '').strip()
+        ip_val = ip_env
+        if not ip_val:
+            try:
+                import socket
+                ip_val = socket.gethostbyname(socket.gethostname())
+            except Exception:
+                ip_val = ''
+        if ip_val in ('127.0.0.1', '::1', '0.0.0.0', '127.0.1.1', ''):
+            ip_val = host_env or 'Hosting Server'
         ActionLog.objects.create(
             user=None,
             role='System',
             action=action_safe,
             details=details_safe,
-            ip_address='127.0.0.1',
+            ip_address=ip_val[:45],
             user_agent='StockWise Automated System',
         )
     except Exception as e:
@@ -9246,6 +9257,54 @@ def send_all_notifications_now(request):
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
         from core.sms_service import sms_service as _svc
+        def _normalize_text(msg):
+            t = str(msg or '')
+            t = t.replace('–', '-').replace('—', '-').replace('→', '->').replace('’', "'").replace('“', '"').replace('”', '"')
+            return t
+        def _split_sms_parts(msg, limit=150):
+            m = _normalize_text(msg)
+            parts = []
+            i = 0
+            reserve = 6
+            while i < len(m):
+                rem = len(m) - i
+                if rem <= (limit - reserve):
+                    chunk = m[i:]
+                    parts.append(chunk.strip())
+                    break
+                end = i + (limit - reserve)
+                window = m[i:end]
+                cut = -1
+                for sep in ['\n', ' ', '\t']:
+                    idx = window.rfind(sep)
+                    if idx > cut:
+                        cut = idx
+                if cut == -1:
+                    for sep in ['.', ',', ';', ':', ')', ']', '%', '!','?','-']:
+                        idx = window.rfind(sep)
+                        if idx > cut:
+                            cut = idx
+                if cut == -1:
+                    cut = end
+                chunk = m[i:i+cut].strip()
+                parts.append(chunk)
+                i = i + cut
+                while i < len(m) and m[i] in [' ', '\n', '\t']:
+                    i += 1
+            n = len(parts)
+            labeled = []
+            for idx, c in enumerate(parts, start=1):
+                label = f"{idx}/{n} "
+                labeled.append(label + c)
+            return labeled
+        def _send_chunked(phone, msg):
+            parts = _split_sms_parts(msg)
+            ok = False
+            last_res = None
+            for p in parts:
+                last_res = _svc.send_sms(phone, p, allow_multipart=False)
+                ok = ok or bool(last_res.get('success'))
+            return {'success': ok, 'parts': len(parts), 'last': last_res}
         from core.models import SMS
         results = {}
         
@@ -9305,7 +9364,7 @@ def send_all_notifications_now(request):
                     sales_msg += f"Remaining: {remaining} {rem_label}\n\n"
             else:
                 sales_msg += "No sales recorded today.\n"
-            results['sales'] = _svc.send_sms(user_obj.phone_number, sales_msg, allow_multipart=False)
+            results['sales'] = _send_chunked(user_obj.phone_number, sales_msg)
         else:
             results['sales'] = {'success': False, 'message': 'Already sent today'}
         print(f"DEBUG: Sales SMS result: {results.get('sales')}")
@@ -9380,7 +9439,7 @@ def send_all_notifications_now(request):
         stock_msg += ""
 
         if not _recent('stock_alert', minutes=30):
-            results['stock'] = _svc.send_sms(user_obj.phone_number, stock_msg, allow_multipart=False)
+            results['stock'] = _send_chunked(user_obj.phone_number, stock_msg)
         else:
             results['stock'] = {'success': False, 'message': 'Already sent recently'}
         print(f"DEBUG: Stock SMS result: {results.get('stock')}")
@@ -9459,7 +9518,7 @@ def send_all_notifications_now(request):
         except Exception as e:
             pricing_msg = f"STOCKWISE Pricing Recommendation\n\nError generating recommendations: {str(e)}"
         if not _recent('pricing_alert', minutes=360):
-            results['pricing'] = _svc.send_sms(user_obj.phone_number, pricing_msg, allow_multipart=False)
+            results['pricing'] = _send_chunked(user_obj.phone_number, pricing_msg)
         else:
             results['pricing'] = {'success': False, 'message': 'Already sent recently'}
         print(f"DEBUG: Pricing SMS result: {results.get('pricing')}")

@@ -26,6 +26,66 @@ def schedule_now(phone_number, message):
         return sms_service.send_sms(phone_number, message, allow_multipart=True)
     return res
 
+def _normalize_text(msg):
+    t = str(msg or '')
+    t = t.replace('–', '-').replace('—', '-').replace('→', '->').replace('’', "'").replace('“', '"').replace('”', '"')
+    return t
+
+def _split_sms_parts(msg, limit=150):
+    m = _normalize_text(msg)
+    parts = []
+    i = 0
+    reserve = 6
+    while i < len(m):
+        rem = len(m) - i
+        if rem <= (limit - reserve):
+            chunk = m[i:]
+            parts.append(chunk.strip())
+            break
+        end = i + (limit - reserve)
+        window = m[i:end]
+        cut = -1
+        for sep in ['\n', ' ', '\t']:
+            idx = window.rfind(sep)
+            if idx > cut:
+                cut = idx
+        if cut == -1:
+            for sep in ['.', ',', ';', ':', ')', ']', '%', '!','?','-']:
+                idx = window.rfind(sep)
+                if idx > cut:
+                    cut = idx
+        if cut == -1:
+            cut = end
+        chunk = m[i:i+cut].strip()
+        parts.append(chunk)
+        i = i + cut
+        while i < len(m) and m[i] in [' ', '\n', '\t']:
+            i += 1
+    n = len(parts)
+    labeled = []
+    for idx, c in enumerate(parts, start=1):
+        label = f"{idx}/{n} "
+        labeled.append(label + c)
+    return labeled
+
+def send_sms_chunked(phone_number, message):
+    parts = _split_sms_parts(message)
+    success_any = False
+    for p in parts:
+        res = sms_service.send_sms(phone_number, p, allow_multipart=False)
+        success_any = success_any or bool(res.get('success'))
+    msg = f"Sent {len(parts)} part(s)" if success_any else "Failed to send"
+    return {'success': success_any, 'parts': len(parts), 'message': msg}
+
+def schedule_chunked(phone_number, message):
+    parts = _split_sms_parts(message)
+    success_any = False
+    for p in parts:
+        res = schedule_now(phone_number, p)
+        success_any = success_any or bool(res.get('success'))
+    msg = f"Scheduled {len(parts)} part(s)" if success_any else "Failed to schedule"
+    return {'success': success_any, 'parts': len(parts), 'message': msg}
+
 class Command(BaseCommand):
     help = 'Comprehensive notification scheduler for all SMS notifications'
 
@@ -154,7 +214,7 @@ class Command(BaseCommand):
                             changed = False
                         if not changed:
                             continue
-                result = schedule_now(admin.phone_number, message)
+                result = schedule_chunked(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')
@@ -247,7 +307,7 @@ class Command(BaseCommand):
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='stock_alert', sent_at__gte=now - timezone.timedelta(minutes=30)).exists():
                     continue
-                result = send_sms(admin.phone_number, message)
+                result = send_sms_chunked(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')
@@ -293,60 +353,10 @@ class Command(BaseCommand):
             except Exception:
                 freq_days = 3
             last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-            # Allow re-send today if pricing time changed OR if the configured time is later than the last send time today and has arrived
-            override_today = False
-            try:
-                from core.models import ActionLog
-                changed_today = ActionLog.objects.filter(
-                    action='SMS notification settings changed',
-                    details__icontains='Pricing time:',
-                    created_at__gte=today_start,
-                    created_at__lt=today_end
-                ).exists() or ActionLog.objects.filter(
-                    action='SMS notification settings updated',
-                    created_at__gte=today_start,
-                    created_at__lt=today_end
-                ).filter(details__icontains='Pricing').exists()
-                if changed_today and now_local >= scheduled_dt:
-                    override_today = True
-                # Compare scheduled time vs last send/log today
-                sms_last_today = SMS.objects.filter(
-                    message_type='pricing_alert',
-                    sent_at__gte=today_start,
-                    sent_at__lt=today_end
-                ).order_by('-sent_at').first()
-                log_last_today = ActionLog.objects.filter(
-                    action='Automatic SMS: Pricing Recommendations',
-                    created_at__gte=today_start,
-                    created_at__lt=today_end
-                ).order_by('-created_at').first()
-                last_dt = None
-                if log_last_today:
-                    last_dt = log_last_today.created_at
-                if sms_last_today and (last_dt is None or sms_last_today.sent_at > last_dt):
-                    last_dt = sms_last_today.sent_at
-                if last_dt is not None:
-                    last_local = timezone.localtime(last_dt)
-                    last_mins = last_local.time().hour * 60 + last_local.time().minute
-                    now_mins = now_local.time().hour * 60 + now_local.time().minute
-                    scheduled_mins = phh * 60 + pmm
-                    if (scheduled_mins > last_mins) and (now_mins >= scheduled_mins):
-                        override_today = True
-            except Exception:
-                override_today = False
-            if last and not force and not allow_resend_today and not override_today:
-                allow_due_to_time_change = False
-                try:
-                    from core.models import ActionLog
-                    allow_due_to_time_change = ActionLog.objects.filter(
-                        action='SMS notification settings changed',
-                        details__icontains='Pricing time:',
-                        created_at__gt=last.sent_at
-                    ).exists()
-                except Exception:
-                    allow_due_to_time_change = False
+            # Do not auto-resend due to time changes; honor cooldown strictly unless force or allow_resend_today
+            if last and not force and not allow_resend_today:
                 next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
-                if (now_local < next_allowed) and (not allow_due_to_time_change):
+                if now_local < next_allowed:
                     self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
                     return
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
@@ -405,7 +415,7 @@ class Command(BaseCommand):
                             changed = False
                         if not changed:
                             continue
-                result = schedule_now(admin.phone_number, message)
+                result = schedule_chunked(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')

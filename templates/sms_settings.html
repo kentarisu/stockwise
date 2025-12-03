@@ -1958,7 +1958,7 @@
                                 html += '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Some notifications were skipped.</div>';
                                 html += '<ul class="list-group mb-3">';
                                 skipped.forEach(function(k){
-                                    var title = k === 'sales' ? 'Daily Sales' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Alerts' : k));
+                                    var title = k === 'sales' ? 'Daily Sales Summary' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Recommendation' : k));
                                     var reason = details[k] || 'Already sent recently';
                                     html += '<li class="list-group-item d-flex justify-content-between align-items-center">' + title + '<span class="badge bg-secondary">' + reason + '</span></li>';
                                 });
@@ -1978,7 +1978,7 @@
                                 html += '<div class="mb-2"><strong>Why it didn\'t send</strong></div>';
                                 html += '<ul class="list-group mb-3">';
                                 failed.forEach(function(k){
-                                    var title = k === 'sales' ? 'Daily Sales' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Alerts' : k));
+                                    var title = k === 'sales' ? 'Daily Sales Summary' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Recommendation' : k));
                                     var reason = details[k] || 'Unavailable';
                                     var next = nextAllowed[k] ? ('<small class="text-muted ms-2">Next allowed: ' + nextAllowed[k] + '</small>') : '';
                                     html += '<li class="list-group-item d-flex justify-content-between align-items-center">' + title + '<span class="badge bg-secondary">' + reason + '</span>' + next + '</li>';
@@ -2348,30 +2348,41 @@
                     }
                     const s = res.settings || {};
                     const fmt = (o) => (o ? (o.date + ' ' + o.time) : '—');
+                    function toAmPm(hhmm) {
+                        const parts = String(hhmm || '').split(':');
+                        const h = parseInt(parts[0] || '0', 10);
+                        const m = parseInt(parts[1] || '0', 10);
+                        const h12 = ((h % 12) || 12);
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        const mm = m.toString().padStart(2, '0');
+                        return h ? (h12.toString().padStart(2, '0') + ':' + mm + ' ' + ampm) : '—';
+                    }
                     const lastSales = fmt(res.last_sales);
                     const lastPricing = fmt(res.last_pricing);
                     const nextSales = fmt(res.next_sales);
                     const nextPricing = fmt(res.next_pricing);
-                    const eligibleSales = res.eligible_now && res.eligible_now.sales ? 'Yes' : 'No';
-                    const eligiblePricing = res.eligible_now && res.eligible_now.pricing ? 'Yes' : 'No';
+                    const eligibleSalesBool = !!(res.eligible_now && res.eligible_now.sales);
+                    const eligiblePricingBool = !!(res.eligible_now && res.eligible_now.pricing);
+                    const salesStatusText = s.sales_enabled ? (eligibleSalesBool ? 'Ready to send now' : ('Waiting until ' + nextSales)) : 'Disabled';
+                    const pricingStatusText = s.pricing_enabled ? (eligiblePricingBool ? 'Ready to send now' : ('Waiting until ' + nextPricing)) : 'Disabled';
                     panel.innerHTML = `
                         <div class="row">
                             <div class="col-md-6">
-                                <div><strong>Sales</strong></div>
-                                <div>Enabled: ${s.sales_enabled ? 'Yes' : 'No'}</div>
-                                <div>Send Time: ${s.sales_time || '—'}</div>
+                                <div class="mb-1"><strong>Daily Sales Summary</strong></div>
+                                <div>Enabled: <span class="badge ${s.sales_enabled ? 'bg-success' : 'bg-secondary'}">${s.sales_enabled ? 'Yes' : 'No'}</span></div>
+                                <div>Send Time: ${toAmPm(s.sales_time)}</div>
                                 <div>Last Sent: ${lastSales}</div>
                                 <div>Next Scheduled: ${nextSales}</div>
-                                <div>Eligible Now: ${eligibleSales}</div>
+                                <div>Status: <span class="badge ${eligibleSalesBool ? 'bg-primary' : 'bg-secondary'}">${salesStatusText}</span></div>
                             </div>
                             <div class="col-md-6">
-                                <div><strong>Pricing</strong></div>
-                                <div>Enabled: ${s.pricing_enabled ? 'Yes' : 'No'}</div>
-                                <div>Send Time: ${s.pricing_time || '—'}</div>
+                                <div class="mb-1"><strong>Pricing Recommendation</strong></div>
+                                <div>Enabled: <span class="badge ${s.pricing_enabled ? 'bg-success' : 'bg-secondary'}">${s.pricing_enabled ? 'Yes' : 'No'}</span></div>
+                                <div>Send Time: ${toAmPm(s.pricing_time)}</div>
                                 <div>Frequency: ${s.pricing_frequency_days || '—'} day(s)</div>
                                 <div>Last Sent: ${lastPricing}</div>
                                 <div>Next Scheduled: ${nextPricing}</div>
-                                <div>Eligible Now: ${eligiblePricing}</div>
+                                <div>Status: <span class="badge ${eligiblePricingBool ? 'bg-primary' : 'bg-secondary'}">${pricingStatusText}</span></div>
                             </div>
                         </div>
                     `;

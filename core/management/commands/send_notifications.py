@@ -156,18 +156,6 @@ class Command(BaseCommand):
             if not force and now < scheduled_dt:
                 self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
                 return
-            try:
-                # Strong idempotency: skip if a send happened within the last 3 minutes
-                from core.models import ActionLog
-                recent_cutoff = timezone.localtime() - timezone.timedelta(minutes=3)
-                if not force and ActionLog.objects.filter(action='Automatic SMS: Daily Sales Summary', created_at__gte=recent_cutoff).exists():
-                    self.stdout.write(self.style.WARNING('Skip: Daily sales summary recently sent (≤3 min); preventing duplicate send'))
-                    return
-                if not force and SMS.objects.filter(message_type='sales_summary_daily', sent_at__gte=recent_cutoff).exists():
-                    self.stdout.write(self.style.WARNING('Skip: Daily sales summary SMS exists in last 3 minutes'))
-                    return
-            except Exception:
-                pass
             # Guard against cross-process duplicates: if any daily sales SMS exists today, skip unless explicitly allowed
             try:
                 today_global_exists = SMS.objects.filter(
@@ -218,6 +206,26 @@ class Command(BaseCommand):
                 # Still consider as completed for test expectations
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
                 self.stdout.write(self.style.SUCCESS('Low stock alerts sent to 0 admin(s)'))
+                return
+            # Additional duplicate suppression window to prevent concurrent sends
+            try:
+                recent_window = timezone.localtime() - timezone.timedelta(minutes=3)
+                recent_global = SMS.objects.filter(
+                    message_type='sales_summary_daily',
+                    sent_at__gt=recent_window
+                ).exists()
+            except Exception:
+                recent_global = False
+            if recent_global and not force and not allow_resend_today:
+                try:
+                    from core.views import log_system_action
+                    log_system_action(
+                        action='Automatic SMS: Daily Sales Summary (Skipped)',
+                        details='Status: Duplicate suppression (recent send within 3 minutes)'
+                    )
+                except Exception:
+                    pass
+                self.stdout.write(self.style.WARNING('Suppressed duplicate daily sales summary within 3-minute window.'))
                 return
 
             # Get today's sales data (since we're sending at 8:00 PM)
@@ -422,19 +430,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
                 return
 
-            try:
-                # Strong idempotency: skip if a pricing send happened within the last 3 minutes
-                from core.models import ActionLog
-                recent_cutoff = timezone.localtime() - timezone.timedelta(minutes=3)
-                if not force and ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations', created_at__gte=recent_cutoff).exists():
-                    self.stdout.write(self.style.WARNING('Skip: Pricing recommendations recently sent (≤3 min); preventing duplicate send'))
-                    return
-                if not force and SMS.objects.filter(message_type='pricing_alert', sent_at__gte=recent_cutoff).exists():
-                    self.stdout.write(self.style.WARNING('Skip: Pricing SMS exists in last 3 minutes'))
-                    return
-            except Exception:
-                pass
-
             # Get recent sales data (last 30 days)
             end_date = timezone.now()
             start_date = end_date - timedelta(days=30)
@@ -472,6 +467,26 @@ class Command(BaseCommand):
             success_count = 0
             now_local = timezone.localtime()
             has_actionable = actionable_qs.exists()
+            # Global duplicate suppression window (handles concurrent workers)
+            try:
+                dup_window = now_local - timezone.timedelta(minutes=3)
+                recent_pricing_global = SMS.objects.filter(
+                    message_type='pricing_alert',
+                    sent_at__gt=dup_window
+                ).exists()
+            except Exception:
+                recent_pricing_global = False
+            if recent_pricing_global and not force and not allow_resend_today:
+                try:
+                    from core.views import log_system_action
+                    log_system_action(
+                        action='Automatic SMS: Pricing Recommendations (Skipped)',
+                        details='Status: Duplicate suppression (recent send within 3 minutes)'
+                    )
+                except Exception:
+                    pass
+                self.stdout.write(self.style.WARNING('Suppressed duplicate pricing recommendations within 3-minute window.'))
+                return
             for admin in admins:
                 recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
                 if recent and not force and not allow_resend_today:

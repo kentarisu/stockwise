@@ -1795,22 +1795,7 @@
             </div>
         </div>
 
-        <!-- Pricing Recommendations -->
-        <div class="settings-card" id="pricingRecommendations" style="display: none;">
-            <h5 class="mb-4">
-                <i class="bi bi-lightbulb me-2"></i>
-                AI Pricing Recommendations
-            </h5>
-            
-            <div id="pricingRecommendationsContent">
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading recommendations...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Analyzing demand patterns and generating recommendations...</p>
-                </div>
-            </div>
-        </div>
+        
 
         <!-- Notification Statistics -->
         <div class="settings-card">
@@ -2312,13 +2297,8 @@
                             pricingCard.find('.stat-date').text(response.stats.last_pricing.date);
                             pricingCard.find('.stat-time').text(response.stats.last_pricing.time);
                             pricingCard.find('.stat-prefix').text('Last sent:');
-                            try { loadPricingRecommendations(); } catch (_) {}
                         } else {
                             $('.stat-card').eq(4).find('.stat-datetime').hide();
-                            try {
-                                $('#pricingRecommendations').hide();
-                                $('#pricingRecommendationsContent').html('<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Pricing recommendations will appear here after the next scheduled or manual send.</div>');
-                            } catch (_) {}
                         }
                     }
                 },
@@ -2360,8 +2340,8 @@
                     const nextPricing = fmt(res.next_pricing);
                     const eligibleSalesBool = !!(res.eligible_now && res.eligible_now.sales);
                     const eligiblePricingBool = !!(res.eligible_now && res.eligible_now.pricing);
-                    const salesStatusText = s.sales_enabled ? (eligibleSalesBool ? 'Ready to send now' : ('Waiting until ' + nextSales)) : 'Disabled';
-                    const pricingStatusText = s.pricing_enabled ? (eligiblePricingBool ? 'Ready to send now' : ('Waiting until ' + nextPricing)) : 'Disabled';
+                    const salesStatusText = s.sales_enabled ? (eligibleSalesBool ? 'Ready to send now' : 'Waiting') : 'Disabled';
+                    const pricingStatusText = s.pricing_enabled ? (eligiblePricingBool ? 'Ready to send now' : 'Waiting') : 'Disabled';
                     panel.innerHTML = `
                         <div class="row">
                             <div class="col-md-6">
@@ -2390,155 +2370,9 @@
             });
         }
 
-        // Load pricing recommendations
-        function loadPricingRecommendations() {
-            $('#pricingRecommendations').show();
-            $('#pricingRecommendationsContent').html(`
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading recommendations...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Analyzing demand patterns and generating recommendations...</p>
-                </div>
-            `);
-            
-            $.ajax({
-                url: "{% url 'get_pricing_recommendations' %}?silent=true",
-                method: 'GET',
-                headers: { 'X-Silent': 'true' },
-                success: function(response) {
-                    if (response.success) {
-                        displayPricingRecommendations(response.recommendations);
-                    } else {
-                        $('#pricingRecommendationsContent').html(`
-                            <div class="alert alert-warning">
-                                <i class="bi bi-exclamation-triangle me-2"></i>
-                                ${response.message}
-                            </div>
-                        `);
-                    }
-                },
-                error: function() {
-                    $('#pricingRecommendationsContent').html(`
-                        <div class="alert alert-danger">
-                            <i class="bi bi-x-circle me-2"></i>
-                            Failed to load pricing recommendations. Please try again.
-                        </div>
-                    `);
-                }
-            });
-        }
+        // Pricing recommendations removed from SMS Settings
 
-        // Display pricing recommendations
-        function displayPricingRecommendations(recommendations) {
-            if (!recommendations || recommendations.length === 0) {
-                $('#pricingRecommendationsContent').html(`
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i>
-                        No pricing recommendations available at this time.
-                    </div>
-                `);
-                return;
-            }
-
-            let html = '<div class="row">';
-            
-            recommendations.forEach(function(rec) {
-                const actionClass = rec.action === 'INCREASE' ? 'success' : 
-                                  rec.action === 'DECREASE' ? 'warning' : 'secondary';
-                const actionIcon = rec.action === 'INCREASE' ? 'arrow-up' : 
-                                 rec.action === 'DECREASE' ? 'arrow-down' : 'pause';
-                
-                html += `
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="card-title mb-0">${rec.name}</h6>
-                                    <span class="badge bg-${actionClass}">
-                                        <i class="bi bi-${actionIcon} me-1"></i>${rec.action}
-                                    </span>
-                                </div>
-                                
-                                <div class="row mb-2">
-                                    <div class="col-6">
-                                        <small class="text-muted">Current Price</small>
-                                        <div class="fw-bold">₱${rec.current_price.toFixed(2)}</div>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">Suggested Price</small>
-                                        <div class="fw-bold">₱${rec.suggested_price.toFixed(2)}</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-2">
-                                    <small class="text-muted">Change</small>
-                                    <div class="fw-bold ${rec.change_pct > 0 ? 'text-success' : rec.change_pct < 0 ? 'text-warning' : 'text-muted'}">
-                                        ${rec.change_pct > 0 ? '+' : ''}${rec.change_pct.toFixed(1)}%
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <small class="text-muted">Reason</small>
-                                    <div class="small">${rec.reason}</div>
-                                </div>
-                                
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="badge bg-${rec.confidence === 'HIGH' ? 'success' : rec.confidence === 'MED' ? 'warning' : 'secondary'}">
-                                        ${rec.confidence} Confidence
-                                    </span>
-                                    ${rec.action !== 'HOLD' ? `
-                                        <button class="btn btn-sm btn-outline-primary" onclick="applyPricingRecommendation('${rec.product_id}', ${rec.suggested_price})">
-                                            <i class="bi bi-check me-1"></i>Apply
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            $('#pricingRecommendationsContent').html(html);
-        }
-
-        // Apply pricing recommendation
-        function applyPricingRecommendation(productId, newPrice) {
-            if (!confirm('Are you sure you want to apply this pricing recommendation?')) {
-                return;
-            }
-            
-            $.ajax({
-                url: "{% url 'apply_pricing_recommendation' %}",
-                method: 'POST',
-                data: {
-                    csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
-                    product_id: productId,
-                    new_price: newPrice
-                },
-                success: function(response) {
-                    if (response.success) {
-                        const modalEl = document.getElementById('feedbackModal');
-                        const bodyEl = document.getElementById('feedbackModalBody');
-                        bodyEl.textContent = response.message;
-                        const modal = new bootstrap.Modal(modalEl);
-                        modal.show();
-                        
-                        // Reload recommendations
-                        setTimeout(() => {
-                            loadPricingRecommendations();
-                        }, 1000);
-                    } else {
-                        showNotice('danger', 'Failed to apply pricing recommendation: ' + (response.message || 'Unknown error'));
-                    }
-                },
-                error: function(xhr) {
-                    const resp = xhr.responseJSON || {};
-                    showNotice('danger', resp.message || 'Error applying pricing recommendation. Please try again.');
-                }
-            });
-        }
+        // Pricing recommendations removed from SMS Settings
 
         // Load settings on page load
         $(document).ready(function() {

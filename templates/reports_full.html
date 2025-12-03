@@ -4513,6 +4513,7 @@
                 const printBtn = $('#printReportBtn');
                 const originalText = printBtn.html();
                 printBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Generating...');
+                if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Generating print report...', 'info', 4000); }
                 
                 // Make request to backend
                 const response = await fetch('/api/reports/export/', {
@@ -4537,14 +4538,15 @@
                 printWindow.onload = function() {
                     printWindow.print();
                     // Clean up after printing
-                    setTimeout(() => {
-                        window.URL.revokeObjectURL(url);
-                        printBtn.prop('disabled', false).html(originalText);
-                    }, 1000);
-                };
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    printBtn.prop('disabled', false).html(originalText);
+                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Report ready. Print dialog opened.', 'success', 6000); }
+                }, 1000);
+            };
                 
             } catch (error) {
-                showNotification('Failed to generate print report. Please try again.', 'danger', String(error && error.message || ''));
+                if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Failed to generate print report. Please try again.', 'error', 6000); } else { showNotification('Failed to generate print report. Please try again.', 'danger', String(error && error.message || '')); }
                 const printBtn = $('#printReportBtn');
                 printBtn.prop('disabled', false).html('<i class="bi bi-printer"></i> Print Report');
             }
@@ -4703,7 +4705,9 @@
                 new bootstrap.Modal(document.getElementById('reportPreviewModal')).show();
                 document.getElementById('exportPdfBtn').onclick = function(){
                     const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
+                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Exporting PDF...', 'info', 4000); }
                     window.open('/api/reports/export/?'+dl.toString(), '_blank');
+                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('PDF opened in a new tab.', 'success', 6000); }
                 };
             });
 

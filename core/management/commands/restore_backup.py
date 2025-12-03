@@ -10,6 +10,7 @@ import zipfile
 import shutil
 import os
 import sys
+from core.models import AppUser
 
 
 class Command(BaseCommand):
@@ -65,6 +66,7 @@ class Command(BaseCommand):
             with zipfile.ZipFile(backup_file, 'r') as backup_zip:
                 # List contents
                 file_list = backup_zip.namelist()
+                preserved_users = list(AppUser.objects.values('username','password','role','phone_number','email','is_active','full_name'))
                 
                 # 1. Restore database
                 if not options['no_database']:
@@ -206,6 +208,32 @@ class Command(BaseCommand):
                                     ))
                     else:
                         self.stdout.write(self.style.WARNING('No database file found in backup'))
+
+                def _ensure_accounts():
+                    try:
+                        created = 0
+                        for u in preserved_users:
+                            if not AppUser.objects.filter(username=u['username']).exists():
+                                AppUser.objects.create(
+                                    username=u.get('username') or '',
+                                    password=u.get('password') or '',
+                                    role=u.get('role') or 'Secretary',
+                                    phone_number=u.get('phone_number') or '',
+                                    email=u.get('email'),
+                                    is_active=bool(u.get('is_active')),
+                                    full_name=u.get('full_name') or ''
+                                )
+                                created += 1
+                        if not AppUser.objects.exists():
+                            call_command('create_users')
+                        if created:
+                            self.stdout.write(self.style.SUCCESS(f'  ✓ Restored {created} account(s)'))
+                        else:
+                            self.stdout.write('  - Accounts verified')
+                    except Exception as e:
+                        self.stdout.write(self.style.WARNING(f'  ⚠ Account preservation warning: {e}'))
+
+                _ensure_accounts()
                 
                 # 2. Restore media files
                 if not options['no_media']:

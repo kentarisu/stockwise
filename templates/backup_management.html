@@ -948,6 +948,25 @@
         </div>
     </div>
 
+    <div class="modal fade" id="restoreProgressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-arrow-repeat me-1"></i> Restoring Backup</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="progress" style="height: 20px;">
+                        <div id="restoreProgressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <div class="mt-2" id="restoreProgressText">Preparing… <span id="restoreProgressPercent">0%</span></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hide</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Confirmation Modal -->
     <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -1381,6 +1400,30 @@
                     '⚠️ Warning',
                     'This will overwrite your current database and media files!\n\nAre you sure you want to restore from this backup?',
                     function() {
+                        const modal = new bootstrap.Modal(document.getElementById('restoreProgressModal'));
+                        const bar = document.getElementById('restoreProgressBar');
+                        const pct = document.getElementById('restoreProgressPercent');
+                        const txt = document.getElementById('restoreProgressText');
+                        let p = 0;
+                        let t;
+                        function setProgress(v, label){
+                            p = Math.max(0, Math.min(100, v));
+                            bar.style.width = p + '%';
+                            bar.setAttribute('aria-valuenow', p);
+                            pct.textContent = p + '%';
+                            if (label) txt.textContent = label + ' ' + pct.textContent;
+                        }
+                        function startProgress(){
+                            modal.show();
+                            setProgress(5, 'Preparing…');
+                            t = setInterval(function(){
+                                if (p < 30) setProgress(p + 2, 'Validating…');
+                                else if (p < 70) setProgress(p + 3, 'Restoring database…');
+                                else if (p < 90) setProgress(p + 2, 'Restoring media…');
+                                else if (p < 95) setProgress(p + 1, 'Finalizing…');
+                            }, 300);
+                        }
+                        startProgress();
                         fetch(`{% url 'restore_backup' 0 %}`.replace('0', backupId), {
                             method: 'POST',
                             headers: {
@@ -1390,15 +1433,19 @@
                         })
                         .then(response => response.json())
                         .then(data => {
+                            clearInterval(t);
                             if (data.success) {
-                                showMessage('success', 'Success', 'System restored successfully! Please restart the server.', function() {
-                                    location.reload();
-                                });
+                                setProgress(100, 'Completed');
+                                setTimeout(function(){ modal.hide(); }, 500);
+                                showMessage('success', 'Restore Complete', 'System restored successfully. Please restart the server.', function(){ location.reload(); });
                             } else {
+                                setTimeout(function(){ modal.hide(); }, 300);
                                 showMessage('error', 'Error', data.message);
                             }
                         })
                         .catch(error => {
+                            clearInterval(t);
+                            setTimeout(function(){ modal.hide(); }, 300);
                             showMessage('error', 'Error', 'Error restoring backup: ' + error.message);
                         });
                     }

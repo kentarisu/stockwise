@@ -156,6 +156,18 @@ class Command(BaseCommand):
             if not force and now < scheduled_dt:
                 self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
                 return
+            try:
+                # Strong idempotency: skip if a send happened within the last 3 minutes
+                from core.models import ActionLog
+                recent_cutoff = timezone.localtime() - timezone.timedelta(minutes=3)
+                if not force and ActionLog.objects.filter(action='Automatic SMS: Daily Sales Summary', created_at__gte=recent_cutoff).exists():
+                    self.stdout.write(self.style.WARNING('Skip: Daily sales summary recently sent (≤3 min); preventing duplicate send'))
+                    return
+                if not force and SMS.objects.filter(message_type='sales_summary_daily', sent_at__gte=recent_cutoff).exists():
+                    self.stdout.write(self.style.WARNING('Skip: Daily sales summary SMS exists in last 3 minutes'))
+                    return
+            except Exception:
+                pass
             # Guard against cross-process duplicates: if any daily sales SMS exists today, skip unless explicitly allowed
             try:
                 today_global_exists = SMS.objects.filter(
@@ -409,6 +421,19 @@ class Command(BaseCommand):
             if not admins.exists():
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
                 return
+
+            try:
+                # Strong idempotency: skip if a pricing send happened within the last 3 minutes
+                from core.models import ActionLog
+                recent_cutoff = timezone.localtime() - timezone.timedelta(minutes=3)
+                if not force and ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations', created_at__gte=recent_cutoff).exists():
+                    self.stdout.write(self.style.WARNING('Skip: Pricing recommendations recently sent (≤3 min); preventing duplicate send'))
+                    return
+                if not force and SMS.objects.filter(message_type='pricing_alert', sent_at__gte=recent_cutoff).exists():
+                    self.stdout.write(self.style.WARNING('Skip: Pricing SMS exists in last 3 minutes'))
+                    return
+            except Exception:
+                pass
 
             # Get recent sales data (last 30 days)
             end_date = timezone.now()

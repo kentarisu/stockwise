@@ -2059,16 +2059,7 @@
                 smsRefreshBtn.disabled = true;
                 try { saveNotificationSettings(); } catch (_) {}
                 loadNotificationStats();
-                try {
-                    const pricingCard = document.getElementById('pricingRecommendations');
-                    const pricingVisible = pricingCard && pricingCard.style.display !== 'none';
-                    const previewVisible = $('#pricingPreview').is(':visible');
-                    if (pricingVisible) {
-                        loadPricingRecommendations();
-                    } else if (previewVisible) {
-                        
-                    }
-                } catch (_) {}
+                // Do not auto-generate pricing recommendations after a settings refresh
                 Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
                     smsRefreshBtn.disabled = false;
                     smsRefreshSpinner?.classList.add('d-none');
@@ -2321,8 +2312,13 @@
                             pricingCard.find('.stat-date').text(response.stats.last_pricing.date);
                             pricingCard.find('.stat-time').text(response.stats.last_pricing.time);
                             pricingCard.find('.stat-prefix').text('Last sent:');
+                            try { loadPricingRecommendations(); } catch (_) {}
                         } else {
                             $('.stat-card').eq(4).find('.stat-datetime').hide();
+                            try {
+                                $('#pricingRecommendations').hide();
+                                $('#pricingRecommendationsContent').html('<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Pricing recommendations will appear here after the next scheduled or manual send.</div>');
+                            } catch (_) {}
                         }
                     }
                 },
@@ -2407,8 +2403,9 @@
             `);
             
             $.ajax({
-                url: "{% url 'get_pricing_recommendations' %}",
+                url: "{% url 'get_pricing_recommendations' %}?silent=true",
                 method: 'GET',
+                headers: { 'X-Silent': 'true' },
                 success: function(response) {
                     if (response.success) {
                         displayPricingRecommendations(response.recommendations);

@@ -184,6 +184,22 @@ class Command(BaseCommand):
                                     finally:
                                         if os.path.exists(dump_path):
                                             os.unlink(dump_path)
+                                elif db_file_lower.endswith('.json'):
+                                    # Django dumpdata JSON fallback
+                                    import tempfile
+                                    with tempfile.NamedTemporaryFile(mode='w+b', suffix='.json', delete=False) as json_file:
+                                        with backup_zip.open(db_file) as source:
+                                            json_file.write(source.read())
+                                        json_path = json_file.name
+                                    try:
+                                        self.stdout.write('  - Loading JSON fixture via loaddata...')
+                                        call_command('loaddata', json_path, verbosity=0)
+                                        self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
+                                        # Run migrations to ensure schema up to date
+                                        call_command('migrate', verbosity=0)
+                                    finally:
+                                        if os.path.exists(json_path):
+                                            os.unlink(json_path)
                                 else:
                                     self.stdout.write(self.style.WARNING(
                                         f'  ⚠ Database file {db_filename} format not recognized. Skipping.'
@@ -265,4 +281,3 @@ class Command(BaseCommand):
             import traceback
             traceback.print_exc()
             sys.exit(1)
-

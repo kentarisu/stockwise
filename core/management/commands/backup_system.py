@@ -49,6 +49,7 @@ class Command(BaseCommand):
         
         try:
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as backup_zip:
+                added_database = False
                 # 1. Backup database
                 db_engine = settings.DATABASES['default']['ENGINE']
                 db_name = settings.DATABASES['default']['NAME']
@@ -63,6 +64,7 @@ class Command(BaseCommand):
                         self.stdout.write(f'Backing up SQLite database: {db_filename}')
                         backup_zip.write(db_path, f'database/{db_filename}')
                         self.stdout.write(self.style.SUCCESS(f'✓ Database backed up'))
+                        added_database = True
                     else:
                         self.stdout.write(self.style.WARNING(f'Database file not found: {db_path}'))
                 else:
@@ -99,6 +101,7 @@ class Command(BaseCommand):
                                     backup_zip.write(dump_file.name, f'database/{dump_filename}')
                                     os.unlink(dump_file.name)
                                     self.stdout.write(self.style.SUCCESS(f'✓ Database dump created and backed up'))
+                                    added_database = True
                                 else:
                                     self.stdout.write(self.style.ERROR(f'Failed to create database dump: {result.stderr}'))
                                     os.unlink(dump_file.name)
@@ -112,16 +115,42 @@ class Command(BaseCommand):
                             f'Database engine {db_engine} backup not automatically supported. '
                             f'Please create a manual database backup and include it in the backup zip.'
                         ))
+
+                # Fallback: Django dumpdata to JSON if no database file was added
+                if not added_database:
+                    try:
+                        import tempfile
+                        from django.core.management import call_command
+                        self.stdout.write('Using Django dumpdata fallback...')
+                        with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as json_dump:
+                            # Exclude auth perms and contenttypes to keep dump smaller/portable
+                            call_command(
+                                'dumpdata',
+                                '--natural-foreign',
+                                '--natural-primary',
+                                '--exclude', 'auth.permission',
+                                '--exclude', 'contenttypes',
+                                stdout=json_dump
+                            )
+                            json_path = json_dump.name
+                        backup_zip.write(json_path, 'database/stockwise_dump.json')
+                        os.unlink(json_path)
+                        self.stdout.write(self.style.SUCCESS('✓ Database JSON dump added'))
+                        added_database = True
+                    except Exception as e:
+                        self.stdout.write(self.style.ERROR(f'Fallback dumpdata failed: {e}'))
                 
                 # 2. Backup media files (uploads)
-                media_root = Path(settings.BASE_DIR.parent) / 'uploads'
-                if media_root.exists():
-                    self.stdout.write(f'Backing up media files from: {media_root}')
+                media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
+                legacy_uploads = Path(settings.BASE_DIR.parent) / 'uploads'
+                source_media = media_root if media_root.exists() else legacy_uploads
+                if source_media.exists():
+                    self.stdout.write(f'Backing up media files from: {source_media}')
                     media_count = 0
-                    for root, dirs, files in os.walk(media_root):
+                    for root, dirs, files in os.walk(source_media):
                         for file in files:
                             file_path = Path(root) / file
-                            arcname = f'media/{file_path.relative_to(media_root)}'
+                            arcname = f'media/{file_path.relative_to(source_media)}'
                             backup_zip.write(file_path, arcname)
                             media_count += 1
                     self.stdout.write(self.style.SUCCESS(f'✓ {media_count} media files backed up'))

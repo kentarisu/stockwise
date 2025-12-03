@@ -10204,16 +10204,24 @@ def restore_backup(request, backup_id):
         # Call restore command
         call_command('restore_backup', backup.file_path, force=True)
         
+        # After successful restore, remove backup record so it no longer appears in the list
+        try:
+            filename_removed = backup.filename
+            backup.delete()
+        except Exception:
+            filename_removed = backup.filename
+
         # Log the action
         log_action(
             request,
             'System restored',
-            f'Restored system from backup: {backup.filename}'
+            f'Restored system from backup: {filename_removed}'
         )
         
         return JsonResponse({
             'success': True,
-            'message': 'System restored successfully. Please restart the server.'
+            'message': 'System restored successfully. Please restart the server.',
+            'removed_backup': filename_removed
         })
         
     except Backup.DoesNotExist:

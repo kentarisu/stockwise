@@ -4161,18 +4161,19 @@
                 const auditTrail = Array.isArray(response.audit_trail) ? response.audit_trail : [];
 
                 $('#reportDetailBannerTitle').text(transaction.sale_id ? `Transaction Report · #${transaction.sale_id}` : 'Transaction Report');
-                $('#reportDetailBannerDate').text(transaction.updated_at ? `Generated on ${transaction.updated_at}` : 'Generated from current dataset');
+                const generatedTs = transaction.updated_at || transaction.date_time || transaction.created_at;
+                $('#reportDetailBannerDate').text(generatedTs ? `Generated on ${formatLocal(generatedTs)}` : 'Generated from current dataset');
 
                 $('#reportDetailSaleId').text(transaction.sale_id ? `#${transaction.sale_id}` : 'N/A');
                 $('#reportDetailTransactionNo').text(transaction.transaction_no || 'N/A');
                 $('#reportDetailOrNo').text(transaction.or_no || 'N/A');
-                $('#reportDetailDate').text(transaction.date_time || 'N/A');
+                $('#reportDetailDate').text(transaction.date_time ? formatLocal(transaction.date_time) : 'N/A');
                 $('#reportDetailCustomer').text(transaction.customer_name || 'N/A');
                 $('#reportDetailContact').text(transaction.contact_number || 'N/A');
                 $('#reportDetailAddress').text(transaction.address || 'N/A');
                 $('#reportDetailProcessedBy').text(transaction.processed_by || 'N/A');
                 $('#reportDetailCreatedBy').text(transaction.created_by || 'System');
-                $('#reportDetailUpdatedAt').text(transaction.updated_at || 'N/A');
+                $('#reportDetailUpdatedAt').text(transaction.updated_at ? formatLocal(transaction.updated_at) : 'N/A');
                 $('#reportDetailPaymentRef').text(transaction.payment_reference || 'N/A');
                 $('#reportDetailDepositRef').text(transaction.deposit_reference || 'N/A');
                 $('#reportDetailNotes').text(transaction.notes || 'None');
@@ -4291,7 +4292,7 @@
                             <tr>
                                 <td>${entry.user || 'System'}</td>
                                 <td>${entry.action || 'Activity'}</td>
-                                <td class="text-end">${entry.timestamp || 'N/A'}</td>
+                                <td class="text-end">${entry.timestamp ? formatLocal(entry.timestamp) : 'N/A'}</td>
                             </tr>
                         `);
                     });

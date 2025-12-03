@@ -830,10 +830,11 @@
         /* Ensure dropdown menus display when manually toggled */
         .dropdown-menu.show { display: block !important; }
 
-        /* When a dropdown is open, lift the whole row above neighbors */
-        .table tbody tr.dropdown-open { position: relative; z-index: 5000 !important; }
-        .table tbody td .dropdown-menu { right: 0; left: auto; z-index: 5001; pointer-events: auto; }
-        .table tbody td .btn-icon.dropdown-toggle { position: relative; z-index: 5002; }
+        /* When a dropdown is open, lift the whole row above neighbors
+           Keep below Bootstrap modal/backdrop (1050/1055) to avoid overlap */
+        .table tbody tr.dropdown-open { position: relative; z-index: 1041 !important; }
+        .table tbody td .dropdown-menu { right: 0; left: auto; z-index: 1042; pointer-events: auto; }
+        .table tbody td .btn-icon.dropdown-toggle { position: relative; z-index: 1043; }
 
 
         /* Status Badges */
@@ -1968,6 +1969,10 @@
                             <i class="bi bi-box-arrow-in-down"></i>
                             Add Stock
                         </a>
+                        <a href="{% url 'print_stickers' %}" class="btn-modern primary" title="Generate QR Code Stickers">
+                            <i class="bi bi-printer"></i>
+                            Print QR Code Stickers
+                        </a>
                     </div>
                     <button type="button" class="btn-filter-action" id="inventoryRefreshBtn" aria-label="Refresh table" style="justify-content: center;">
                         <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="inventoryRefreshSpinner"></span>
@@ -2493,8 +2498,8 @@
                         const willShow = !$menu.hasClass('show');
                         $menu.toggleClass('show', willShow).css('display', willShow ? 'block' : '');
                         $btn.attr('aria-expanded', willShow ? 'true' : 'false');
-                        // Bring parent cell above neighbors
-                        $btn.closest('td').css('z-index', willShow ? 5003 : '');
+                        // Bring parent cell above neighbors but below Bootstrap modal
+                        $btn.closest('td').css('z-index', willShow ? 1043 : '');
                         if (willShow) { $row.addClass('dropdown-open'); } else { $row.removeClass('dropdown-open'); }
                     }, 0);
                 }
@@ -4317,6 +4322,13 @@
                 }
                 console.log('Sidebar closed from escape key');
             }
+        });
+
+        // Close any open table dropdowns when any modal opens
+        $(document).on('show.bs.modal', function(){
+            $('.dropdown-menu').removeClass('show').css('display','');
+            $('.table tbody tr').removeClass('dropdown-open');
+            $('.table tbody td').css('z-index','');
         });
 
         // Handle logout confirmation

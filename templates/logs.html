@@ -450,6 +450,11 @@
             box-shadow: var(--shadow-lg);
         }
 
+        /* Friendly details chips */
+        .details-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .details-chip { background: var(--gray-100); border: 1px solid var(--gray-200); color: var(--gray-700); border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.3rem; }
+        .details-chip strong { color: var(--gray-800); font-weight: 600; }
+
         .modern-card .card-body {
             padding: 0;
         }
@@ -1023,7 +1028,9 @@
                                             {% endif %}
                                         </td>
                                         <td data-label="Action">{{ log.action }}</td>
-                                        <td data-label="Details" class="text-break">{{ log.details|default:"-"|linebreaksbr }}</td>
+                                        <td data-label="Details" class="text-break">
+                                            <div class="details-chips" data-details="{{ log.details|default:''|escapejs }}"></div>
+                                        </td>
                                         <td data-label="IP">{{ log.ip_address|default:"-" }}</td>
                                     </tr>
                                 {% empty %}
@@ -1235,6 +1242,52 @@
                     dateEndInput.value = iso(today);
                 }
             }
+
+            // Enhance Details column: render friendly chips from key:value lines
+            function enhanceDetails() {
+                document.querySelectorAll('.details-chips').forEach(function(el){
+                    const raw = (el.getAttribute('data-details') || '').trim();
+                    if (!raw) { el.textContent = '-'; return; }
+                    const parts = raw.split(/\n|;+/).map(s=>s.trim()).filter(Boolean);
+                    el.innerHTML = '';
+                    parts.forEach(function(p){
+                        let label = '', value = '';
+                        if (p.includes(':')) {
+                            const idx = p.indexOf(':');
+                            label = p.slice(0, idx).trim();
+                            value = p.slice(idx+1).trim();
+                        } else if (p.includes('=')) {
+                            const idx = p.indexOf('=');
+                            label = p.slice(0, idx).trim();
+                            value = p.slice(idx+1).trim();
+                        } else {
+                            value = p;
+                        }
+                        const chip = document.createElement('span');
+                        chip.className = 'details-chip';
+                        if (label) {
+                            const strong = document.createElement('strong');
+                            strong.textContent = label + ':';
+                            chip.appendChild(strong);
+                            chip.appendChild(document.createTextNode(' ' + value));
+                        } else {
+                            chip.textContent = value;
+                        }
+                        el.appendChild(chip);
+                    });
+                });
+            }
+
+            // Mark localhost IPs clearly
+            function enhanceIPs(){
+                document.querySelectorAll('td[data-label="IP"]').forEach(function(td){
+                    const ip = (td.textContent || '').trim();
+                    if (ip === '127.0.0.1') td.textContent = '127.0.0.1 (Localhost)';
+                });
+            }
+
+            enhanceDetails();
+            enhanceIPs();
             
             // Initialize labels
             updateRangeLabels();

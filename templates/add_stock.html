@@ -227,9 +227,7 @@
     <div class="card-header-modern">
       <div class="d-flex align-items-center gap-2">
       <h5 class="m-0"><i class="bi bi-box-arrow-in-down me-2"></i>Add Stock</h5>
-        {% if not qr_product %}
-        <a href="{% url 'print_stickers' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-printer"></i> Print QR Code Stickers</a>
-        {% endif %}
+        
       </div>
       <div>
         {% if qr_product %}
@@ -357,6 +355,8 @@
      data-qr-product-name="{% if qr_product %}{{ qr_product.name|default:''|escapejs }}{% endif %}"
      data-qr-product-locked="{% if qr_product and qr_product.locked %}true{% else %}false{% endif %}"
      data-preselected-product-id="{% if preselected_product_id %}{{ preselected_product_id }}{% endif %}"
+     data-minutes-remaining="{{ minutes_remaining|default:'' }}"
+     data-qr-expired="{% if qr_session_expired %}true{% else %}false{% endif %}"
      data-inventory-url="{% url 'products_inventory' %}"></div>
 <script>
 const cfgEl=document.getElementById('pageConfig');
@@ -366,16 +366,18 @@ const PAGE_CONFIG={
   qrProductName:(cfgEl?.dataset.qrProductName||'')||null,
   qrProductLocked:(cfgEl?.dataset.qrProductLocked||'')==='true',
   preselectedProductId:(cfgEl?.dataset.preselectedProductId||'')||null,
+  minutesRemaining:cfgEl?.dataset.minutesRemaining||'',
+  qrExpired:(cfgEl?.dataset.qrExpired||'')==='true',
   inventoryUrl:cfgEl?.dataset.inventoryUrl||''
 };
 const DISABLE_ADDITIONS=!!PAGE_CONFIG.preselectedProductId || PAGE_CONFIG.isQRMode;
 
 // QR countdown (real-time)
-var MINUTES_REMAINING = {{ minutes_remaining|default:'null' }};
-var QR_EXPIRED = {{ qr_session_expired|yesno:'true,false' }} === 'true';
+var MINUTES_REMAINING = PAGE_CONFIG.minutesRemaining ? parseInt(PAGE_CONFIG.minutesRemaining,10) : null;
+var QR_EXPIRED = PAGE_CONFIG.qrExpired;
 if(MINUTES_REMAINING !== null && !QR_EXPIRED){
   (function(){
-    var totalSeconds=Math.max(0,parseInt('{{ minutes_remaining }}',10))*60;
+    var totalSeconds=Math.max(0,(MINUTES_REMAINING||0))*60;
     var txt=document.getElementById('qrCountdownText');
     function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
     function expire(){

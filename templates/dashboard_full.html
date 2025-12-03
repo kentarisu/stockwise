@@ -1674,14 +1674,14 @@
                             <a href="{% url 'add_product_page' %}" class="action-btn">
                                 <i class="bi bi-plus-circle"></i>
                                 <div class="action-btn-content">
-                                    <h6>Add Product</h6>
+                                    <h6>Product Registration</h6>
                                     <p>Add new items to inventory</p>
                                 </div>
                             </a>
                             <a href="{% url 'record_sale' %}" class="action-btn">
                                 <i class="bi bi-cart-plus"></i>
                                 <div class="action-btn-content">
-                                    <h6>Record Sale</h6>
+                                    <h6>Record Transaction</h6>
                                     <p>Process a new transaction</p>
                                 </div>
                             </a>
@@ -1690,6 +1690,13 @@
                                 <div class="action-btn-content">
                                     <h6>Add Stock</h6>
                                     <p>Restock existing products</p>
+                                </div>
+                            </a>
+                            <a href="{% url 'sales' %}" class="action-btn">
+                                <i class="bi bi-receipt"></i>
+                                <div class="action-btn-content">
+                                    <h6>Sales</h6>
+                                    <p>View and manage sales</p>
                                 </div>
                             </a>
                             {% if app_role == 'admin' %}

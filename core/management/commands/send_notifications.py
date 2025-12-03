@@ -156,6 +156,51 @@ class Command(BaseCommand):
             if not force and now < scheduled_dt:
                 self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
                 return
+            # Guard against cross-process duplicates: if any daily sales SMS exists today, skip unless explicitly allowed
+            try:
+                today_global_exists = SMS.objects.filter(
+                    message_type='sales_summary_daily',
+                    sent_at__date=timezone.localtime().date()
+                ).exists()
+            except Exception:
+                today_global_exists = False
+            if today_global_exists and not force and not allow_resend_today:
+                # Allow re-send later today only when scheduled time moved forward beyond last send
+                admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
+                for admin in admins:
+                    existing_today = SMS.objects.filter(
+                        user=admin,
+                        message_type='sales_summary_daily',
+                        sent_at__date=timezone.localtime().date()
+                    ).order_by('-sent_at').first()
+                    if existing_today:
+                        override_today = False
+                        try:
+                            shh, smm = hh, mm
+                            scheduled_mins = shh * 60 + smm
+                            last_local = timezone.localtime(existing_today.sent_at)
+                            last_mins = last_local.time().hour * 60 + last_local.time().minute
+                            now_mins = now.time().hour * 60 + now.time().minute
+                            if (scheduled_mins > last_mins) and (now_mins >= scheduled_mins):
+                                override_today = True
+                        except Exception:
+                            override_today = False
+                        if not override_today:
+                            self.stdout.write(self.style.WARNING('Daily sales summary already sent today; skipping to prevent duplicates.'))
+                            try:
+                                from core.views import log_system_action
+                                details = (
+                                    f"Status: Skipped (already sent today)\n"
+                                    f"Scheduled Time: {getattr(settings, 'sales_time', '20:00')}\n"
+                                    f"Now: {timezone.localtime().strftime('%Y-%m-%d %I:%M %p')}"
+                                )
+                                log_system_action(
+                                    action='Automatic SMS: Daily Sales Summary (Skipped)',
+                                    details=details
+                                )
+                            except Exception:
+                                pass
+                            return
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 # Still consider as completed for test expectations
@@ -359,13 +404,7 @@ class Command(BaseCommand):
                 freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
             except Exception:
                 freq_days = 3
-            last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-            # Do not auto-resend due to time changes; honor cooldown strictly unless force or allow_resend_today
-            if last and not force and not allow_resend_today:
-                next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
-                if now_local < next_allowed:
-                    self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
-                    return
+            cooldown_delta = timezone.timedelta(days=freq_days)
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -392,11 +431,12 @@ class Command(BaseCommand):
                 # Generate and store new recommendations
                 from core.views import generate_and_store_pricing_recommendations
                 generate_and_store_pricing_recommendations()
-
+            
             from core.models import PricingRecommendation
             from core.pricing_ai import format_pricing_sms_from_queryset
             now_aware = timezone.now()
             qs = PricingRecommendation.objects.filter(expires_at__gt=now_aware).select_related('product')
+            actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
             actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
             if actionable_qs.exists():
                 message = format_pricing_sms_from_queryset(actionable_qs)
@@ -406,21 +446,20 @@ class Command(BaseCommand):
             # Send SMS to all admins
             success_count = 0
             now_local = timezone.localtime()
+            has_actionable = actionable_qs.exists()
             for admin in admins:
                 recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
                 if recent and not force and not allow_resend_today:
-                    within6h = recent.sent_at >= (now_local - timezone.timedelta(hours=6))
-                    if within6h:
-                        try:
-                            from core.models import ActionLog
-                            changed = ActionLog.objects.filter(
-                                action='SMS notification settings changed',
-                                details__icontains='Pricing time:',
-                                created_at__gt=recent.sent_at
-                            ).exists()
-                        except Exception:
-                            changed = False
-                        if not changed:
+                    local_recent = timezone.localtime(recent.sent_at)
+                    next_allowed = local_recent + cooldown_delta
+                    if has_actionable:
+                        if now_local < next_allowed:
+                            self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
+                            continue
+                    else:
+                        # No actionable recommendations: allow once per day even during cooldown
+                        if local_recent.date() == now_local.date():
+                            # Already sent today; skip duplicate
                             continue
                 result = schedule_chunked(admin.phone_number, message)
                 if result['success']:
@@ -457,6 +496,25 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write(self.style.ERROR(f'Failed to send pricing recommendations to {admin.username}: {result["message"]}'))
             
+            if success_count == 0:
+                try:
+                    from core.views import log_system_action
+                    status = 'Cooldown active' if has_actionable else 'No actionable recommendations'
+                    # Derive global next allowed when actionable
+                    last_global = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
+                    next_allowed_str = ''
+                    if has_actionable and last_global:
+                        try:
+                            nl = timezone.localtime(last_global.sent_at) + cooldown_delta
+                            next_allowed_str = f"\nNext Allowed: {nl.strftime('%Y-%m-%d %I:%M %p')}"
+                        except Exception:
+                            next_allowed_str = ''
+                    log_system_action(
+                        action='Automatic SMS: Pricing Recommendations (Skipped)',
+                        details=f"Status: {status}{next_allowed_str}"
+                    )
+                except Exception:
+                    pass
             self.stdout.write(self.style.SUCCESS(f'Pricing recommendations sent to {success_count} admin(s)'))
             
         except Exception as e:

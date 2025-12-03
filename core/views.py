@@ -5941,7 +5941,8 @@ def fetch_products(request):
             'status': p.status,
             'supplier': p.supplier or '',
             'variant': p.variant or '',
-            'image': image_url
+            'image': image_url,
+            'date_added': p.date_added.strftime('%Y-%m-%d') if getattr(p, 'date_added', None) else ''
         })
     return JsonResponse({'success': True, 'data': data})
 
@@ -9087,13 +9088,13 @@ def send_pricing_notification(request):
                         return JsonResponse({'success': False, 'message': 'Validation failed: SMS content does not match recommendations.'})
             except Exception:
                 pass
-            # Prevent manual re-sending within 3 days when a valid batch already exists
+            # Prevent manual re-sending within 3 days when actionable recommendations exist
             cutoff = now_ts - timedelta(days=3)
             last_manual = ActionLog.objects.filter(
                 user_id=user_id,
                 action__in=['Pricing recommendations generated', 'Manual pricing notification sent']
             ).order_by('-created_at').first()
-            if last_manual and last_manual.created_at > cutoff and not force_override:
+            if actionable and last_manual and last_manual.created_at > cutoff and not force_override:
                 next_allowed = last_manual.created_at + timedelta(days=3)
                 return JsonResponse({
                     'success': False,
@@ -9103,20 +9104,14 @@ def send_pricing_notification(request):
                     'cooldown_seconds_remaining': max(0, int((next_allowed - now_ts).total_seconds()))
                 }, status=429)
         else:
-            cutoff = now_ts - timedelta(days=3)
-            last_manual = ActionLog.objects.filter(
-                user_id=user_id,
-                action__in=['Pricing recommendations generated', 'Manual pricing notification sent']
-            ).order_by('-created_at').first()
-            if last_manual and last_manual.created_at > cutoff and not force_override:
-                next_allowed = last_manual.created_at + timedelta(days=3)
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Please wait before generating new recommendations. Cooldown is 3 days to prevent redundancy.',
-                    'cooldown_active': True,
-                    'next_allowed_at': format_local_datetime(next_allowed),
-                    'cooldown_seconds_remaining': max(0, int((next_allowed - now_ts).total_seconds()))
-                }, status=429)
+            # No actionable recommendations: allow sending, but avoid duplicate sends within the same day
+            same_day_sent = SMS.objects.filter(
+                user=user_obj,
+                message_type='pricing_alert',
+                sent_at__date=timezone.localtime().date()
+            ).exists()
+            if same_day_sent and not force_override:
+                return JsonResponse({'success': False, 'message': 'Already sent today.'}, status=429)
 
             try:
                 from core.pricing_ai import DemandPricingAI, PolicyConfig

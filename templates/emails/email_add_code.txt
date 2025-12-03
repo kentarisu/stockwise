@@ -1,0 +1,11 @@
+Hello {{ recipient_name }},
+
+Your StockWise administrator added this email to your account.
+Use this verification code to activate your login email:
+
+Code: {{ code }}
+
+This code expires in {{ expiry_minutes }} minutes.
+If you were not expecting this, please contact your administrator.
+
+StockWise Security Team

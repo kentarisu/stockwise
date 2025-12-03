@@ -1100,9 +1100,35 @@ def require_app_login(view_func):
         # Normalize into 'app_user_id' so downstream code works
         if not request.session.get('app_user_id') and request.session.get('user_id'):
             request.session['app_user_id'] = request.session.get('user_id')
-            # Map role to expected values if available
             if request.session.get('app_role') is None:
                 request.session['app_role'] = 'admin'
+        
+        # Block navigation for disabled accounts
+        try:
+            current_user_id = request.session.get('app_user_id') or request.session.get('user_id')
+            if current_user_id:
+                user = AppUser.objects.get(user_id=int(current_user_id))
+                if not getattr(user, 'is_active', True):
+                    # For AJAX endpoints, return JSON 403 so UI can react gracefully
+                    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                        return JsonResponse({'success': False, 'message': 'Your account has been disabled by the admin.', 'code': 'account_disabled'}, status=403)
+                    try:
+                        request.session.flush()
+                    except Exception:
+                        pass
+                    messages.error(request, 'Your account has been disabled by the admin.')
+                    resp = redirect('login')
+                    try:
+                        resp.delete_cookie('was_logged_in')
+                    except Exception:
+                        pass
+                    return resp
+        except AppUser.DoesNotExist:
+            # If user no longer exists, treat as logged out
+            messages.error(request, 'Your account is no longer available. Please contact the admin.')
+            return redirect('login')
+        except Exception:
+            pass
         
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -5448,17 +5474,28 @@ def admin_start_secretary_email_change(request):
     request.session['admin_sec_email_change_expiry'] = expires.timestamp()
     request.session['admin_sec_email_change_attempts'] = 0
     request.session['admin_sec_email_change_sent_at'] = timezone.now().timestamp()
-    subject = 'Confirm new email for Secretary'
+    old_email = target.email or ''
     display_name = (getattr(target, 'full_name', '') or target.username or 'Secretary').strip()
-    ctx = {
-        'recipient_name': display_name,
-        'code': code,
-        'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
-        'new_email': new_email,
-        'old_email': target.email or ''
-    }
-    text_body = render_to_string('emails/email_change_code.txt', ctx)
-    html_body = render_to_string('emails/email_change_code.html', ctx)
+    if old_email:
+        subject = 'Confirm Email Change'
+        ctx = {
+            'recipient_name': display_name,
+            'code': code,
+            'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+            'new_email': new_email,
+            'old_email': old_email,
+        }
+        text_body = render_to_string('emails/email_change_code.txt', ctx)
+        html_body = render_to_string('emails/email_change_code.html', ctx)
+    else:
+        subject = 'Verify Your Email for StockWise'
+        ctx_add = {
+            'recipient_name': display_name,
+            'code': code,
+            'expiry_minutes': settings.TWO_FACTOR_CODE_EXPIRY_MINUTES,
+        }
+        text_body = render_to_string('emails/email_add_code.txt', ctx_add)
+        html_body = render_to_string('emails/email_add_code.html', ctx_add)
     email_msg = mail.EmailMultiAlternatives(
         subject=subject,
         body=text_body,

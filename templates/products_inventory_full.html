@@ -1982,48 +1982,58 @@
 
                 <!-- Filters -->
                 <div class="filters-card">
-                    <div class="filters-row">
-                        <div class="form-group flex-grow-1">
-                            <label class="form-label">Search</label>
-                            <div class="filter-search-wrapper">
-                                <input type="text" class="form-control filter-search-input" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                                <button type="button" id="searchIconBtn" class="filter-search-icon-btn" aria-label="Search products" title="Search" aria-controls="searchInput">
-                                    <i class="bi bi-search" aria-hidden="true"></i>
-                                </button>
+                    <div class="row row-cols-lg-5 row-cols-md-3 row-cols-2 g-3 align-items-end">
+                        <div class="col">
+                            <div class="form-group flex-grow-1">
+                                <label class="form-label">Search</label>
+                                <div class="filter-search-wrapper">
+                                <input type="text" class="form-control filter-search-input" id="searchInput" placeholder="Search products..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="font-size:.8125rem">
+                                    <button type="button" id="searchIconBtn" class="filter-search-icon-btn" aria-label="Search products" title="Search" aria-controls="searchInput">
+                                        <i class="bi bi-search" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Status</label>
-                            <select class="form-select" id="filterSelect">
-                                <option value="All Products">All Products</option>
-                                <option value="Active">Active Only</option>
-                                <option value="Discontinued">Discontinued</option>
-                            </select>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" id="filterSelect">
+                                    <option value="All Products">All Products</option>
+                                    <option value="Active">Active Only</option>
+                                    <option value="Discontinued">Discontinued</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Products</label>
-                            <select class="form-select" id="productFilter">
-                                <option value="all">All Products</option>
-                                {% for fruit in fruits %}
-                                <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="form-label">Products</label>
+                                <select class="form-select" id="productFilter">
+                                    <option value="all">All Products</option>
+                                    {% for fruit in fruits %}
+                                    <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Quantity</label>
-                            <select class="form-select" id="unitFilter">
-                                <option value="all">All Units</option>
-                                <option value="box">Boxes</option>
-                                <option value="kilo">Kilo</option>
-                            </select>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="form-label">Quantity</label>
+                                <select class="form-select" id="unitFilter">
+                                    <option value="all">All Units</option>
+                                    <option value="box">Boxes</option>
+                                    <option value="kilo">Kilo</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Sort By</label>
-                            <select class="form-select" id="sortOrderSelect">
-                                <option value="alpha">Alphabetical (A–Z)</option>
-                                <option value="date_new">Date Added (Newest)</option>
-                                <option value="date_old">Date Added (Oldest)</option>
-                            </select>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="form-label">Sort By</label>
+                                <select class="form-select" id="sortOrderSelect">
+                                    <option value="alpha">Alphabetical (A–Z)</option>
+                                    <option value="date_new">Date Added (Newest)</option>
+                                    <option value="date_old">Date Added (Oldest)</option>
+                                </select>
+                            </div>
                         </div>
                         
                     </div>

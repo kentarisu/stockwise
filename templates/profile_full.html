@@ -1548,7 +1548,14 @@
 
                         <div class="mb-3">
                             <label class="form-label">Password</label>
-                            <input type="text" class="form-control" id="editSecretaryPassword" name="password" minlength="6" placeholder="Enter new password">
+                            <input type="text" class="form-control" id="editSecretaryPassword" name="password" minlength="8" placeholder="Enter new password">
+                            <div id="secPasswordStrength" class="mt-2 small">
+                                <div data-criterion="length"><i class="bi bi-x-circle me-1"></i>At least 8 characters</div>
+                                <div data-criterion="upper"><i class="bi bi-x-circle me-1"></i>Uppercase letter</div>
+                                <div data-criterion="lower"><i class="bi bi-x-circle me-1"></i>Lowercase letter</div>
+                                <div data-criterion="number"><i class="bi bi-x-circle me-1"></i>Number</div>
+                                <div data-criterion="symbol"><i class="bi bi-x-circle me-1"></i>Symbol</div>
+                            </div>
                             <small class="text-muted">Leave blank to keep current password</small>
                         </div>
 
@@ -1588,7 +1595,7 @@
             </div>
         </div>
     </div>
-
+    
     <!-- Disable Confirmation Modal -->
     <div class="modal fade" id="disableConfirmModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -1610,6 +1617,32 @@
                     <button type="button" class="btn btn-warning" id="confirmDisableBtn">
                         <i class="bi bi-check"></i>
                         Yes, Disable Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enable Confirmation Modal -->
+    <div class="modal fade" id="enableConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success">
+                    <h5 class="modal-title">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Confirm Enable Account
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Enabling this account will allow the secretary to log in and access the system.</p>
+                    <p class="mb-0">You can disable the account again at any time using the toggle.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmEnableBtn">
+                        <i class="bi bi-check"></i>
+                        Yes, Enable Account
                     </button>
                 </div>
             </div>
@@ -1670,6 +1703,14 @@
                                     <label class="form-label">Email</label>
                                     <input type="email" class="form-control" name="email" value="{{ user_obj.email|default:'' }}" placeholder="Enter email address">
                                     <div class="invalid-feedback" id="emailError"></div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" value="{{ user_obj.email|default:'' }}" placeholder="No email set" readonly>
+                                    <small class="text-muted">Contact the admin to change your email</small>
                                 </div>
                             </div>
                             {% endif %}
@@ -1786,6 +1827,8 @@
         // Variables for disable confirmation
         let pendingDisableToggle = null;
         let pendingDisableUserId = null;
+        let pendingEnableToggle = null;
+        let pendingEnableUserId = null;
 
         // User status toggle functionality
         $(document).ready(function() {
@@ -1804,19 +1847,17 @@
                 const toggle = $(this);
                 const userId = toggle.data('user-id');
                 const isActive = toggle.is(':checked');
-                
-                // If disabling, show confirmation modal
                 if (!isActive) {
                     pendingDisableToggle = toggle;
                     pendingDisableUserId = userId;
                     $('#disableConfirmModal').modal('show');
-                    // Revert toggle until confirmed
                     toggle.prop('checked', true);
                     return;
                 }
-                
-                // If enabling, proceed directly (but account must have valid info)
-                performToggle(toggle, userId, isActive);
+                pendingEnableToggle = toggle;
+                pendingEnableUserId = userId;
+                $('#enableConfirmModal').modal('show');
+                toggle.prop('checked', false);
             });
 
             // Confirm disable button
@@ -1826,6 +1867,15 @@
                     $('#disableConfirmModal').modal('hide');
                     pendingDisableToggle = null;
                     pendingDisableUserId = null;
+                }
+            });
+
+            $('#confirmEnableBtn').on('click', function() {
+                if (pendingEnableToggle && pendingEnableUserId) {
+                    performToggle(pendingEnableToggle, pendingEnableUserId, true);
+                    $('#enableConfirmModal').modal('hide');
+                    pendingEnableToggle = null;
+                    pendingEnableUserId = null;
                 }
             });
 
@@ -1858,6 +1908,29 @@
             if (newPwInput) {
                 updateStrength(newPwInput.value || '');
                 newPwInput.addEventListener('input', e => updateStrength(e.target.value));
+            }
+
+            const secPwInput = document.getElementById('editSecretaryPassword');
+            const secStrengthEl = document.getElementById('secPasswordStrength');
+            function updateSecStrength(val){
+                if(!secStrengthEl) return;
+                const hasLength = (val||'').length >= 8;
+                const hasUpper = /[A-Z]/.test(val||'');
+                const hasLower = /[a-z]/.test(val||'');
+                const hasNumber = /\d/.test(val||'');
+                const hasSymbol = /[^A-Za-z0-9]/.test(val||'');
+                const map = { length: hasLength, upper: hasUpper, lower: hasLower, number: hasNumber, symbol: hasSymbol };
+                Object.keys(map).forEach(function(key){
+                    const item = secStrengthEl.querySelector('[data-criterion="'+key+'"]');
+                    if(!item) return;
+                    const icon = item.querySelector('i');
+                    if(map[key]){ item.classList.add('text-success'); if(icon) icon.className='bi bi-check-circle-fill me-1 text-success'; }
+                    else { item.classList.remove('text-success'); if(icon) icon.className='bi bi-x-circle me-1'; }
+                });
+            }
+            if(secPwInput){
+                updateSecStrength(secPwInput.value||'');
+                secPwInput.addEventListener('input', function(e){ updateSecStrength(e.target.value); });
             }
 
             $('.edit-secretary-btn').on('click', function() {
@@ -1917,7 +1990,7 @@
                 const userId = $('#editSecretaryUserId').val();
                 const newEmail = ($('#editSecretaryEmail').val() || '').trim();
                 const originalEmail = ($('#editSecretaryOriginalEmail').val() || '').trim();
-                if (newEmail && originalEmail && newEmail.toLowerCase() !== originalEmail.toLowerCase()) {
+                if (newEmail && newEmail.toLowerCase() !== (originalEmail || '').toLowerCase()) {
                     submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Sending code...');
                     $.post("{% url 'admin_start_secretary_email_change' %}", { user_id: userId, new_email: newEmail })
                      .done(function(resp){
@@ -2101,6 +2174,7 @@
                 },
                 success: function(response) {
                     if (response.success) {
+                        toggle.prop('checked', isActive);
                         // Update status badge
                         if (isActive) {
                             statusBadge.removeClass('disabled').addClass('enabled').text('Active');
@@ -2119,6 +2193,8 @@
                         }
                         editBtn.data('is-active', isActive);
                         
+                        // Clear loading color so CSS checked state applies
+                        toggleSwitch.find('.toggle-slider').css('background-color', '');
                         // Show success message
                         showAlert(response.message || (isActive ? 'User enabled successfully' : 'User disabled successfully'), 'success');
                     } else {

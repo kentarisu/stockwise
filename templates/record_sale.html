@@ -643,10 +643,10 @@
           <button type="button" class="btn btn-outline-success" id="printReceiptBtn" style="display:none;">Print Receipt</button>
           <button type="button" class="btn btn-outline-success" id="printReceiptAfterBtn" style="display:none;">Print Receipt</button>
           <button type="button" class="btn btn-success" id="doneBtn" style="display:none;">Done</button>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
+</div>
+</div>
+</div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -999,6 +999,14 @@ $('#customerName').on('blur', function(){ const v=$(this).val(); $(this).val(toT
 $('#customerAddress').on('blur', function(){ const v=$(this).val(); $(this).val(toTitleCase(v)); });
 $('#customerContact').on('input', function(){ const digits=$(this).val().replace(/\D/g,'').slice(0,11); $(this).val(digits); });
 function recordSale(){
+  if (window.lastRecordedSaleId) { 
+    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+      window.modernInventorySystem.showNotification('This sale has already been recorded.', 'warning', 6000);
+    } else {
+      alert('This sale has already been recorded.');
+    }
+    return; 
+  }
   const items=window.saleItems||[];
   const amountPaid=parseFloat($('#paymentTendered').val())||0;
   const discountPct=parseFloat($('#discountPercentage').val())||0;
@@ -1008,7 +1016,7 @@ function recordSale(){
   const customerAddress=toTitleCase($('#customerAddress').val()||'');
   if(customerContact && customerContact.length!==11){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Contact number must be exactly 11 digits.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; }
   const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, discount_pct: discountPct, discount_amount: discountAmount, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() };
-  return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; } if(resp.transaction_number){ transactionNumber=String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); } if(resp.or_number){ orNumber=String(resp.or_number); $('#orNumber').text(orNumber); } }catch(e){} $('#saleSuccessMessage').show(); $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }});
+  return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; } if(resp.transaction_number){ transactionNumber=String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); } if(resp.or_number){ orNumber=String(resp.or_number); $('#orNumber').text(orNumber); } }catch(e){} $('#saleSuccessMessage').hide(); if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Sale recorded successfully!', 'success', 6000); } else { alert('Sale recorded successfully!'); } $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); try { $('#cancelBtn').text('Record Again').off('click').on('click', function(){ try { if (window.top && window.top.location) { window.top.location.href = "{% url 'record_sale_main' %}"; } else { window.location.href = "{% url 'record_sale_main' %}"; } } catch(e){ window.location.href = "{% url 'record_sale_main' %}"; } }); } catch(_){ } } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }});
 }
  // Detect if device is mobile/tablet or desktop
  function isMobileOrTablet() {
@@ -1129,10 +1137,14 @@ function ensurePrintToastRenderer(){
 const renderPrintToast = ensurePrintToastRenderer();
 
 function showRecordReceiptPrintPrompt(){
-  renderPrintToast('Receipt print dialog opened. Complete printing to finish.', 'info');
+  try { /* intentionally suppressed */ } catch(_) {}
 }
 function showRecordReceiptPrintCompletion(){
-  renderPrintToast('Receipt Printed', 'success');
+  try { window.__suppressNetworkErrors = false; } catch(_) {}
+  const msg = 'Receipt print finished. If you cancelled, press print again.';
+  if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+    window.modernInventorySystem.showNotification(msg, 'success', 6000);
+  }
 }
 function attachRecordAfterPrintListener(printWindow){
   if(!printWindow) return;
@@ -1223,7 +1235,6 @@ function printRegularReceipt() {
        const printWin = printFrame.contentWindow;
        attachRecordAfterPrintListener(printWin);
        recordReceiptPrintState = 'dialog-open';
-       try { showRecordReceiptPrintPrompt(); } catch(_){}
        printWin.focus();
        printWin.print();
    }, 300);
@@ -1238,7 +1249,8 @@ function tryLocalBridgePrint(receiptContent){
     }
     return fetch(bridgeUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Suppress-Error': '1' },
+      suppressGlobalError: true,
       body: JSON.stringify({ content: receiptContent, printer_name: printerName })
     }).then(function(resp){
       if(!resp.ok) throw new Error('Bridge HTTP error '+resp.status);
@@ -1250,6 +1262,7 @@ function tryLocalBridgePrint(receiptContent){
 }
 
 function printThermalReceipt(saleId) {
+    try { window.__suppressNetworkErrors = true; } catch(_) {}
     const receiptContent = document.getElementById('thermalReceiptPreview')?.textContent || '';
     tryLocalBridgePrint(receiptContent)
       .then(function(res){
@@ -1261,12 +1274,14 @@ function printThermalReceipt(saleId) {
       })
       .catch(function(){
         printRegularReceipt();
-      });
+      }).finally(function(){ setTimeout(function(){ window.__suppressNetworkErrors = false; }, 1500); });
 }
 
 function showPrintSuccessModal(message){
-  const successMessage = message || 'Receipt Printed';
-  renderPrintToast(successMessage, 'success');
+  const successMessage = message || 'Receipt print finished. If you cancelled, press print again.';
+  if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+    window.modernInventorySystem.showNotification(successMessage, 'success', 6000);
+  }
 }
 
 function showPrinterErrorModal(message){
@@ -1412,9 +1427,13 @@ $(document).ready(function(){
     }
   });
   $('#doneBtn').on('click', function() {
-    if (SALE_PAGE_CONFIG.isQRMode) {
-      window.history.back();
-    } else {
+    try {
+      if (window.top && window.top.location) {
+        window.top.location.href = SALE_PAGE_CONFIG.salesUrl;
+      } else {
+        window.location.href = SALE_PAGE_CONFIG.salesUrl;
+      }
+    } catch(e) {
       window.location.href = SALE_PAGE_CONFIG.salesUrl;
     }
   });
@@ -1496,4 +1515,3 @@ document.addEventListener('blur', function(e){
 {% endif %}
 </body>
 </html>
-

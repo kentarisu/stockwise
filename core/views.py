@@ -1120,6 +1120,8 @@ def dashboard_view(request):
     last_month_products = Product.objects.filter(created_at__date__lte=last_month).count()
     
     low_stock = Product.objects.filter(status='active', stock__lte=10).count()
+    low_stock_kilos = Product.objects.filter(status='active', stock__lte=10, stock__gt=0, quantity_unit__icontains='kilo').count()
+    low_stock_boxes = max(0, low_stock - low_stock_kilos)
     yesterday_low_stock = Product.objects.filter(status='active', stock__lte=10, last_updated__date__lte=yesterday).count()
     
     # Base sales queryset with role-based visibility
@@ -1209,6 +1211,8 @@ def dashboard_view(request):
     
     # Out of stock products
     out_of_stock = Product.objects.filter(status='active', stock=0).count()
+    out_of_stock_kilos = Product.objects.filter(status='active', stock=0, quantity_unit__icontains='kilo').count()
+    out_of_stock_boxes = max(0, out_of_stock - out_of_stock_kilos)
     
     # Weekly sales summary
     week_start = today - timezone.timedelta(days=6)
@@ -1218,6 +1222,12 @@ def dashboard_view(request):
         total_sales=Sum('quantity'),
         total_revenue=Sum('total')
     )
+    # Weekly breakdown by unit
+    weekly_kilos_count = sale_base_q.filter(
+        recorded_at__date__gte=week_start,
+        product__quantity_unit__icontains='kilo'
+    ).aggregate(total_kilos=Sum('quantity'))['total_kilos'] or 0
+    weekly_boxes_count = max(0, (weekly_sales['total_sales'] or 0) - weekly_kilos_count)
     
     # Format weekly revenue after weekly_sales is defined
     weekly_revenue_formatted = format_currency(weekly_sales['total_revenue'] or 0)
@@ -1249,6 +1259,8 @@ def dashboard_view(request):
         'total_products': total_products,
         'products_change': products_change,
         'low_stock': low_stock,
+        'low_stock_boxes': low_stock_boxes,
+        'low_stock_kilos': low_stock_kilos,
         'low_stock_change': low_stock_change,
         'today_sales': today_sales,
         'sales_change': sales_change,
@@ -1267,7 +1279,11 @@ def dashboard_view(request):
         'total_inventory_value': total_inventory_value,
         'total_inventory_value_formatted': total_inventory_value_formatted,
         'out_of_stock': out_of_stock,
+        'out_of_stock_boxes': out_of_stock_boxes,
+        'out_of_stock_kilos': out_of_stock_kilos,
         'weekly_sales_count': weekly_sales['total_sales'] or 0,
+        'weekly_boxes_count': weekly_boxes_count,
+        'weekly_kilos_count': weekly_kilos_count,
         'weekly_revenue': weekly_sales['total_revenue'] or 0,
         'weekly_revenue_formatted': weekly_revenue_formatted,
         'recent_transactions': recent_transactions,
@@ -3349,8 +3365,12 @@ def fetch_reports(request):
 
         slow_movers = []
         if sales_summary_data:
-            sorted_by_boxes = sorted(sales_summary_data, key=lambda x: x.get('boxes_sold') or 0)
-            for entry in sorted_by_boxes[:5]:
+            filtered = [e for e in sales_summary_data if (e.get('boxes_sold') or 0) > 0]
+            sorted_by_avg = sorted(
+                filtered,
+                key=lambda x: (float(x.get('boxes_sold') or 0) / float(period_days or 1))
+            )
+            for entry in sorted_by_avg[:5]:
                 slow_movers.append({
                     'product_name': entry.get('product_name'),
                     'boxes_sold': entry.get('boxes_sold', 0),
@@ -3358,7 +3378,7 @@ def fetch_reports(request):
                     'avg_daily_sales': round(float(entry.get('boxes_sold', 0)) / float(period_days or 1), 2) if period_days else 0.0
                 })
 
-        total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
+        total_current_revenue = sum(Decimal(item.get('revenue') or 0) for item in sales_summary_data)
 
         product_map = Product.objects.filter(
             product_id__in=[s['product__product_id'] for s in summary]
@@ -3532,9 +3552,17 @@ def fetch_reports(request):
                 else:
                     idle_days = None
                     last_sale_label = 'No recorded sale'
+                base_name = (prod.name or '').strip()
+                variant = (getattr(prod, 'variant', '') or '').strip()
+                unit = (getattr(prod, 'quantity_unit', '') or '').strip()
+                variant_part = f" ({variant})" if variant else ""
+                unit_part = f" ({unit})" if unit else ""
+                product_display = f"{base_name}{variant_part}{unit_part}".strip()
                 dead_stock.append({
                     'product_id': prod.product_id,
-                    'product_name': prod.name,
+                    'product_name': product_display,
+                    'variant': prod.variant or '',
+                    'quantity_unit': prod.quantity_unit or '',
                     'stock': prod.stock,
                     'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
                     'last_sale': last_sale_label,
@@ -7646,7 +7674,6 @@ def test_notification_type(request):
                 try:
                     if product:
                         msg_type = 'sales_summary_daily' if notification_type == 'sales' else 'stock_alert' if notification_type == 'stock' else 'pricing_alert'
-                        SMS.objects.filter(product=product, user=user_obj, message_type=msg_type).delete()
                         SMS.objects.create(
                             product=product,
                             user=user_obj,
@@ -9263,39 +9290,52 @@ def send_all_notifications_now(request):
             return t
         def _split_sms_parts(msg, limit=150):
             m = _normalize_text(msg)
-            parts = []
-            i = 0
             reserve = 6
-            while i < len(m):
-                rem = len(m) - i
-                if rem <= (limit - reserve):
-                    chunk = m[i:]
-                    parts.append(chunk.strip())
-                    break
-                end = i + (limit - reserve)
-                window = m[i:end]
-                cut = -1
-                for sep in ['\n', ' ', '\t']:
-                    idx = window.rfind(sep)
-                    if idx > cut:
-                        cut = idx
-                if cut == -1:
-                    for sep in ['.', ',', ';', ':', ')', ']', '%', '!','?','-']:
-                        idx = window.rfind(sep)
-                        if idx > cut:
-                            cut = idx
-                if cut == -1:
-                    cut = end
-                chunk = m[i:i+cut].strip()
-                parts.append(chunk)
-                i = i + cut
-                while i < len(m) and m[i] in [' ', '\n', '\t']:
-                    i += 1
+            units = []
+            for raw in m.split('\n'):
+                line = raw.rstrip()
+                if len(line) <= (limit - reserve):
+                    units.append(line)
+                else:
+                    start = 0
+                    while start < len(line):
+                        end = min(start + (limit - reserve), len(line))
+                        window = line[start:end]
+                        cut = window.rfind(' ')
+                        if cut == -1:
+                            cut = window.rfind('\t')
+                        if cut == -1:
+                            cut = len(window)
+                        seg = line[start:start+cut].strip()
+                        if seg:
+                            units.append(seg)
+                        start = start + cut
+                        while start < len(line) and line[start] in [' ', '\t']:
+                            start += 1
+            parts = []
+            cur = ''
+            for u in units:
+                if not u:
+                    if len(cur) + 1 <= (limit - reserve):
+                        cur = cur + ('\n' if cur else '')
+                    else:
+                        if cur:
+                            parts.append(cur)
+                        cur = ''
+                    continue
+                add = (('\n' if cur else '') + u)
+                if len(cur) + len(add) <= (limit - reserve):
+                    cur = cur + add
+                else:
+                    if cur:
+                        parts.append(cur)
+                    cur = u
+            if cur:
+                parts.append(cur)
             n = len(parts)
             labeled = []
             for idx, c in enumerate(parts, start=1):
-                label = f"{idx}/{n} "
-                labeled.append(label + c)
+                labeled.append(f"{idx}/{n} " + c)
             return labeled
         def _send_chunked(phone, msg):
             parts = _split_sms_parts(msg)
@@ -9375,12 +9415,6 @@ def send_all_notifications_now(request):
         if isinstance(sales_success, dict) and sales_success.get('success'):
             if product:
                 try:
-                    # Delete existing record first to ensure we create a new one with current timestamp
-                    SMS.objects.filter(
-                        product=product,
-                        user=user_obj,
-                        message_type='sales_summary_daily'
-                    ).delete()
                     # Create new record with current timestamp
                     sms_record = SMS.objects.create(
                         product=product,
@@ -9450,12 +9484,6 @@ def send_all_notifications_now(request):
         if stock_success:
             if product:
                 try:
-                    # Delete existing record first to ensure we create a new one with current timestamp
-                    SMS.objects.filter(
-                        product=product,
-                        user=user_obj,
-                        message_type='stock_alert'
-                    ).delete()
                     # Create new record with current timestamp
                     sms_record = SMS.objects.create(
                         product=product,
@@ -9530,12 +9558,6 @@ def send_all_notifications_now(request):
         if isinstance(pricing_success, dict) and pricing_success.get('success'):
             if product:
                 try:
-                    # Delete existing record first to ensure we create a new one with current timestamp
-                    SMS.objects.filter(
-                        product=product,
-                        user=user_obj,
-                        message_type='pricing_alert'
-                    ).delete()
                     # Create new record with current timestamp
                     sms_record = SMS.objects.create(
                         product=product,

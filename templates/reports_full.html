@@ -2863,10 +2863,12 @@
                                 <div class="mb-3">
                                     <label for="customStart" class="form-label">Start Date</label>
                                     <input type="date" class="form-control" id="customStart">
+                                    <div class="form-text" id="reportCustomStartHint"></div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="customEnd" class="form-label">End Date</label>
                                     <input type="date" class="form-control" id="customEnd">
+                                    <div class="form-text" id="reportCustomEndHint"></div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -2907,8 +2909,8 @@
                             </div>
                             <div class="stat-content">
                                 <div class="stat-value" id="statItemsSold">0</div>
-                                <div class="stat-label">Total Quantity Sold</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity sold in selected period</div>
+                                <div class="stat-label">Total Quantity Unit Sold</div>
+                        <div id="statItemsSubtitle" class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: 0 • Kilos: 0</div>
                             </div>
                         </a>
                         <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); var el=document.getElementById('sales-tab'); if(el) el.click();">
@@ -3489,9 +3491,9 @@
             // Custom Range
             if (customStart && customEnd) {
                 console.log('Updating custom option with:', customStart, customEnd);
-                $('#dateRange option[value="custom"]').text(`Custom (${formatOptionRange(new Date(customStart), new Date(customEnd))})`);
+                $('#dateRange option[value="custom"]').text(`Custom Range (${formatOptionRange(new Date(customStart), new Date(customEnd))})`);
             } else {
-                $('#dateRange option[value="custom"]').text('Custom');
+                $('#dateRange option[value="custom"]').text('Custom Range');
             }
             
             if (selectedValue === 'today') {
@@ -3514,6 +3516,13 @@
                     const customRangeModal = new bootstrap.Modal(document.getElementById('customRangeModal'));
                     $('#customStart').val(customStart || localISO(today));
                     $('#customEnd').val(customEnd || localISO(today));
+                    try {
+                        const sHint = document.getElementById('reportCustomStartHint');
+                        const eHint = document.getElementById('reportCustomEndHint');
+                        const pattern = 'DD/MM/YYYY';
+                        if (sHint) sHint.textContent = `Format: ${pattern}`;
+                        if (eHint) eHint.textContent = `Format: ${pattern}`;
+                    } catch(_) {}
                     customRangeModal.show();
                     return; // Don't trigger loadReports yet, wait for modal apply
                 }
@@ -3557,7 +3566,7 @@
                     throw { responseJSON: response || { message: 'Failed to load reports.' }, statusText: 'Invalid response', status: 200 };
                 }
                 clearReportErrorBanner();
-                updateSummaryCards(response.data.sales_summary);
+                updateSummaryCards(response.data.sales_summary, response.data.sales_summary_data);
                 populateSalesSummaryTable(response.data.sales_summary_data); // Use sales_summary_data from backend
                 populateTopProductsTable(response.data.top_products);
                 populateLowStockTable(response.data.low_stock);
@@ -3708,12 +3717,21 @@
         }
 
         // Placeholder functions for populating data
-        function updateSummaryCards(data) {
+        function updateSummaryCards(data, summaryData) {
             // Update main stat cards
             $('#statTotalRevenue').text(`₱${formatCurrency(data.total_revenue || 0)}`);
             $('#statTransactions').text(parseInt(data.total_transactions || 0).toLocaleString());
             $('#statItemsSold').text(parseInt(data.total_items_sold || 0).toLocaleString());
             $('#statAvgOrder').text(`₱${formatCurrency(data.average_sale || 0)}`);
+            try {
+                const arr = Array.isArray(summaryData) ? summaryData : (Array.isArray(repData.summary) ? repData.summary : []);
+                const totalUnits = parseInt(data.total_items_sold || 0) || 0;
+                const isKilo = u => String(u||'').toLowerCase().includes('kilo') || String(u||'').toLowerCase()==='kg';
+                const kilos = arr.filter(x => isKilo(x.quantity_unit)).reduce((s,x)=> s + (parseInt(x.boxes_sold||0)||0), 0);
+                const boxes = Math.max(0, totalUnits - kilos);
+                const sub = document.getElementById('statItemsSubtitle');
+                if (sub) sub.textContent = `Boxes: ${boxes} • Kilos: ${kilos}`;
+            } catch(e) { /* silent */ }
             
             // Update modal metrics
             $('#modalStatTotalCogs').text(`₱${formatCurrency(data.total_cogs || 0)}`);

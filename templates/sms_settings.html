@@ -1841,19 +1841,6 @@
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon warning">
-                        <i class="bi bi-exclamation-triangle"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Low Stock Alerts</div>
-                        <div class="stat-subtitle">Low stock notifications sent</div>
-                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-card">
                     <div class="stat-icon info">
                         <i class="bi bi-graph-up"></i>
                     </div>
@@ -1862,7 +1849,20 @@
                         <div class="stat-label">Sales Summaries</div>
                         <div class="stat-subtitle">Daily sales summaries sent</div>
                         <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
+                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Low Stock Alerts</div>
+                        <div class="stat-subtitle">Low stock notifications sent</div>
+                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
+                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
                         </div>
                     </div>
                 </div>
@@ -1875,7 +1875,7 @@
                         <div class="stat-label">Pricing Alerts</div>
                         <div class="stat-subtitle">Pricing recommendations sent</div>
                         <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-date"></span> <span class="stat-time"></span>
+                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
                         </div>
                     </div>
                 </div>
@@ -2289,27 +2289,27 @@
                     if (response.stats) {
                         $('.stat-card').eq(0).find('.stat-value').text(response.stats.messages_today || 0);
                         $('.stat-card').eq(1).find('.stat-value').text(response.stats.messages_week || 0);
-                        $('.stat-card').eq(2).find('.stat-value').text(response.stats.stock_alerts || 0);
-                        $('.stat-card').eq(3).find('.stat-value').text(response.stats.sales_summaries || 0);
+                        $('.stat-card').eq(2).find('.stat-value').text(response.stats.sales_summaries || 0);
+                        $('.stat-card').eq(3).find('.stat-value').text(response.stats.stock_alerts || 0);
                         $('.stat-card').eq(4).find('.stat-value').text(response.stats.pricing_alerts || 0);
                         
                         // Update date/time for each notification type
                         // Stock alerts (index 2)
-                        if (response.stats.last_stock) {
-                            const stockCard = $('.stat-card').eq(2);
-                            stockCard.find('.stat-datetime').show();
-                            stockCard.find('.stat-date').text(response.stats.last_stock.date);
-                            stockCard.find('.stat-time').text(response.stats.last_stock.time);
+                        if (response.stats.last_sales) {
+                            const salesCard = $('.stat-card').eq(2);
+                            salesCard.find('.stat-datetime').show();
+                            salesCard.find('.stat-date').text(response.stats.last_sales.date);
+                            salesCard.find('.stat-time').text(response.stats.last_sales.time);
                         } else {
                             $('.stat-card').eq(2).find('.stat-datetime').hide();
                         }
                         
-                        // Sales summaries (index 3)
-                        if (response.stats.last_sales) {
-                            const salesCard = $('.stat-card').eq(3);
-                            salesCard.find('.stat-datetime').show();
-                            salesCard.find('.stat-date').text(response.stats.last_sales.date);
-                            salesCard.find('.stat-time').text(response.stats.last_sales.time);
+                        // Stock alerts (index 3)
+                        if (response.stats.last_stock) {
+                            const stockCard = $('.stat-card').eq(3);
+                            stockCard.find('.stat-datetime').show();
+                            stockCard.find('.stat-date').text(response.stats.last_stock.date);
+                            stockCard.find('.stat-time').text(response.stats.last_stock.time);
                         } else {
                             $('.stat-card').eq(3).find('.stat-datetime').hide();
                         }
@@ -2320,6 +2320,7 @@
                             pricingCard.find('.stat-datetime').show();
                             pricingCard.find('.stat-date').text(response.stats.last_pricing.date);
                             pricingCard.find('.stat-time').text(response.stats.last_pricing.time);
+                            pricingCard.find('.stat-prefix').text('Last sent:');
                         } else {
                             $('.stat-card').eq(4).find('.stat-datetime').hide();
                         }

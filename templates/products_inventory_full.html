@@ -1947,7 +1947,7 @@
                         <div class="stat-content">
                             <div class="stat-value">{{ total_stock }}</div>
                             <div class="stat-label">Total Stock</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes in warehouse right now</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: {{ total_stock_boxes|default:0 }} • Kilos: {{ total_stock_kilos|default:0 }}</div>
                         </div>
                     </a>
                     <a href="?tab=low-stock" class="stat-card clickable">
@@ -1957,7 +1957,7 @@
                         <div class="stat-content">
                             <div class="stat-value">{{ restock_alerts }}</div>
                             <div class="stat-label">Restock Alerts</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with less than 10 boxes left</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes ≤10: {{ restock_alerts_boxes|default:0 }} • Kilos ≤10: {{ restock_alerts_kilos|default:0 }}</div>
                         </div>
                     </a>
                 </div>
@@ -2130,7 +2130,7 @@
                             <ul style="margin-bottom: 0;">
                                 <li><strong style="color: #10b981;">Green (Healthy):</strong> Stock level is sufficient. No immediate action needed.</li>
                                 <li><strong style="color: #f59e0b;">Yellow/Orange (Low):</strong> Stock is running low. Consider reordering soon to avoid stockouts.</li>
-                                <li><strong style="color: #ef4444;">Red (Critical/Out):</strong> Stock is critically low or depleted. Reorder immediately to maintain sales.</li>
+                                <li><strong style="color: #ef4444;">Red (Out):</strong> Stock is depleted (0). Reorder immediately to resume sales.</li>
                             </ul>
                         </div>
                     </div>
@@ -2338,7 +2338,7 @@
                         </div>
                         <div class="row g-3 mb-3" id="initialStockRow">
                             <div class="col-md-6">
-                                <label for="stockInput" class="form-label">Initial Stock (Per box/kilo)</label>
+                                <label for="stockInput" id="stockLabel" class="form-label">Initial Stock (Per Box)</label>
                                 <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
@@ -2868,8 +2868,10 @@
                     const unit = ($('#quantityUnitSelect').val() || 'box').toLowerCase();
                     if (unit === 'kilo') {
                         $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'Kilo');
+                        $('#stockLabel').text('Initial Stock (Per Kilo)');
                     } else {
                         $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
+                        $('#stockLabel').text('Initial Stock (Per Box)');
                     }
                 }
             });
@@ -3769,15 +3771,29 @@
                 const categories = Array.from(new Set(rows.map(r => baseName(r.name)))).length;
                 const activeProducts = rows.filter(r => String(r.status||'').toLowerCase() === 'active').length;
                 const totalStock = rows.reduce((s,r) => s + (parseInt(r.stock)||0), 0);
+                const isBox = u => String(u||'').toLowerCase().includes('box');
+                const isKilo = u => String(u||'').toLowerCase().includes('kilo');
+                const totalStockKilos = rows.filter(r => isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseInt(r.stock)||0), 0);
+                const totalStockBoxes = Math.max(0, totalStock - totalStockKilos);
                 const restockAlerts = rows.filter(r => { const st = parseInt(r.stock)||0; return st>0 && st<=10; }).length;
+                const restockBoxes = Math.max(0, restockAlerts - rows.filter(r => isKilo(r.quantity_unit) && ((parseInt(r.stock)||0) > 0) && ((parseInt(r.stock)||0) <= 10)).length);
+                const restockKilos = rows.filter(r => isKilo(r.quantity_unit) && ((parseInt(r.stock)||0) > 0) && ((parseInt(r.stock)||0) <= 10)).length;
                 const primaryCard = document.querySelector('.stats-grid .stat-icon.primary')?.closest('.stat-card');
                 const successCard = document.querySelector('.stats-grid .stat-icon.success')?.closest('.stat-card');
                 const warningCard = document.querySelector('.stats-grid .stat-icon.warning')?.closest('.stat-card');
                 const dangerCard = document.querySelector('.stats-grid .stat-icon.danger')?.closest('.stat-card');
                 if (primaryCard) primaryCard.querySelector('.stat-value').textContent = String(categories);
                 if (successCard) successCard.querySelector('.stat-value').textContent = String(activeProducts);
-                if (warningCard) warningCard.querySelector('.stat-value').textContent = String(totalStock);
-                if (dangerCard) dangerCard.querySelector('.stat-value').textContent = String(restockAlerts);
+                if (warningCard) {
+                    warningCard.querySelector('.stat-value').textContent = String(totalStock);
+                    const sub = warningCard.querySelector('.stat-subtitle');
+                    if (sub) sub.textContent = `Boxes: ${totalStockBoxes} • Kilos: ${totalStockKilos}`;
+                }
+                if (dangerCard) {
+                    dangerCard.querySelector('.stat-value').textContent = String(restockAlerts);
+                    const sub = dangerCard.querySelector('.stat-subtitle');
+                    if (sub) sub.textContent = `Boxes ≤10: ${restockBoxes} • Kilos ≤10: ${restockKilos}`;
+                }
             } catch (e) {
                 console.warn('Failed to update inventory cards', e);
             }
@@ -4464,7 +4480,7 @@
                 const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
                 const statusDisplay = product.status || 'N/A';
                 const isDiscontinued = statusLower === 'discontinued';
-                const stockClass = product.stock <= 10 ? 'text-danger' : product.stock <= 30 ? 'text-warning' : 'text-success';
+                const stockClass = (product.stock === 0) ? 'text-danger' : (product.stock <= 10 ? 'text-warning' : 'text-success');
                 const stockValue = parseInt(product.stock)||0;
                 let optionsHtml = `
                     <div class="dropdown">
@@ -4572,7 +4588,7 @@
             }
             const addStockUrl = `{% url 'add_stock_page' %}?product_id=${productId}`;
             $('#mPDAddStock').attr('href', addStockUrl);
-            const stockClass = stock <= 10 ? 'text-danger' : stock <= 30 ? 'text-warning' : 'text-success';
+            const stockClass = (stock === 0) ? 'text-danger' : (stock <= 10 ? 'text-warning' : 'text-success');
             $('#mPDStockCount').text(stock);
             $('#mPDStockLink').attr('href', `/stock_details/?product_id=${productId}`);
             $('#mPDStockDot').removeClass('text-danger text-warning text-success').addClass(stockClass);
@@ -4675,3 +4691,8 @@
     </script>
 </body>
 </html>
+            $('#quantityUnitSelect').on('change', function(){
+                const unitVal = (this.value || 'box').toLowerCase();
+                if (unitVal === 'kilo') { $('#stockLabel').text('Initial Stock (Per Kilo)'); }
+                else { $('#stockLabel').text('Initial Stock (Per Box)'); }
+            });

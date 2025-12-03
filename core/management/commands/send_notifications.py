@@ -33,39 +33,52 @@ def _normalize_text(msg):
 
 def _split_sms_parts(msg, limit=150):
     m = _normalize_text(msg)
-    parts = []
-    i = 0
     reserve = 6
-    while i < len(m):
-        rem = len(m) - i
-        if rem <= (limit - reserve):
-            chunk = m[i:]
-            parts.append(chunk.strip())
-            break
-        end = i + (limit - reserve)
-        window = m[i:end]
-        cut = -1
-        for sep in ['\n', ' ', '\t']:
-            idx = window.rfind(sep)
-            if idx > cut:
-                cut = idx
-        if cut == -1:
-            for sep in ['.', ',', ';', ':', ')', ']', '%', '!','?','-']:
-                idx = window.rfind(sep)
-                if idx > cut:
-                    cut = idx
-        if cut == -1:
-            cut = end
-        chunk = m[i:i+cut].strip()
-        parts.append(chunk)
-        i = i + cut
-        while i < len(m) and m[i] in [' ', '\n', '\t']:
-            i += 1
+    units = []
+    for raw in m.split('\n'):
+        line = raw.rstrip()
+        if len(line) <= (limit - reserve):
+            units.append(line)
+        else:
+            start = 0
+            while start < len(line):
+                end = min(start + (limit - reserve), len(line))
+                window = line[start:end]
+                cut = window.rfind(' ')
+                if cut == -1:
+                    cut = window.rfind('\t')
+                if cut == -1:
+                    cut = len(window)
+                seg = line[start:start+cut].strip()
+                if seg:
+                    units.append(seg)
+                start = start + cut
+                while start < len(line) and line[start] in [' ', '\t']:
+                    start += 1
+    parts = []
+    cur = ''
+    for u in units:
+        if not u:
+            if len(cur) + 1 <= (limit - reserve):
+                cur = cur + ('\n' if cur else '')
+            else:
+                if cur:
+                    parts.append(cur)
+                cur = ''
+            continue
+        add = (('\n' if cur else '') + u)
+        if len(cur) + len(add) <= (limit - reserve):
+            cur = cur + add
+        else:
+            if cur:
+                parts.append(cur)
+            cur = u
+    if cur:
+        parts.append(cur)
     n = len(parts)
     labeled = []
     for idx, c in enumerate(parts, start=1):
-        label = f"{idx}/{n} "
-        labeled.append(label + c)
+        labeled.append(f"{idx}/{n} " + c)
     return labeled
 
 def send_sms_chunked(phone_number, message):
@@ -231,19 +244,13 @@ class Command(BaseCommand):
                         product = Product.objects.filter(status='active').first() or Product.objects.first()
                         if product:
                             from django.utils import timezone as _tz
-                            existing = SMS.objects.filter(product=product, user=admin, message_type='sales_summary_daily').first()
-                            if existing:
-                                existing.message_content = message[:500]
-                                existing.sent_at = _tz.now()
-                                existing.save(update_fields=['message_content','sent_at'])
-                            else:
-                                SMS.objects.create(
-                                    product=product,
-                                    user=admin,
-                                    message_type='sales_summary_daily',
-                                    demand_level='mid',
-                                    message_content=message[:500]
-                                )
+                            SMS.objects.create(
+                                product=product,
+                                user=admin,
+                                message_type='sales_summary_daily',
+                                demand_level='mid',
+                                message_content=message[:500]
+                            )
                         log_system_action(
                             action='Automatic SMS: Daily Sales Summary',
                             details=f'Recipient: {admin.username}'
@@ -432,19 +439,13 @@ class Command(BaseCommand):
                         product = Product.objects.filter(status='active').first() or Product.objects.first()
                         if product:
                             from django.utils import timezone as _tz
-                            existing = SMS.objects.filter(product=product, user=admin, message_type='pricing_alert').first()
-                            if existing:
-                                existing.message_content = message[:500]
-                                existing.sent_at = _tz.now()
-                                existing.save(update_fields=['message_content','sent_at'])
-                            else:
-                                SMS.objects.create(
-                                    product=product,
-                                    user=admin,
-                                    message_type='pricing_alert',
-                                    demand_level='mid',
-                                    message_content=message[:500]
-                                )
+                            SMS.objects.create(
+                                product=product,
+                                user=admin,
+                                message_type='pricing_alert',
+                                demand_level='mid',
+                                message_content=message[:500]
+                            )
                         log_system_action(
                             action='Automatic SMS: Pricing Recommendations',
                             details=f'Recipient: {admin.username}'

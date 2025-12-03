@@ -608,56 +608,16 @@
       if(window.__printToastRenderer){
         return window.__printToastRenderer;
       }
-      window.__printToastRenderer = function(message, variant){
-        const palette = {
-          info: '#0ea5e9',
-          success: '#10b981',
-          warning: '#f59e0b',
-          error: '#ef4444'
-        };
-        const bgColor = palette[variant] || variant || palette.info;
-        try {
-          const containerId='simpleToastContainer';
-          let c=document.getElementById(containerId);
-          if(!c){
-            c=document.createElement('div');
-            c.id=containerId;
-            c.style.position='fixed';
-            c.style.top='16px';
-            c.style.right='16px';
-            c.style.zIndex='9999';
-            c.style.display='flex';
-            c.style.flexDirection='column';
-            c.style.gap='8px';
-            document.body.appendChild(c);
-          }
-          const t=document.createElement('div');
-          t.textContent=message;
-          t.style.background=bgColor;
-          t.style.color='#fff';
-          t.style.padding='10px 14px';
-          t.style.borderRadius='8px';
-          t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)';
-          t.style.fontSize='14px';
-          t.style.maxWidth='320px';
-          c.appendChild(t);
-          setTimeout(()=>{
-            t.style.transition='opacity 300ms';
-            t.style.opacity='0';
-            setTimeout(()=>{
-              t.remove();
-              if(c.childElementCount===0) c.remove();
-            },300);
-          },3500);
-        } catch(_){}
+      window.__printToastRenderer=function(message,variant){
+        const type = (variant==='error')?'error':(variant==='warning'?'warning':(variant==='success'?'success':'info'));
+        if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+          window.modernInventorySystem.showNotification(message, type, 6000);
+        }
       };
       return window.__printToastRenderer;
     }
     const renderPrintToast = ensurePrintToastRenderer();
-    function showStickerPrintPrompt(){
-      const message='Print dialog opened. Complete printing to finish the sticker.';
-      renderPrintToast(message, 'info');
-    }
+    function showStickerPrintPrompt(){ /* intentionally suppressed */ }
 
     function showStickerPrintCompletion(){
       const message='Sticker print finished. If you cancelled, press print again.';
@@ -665,7 +625,7 @@
     }
 
     function showStickerSuccess(){
-      renderPrintToast('Sticker printed successfully.', 'success');
+      renderPrintToast('Sticker print finished. If you cancelled, press print again.', 'success');
     }
     
     document.getElementById('printStickerBtn').addEventListener('click', printStickerViaIframe);
@@ -726,4 +686,3 @@
   </script>
 </body>
 </html>
-

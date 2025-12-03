@@ -369,7 +369,7 @@
         </div>
           <div class="row g-3 mt-0">
             <div class="col-md-6">
-                <label class="form-label" for="stockInput">Initial Stock (Per box/kilo)</label>
+                <label class="form-label" id="stockLabel" for="stockInput">Initial Stock (Box)</label>
                 <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
             </div>
             <div class="col-md-6 d-flex align-items-end">
@@ -384,16 +384,17 @@
           <div class="form-section-title">
             <i class="bi bi-image"></i> Product Image (Optional)
           </div>
-          <input type="file" class="form-control" name="image" accept="image/*">
-        </div>
-        
-        <div class="form-section date-recorded-section">
-          <div class="d-flex align-items-center gap-2">
-            <label class="form-label mb-0">Date Added:</label>
-            <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="productDateDisplay" readonly>
-            <input type="hidden" id="productDate" name="date_added" value="">
-            <small class="text-muted">Set to today and cannot be changed.</small>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <input type="file" class="form-control" name="image" accept="image/*">
             </div>
+            <div class="col-md-6 d-flex align-items-center gap-2">
+              <label class="form-label mb-0">Date Added:</label>
+              <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="productDateDisplay" readonly>
+              <input type="hidden" id="productDate" name="date_added" value="">
+              <small class="text-muted">Set to today and cannot be changed.</small>
+            </div>
+          </div>
         </div>
         
         <input type="hidden" name="status" value="active">
@@ -683,20 +684,22 @@ $(document).ready(function(){
 
     // Quantity unit behavior: when Kilo is picked, remove suggestions (no choosing);
     // when Box is picked, re-enable suggestions list.
-    (function(){
-        const $qty = $('#productSizeDisplay');
-        const $unit = $('#quantityUnitSelect');
-        const applyUnitBehavior = () => {
-            const unit = ($unit.val() || 'box').toLowerCase();
-            if (unit === 'kilo') {
-                $qty.val('');
-                $qty.prop('disabled', true);
-                $qty.attr('placeholder', 'Kilo');
-            } else {
-                $qty.prop('disabled', false);
-                $qty.attr('placeholder', 'Enter quantity');
-            }
-        };
+        (function(){
+            const $qty = $('#productSizeDisplay');
+            const $unit = $('#quantityUnitSelect');
+            const applyUnitBehavior = () => {
+                const unit = ($unit.val() || 'box').toLowerCase();
+                if (unit === 'kilo') {
+                    $qty.val('');
+                    $qty.prop('disabled', true);
+                    $qty.attr('placeholder', 'Kilo');
+                    $('#stockLabel').text('Initial Stock (Kilo)');
+                } else {
+                    $qty.prop('disabled', false);
+                    $qty.attr('placeholder', 'Enter quantity');
+                    $('#stockLabel').text('Initial Stock (Box)');
+                }
+            };
         $unit.on('change', applyUnitBehavior);
         // Hide any legacy suggestions dropdown if present when unit changes
         $unit.on('change', function(){ const $menu = $('#sizeSuggestions'); if ($menu.length) { $menu.hide(); } });

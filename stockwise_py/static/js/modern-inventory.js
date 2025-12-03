@@ -297,6 +297,10 @@ class ModernInventorySystem {
         try {
             if (window.jQuery) {
                 $(document).ajaxError((event, jqxhr, settings, thrownError) => {
+                    try {
+                        const path = (window.location && window.location.pathname) || '';
+                        if (/\/sales\//.test(path)) return;
+                    } catch(_) {}
                     if (settings && settings.suppressGlobalError) return;
                     let msg = 'Request failed. Please try again.';
                     try {

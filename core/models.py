@@ -143,9 +143,7 @@ class SMS(models.Model):
 		db_table = 'sms'
 		verbose_name = 'SMS'
 		verbose_name_plural = 'SMS'
-		constraints = [
-			models.UniqueConstraint(fields=['product', 'user', 'message_type'], name='uq_sms_product_user_type')
-		]
+
 
 	def __str__(self):
 		return f"SMS {self.sms_id}"

@@ -1682,8 +1682,8 @@
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">{{ total_boxes|default:0 }}</div>
-                            <div class="stat-label">Total Quantity Sold</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total quantity sold across all sales</div>
+                            <div class="stat-label">Total Quantity Unit Sold</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: {{ total_boxes|default:0 }} • Kilos: 0</div>
                         </div>
                     </a>
                 </div>
@@ -2112,10 +2112,12 @@
                     <div class="mb-3">
                         <label for="customStart" class="form-label">Start Date</label>
                         <input type="date" class="form-control" id="customStart">
+                        <div class="form-text" id="customStartHint"></div>
                     </div>
                     <div class="mb-3">
                         <label for="customEnd" class="form-label">End Date</label>
                         <input type="date" class="form-control" id="customEnd">
+                        <div class="form-text" id="customEndHint"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2326,6 +2328,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/modern-inventory.js' %}"></script>
     <script src="{% static 'js/csrf.js' %}"></script>
     <script>
         // Helpers / Role
@@ -2560,8 +2563,20 @@
         }
 
         function updateStats(rows){
-            const total = (rows||[]).reduce((s,r)=>s+Number(r.total||0),0);
-            const boxes = (rows||[]).reduce((s,r)=>s+Number(r.total_boxes||r.quantity||0),0);
+            const toNum = (v)=>{
+                const s = String(v==null? '0' : v);
+                const n = parseFloat(s.replace(/[^0-9.+-]/g,''));
+                return isFinite(n) ? n : 0;
+            };
+            const total = (rows||[]).reduce((s,r)=> s + toNum(r.total), 0);
+            const units = (rows||[]).reduce((s,r)=>s+Number(r.total_boxes||r.quantity||0),0);
+            const allItems = (rows||[]).flatMap(r => Array.isArray(r.items_json) ? r.items_json : (Array.isArray(r.items) ? r.items : []));
+            const isKilo = u => {
+                const t = String(u||'').toLowerCase();
+                return t.includes('kilo') || t === 'kg';
+            };
+            const kilos = allItems.reduce((s,it)=> s + (isKilo(it?.quantity_unit) ? Number(it?.quantity||0) : 0), 0);
+            const boxes = Math.max(0, units - kilos);
             const count = rows?.length||0;
             
             console.log('Updating stats:', { total, boxes, count, rowsCount: rows?.length });
@@ -2575,11 +2590,13 @@
                            document.querySelector('.sales-stats-grid .stat-card:nth-child(2) .stat-value') ||
                            document.querySelector('.sales-stats-grid .success')?.closest('.stat-card')?.querySelector('.stat-value');
             
-            const boxesEl = document.querySelector('.sales-stats-grid .stat-card:nth-child(3) .stat-content .stat-value') ||
+            const qtyValueEl = document.querySelector('.sales-stats-grid .stat-card:nth-child(3) .stat-content .stat-value') ||
                            document.querySelector('.sales-stats-grid .stat-card:nth-child(3) .stat-value') ||
                            document.querySelector('.sales-stats-grid .warning')?.closest('.stat-card')?.querySelector('.stat-value');
+            const qtyCard = document.querySelector('.sales-stats-grid .stat-card:nth-child(3)') ||
+                           document.querySelector('.sales-stats-grid .warning')?.closest('.stat-card');
             
-            console.log('Found elements:', { totalEl: !!totalEl, countEl: !!countEl, boxesEl: !!boxesEl });
+            console.log('Found elements:', { totalEl: !!totalEl, countEl: !!countEl, qtyValueEl: !!qtyValueEl });
             
             if (totalEl) {
                 totalEl.textContent = currency(total);
@@ -2589,12 +2606,16 @@
                 countEl.textContent = String(count);
                 console.log('Updated count:', count);
             }
-            if (boxesEl) {
-                boxesEl.textContent = String(boxes);
-                console.log('Updated boxes:', boxes);
+            if (qtyValueEl) {
+                qtyValueEl.textContent = String(units);
+                console.log('Updated total units:', units);
+            }
+            if (qtyCard) {
+                const sub = qtyCard.querySelector('.stat-subtitle');
+                if (sub) sub.textContent = `Boxes: ${boxes} • Kilos: ${kilos}`;
             }
             
-            if (!totalEl || !countEl || !boxesEl) {
+            if (!totalEl || !countEl || !qtyValueEl) {
                 console.warn('Could not find all stat elements. Trying fallback selectors...');
                 // Fallback: try finding by icon class
                 const cards = document.querySelectorAll('.sales-stats-grid .stat-card');
@@ -2613,7 +2634,9 @@
                     }
                     if (warningCard) {
                         const el = warningCard.querySelector('.stat-value');
-                        if (el) { el.textContent = String(boxes); console.log('Updated boxes (fallback):', boxes); }
+                        if (el) { el.textContent = String(units); console.log('Updated units (fallback):', units); }
+                        const sub = warningCard.querySelector('.stat-subtitle');
+                        if (sub) sub.textContent = `Boxes: ${boxes} • Kilos: ${kilos}`;
                     }
                 }
             }
@@ -2625,12 +2648,13 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
+            // Fetch fresh summary for the selected range
             
             const q = new URLSearchParams({
                 filter: r.filter,
                 start_date: r.start,
                 end_date: r.end,
-                status: 'all', // Always get all statuses for summary cards
+                status: 'completed',
                 search: searchTerm,
                 user: userFilter,
                 product: fruitFilter
@@ -2703,7 +2727,7 @@
                 return; 
             }
             renderSalesTable(json.data||[], tableId);
-            updateSummaryCards(); // Update cards with filtered data
+            updateSummaryCards();
         }
 
         async function loadTodaySales(){
@@ -2733,7 +2757,7 @@
                 return; 
             }
             renderSalesTable(json.data||[], 'todaySalesTable');
-            updateSummaryCards(); // Update cards with filtered data
+            updateSummaryCards();
         }
 
         async function loadRecentSales(){
@@ -2761,7 +2785,7 @@
                 return; 
             }
             renderSalesTable(json.data||[], 'salesTable');
-            updateSummaryCards(); // Update cards with filtered data
+            updateSummaryCards();
         }
 
 
@@ -2790,7 +2814,7 @@
                 return; 
             }
             renderSalesTable(json.data||[], 'voidedSalesTable');
-            updateSummaryCards(); // Update cards with filtered data
+            updateSummaryCards();
         }
 
         refreshBtn?.addEventListener('click', function() {
@@ -2814,7 +2838,7 @@
         }
 
         function updateSpanLabels(){
-            const fmt = (d)=> d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+            const fmt = (d)=> d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
             const today = new Date();
             const weekStart = new Date(today); weekStart.setDate(weekStart.getDate()-7);
             const monthStart = new Date(today); monthStart.setDate(monthStart.getDate()-30);
@@ -2834,6 +2858,13 @@
                 const todayIso = new Date().toISOString().slice(0,10);
                 document.getElementById('customStart').value = customStart || todayIso;
                 document.getElementById('customEnd').value = customEnd || (customStart || todayIso);
+                try {
+                    const sHint = document.getElementById('customStartHint');
+                    const eHint = document.getElementById('customEndHint');
+                    const pattern = 'DD/MM/YYYY';
+                    if (sHint) sHint.textContent = `Format: ${pattern}`;
+                    if (eHint) eHint.textContent = `Format: ${pattern}`;
+                } catch(_) {}
                 modal.show();
             }
             // Always keep the single-day input hidden; label shows the date instead
@@ -2870,10 +2901,10 @@
             const opt = document.querySelector('#rangeFilter option[value="custom"]');
             if(!opt) return;
             if(customStart){
-                const fmt = (d)=> new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-                opt.textContent = `Custom (${fmt(customStart)} – ${fmt(customEnd||customStart)})`;
+                const fmt = (d)=> new Date(d).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+                opt.textContent = `Custom Range (${fmt(customStart)} – ${fmt(customEnd||customStart)})`;
             } else {
-                opt.textContent = 'Custom';
+                opt.textContent = 'Custom Range';
             }
         }
         searchInput?.addEventListener('input', ()=>{ 
@@ -3347,56 +3378,27 @@
         function buildThermalPreview(data){ const lines=[]; lines.push(centerLine(data.company_name||'')); wrapLine(data.company_address||'', RECEIPT_WIDTH).forEach(l=>lines.push(centerLine(l))); if(data.company_phone) lines.push(centerLine('Tel: '+data.company_phone)); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('SALES RECEIPT')); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push('Transaction No.: '+(data.transaction_number||'')); lines.push('OR No.: '+(data.or_number||'')); lines.push('Date: '+(data.date||'')); lines.push('Processed by: '+(data.processed_by||'')); lines.push('Customer: '+(data.customer_name||'')); lines.push('Contact: '+(data.customer_contact||'')); if(data.customer_address){ const wa=wrapLine(data.customer_address, RECEIPT_WIDTH-10); wa.forEach((line,idx)=>{ lines.push((idx===0?'Address:':'        ')+' '+line); }); } else { lines.push('Address:'); } lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push('Description'.padEnd(DESC_WIDTH)+'Qty'.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+'Amount'.padStart(AMOUNT_WIDTH)); lines.push('-'.repeat(RECEIPT_WIDTH)); (data.items||[]).forEach(item=>{ const nameLines=wrapLine(item.name||'', DESC_WIDTH); const quantity=String(item.quantity||0); const amount=peso(item.amount||0); lines.push(nameLines[0].padEnd(DESC_WIDTH)+quantity.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+amount.padStart(AMOUNT_WIDTH)); nameLines.slice(1).forEach(line=>lines.push(line.padEnd(RECEIPT_WIDTH))); lines.push(padLine('', '@ '+peso(item.price||0))); }); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(padLine('Subtotal:', peso(data.subtotal||0))); if(data.vat) lines.push(padLine('VAT 12%:', peso(data.vat||0))); if(data.discount && Number(data.discount)>0){ const pctVal=Number(data.discount_pct||0); const pctStr=pctVal>0? ((pctVal%1===0)? String(pctVal.toFixed(0)) : String(pctVal.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : ''; const pct=pctStr? (' ('+pctStr+'%)') : ''; lines.push(padLine('Discount'+pct+':', '-'+peso(data.discount))); } lines.push(padLine('TOTAL:', peso(data.total||0))); lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push(padLine('Amount Paid:', peso(data.amount_paid||0))); lines.push(padLine('Change:', peso(data.change||0))); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('Thank you for your purchase!')); lines.push(centerLine('This is not an official receipt')); return lines.join('\n'); }
 
         // Print to thermal printer
-function ensurePrintToastRenderer(){
-    if(window.__printToastRenderer){
+    function ensurePrintToastRenderer(){
+        if(window.__printToastRenderer){
+            return window.__printToastRenderer;
+        }
+        window.__printToastRenderer = function(message, variant){
+            const type = (variant === 'error') ? 'error' : (variant === 'warning' ? 'warning' : (variant === 'success' ? 'success' : 'info'));
+            if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                window.modernInventorySystem.showNotification(message, type, 6000);
+            }
+        };
         return window.__printToastRenderer;
     }
-    window.__printToastRenderer = function(message, variant){
-        const palette = {
-            info: '#0ea5e9',
-            success: '#10b981',
-            warning: '#f59e0b',
-            error: '#ef4444'
-        };
-        const bgColor = palette[variant] || variant || palette.info;
-        try { 
-            const containerId='simpleToastContainer';
-            let c=document.getElementById(containerId);
-            if(!c){
-                c=document.createElement('div');
-                c.id=containerId;
-                c.style.position='fixed';
-                c.style.top='16px';
-                c.style.right='16px';
-                c.style.zIndex='9999';
-                c.style.display='flex';
-                c.style.flexDirection='column';
-                c.style.gap='8px';
-                document.body.appendChild(c);
-            }
-            const t=document.createElement('div');
-            t.textContent=message;
-            t.style.background=bgColor;
-            t.style.color='#fff';
-            t.style.padding='10px 14px';
-            t.style.borderRadius='8px';
-            t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)';
-            t.style.fontSize='14px';
-            t.style.maxWidth='320px';
-            c.appendChild(t);
-            setTimeout(()=>{
-                t.style.transition='opacity 300ms';
-                t.style.opacity='0';
-                setTimeout(()=>{
-                    t.remove();
-                    if(c.childElementCount===0) c.remove();
-                },300);
-            },3500);
-        } catch(_) { /* no-op */ }
-    };
-    return window.__printToastRenderer;
-}
 const renderPrintToast = ensurePrintToastRenderer();
+
+function showReceiptPrintPrompt(){
+    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+        window.modernInventorySystem.showNotification('Receipt print dialog opened. Complete printing to finish.', 'info', 6000);
+    } else {
+        alert('Receipt print dialog opened. Complete printing to finish.');
+    }
+}
 
 function showPrintSuccessModal(message){
     const successMessage = message || 'Receipt Printed';
@@ -3419,9 +3421,10 @@ function showPrintSuccessModal(message){
 
         let receiptPrintState = 'idle';
         let receiptPrintListener = null;
-        function showReceiptPrintCompletion(){
+function showReceiptPrintCompletion(){
+            try { window.__suppressNetworkErrors = false; } catch(_) {}
             renderPrintToast('Receipt print finished. If you cancelled, press print again.', 'success');
-        }
+}
         function attachReceiptAfterPrintListener(printWindow){
             if(!printWindow) return;
             if(receiptPrintListener){
@@ -3447,12 +3450,13 @@ function showPrintSuccessModal(message){
             const printerName = localStorage.getItem('thermalPrinterName') || 'POS58 Printer';
             if(!content || !content.trim()) return Promise.reject(new Error('No content'));
             return fetch(bridgeUrl, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Suppress-Error': '1' },
+                suppressGlobalError: true,
                 body: JSON.stringify({ content, printer_name: printerName })
             }).then(r=>{ if(!r.ok) throw new Error('Bridge HTTP error '+r.status); return r.json().catch(()=>({success:true})); });
         }
         function printThermalReceipt(saleId) {
-            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET', suppressGlobalError: true, headers: { 'X-Suppress-Error': '1' } })
               .then(r=>r.json())
               .then(data=>{
                 const flat = data.data || data.sale || data;
@@ -3516,7 +3520,8 @@ function showPrintSuccessModal(message){
             return false;
         }
 
-        function printReceipt(saleId) {
+function printReceipt(saleId) {
+            try { window.__suppressNetworkErrors = true; } catch(_) {}
             // Smart printer detection: use thermal for desktop, regular print for mobile/tablet
             if (isMobileOrTablet()) {
                 printRegularReceipt(saleId);
@@ -3529,7 +3534,7 @@ function showPrintSuccessModal(message){
             
         // Regular browser print for mobile/tablet devices
         function printRegularReceipt(saleId) {
-            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET' })
+            fetch(`/api/sales/${encodeURIComponent(saleId)}/details/`, { method: 'GET', suppressGlobalError: true, headers: { 'X-Suppress-Error': '1' } })
                 .then(r=>r.json())
                 .then(data=>{
                     const flat = data.data || data.sale || data;
@@ -3588,7 +3593,6 @@ function showPrintSuccessModal(message){
                         const printWin=printFrame.contentWindow;
                         attachReceiptAfterPrintListener(printWin);
                         receiptPrintState='dialog-open';
-                        try { showReceiptPrintPrompt(); } catch(_) {}
                         printWin.focus();
                         printWin.print();
                     }, 300);

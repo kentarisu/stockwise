@@ -1556,7 +1556,7 @@
                         <div class="stat-content">
                         <div class="stat-value">{{ low_stock }}</div>
                         <div class="stat-label">Low Stock Alerts</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with 10 boxes or less</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes ≤10: {{ low_stock_boxes|default:0 }} • Kilos ≤10: {{ low_stock_kilos|default:0 }}</div>
                         <div class="stat-change {% if low_stock_change <= 0 %}positive{% else %}negative{% endif %}">
                             <i class="bi bi-{% if low_stock_change <= 0 %}arrow-down{% else %}arrow-up{% endif %}"></i>
                             {% if low_stock_change >= 0 %}+{% endif %}{{ low_stock_change }}% vs {{ yesterday|date:"M d, Y" }}
@@ -1571,7 +1571,7 @@
                         <div class="stat-content">
                         <div class="stat-value">{{ out_of_stock }}</div>
                         <div class="stat-label">Out of Stock</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with no boxes left</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: {{ out_of_stock_boxes|default:0 }} • Kilos: {{ out_of_stock_kilos|default:0 }}</div>
                         <div class="stat-change negative">
                             <i class="bi bi-exclamation-triangle"></i>
                             As of {{ today|date:"M d, Y" }}
@@ -1594,6 +1594,21 @@
                         </div>
                     </a>
 
+                    <a href="{% url 'sales' %}?tab=recent&range=week" class="stat-card clickable">
+                        <div class="stat-icon success">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                        <div class="stat-content">
+                        <div class="stat-value">{{ weekly_sales_count }}</div>
+                        <div class="stat-label">Quantity Units Sold This Week</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: {{ weekly_boxes_count|default:0 }} • Kilos: {{ weekly_kilos_count|default:0 }}</div>
+                        <div class="stat-change positive">
+                            <i class="bi bi-calendar-week"></i>
+                            {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
+                            </div>
+                        </div>
+                    </a>
+
                     <a href="{% url 'sales' %}?tab=today&range=today" class="stat-card clickable">
                         <div class="stat-icon info">
                             <i class="bi bi-currency-dollar"></i>
@@ -1610,17 +1625,17 @@
                     </a>
 
                     {% if app_role == 'admin' %}
-                    <a href="{% url 'sales' %}?tab=all" class="stat-card clickable">
+                    <a href="{% url 'sales' %}?tab=recent&range=week" class="stat-card clickable">
                         <div class="stat-icon secondary">
-                            <i class="bi bi-calendar-month"></i>
+                            <i class="bi bi-calendar-week"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">₱{{ monthly_revenue_formatted }}</div>
-                        <div class="stat-label">Monthly Revenue</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned this month</div>
+                        <div class="stat-value">₱{{ weekly_revenue_formatted }}</div>
+                        <div class="stat-label">Weekly Revenue</div>
+                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned in the last 7 days</div>
                         <div class="stat-change positive">
-                            <i class="bi bi-calendar-month"></i>
-                            {{ this_month_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
+                            <i class="bi bi-calendar-week"></i>
+                            {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
                             </div>
                         </div>
                     </a>
@@ -1641,20 +1656,6 @@
                     </a>
                     {% endif %}
 
-                    <a href="{% url 'sales' %}?tab=recent&range=week" class="stat-card clickable">
-                        <div class="stat-icon success">
-                            <i class="bi bi-graph-up"></i>
-                        </div>
-                        <div class="stat-content">
-                        <div class="stat-value">{{ weekly_sales_count }}</div>
-                        <div class="stat-label">Boxes Sold This Week</div>
-                        <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total boxes sold in the last 7 days</div>
-                        <div class="stat-change positive">
-                            <i class="bi bi-calendar-week"></i>
-                            {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
-                            </div>
-                        </div>
-                    </a>
                 </div>
 
                 <!-- Quick Actions -->
@@ -2916,9 +2917,12 @@
                         recommendationsLoaded = false; // Allow retry
                         if (unreadEmptyEl) {
                             unreadEmptyEl.classList.remove('d-none');
-                            const msg = (err && err.message && String(err.message).toLowerCase().includes('cooldown'))
+                            const emsg = String(err && err.message || '').toLowerCase();
+                            const msg = emsg.includes('cooldown')
                                 ? '<i class="bi bi-hourglass-split"></i><span>Recommendations are temporarily unavailable (cooldown). Try again later.</span>'
-                                : '<i class="bi bi-exclamation-triangle"></i><span>Unable to load pricing recommendations right now.</span>';
+                                : (emsg.includes('no recommendations available') || emsg.includes('not available yet') || emsg.includes('update every 3 days'))
+                                    ? '<i class="bi bi-info-circle"></i><span>No pricing recommendations available yet. They update every 3 days.</span>'
+                                    : '<i class="bi bi-exclamation-triangle"></i><span>Unable to load pricing recommendations right now.</span>';
                             unreadEmptyEl.innerHTML = msg;
                         }
                         if (unreadListEl) unreadListEl.classList.add('d-none');

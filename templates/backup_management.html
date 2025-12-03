@@ -745,7 +745,7 @@
                 </a>
                 <div class="header-title-section">
                     <h1>Backup Management</h1>
-                    <p class="header-subtitle">Create, download, and restore system backups</p>
+                        <p class="header-subtitle">Create, download, and restore system backups</p>
                 </div>
             </div>
             <div class="header-right">
@@ -856,7 +856,7 @@
                     <div>
                         <h2>System Backups</h2>
                         <p style="color: var(--gray-500); font-size: 0.85rem; margin-top: 0.25rem;">
-                            Backups contain your database, media files, and configuration. Download to save locally or restore from an uploaded backup file.
+                            Backups include all saved data, images/files, and settings. Download to save locally or restore from an uploaded backup file.
                         </p>
                     </div>
                     <div style="display: flex; gap: 0.75rem; align-items: start;">
@@ -973,7 +973,6 @@
             <div class="modal-content">
                 <div class="modal-header" id="confirmModalHeader">
                     <h5 class="modal-title" id="confirmModalLabel">
-                        <i class="bi bi-exclamation-triangle-fill" id="confirmModalIcon"></i>
                         <span id="confirmModalTitle">Confirm Action</span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1003,7 +1002,7 @@
                 <div class="modal-body">
                     <div class="alert alert-warning" role="alert">
                         <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Warning:</strong> This will overwrite your current database and media files!
+                        <strong>Warning:</strong> This will replace all current saved data and images/files.
                     </div>
                     <p class="mb-3">Upload a backup zip file (.zip) to restore your system from a previous backup.</p>
                     <form id="uploadRestoreForm" enctype="multipart/form-data">
@@ -1013,7 +1012,7 @@
                             <input type="file" class="form-control" id="backupFile" name="backup_file" accept=".zip,application/zip,application/x-zip-compressed" required>
                             <div class="form-text">
                                 <strong>Select a StockWise backup file (.zip)</strong><br>
-                                <small class="text-muted">The file must be a valid StockWise backup containing database and media files. Maximum size: 500MB.</small>
+                                <small class="text-muted">The file must be a valid StockWise backup containing saved data and images/files. Maximum size: 500MB.</small>
                             </div>
                         </div>
                     </form>
@@ -1358,47 +1357,42 @@
                 }
             });
 
-            // Create backup
-            document.getElementById('createBackupBtn').addEventListener('click', async function() {
+            // Create backup (with confirmation)
+            document.getElementById('createBackupBtn').addEventListener('click', function() {
                 const btn = this;
                 const originalText = btn.innerHTML;
-                btn.disabled = true;
-                btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
-
-                try {
-                    const response = await fetch('{% url "create_backup" %}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': window.getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest'
+                showConfirm(
+                    'Create Backup',
+                    'This will create a full backup of all saved data and images/files.\n\nProceed?',
+                    async function() {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
+                        try {
+                            const response = await fetch('{% url "create_backup" %}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': window.getCookie('csrftoken'),
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            });
+                            const data = await response.json();
+                            if (data.success) {
+                                showMessage('success', 'Success', 'Backup created successfully!', function() { location.reload(); });
+                            } else {
+                                showMessage('error', 'Error', data.message, function() { btn.disabled = false; btn.innerHTML = originalText; });
+                            }
+                        } catch (error) {
+                            showMessage('error', 'Error', 'Error creating backup: ' + error.message, function() { btn.disabled = false; btn.innerHTML = originalText; });
                         }
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        showMessage('success', 'Success', 'Backup created successfully!', function() {
-                            location.reload();
-                        });
-                    } else {
-                        showMessage('error', 'Error', data.message, function() {
-                            btn.disabled = false;
-                            btn.innerHTML = originalText;
-                        });
                     }
-                } catch (error) {
-                    showMessage('error', 'Error', 'Error creating backup: ' + error.message, function() {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                    });
-                }
+                );
             });
 
             // Restore backup
             function restoreBackup(backupId) {
                 showConfirm(
-                    '⚠️ Warning',
-                    'This will overwrite your current database and media files!\n\nAre you sure you want to restore from this backup?',
+                    'Warning',
+                    'This will replace all current saved data and images/files.\n\nAre you sure you want to restore from this backup?',
                     function() {
                         const modal = new bootstrap.Modal(document.getElementById('restoreProgressModal'));
                         const bar = document.getElementById('restoreProgressBar');
@@ -1418,7 +1412,7 @@
                             setProgress(5, 'Preparing…');
                             t = setInterval(function(){
                                 if (p < 30) setProgress(p + 2, 'Validating…');
-                                else if (p < 70) setProgress(p + 3, 'Restoring database…');
+                                else if (p < 70) setProgress(p + 3, 'Restoring saved data…');
                                 else if (p < 90) setProgress(p + 2, 'Restoring media…');
                                 else if (p < 95) setProgress(p + 1, 'Finalizing…');
                             }, 300);
@@ -1437,7 +1431,7 @@
                             if (data.success) {
                                 setProgress(100, 'Completed');
                                 setTimeout(function(){ modal.hide(); }, 500);
-                                showMessage('success', 'Restore Complete', 'System restored successfully. Please restart the server.', function(){ location.reload(); });
+                                showMessage('success', 'Restore Complete', 'System restored successfully. Please refresh.', function(){ location.reload(); });
                             } else {
                                 setTimeout(function(){ modal.hide(); }, 300);
                                 showMessage('error', 'Error', data.message);

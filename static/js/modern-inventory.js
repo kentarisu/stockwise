@@ -296,10 +296,18 @@ class ModernInventorySystem {
         this.createNotificationContainer();
         try {
             window.addEventListener('error', (e) => {
+                try {
+                    const path = (window.location && window.location.pathname) || '';
+                    if (/\/sales\//.test(path)) return;
+                } catch(_) {}
                 const msg = (e && e.message) || 'An unexpected error occurred';
                 this.showNotification(msg, 'error', 6000);
             });
             window.addEventListener('unhandledrejection', (e) => {
+                try {
+                    const path = (window.location && window.location.pathname) || '';
+                    if (/\/sales\//.test(path)) return;
+                } catch(_) {}
                 const r = e && e.reason;
                 const msg = (r && r.message) || String(r || '') || 'Unexpected error';
                 this.showNotification(msg, 'error', 6000);
@@ -309,10 +317,13 @@ class ModernInventorySystem {
             if (!window.__fetch_patched && typeof window.fetch === 'function') {
                 const origFetch = window.fetch.bind(window);
                 window.fetch = function(input, init) {
+                    const urlStr = (typeof input === 'string') ? input : (input && input.url) || '';
+                    const isLocalBridge = urlStr.indexOf('localhost:9100/print') !== -1 || urlStr.indexOf('127.0.0.1:9100/print') !== -1;
+                    const suppress = isLocalBridge || !!(init && (init.suppressGlobalError || (init.headers && ((init.headers['X-Suppress-Error'] === '1') || (init.headers['x-suppress-error'] === '1')))));
                     return origFetch(input, init).then(function(res){
                         try {
-                            if (!res.ok) {
-                                const url = (typeof input === 'string') ? input : (input && input.url) || '';
+                            if (!res.ok && !suppress) {
+                                const url = urlStr;
                                 const status = res.status;
                                 const m = `Request failed${status ? ' ('+status+')' : ''}${url ? ' - '+url : ''}`;
                                 if (window.__mis && typeof window.__mis.showNotification === 'function') {
@@ -323,9 +334,13 @@ class ModernInventorySystem {
                         return res;
                     }).catch(function(err){
                         try {
-                            const m = `Network error: ${(err && err.message) || 'Request failed'}`;
-                            if (window.__mis && typeof window.__mis.showNotification === 'function') {
-                                window.__mis.showNotification(m, 'error', 6000);
+                            const path = (window.location && window.location.pathname) || '';
+                            const onSalesOrRecord = /\/sales\//.test(path);
+                            if (!suppress && !onSalesOrRecord && !window.__suppressNetworkErrors) {
+                                const m = `Network error: ${(err && err.message) || 'Request failed'}`;
+                                if (window.__mis && typeof window.__mis.showNotification === 'function') {
+                                    window.__mis.showNotification(m, 'error', 6000);
+                                }
                             }
                         } catch(e2) {}
                         throw err;
@@ -338,6 +353,9 @@ class ModernInventorySystem {
             if (window.jQuery) {
                 window.jQuery(document).ajaxError(function(event, jqxhr, settings, thrownError){
                     try {
+                        const path = (window.location && window.location.pathname) || '';
+                        if (/\/sales\//.test(path)) return; // suppress on sales-related pages
+                        if (window.__suppressNetworkErrors) return;
                         const status = jqxhr && jqxhr.status;
                         const url = settings && settings.url;
                         const base = thrownError || (jqxhr && jqxhr.statusText) || 'Request failed';

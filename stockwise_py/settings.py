@@ -233,6 +233,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+BACKUPS_DIR = Path(os.getenv('BACKUPS_DIR') or (BASE_DIR / 'backups'))
+
 FRUIT_MASTER_DIR = MEDIA_ROOT / 'builtins'
 FRUIT_MASTER_PATH = str(FRUIT_MASTER_DIR / 'fruit_master_full.csv')
 

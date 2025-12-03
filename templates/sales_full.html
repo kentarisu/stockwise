@@ -3347,22 +3347,60 @@
         function buildThermalPreview(data){ const lines=[]; lines.push(centerLine(data.company_name||'')); wrapLine(data.company_address||'', RECEIPT_WIDTH).forEach(l=>lines.push(centerLine(l))); if(data.company_phone) lines.push(centerLine('Tel: '+data.company_phone)); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('SALES RECEIPT')); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push('Transaction No.: '+(data.transaction_number||'')); lines.push('OR No.: '+(data.or_number||'')); lines.push('Date: '+(data.date||'')); lines.push('Processed by: '+(data.processed_by||'')); lines.push('Customer: '+(data.customer_name||'')); lines.push('Contact: '+(data.customer_contact||'')); if(data.customer_address){ const wa=wrapLine(data.customer_address, RECEIPT_WIDTH-10); wa.forEach((line,idx)=>{ lines.push((idx===0?'Address:':'        ')+' '+line); }); } else { lines.push('Address:'); } lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push('Description'.padEnd(DESC_WIDTH)+'Qty'.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+'Amount'.padStart(AMOUNT_WIDTH)); lines.push('-'.repeat(RECEIPT_WIDTH)); (data.items||[]).forEach(item=>{ const nameLines=wrapLine(item.name||'', DESC_WIDTH); const quantity=String(item.quantity||0); const amount=peso(item.amount||0); lines.push(nameLines[0].padEnd(DESC_WIDTH)+quantity.padStart(QTY_COL_WIDTH)+' '.repeat(GAP_WIDTH)+amount.padStart(AMOUNT_WIDTH)); nameLines.slice(1).forEach(line=>lines.push(line.padEnd(RECEIPT_WIDTH))); lines.push(padLine('', '@ '+peso(item.price||0))); }); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(padLine('Subtotal:', peso(data.subtotal||0))); if(data.vat) lines.push(padLine('VAT 12%:', peso(data.vat||0))); if(data.discount && Number(data.discount)>0){ const pctVal=Number(data.discount_pct||0); const pctStr=pctVal>0? ((pctVal%1===0)? String(pctVal.toFixed(0)) : String(pctVal.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'')) : ''; const pct=pctStr? (' ('+pctStr+'%)') : ''; lines.push(padLine('Discount'+pct+':', '-'+peso(data.discount))); } lines.push(padLine('TOTAL:', peso(data.total||0))); lines.push('-'.repeat(RECEIPT_WIDTH)); lines.push(padLine('Amount Paid:', peso(data.amount_paid||0))); lines.push(padLine('Change:', peso(data.change||0))); lines.push('='.repeat(RECEIPT_WIDTH)); lines.push(centerLine('Thank you for your purchase!')); lines.push(centerLine('This is not an official receipt')); return lines.join('\n'); }
 
         // Print to thermal printer
-function showPrintSuccessModal(){
-    if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
-        window.modernInventorySystem.showNotification('Receipt Printed', 'success', 3500);
-        return;
+function ensurePrintToastRenderer(){
+    if(window.__printToastRenderer){
+        return window.__printToastRenderer;
     }
-    if(typeof showSimpleToast === 'function'){ showSimpleToast('Receipt Printed','success'); return; }
-    try { 
-        const containerId='simpleToastContainer';
-        let c=document.getElementById(containerId);
-        if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
-        const t=document.createElement('div');
-        t.textContent='Receipt Printed';
-        t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
-        c.appendChild(t);
-        setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
-    } catch(_) { /* no-op */ }
+    window.__printToastRenderer = function(message, variant){
+        const palette = {
+            info: '#0ea5e9',
+            success: '#10b981',
+            warning: '#f59e0b',
+            error: '#ef4444'
+        };
+        const bgColor = palette[variant] || variant || palette.info;
+        try { 
+            const containerId='simpleToastContainer';
+            let c=document.getElementById(containerId);
+            if(!c){
+                c=document.createElement('div');
+                c.id=containerId;
+                c.style.position='fixed';
+                c.style.top='16px';
+                c.style.right='16px';
+                c.style.zIndex='9999';
+                c.style.display='flex';
+                c.style.flexDirection='column';
+                c.style.gap='8px';
+                document.body.appendChild(c);
+            }
+            const t=document.createElement('div');
+            t.textContent=message;
+            t.style.background=bgColor;
+            t.style.color='#fff';
+            t.style.padding='10px 14px';
+            t.style.borderRadius='8px';
+            t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)';
+            t.style.fontSize='14px';
+            t.style.maxWidth='320px';
+            c.appendChild(t);
+            setTimeout(()=>{
+                t.style.transition='opacity 300ms';
+                t.style.opacity='0';
+                setTimeout(()=>{
+                    t.remove();
+                    if(c.childElementCount===0) c.remove();
+                },300);
+            },3500);
+        } catch(_) { /* no-op */ }
+    };
+    return window.__printToastRenderer;
+}
+const renderPrintToast = ensurePrintToastRenderer();
+
+function showPrintSuccessModal(message){
+    const successMessage = message || 'Receipt Printed';
+    renderPrintToast(successMessage, 'success');
 }
 
         function showPrinterErrorModal(message){
@@ -3377,6 +3415,31 @@ function showPrintSuccessModal(){
             }
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
+        }
+
+        let receiptPrintState = 'idle';
+        let receiptPrintListener = null;
+        function showReceiptPrintCompletion(){
+            renderPrintToast('Receipt print finished. If you cancelled, press print again.', 'success');
+        }
+        function attachReceiptAfterPrintListener(printWindow){
+            if(!printWindow) return;
+            if(receiptPrintListener){
+                try { printWindow.removeEventListener('afterprint', receiptPrintListener); } catch(_){}
+            }
+            receiptPrintListener = function(){
+                if(receiptPrintState === 'dialog-open'){
+                    try { showReceiptPrintCompletion(); } catch(_){}
+                }
+                receiptPrintState = 'idle';
+                try { printWindow.removeEventListener('afterprint', receiptPrintListener); } catch(_){}
+                receiptPrintListener = null;
+            };
+            try {
+                printWindow.addEventListener('afterprint', receiptPrintListener);
+            } catch(_){
+                receiptPrintListener = null;
+            }
         }
 
         function tryLocalBridgePrintSale(content){
@@ -3507,7 +3570,28 @@ function showPrintSuccessModal(){
                     const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
                     const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'13',10);
                     const html = `<!doctype html><html><head><title>Receipt</title><style>@media print{@page{size:${PAPER_MM}mm auto;margin:0}html,body{width:${PAPER_MM}mm;margin:0;padding:0}}body{font-family:"Courier New",monospace;font-size:${FONT_PX}px;margin:0;padding:${Math.max(1, MARGIN_MM)}mm;background:#fff;box-sizing:border-box}.receipt-print{text-align:center}pre{display:inline-block;text-align:left;white-space:pre;letter-spacing:0;max-width:calc(${PAPER_MM}mm - ${Math.max(1, MARGIN_MM)*2}mm)}</style></head><body><div class="receipt-print"><pre>${text}</pre></div></body></html>`;
-                    let printFrame=document.getElementById('hiddenPrintFrame'); if(!printFrame){ printFrame=document.createElement('iframe'); printFrame.id='hiddenPrintFrame'; printFrame.style.position='fixed'; printFrame.style.right='0'; printFrame.style.bottom='0'; printFrame.style.width='0'; printFrame.style.height='0'; printFrame.style.border='0'; document.body.appendChild(printFrame);} const doc=printFrame.contentWindow.document; doc.open(); doc.write(html); doc.close(); setTimeout(()=>{ printFrame.contentWindow.focus(); printFrame.contentWindow.print(); try { showPrintSuccessModal(); } catch(_) {} }, 500);
+                    let printFrame=document.getElementById('hiddenPrintFrame');
+                    if(!printFrame){
+                        printFrame=document.createElement('iframe');
+                        printFrame.id='hiddenPrintFrame';
+                        printFrame.style.position='fixed';
+                        printFrame.style.right='0';
+                        printFrame.style.bottom='0';
+                        printFrame.style.width='0';
+                        printFrame.style.height='0';
+                        printFrame.style.border='0';
+                        document.body.appendChild(printFrame);
+                    }
+                    const doc=printFrame.contentWindow.document;
+                    doc.open(); doc.write(html); doc.close();
+                    setTimeout(()=>{
+                        const printWin=printFrame.contentWindow;
+                        attachReceiptAfterPrintListener(printWin);
+                        receiptPrintState='dialog-open';
+                        try { showReceiptPrintPrompt(); } catch(_) {}
+                        printWin.focus();
+                        printWin.print();
+                    }, 300);
                 })
                 .catch(()=>{});
         }

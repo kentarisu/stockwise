@@ -10068,9 +10068,12 @@ def create_backup(request):
         from pathlib import Path
         import os
         
-        # Create backup using management command
-        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = Path(getattr(settings, 'BACKUPS_DIR', settings.BASE_DIR / 'backups'))
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            backup_dir = Path('/tmp/stockwise_backups')
+            backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Call backup command - capture output
         import io
@@ -10285,8 +10288,12 @@ def upload_and_restore_backup(request):
         import tempfile
         import os
         
-        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = Path(getattr(settings, 'BACKUPS_DIR', settings.BASE_DIR / 'backups'))
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            backup_dir = Path('/tmp/stockwise_backups')
+            backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Save to temp location
         import uuid
@@ -10488,8 +10495,12 @@ def auto_backup_before_critical_operation(request, operation_name='Critical Oper
                 return False
         
         # Create backup
-        backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
-        backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_dir = Path(getattr(settings, 'BACKUPS_DIR', settings.BASE_DIR / 'backups'))
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            backup_dir = Path('/tmp/stockwise_backups')
+            backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Call backup command
         call_command('backup_system', output_dir=str(backup_dir))

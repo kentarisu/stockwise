@@ -35,9 +35,12 @@ class Command(BaseCommand):
         if options['output_dir']:
             backup_dir = Path(options['output_dir'])
         else:
-            backup_dir = Path(settings.BASE_DIR.parent) / 'backups'
-        
-        backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_dir = Path(getattr(settings, 'BACKUPS_DIR', settings.BASE_DIR / 'backups'))
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            backup_dir = Path('/tmp/stockwise_backups')
+            backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Create timestamp for backup filename
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -190,4 +193,3 @@ class Command(BaseCommand):
             if backup_path.exists():
                 backup_path.unlink()  # Remove incomplete backup
             raise
-

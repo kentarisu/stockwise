@@ -1079,6 +1079,81 @@ function printReceipt(){
     });
 }
  
+let recordReceiptPrintState = 'idle';
+let recordReceiptPrintListener = null;
+
+function ensurePrintToastRenderer(){
+  if(window.__printToastRenderer){
+    return window.__printToastRenderer;
+  }
+  window.__printToastRenderer = function(message, variant){
+    const palette = { info:'#0ea5e9', success:'#10b981', warning:'#f59e0b', error:'#ef4444' };
+    const bgColor = palette[variant] || variant || palette.info;
+    try {
+      const containerId='simpleToastContainer';
+      let c=document.getElementById(containerId);
+      if(!c){
+        c=document.createElement('div');
+        c.id=containerId;
+        c.style.position='fixed';
+        c.style.top='16px';
+        c.style.right='16px';
+        c.style.zIndex='9999';
+        c.style.display='flex';
+        c.style.flexDirection='column';
+        c.style.gap='8px';
+        document.body.appendChild(c);
+      }
+      const t=document.createElement('div');
+      t.textContent=message;
+      t.style.background=bgColor;
+      t.style.color='#fff';
+      t.style.padding='10px 14px';
+      t.style.borderRadius='8px';
+      t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)';
+      t.style.fontSize='14px';
+      t.style.maxWidth='320px';
+      c.appendChild(t);
+      setTimeout(()=>{
+        t.style.transition='opacity 300ms';
+        t.style.opacity='0';
+        setTimeout(()=>{
+          t.remove();
+          if(c.childElementCount===0) c.remove();
+        },300);
+      },3500);
+    } catch(_){}
+  };
+  return window.__printToastRenderer;
+}
+const renderPrintToast = ensurePrintToastRenderer();
+
+function showRecordReceiptPrintPrompt(){
+  renderPrintToast('Receipt print dialog opened. Complete printing to finish.', 'info');
+}
+function showRecordReceiptPrintCompletion(){
+  renderPrintToast('Receipt Printed', 'success');
+}
+function attachRecordAfterPrintListener(printWindow){
+  if(!printWindow) return;
+  if(recordReceiptPrintListener){
+    try { printWindow.removeEventListener('afterprint', recordReceiptPrintListener); } catch(_){}
+  }
+  recordReceiptPrintListener = function(){
+    if(recordReceiptPrintState === 'dialog-open'){
+      try { showRecordReceiptPrintCompletion(); } catch(_){}
+    }
+    recordReceiptPrintState = 'idle';
+    try { printWindow.removeEventListener('afterprint', recordReceiptPrintListener); } catch(_){}
+    recordReceiptPrintListener = null;
+  };
+  try {
+    printWindow.addEventListener('afterprint', recordReceiptPrintListener);
+  } catch(_){
+    recordReceiptPrintListener = null;
+  }
+}
+
 function printRegularReceipt() {
      const receiptContent = document.getElementById('thermalReceiptPreview').textContent;
      
@@ -1143,12 +1218,15 @@ function printRegularReceipt() {
     `);
      doc.close();
      
-     // Wait for content to load, then trigger print
+    // Wait for content to load, then trigger print
    setTimeout(function() {
-       printFrame.contentWindow.focus();
-       printFrame.contentWindow.print();
-       try { showPrintSuccessModal(); } catch(_) {}
-   }, 500);
+       const printWin = printFrame.contentWindow;
+       attachRecordAfterPrintListener(printWin);
+       recordReceiptPrintState = 'dialog-open';
+       try { showRecordReceiptPrintPrompt(); } catch(_){}
+       printWin.focus();
+       printWin.print();
+   }, 300);
 }
 
 function tryLocalBridgePrint(receiptContent){
@@ -1186,21 +1264,9 @@ function printThermalReceipt(saleId) {
       });
 }
 
-function showPrintSuccessModal(){
-  if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
-    window.modernInventorySystem.showNotification('Receipt Printed', 'success', 3500);
-    return;
-  }
-  try { 
-    const containerId='simpleToastContainer';
-    let c=document.getElementById(containerId);
-    if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
-    const t=document.createElement('div');
-    t.textContent='Receipt Printed';
-    t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
-    c.appendChild(t);
-    setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
-  } catch(_) {}
+function showPrintSuccessModal(message){
+  const successMessage = message || 'Receipt Printed';
+  renderPrintToast(successMessage, 'success');
 }
 
 function showPrinterErrorModal(message){
@@ -1430,5 +1496,4 @@ document.addEventListener('blur', function(e){
 {% endif %}
 </body>
 </html>
-
 

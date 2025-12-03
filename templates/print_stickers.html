@@ -449,31 +449,71 @@
         // Unified single-button printing
     }
     
+    let stickerPrintState = 'idle';
+    let stickerPrintListener = null;
     function printStickerViaIframe(){
         if(!currentStickerData) return;
         const iframe = document.getElementById('stickerPrintFrame');
         const doc = iframe.contentWindow.document;
         doc.open();
-        const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'48',10);
-        const MARGIN_MM = parseInt(localStorage.getItem('thermalMarginMM')||'2',10);
+        // Default to 58mm which matches most POS58 thermal printers
+        const PAPER_MM = parseInt(localStorage.getItem('thermalPaperWidthMM')||'58',10);
+        const PADDING_MM = Math.max(0, parseInt(localStorage.getItem('thermalMarginMM')||'1',10));
         const FONT_PX = parseInt(localStorage.getItem('thermalFontSizePX')||'12',10);
+        const PRINT_MODE = (localStorage.getItem('stickerPrintMode')||'auto').toLowerCase();
+        const isThermal = PRINT_MODE === 'thermal' || (PRINT_MODE === 'auto' && PAPER_MM <= 60);
+        const REGULAR_PAPER = (localStorage.getItem('regularPaperSize')||'Letter');
+        const REGULAR_STICKER_WIDTH_MM = Math.max(50, parseInt(localStorage.getItem('regularStickerWidthMM')||'65',10));
         const displayName = (currentStickerData.product_name || 'Product').replace(/\s*\(.*?\)\s*$/, '');
         doc.write(`
             <html>
             <head>
                 <style>
-                    @media print { @page { size: ${PAPER_MM}mm auto; margin: 0; } html, body { width: ${PAPER_MM}mm; margin: 0; padding: 0; } }
-                    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: ${MARGIN_MM}mm; background: #fff; display:flex; justify-content:center; }
-                    .sticker-container { width: calc(${PAPER_MM}mm - ${MARGIN_MM*2}mm); border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 5mm; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+                    ${
+                        isThermal
+                        ? `@media print {
+                                 /* 58mm thermal ticket: let the browser auto-size height to sticker content */
+                                 @page { size: ${PAPER_MM}mm auto; margin: 0; }
+                                 html, body {
+                                     width: ${PAPER_MM}mm;
+                                     margin: 0;
+                                     padding: 0;
+                                 }
+                           }
+                           body {
+                                 font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                                 margin: 0;
+                                 padding: ${PADDING_MM}mm;
+                                 background: #fff;
+                                 box-sizing:border-box;
+                           }
+                           .sticker-container {
+                                 width: calc(${PAPER_MM}mm - ${PADDING_MM*2}mm);
+                                 margin: 0 auto;
+                           }`
+                        : `@media print { @page { size: ${REGULAR_PAPER}; margin: 12mm; } }
+                           body {
+                                 font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                                 margin: 0;
+                                 background: #fff;
+                                 display:flex;
+                                 align-items:flex-start;
+                                 justify-content:center;
+                           }
+                           .sticker-container {
+                                 width: ${REGULAR_STICKER_WIDTH_MM}mm;
+                           }`
+                    }
+                    .sticker-container { border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 4mm; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
                     .sticker-header { text-align: center; }
                     .sticker-label { color: #4F46E5; font-weight: 700; font-size: ${Math.max(10, FONT_PX-1)}px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 4px 0; }
                     .product-name { font-size: ${Math.max(14, FONT_PX+6)}px; font-weight: 700; margin: 0 0 2px 0; }
                     .product-variant, .product-size { font-size: ${Math.max(11, FONT_PX)}px; color: #6b7280; margin: 0 0 2px 0; text-align: center; }
-                    .divider { height: 1px; background: #e5e7eb; margin: 4mm 0 4mm 0; }
+                    .divider { height: 1px; background: #e5e7eb; margin: 3mm 0; }
                     .qr-code { display: flex; justify-content: center; }
-                    .qr-code img { width: ${Math.round(0.58*PAPER_MM)}mm; height: ${Math.round(0.58*PAPER_MM)}mm; border-radius: 6px; }
-                    .sticker-footer { font-size: ${Math.max(10, FONT_PX-1)}px; color: #6b7280; text-align: center; margin-top: 3mm; }
-                    .brand { font-size: ${Math.max(10, FONT_PX-1)}px; font-weight: 700; letter-spacing: 0.08em; text-align: center; margin-top: 2mm; }
+                    .qr-code img { width: ${Math.round(0.58*(isThermal?PAPER_MM:REGULAR_STICKER_WIDTH_MM))}mm; height: ${Math.round(0.58*(isThermal?PAPER_MM:REGULAR_STICKER_WIDTH_MM))}mm; border-radius: 6px; }
+                    .sticker-footer { font-size: ${Math.max(10, FONT_PX-1)}px; color: #6b7280; text-align: center; margin-top: 2mm; }
+                    .brand { font-size: ${Math.max(10, FONT_PX-1)}px; font-weight: 700; letter-spacing: 0.08em; text-align: center; margin-top: 1mm; }
                 </style>
             </head>
             <body>
@@ -495,9 +535,32 @@
             </html>
         `);
         doc.close();
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        try { showStickerSuccess(); } catch(_) {}
+        const printWin = iframe.contentWindow;
+        attachStickerAfterPrintListener(printWin);
+        stickerPrintState = 'dialog-open';
+        try { showStickerPrintPrompt(); } catch(_){}
+        printWin.focus();
+        printWin.print();
+    }
+
+    function attachStickerAfterPrintListener(printWindow){
+        if(!printWindow) return;
+        if(stickerPrintListener){
+            try { printWindow.removeEventListener('afterprint', stickerPrintListener); } catch(_){}
+        }
+        stickerPrintListener = function(){
+            if(stickerPrintState === 'dialog-open'){
+                try { showStickerPrintCompletion(); } catch(_){}
+            }
+            stickerPrintState = 'idle';
+            try { printWindow.removeEventListener('afterprint', stickerPrintListener); } catch(_){}
+            stickerPrintListener = null;
+        };
+        try {
+            printWindow.addEventListener('afterprint', stickerPrintListener);
+        } catch(_){
+            stickerPrintListener = null;
+        }
     }
     
     function printStickerThermal(productId){
@@ -541,21 +604,68 @@
             showPrinterErrorModal('Unable to connect to the thermal printer. Please check that it is connected and powered on.');
         });
     }
-    function showStickerSuccess(){
-      if(window.modernInventorySystem && window.modernInventorySystem.showNotification){
-        window.modernInventorySystem.showNotification('Sticker Printed', 'success', 3500);
-        return;
+    function ensurePrintToastRenderer(){
+      if(window.__printToastRenderer){
+        return window.__printToastRenderer;
       }
-      try {
-        const containerId='simpleToastContainer';
-        let c=document.getElementById(containerId);
-        if(!c){ c=document.createElement('div'); c.id=containerId; c.style.position='fixed'; c.style.top='16px'; c.style.right='16px'; c.style.zIndex='9999'; c.style.display='flex'; c.style.flexDirection='column'; c.style.gap='8px'; document.body.appendChild(c); }
-        const t=document.createElement('div');
-        t.textContent='Sticker Printed';
-        t.style.background='#10b981'; t.style.color='#fff'; t.style.padding='10px 14px'; t.style.borderRadius='8px'; t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)'; t.style.fontSize='14px'; t.style.maxWidth='300px';
-        c.appendChild(t);
-        setTimeout(()=>{ t.style.transition='opacity 300ms'; t.style.opacity='0'; setTimeout(()=>{ t.remove(); if(c.childElementCount===0) c.remove(); },300); },3500);
-      } catch(_){ }
+      window.__printToastRenderer = function(message, variant){
+        const palette = {
+          info: '#0ea5e9',
+          success: '#10b981',
+          warning: '#f59e0b',
+          error: '#ef4444'
+        };
+        const bgColor = palette[variant] || variant || palette.info;
+        try {
+          const containerId='simpleToastContainer';
+          let c=document.getElementById(containerId);
+          if(!c){
+            c=document.createElement('div');
+            c.id=containerId;
+            c.style.position='fixed';
+            c.style.top='16px';
+            c.style.right='16px';
+            c.style.zIndex='9999';
+            c.style.display='flex';
+            c.style.flexDirection='column';
+            c.style.gap='8px';
+            document.body.appendChild(c);
+          }
+          const t=document.createElement('div');
+          t.textContent=message;
+          t.style.background=bgColor;
+          t.style.color='#fff';
+          t.style.padding='10px 14px';
+          t.style.borderRadius='8px';
+          t.style.boxShadow='0 6px 20px rgba(0,0,0,0.15)';
+          t.style.fontSize='14px';
+          t.style.maxWidth='320px';
+          c.appendChild(t);
+          setTimeout(()=>{
+            t.style.transition='opacity 300ms';
+            t.style.opacity='0';
+            setTimeout(()=>{
+              t.remove();
+              if(c.childElementCount===0) c.remove();
+            },300);
+          },3500);
+        } catch(_){}
+      };
+      return window.__printToastRenderer;
+    }
+    const renderPrintToast = ensurePrintToastRenderer();
+    function showStickerPrintPrompt(){
+      const message='Print dialog opened. Complete printing to finish the sticker.';
+      renderPrintToast(message, 'info');
+    }
+
+    function showStickerPrintCompletion(){
+      const message='Sticker print finished. If you cancelled, press print again.';
+      renderPrintToast(message, 'success');
+    }
+
+    function showStickerSuccess(){
+      renderPrintToast('Sticker printed successfully.', 'success');
     }
     
     document.getElementById('printStickerBtn').addEventListener('click', printStickerViaIframe);

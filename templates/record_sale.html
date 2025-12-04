@@ -339,6 +339,7 @@
             border: 1px solid var(--gray-200);
         }
         .payment-summary-table table { width: 100%; table-layout: fixed; }
+        .payment-summary-table input.form-control { width: 100%; min-width: 160px; box-sizing: border-box; }
         .payment-summary-table tbody td:first-child,
         .payment-summary-table thead th:first-child {
             white-space: normal;
@@ -356,6 +357,7 @@
                 width: 100%;
                 table-layout: auto;
             }
+            .payment-summary-table input.form-control { min-width: 180px; }
             .payment-summary-table th,
             .payment-summary-table td {
                 padding: 0.4rem 0.3rem !important;
@@ -1497,7 +1499,8 @@ document.addEventListener('blur', function(e){
 {% if minutes_remaining is not None and not qr_session_expired %}
 <script>
   (function(){
-    var totalSeconds=Math.max(0,parseInt('{{ minutes_remaining }}',10))*60;
+    var totalSeconds=Math.max(0,parseInt('{{ seconds_remaining|default:0 }}',10));
+    if(!totalSeconds){ totalSeconds=Math.max(0,parseInt('{{ minutes_remaining|default:0 }}',10))*60; }
     var txt=document.getElementById('qrCountdownText');
     function fmt(s){var m=Math.floor(s/60),x=s%60;return m+'m '+(x<10?'0'+x:x)+'s';}
     function expire(){

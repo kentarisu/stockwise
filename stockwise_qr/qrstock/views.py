@@ -293,6 +293,7 @@ def qr_confirm_view(request, token):
         scan_time_str = request.session.get(session_key)
         scan_time = datetime.fromisoformat(scan_time_str)
         time_remaining = timedelta(minutes=30) - (current_time - scan_time)
+        seconds_remaining = max(0, int(time_remaining.total_seconds()))
         minutes_remaining = max(0, int(time_remaining.total_seconds() / 60))
         
         context = {
@@ -302,6 +303,7 @@ def qr_confirm_view(request, token):
             'batch_id': batch_id,
             'session_expired': False,
             'minutes_remaining': minutes_remaining,
+            'seconds_remaining': seconds_remaining,
         }
         
         return render(request, 'qrstock/confirm.html', context)

@@ -1295,7 +1295,8 @@ def dashboard_view(request):
             sale.product.formatted_name = display_name
             sale.product.formatted_variant = variant
     
-    recent_stock_additions = StockAddition.objects.select_related('product').order_by('-created_at')[:2]
+    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+    recent_stock_additions = StockAddition.objects.select_related('product').defer('spoiled').order_by('-created_at')[:2]
     
     low_stock_products = Product.objects.filter(
         status='active',
@@ -1999,7 +2000,8 @@ def stock_decrease(request, product_id):
         return JsonResponse({'success': False, 'message': 'Amount must be greater than zero'})
 
     try:
-        addition = StockAddition.objects.get(addition_id=addition_id, product=product)
+        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+        addition = StockAddition.objects.defer('spoiled').get(addition_id=addition_id, product=product)
     except StockAddition.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Stock addition not found'})
 
@@ -2354,7 +2356,8 @@ def qr_next_batch_sequence(request, product_id):
             parts.append(size_clean)
         parts.append(date_str)
         base_batch_id = ''.join(parts)
-        last = StockAddition.objects.filter(product=product, batch_id__startswith=base_batch_id).order_by('-addition_id').first()
+        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+        last = StockAddition.objects.filter(product=product, batch_id__startswith=base_batch_id).defer('spoiled').order_by('-addition_id').first()
         try:
             last_seq = int((last.batch_id or '')[-2:]) if last else 0
         except Exception:
@@ -3079,9 +3082,10 @@ def void_sale(request, sale_id):
                 product = sale.product
                 if product:
                     # Add back to the most recent batch (LIFO for restoration)
+                    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
                     latest_batch = StockAddition.objects.filter(
                         product=product
-                    ).order_by('-date_added', '-addition_id').first()
+                    ).defer('spoiled').order_by('-date_added', '-addition_id').first()
                     
                     if latest_batch:
                         latest_batch.remaining_quantity += sale.quantity
@@ -6447,14 +6451,18 @@ def fetch_stock_details(request, product_id):
         page_size = 10
     
     # Order by newest first (descending) for group summaries
+    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
     all_batches = (StockAddition.objects
                .filter(product_id=product_id)
-                   .order_by('-date_added', '-addition_id'))
+               .defer('spoiled')
+               .order_by('-date_added', '-addition_id'))
 
     # Order by oldest first (ascending) for FIFO expansion
+    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
     fifo_batches = (StockAddition.objects
                .filter(product_id=product_id)
-                   .order_by('date_added', 'addition_id'))
+               .defer('spoiled')
+               .order_by('date_added', 'addition_id'))
     
     # Meta totals from all batches (not just current page)
     added_total = all_batches.aggregate(total=Sum('quantity'))['total'] or 0
@@ -6467,7 +6475,7 @@ def fetch_stock_details(request, product_id):
     latest_batch = all_batches.first()
     latest_date = latest_batch.date_added if latest_batch else None
     # Get earliest date (first in ascending order)
-    earliest_batch = StockAddition.objects.filter(product_id=product_id).order_by('date_added', 'addition_id').first()
+    earliest_batch = StockAddition.objects.filter(product_id=product_id).defer('spoiled').order_by('date_added', 'addition_id').first()
     earliest_date = earliest_batch.date_added if earliest_batch else None
     
     # Calculate pagination
@@ -7022,9 +7030,11 @@ def stock_details(request, product_id):
         page_size = 10
     
     # Order by newest first (descending date_added, then descending addition_id)
+    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
     all_additions = (
         StockAddition.objects
         .filter(product=product)
+        .defer('spoiled')
         .order_by('-date_added', '-addition_id')
     )
     
@@ -7039,7 +7049,7 @@ def stock_details(request, product_id):
     latest_addition = all_additions.first()
     latest_date = latest_addition.date_added if latest_addition else None
     # Get earliest date (first in ascending order)
-    earliest_addition = StockAddition.objects.filter(product=product).order_by('date_added', 'addition_id').first()
+    earliest_addition = StockAddition.objects.filter(product=product).defer('spoiled').order_by('date_added', 'addition_id').first()
     earliest_date = earliest_addition.date_added if earliest_addition else None
     
     # Calculate pagination

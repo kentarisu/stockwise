@@ -1922,7 +1922,7 @@
                 $.ajax({
                     url: "{% url 'send_all_notifications_now' %}",
                     method: 'POST',
-                    data: { csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() },
+                    data: { csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(), force: 'true' },
                     success: function(response) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');

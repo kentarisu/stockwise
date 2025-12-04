@@ -7494,6 +7494,7 @@ def send_test_sms(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     try:
+        force_override = str(request.POST.get('force', '')).lower() in ('true','1','yes','y')
         user_id = request.session.get('app_user_id')
         user_obj = AppUser.objects.get(user_id=user_id)
         if not user_obj.phone_number:
@@ -7566,6 +7567,7 @@ def test_notification_type(request):
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
         now = timezone.localtime()
         today = now.date()
+        
         product = Product.objects.filter(status='active').first() or Product.objects.first()
 
         # Generate real data message based on notification type
@@ -7684,42 +7686,6 @@ def test_notification_type(request):
             # Fallback generic message (should rarely be used)
             message = "STOCKWISE Test Message\n\nSMS system is working correctly.\n\n- STOCKWISE System"
         
-        # Cooldown checks per type (allow override for manual testing)
-        try:
-            force_override = str(request.POST.get('force', '')).lower() in ('true','1','yes','y') or settings.DEBUG
-            if notification_type == 'sales':
-                if not force_override and SMS.objects.filter(user=user_obj, message_type='sales_summary_daily', sent_at__date=today).exists():
-                    next_dt = timezone.make_aware(datetime.combine(today + timezone.timedelta(days=1), datetime.min.time()))
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'Daily Sales already sent today',
-                        'cooldown_active': True,
-                        'next_allowed_at': format_local_datetime(next_dt)
-                    }, status=429)
-            elif notification_type == 'stock':
-                last = SMS.objects.filter(user=user_obj, message_type='stock_alert').order_by('-sent_at').first()
-                if last and not force_override:
-                    next_dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=30))
-                    if now < next_dt:
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'Stock alerts already sent recently',
-                            'cooldown_active': True,
-                            'next_allowed_at': format_local_datetime(next_dt)
-                        }, status=429)
-            elif notification_type == 'pricing':
-                last = SMS.objects.filter(user=user_obj, message_type='pricing_alert').order_by('-sent_at').first()
-                if last and not force_override:
-                    next_dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=360))
-                    if now < next_dt:
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'Pricing recommendations already sent recently',
-                            'cooldown_active': True,
-                            'next_allowed_at': format_local_datetime(next_dt)
-                        }, status=429)
-        except Exception:
-            pass
 
         # Send SMS using the existing SMS service
         from core.management.commands.send_daily_sms import Command
@@ -7727,15 +7693,21 @@ def test_notification_type(request):
         
         try:
             from core.sms_service import sms_service as _svc
-            if notification_type == 'stock':
-                send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
-            else:
+            try:
+                import os as _os
                 try:
-                    scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
+                    from dotenv import load_dotenv as _ld
+                    _ld(getattr(settings, 'BASE_DIR', Path(__file__).resolve().parent.parent) / '.env')
                 except Exception:
-                    from datetime import datetime as _dt
-                    scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
-                send_result = _svc.schedule_sms_reminder(user_obj.phone_number, message, scheduled_at)
+                    pass
+                _token = (_os.getenv('IPROG_API_TOKEN') or getattr(settings, 'IPROG_API_TOKEN', '') or '').strip()
+                _prov = int(_os.getenv('IPROG_SMS_PROVIDER', getattr(settings, 'IPROG_SMS_PROVIDER', 1)))
+                if _token:
+                    _svc.api_token = _token
+                _svc.sms_provider = _prov
+            except Exception:
+                pass
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
             ok = isinstance(send_result, dict) and send_result.get('success') or bool(send_result)
             if ok:
                 try:
@@ -9223,30 +9195,9 @@ def send_pricing_notification(request):
                         return JsonResponse({'success': False, 'message': 'Validation failed: SMS content does not match recommendations.'})
             except Exception:
                 pass
-            # Prevent manual re-sending within 3 days when actionable recommendations exist
-            cutoff = now_ts - timedelta(days=3)
-            last_manual = ActionLog.objects.filter(
-                user_id=user_id,
-                action__in=['Pricing recommendations generated', 'Manual pricing notification sent']
-            ).order_by('-created_at').first()
-            if actionable and last_manual and last_manual.created_at > cutoff and not force_override:
-                next_allowed = last_manual.created_at + timedelta(days=3)
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Please wait before sending pricing recommendations. Cooldown is 3 days to prevent redundancy.',
-                    'cooldown_active': True,
-                    'next_allowed_at': format_local_datetime(next_allowed),
-                    'cooldown_seconds_remaining': max(0, int((next_allowed - now_ts).total_seconds()))
-                }, status=429)
+            
         else:
-            # No actionable recommendations: allow sending, but avoid duplicate sends within the same day
-            same_day_sent = SMS.objects.filter(
-                user=user_obj,
-                message_type='pricing_alert',
-                sent_at__date=timezone.localtime().date()
-            ).exists()
-            if same_day_sent and not force_override:
-                return JsonResponse({'success': False, 'message': 'Already sent today.'}, status=429)
+            
 
             try:
                 from core.pricing_ai import DemandPricingAI, PolicyConfig
@@ -9336,14 +9287,23 @@ def send_pricing_notification(request):
         try:
             from core.sms_service import sms_service as _svc
             try:
-                scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
-            except Exception:
-                from datetime import datetime as _dt
-                scheduled_at = _dt.now().strftime('%Y-%m-%d %I:%M%p')
-            sr = _svc.schedule_sms_reminder(user_obj.phone_number, message, scheduled_at)
-            if isinstance(sr, dict) and sr.get('success'):
+                import os as _os
                 try:
-                    code = sr.get('message_code')
+                    from dotenv import load_dotenv as _ld
+                    _ld(getattr(settings, 'BASE_DIR', Path(__file__).resolve().parent.parent) / '.env')
+                except Exception:
+                    pass
+                _token = (_os.getenv('IPROG_API_TOKEN') or getattr(settings, 'IPROG_API_TOKEN', '') or '').strip()
+                _prov = int(_os.getenv('IPROG_SMS_PROVIDER', getattr(settings, 'IPROG_SMS_PROVIDER', 1)))
+                if _token:
+                    _svc.api_token = _token
+                _svc.sms_provider = _prov
+            except Exception:
+                pass
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            if isinstance(send_result, dict) and send_result.get('success'):
+                try:
+                    code = send_result.get('message_code')
                     if code:
                         st = _svc.check_sms_status(code)
                         if isinstance(st, dict) and st.get('success') and str(st.get('status','')).lower() in ('failed','undelivered','error'):
@@ -9365,7 +9325,14 @@ def send_pricing_notification(request):
                 log_action(request, 'Manual pricing notification sent', f"Sent pricing SMS to {user_obj.phone_number}.")
                 return JsonResponse({'success': True, 'message': 'Pricing recommendation sent successfully!'})
             else:
-                return JsonResponse({'success': False, 'message': 'Failed to send pricing recommendation'})
+                # Bubble provider error message if present
+                err_msg = 'Failed to send pricing recommendation'
+                try:
+                    if isinstance(send_result, dict) and send_result.get('message'):
+                        err_msg = send_result.get('message')
+                except Exception:
+                    pass
+                return JsonResponse({'success': False, 'message': err_msg})
         except Exception as e:
             error_msg = str(e)
             if 'unverified' in error_msg.lower():
@@ -9402,6 +9369,7 @@ def send_all_notifications_now(request):
         return JsonResponse({'success': False, 'message': 'Unauthorized'})
 
     try:
+        force_override = str(request.POST.get('force', '')).lower() in ('true','1','yes','y')
         user_id = request.session.get('app_user_id')
         user_obj = AppUser.objects.get(user_id=user_id)
         if not user_obj.phone_number:
@@ -9414,6 +9382,20 @@ def send_all_notifications_now(request):
             return JsonResponse({'success': False, 'message': 'No phone number configured'})
 
         from core.sms_service import sms_service as _svc
+        try:
+            import os as _os
+            try:
+                from dotenv import load_dotenv as _ld
+                _ld(getattr(settings, 'BASE_DIR', Path(__file__).resolve().parent.parent) / '.env')
+            except Exception:
+                pass
+            _token = (_os.getenv('IPROG_API_TOKEN') or getattr(settings, 'IPROG_API_TOKEN', '') or '').strip()
+            _prov = int(_os.getenv('IPROG_SMS_PROVIDER', getattr(settings, 'IPROG_SMS_PROVIDER', 1)))
+            if _token:
+                _svc.api_token = _token
+            _svc.sms_provider = _prov
+        except Exception:
+            pass
         def _normalize_text(msg):
             t = str(msg or '')
             t = t.replace('–', '-').replace('—', '-').replace('→', '->').replace('’', "'").replace('“', '"').replace('”', '"')
@@ -9468,13 +9450,17 @@ def send_all_notifications_now(request):
                 labeled.append(f"{idx}/{n} " + c)
             return labeled
         def _send_chunked(phone, msg):
-            parts = _split_sms_parts(msg)
-            ok = False
-            last_res = None
-            for p in parts:
-                last_res = _svc.send_sms(phone, p, allow_multipart=False)
-                ok = ok or bool(last_res.get('success'))
-            return {'success': ok, 'parts': len(parts), 'last': last_res}
+            text = _normalize_text(msg)
+            # Prefer provider-managed multipart to improve delivery
+            last_res = _svc.send_sms(phone, text, allow_multipart=True)
+            ok = bool(last_res.get('success'))
+            return {
+                'success': ok,
+                'parts': 1,
+                'last': last_res,
+                'message': last_res.get('message'),
+                'code': last_res.get('message_code')
+            }
         from core.models import SMS
         results = {}
         
@@ -9496,47 +9482,37 @@ def send_all_notifications_now(request):
 
         now = timezone.localtime()
         today = now.date()
-        def _recent(tp, day=False, minutes=None):
-            qs = SMS.objects.filter(user=user_obj, message_type=tp)
-            if day:
-                qs = qs.filter(sent_at__date=today)
-            elif minutes:
-                qs = qs.filter(sent_at__gte=now - timezone.timedelta(minutes=minutes))
-            return qs.exists()
 
-        if not _recent('sales_summary_daily', day=True):
-            today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
-            total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
-            total_transactions = today_sales.count()
-            total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
-            product_sales = today_sales.values('product__name', 'product__quantity_unit', 'product__stock').annotate(boxes_sold=Sum('quantity'), revenue=Sum('total')).order_by('-boxes_sold')[:5]
-            kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
-            sales_msg = "STOCKWISE Daily Sales Report\n\n"
-            sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
-            sales_msg += "== OVERALL SUMMARY ==\n\n"
-            sales_msg += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
-            sales_msg += f"Total Boxes Sold: {int(total_boxes)}\n"
-            sales_msg += f"Total Kilos Sold: {int(kilos_sold)}\n"
-            sales_msg += f"Total Transactions: {int(total_transactions)}\n\n"
-            if product_sales:
-                sales_msg += "== TOP PRODUCTS TODAY ==\n"
-                for i, prod in enumerate(product_sales, 1):
-                    name = prod['product__name']
-                    unit = (prod['product__quantity_unit'] or '').strip().lower()
-                    remaining = int(prod['product__stock'] or 0)
-                    sold_qty = int(prod['boxes_sold'] or 0)
-                    revenue = float(prod['revenue'] or 0)
-                    unit_label = 'kilos' if unit == 'kilo' else 'boxes'
-                    rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
-                    sales_msg += f"{i}. {name} ({unit})\n"
-                    sales_msg += f"Sold: {sold_qty} {unit_label}\n"
-                    sales_msg += f"Revenue: PHP {revenue:,.2f}\n"
-                    sales_msg += f"Remaining: {remaining} {rem_label}\n\n"
-            else:
-                sales_msg += "No sales recorded today.\n"
-            results['sales'] = _send_chunked(user_obj.phone_number, sales_msg)
+        today_sales = Sale.objects.filter(recorded_at__date=today, status='completed')
+        total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
+        total_transactions = today_sales.count()
+        total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
+        product_sales = today_sales.values('product__name', 'product__quantity_unit', 'product__stock').annotate(boxes_sold=Sum('quantity'), revenue=Sum('total')).order_by('-boxes_sold')[:5]
+        kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
+        sales_msg = "STOCKWISE Daily Sales Report\n\n"
+        sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
+        sales_msg += "== OVERALL SUMMARY ==\n\n"
+        sales_msg += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
+        sales_msg += f"Total Boxes Sold: {int(total_boxes)}\n"
+        sales_msg += f"Total Kilos Sold: {int(kilos_sold)}\n"
+        sales_msg += f"Total Transactions: {int(total_transactions)}\n\n"
+        if product_sales:
+            sales_msg += "== TOP PRODUCTS TODAY ==\n"
+            for i, prod in enumerate(product_sales, 1):
+                name = prod['product__name']
+                unit = (prod['product__quantity_unit'] or '').strip().lower()
+                remaining = int(prod['product__stock'] or 0)
+                sold_qty = int(prod['boxes_sold'] or 0)
+                revenue = float(prod['revenue'] or 0)
+                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+                rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+                sales_msg += f"{i}. {name} ({unit})\n"
+                sales_msg += f"Sold: {sold_qty} {unit_label}\n"
+                sales_msg += f"Revenue: PHP {revenue:,.2f}\n"
+                sales_msg += f"Remaining: {remaining} {rem_label}\n\n"
         else:
-            results['sales'] = {'success': False, 'message': 'Already sent today'}
+            sales_msg += "No sales recorded today.\n"
+        results['sales'] = _send_chunked(user_obj.phone_number, sales_msg)
         print(f"DEBUG: Sales SMS result: {results.get('sales')}")
         
         # Create SMS record for sales summary if sent successfully
@@ -9602,10 +9578,7 @@ def send_all_notifications_now(request):
             stock_msg += "All products have sufficient stock.\n\n"
         stock_msg += ""
 
-        if not _recent('stock_alert', minutes=30):
-            results['stock'] = _send_chunked(user_obj.phone_number, stock_msg)
-        else:
-            results['stock'] = {'success': False, 'message': 'Already sent recently'}
+        results['stock'] = _send_chunked(user_obj.phone_number, stock_msg)
         print(f"DEBUG: Stock SMS result: {results.get('stock')}")
         
         # Create SMS record for stock alert if sent successfully
@@ -9675,10 +9648,7 @@ def send_all_notifications_now(request):
                 pricing_msg = "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
         except Exception as e:
             pricing_msg = f"STOCKWISE Pricing Recommendation\n\nError generating recommendations: {str(e)}"
-        if not _recent('pricing_alert', minutes=360):
-            results['pricing'] = _send_chunked(user_obj.phone_number, pricing_msg)
-        else:
-            results['pricing'] = {'success': False, 'message': 'Already sent recently'}
+        results['pricing'] = _send_chunked(user_obj.phone_number, pricing_msg)
         print(f"DEBUG: Pricing SMS result: {results.get('pricing')}")
         print(f"DEBUG: Product available: {product is not None}")
         
@@ -9726,23 +9696,6 @@ def send_all_notifications_now(request):
                     msg = v.get('message') or ''
                     if msg:
                         details[k] = msg
-                        if 'already sent' in msg.lower():
-                            try:
-                                if k == 'sales':
-                                    dt = timezone.make_aware(datetime.combine(today + timezone.timedelta(days=1), datetime.min.time()))
-                                    next_allowed[k] = format_local_datetime(dt)
-                                elif k == 'stock':
-                                    last = SMS.objects.filter(user=user_obj, message_type='stock_alert').order_by('-sent_at').first()
-                                    if last:
-                                        dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=30))
-                                        next_allowed[k] = format_local_datetime(dt)
-                                elif k == 'pricing':
-                                    last = SMS.objects.filter(user=user_obj, message_type='pricing_alert').order_by('-sent_at').first()
-                                    if last:
-                                        dt = timezone.localtime(last.sent_at + timezone.timedelta(minutes=360))
-                                        next_allowed[k] = format_local_datetime(dt)
-                            except Exception:
-                                pass
             else:
                 summary[k] = bool(v)
         success_count = sum(1 for v in results.values() if isinstance(v, dict) and v.get('success'))

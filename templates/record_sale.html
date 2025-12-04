@@ -1433,6 +1433,10 @@ $('#discountPercentage').on('input', function(){ const pct=parseFloat($(this).va
     }
   });
   $('#doneBtn').on('click', function() {
+    if (SALE_PAGE_CONFIG && SALE_PAGE_CONFIG.isQRMode) {
+      window.history.back();
+      return;
+    }
     try {
       if (window.top && window.top.location) {
         window.top.location.href = SALE_PAGE_CONFIG.salesUrl;

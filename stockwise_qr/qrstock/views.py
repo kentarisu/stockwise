@@ -247,17 +247,9 @@ def qr_confirm_view(request, token):
         # Check if this is a new QR scan or an existing session
         current_time = datetime.now()
         session_key = f'qr_scan_{token}'
-        expired_key = f'qr_expired_{token}'
         
-        if request.session.get(expired_key):
-            context = {
-                'session_expired': True,
-                'product': product,
-            }
-            return render(request, 'qrstock/confirm.html', context)
-        
+        # If no active session for this token, start a fresh one (QR code itself does not expire)
         if session_key not in request.session:
-            # New QR scan - set the scan timestamp
             request.session[session_key] = current_time.isoformat()
             request.session['qr_scan_active'] = True
             request.session['qr_token'] = token
@@ -268,13 +260,11 @@ def qr_confirm_view(request, token):
             scan_time = datetime.fromisoformat(scan_time_str)
             
             if current_time - scan_time > timedelta(minutes=30):
+                # Clear and show expired state for this request only; new scan will create a fresh session
                 request.session.pop(session_key, None)
                 request.session.pop('qr_scan_active', None)
                 request.session.pop('qr_token', None)
                 request.session.pop('qr_product_id', None)
-                request.session[expired_key] = True
-                request.session.modified = True
-                
                 context = {
                     'session_expired': True,
                     'product': product,

@@ -1628,7 +1628,7 @@
             .mobile-details dd { margin: 0 0 0.4rem 0; font-size: 0.82rem; }
             .stock-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #c7d2fe; border-radius: 14px; color: #4338ca; background: #eef2ff; font-weight: 600; text-decoration: none; }
             .stock-pill i { font-size: 0.9rem; }
-            .stock-pill #mPDStockDot { font-size: 0.6rem; }
+            .stock-pill #mPDStockDot { width: 8px; height: 8px; }
         }
     </style>
     <style>
@@ -1945,9 +1945,19 @@
                             <i class="bi bi-boxes"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-value">{{ total_stock }}</div>
+                            <div class="stat-value">
+                                {% if total_stock_boxes_formatted != '0' and total_stock_kilos_formatted != '0' %}
+                                    {{ total_stock_boxes_formatted }} boxes • {{ total_stock_kilos_formatted }} kg
+                                {% elif total_stock_boxes_formatted != '0' %}
+                                    {{ total_stock_boxes_formatted }} boxes
+                                {% elif total_stock_kilos_formatted != '0' %}
+                                    {{ total_stock_kilos_formatted }} kg
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
                             <div class="stat-label">Total Stock</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: {{ total_stock_boxes|default:0 }} • Kilos: {{ total_stock_kilos|default:0 }}</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">All units in inventory</div>
                         </div>
                     </a>
                     <a href="?tab=low-stock" class="stat-card clickable">
@@ -1955,9 +1965,19 @@
                             <i class="bi bi-exclamation-triangle"></i>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-value">{{ restock_alerts }}</div>
-                            <div class="stat-label">Restock Alerts</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes ≤10: {{ restock_alerts_boxes|default:0 }} • Kilos ≤10: {{ restock_alerts_kilos|default:0 }}</div>
+                            <div class="stat-value">
+                                {% if restock_alerts_boxes_formatted != '0' and restock_alerts_kilos_formatted != '0' %}
+                                    {{ restock_alerts_boxes_formatted }} boxes • {{ restock_alerts_kilos_formatted }} kg
+                                {% elif restock_alerts_boxes_formatted != '0' %}
+                                    {{ restock_alerts_boxes_formatted }} boxes
+                                {% elif restock_alerts_kilos_formatted != '0' %}
+                                    {{ restock_alerts_kilos_formatted }} kg
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="stat-label">Low Stock Alerts</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with stock ≤10 units</div>
                         </div>
                     </a>
                 </div>
@@ -2021,7 +2041,7 @@
                                 <select class="form-select" id="unitFilter">
                                     <option value="all">All Units</option>
                                     <option value="box">Boxes</option>
-                                    <option value="kilo">Kilo</option>
+                                    <option value="kg">kg</option>
                                 </select>
                             </div>
                         </div>
@@ -2222,7 +2242,7 @@
                         <div class="col-6">
                             <div class="small text-muted">Stock</div>
                             <a id="mPDStockLink" href="#" class="stock-pill" title="View stock details">
-                                <i id="mPDStockDot" class="bi bi-circle-fill"></i>
+                                <span id="mPDStockDot" class="stock-dot"></span>
                                 <i class="bi bi-eye"></i>
                                 <span id="mPDStockCount"></span>
                             </a>
@@ -2324,7 +2344,7 @@
                                     <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" list="quantitySuggestions">
                                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit">
                                         <option value="box" selected>Box</option>
-                                        <option value="kilo">Kilo</option>
+                                        <option value="kg">kg</option>
                                     </select>
                                 </div>
                             </div>
@@ -2475,20 +2495,13 @@
 
         // Alert function
         function showAlert(message, type) {
-            const alertHtml = `
-                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            `;
-            // Remove existing alerts
-            $('.alert').remove();
-            // Add new alert at the top of the content area
-            $('.content-area').prepend(alertHtml);
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
-                $('.alert').fadeOut();
-            }, 5000);
+            const t = String(type||'info').toLowerCase();
+            const mapped = t === 'danger' ? 'error' : (t === 'warning' ? 'warning' : (t === 'success' ? 'success' : 'info'));
+            if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                window.modernInventorySystem.showNotification(message, mapped, 5000);
+                return;
+            }
+            alert(message);
         }
 
         // Mobile-specific optimizations
@@ -2894,9 +2907,9 @@
                     $('#productDate').val(new Date().toISOString().split('T')[0]).prop('readOnly', true).prop('disabled', true);
                     $('#priceInput').trigger('input');
                     const unit = ($('#quantityUnitSelect').val() || 'box').toLowerCase();
-                    if (unit === 'kilo') {
-                        $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'Kilo');
-                        $('#stockLabel').text('Initial Stock (Per Kilo)');
+                    if (unit === 'kg') {
+                        $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'kg');
+                        $('#stockLabel').text('Initial Stock (Per kg)');
                     } else {
                         $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
                         $('#stockLabel').text('Initial Stock (Per Box)');
@@ -2963,14 +2976,14 @@
                         
                         const sizeText = (product.quantity_unit || '').toLowerCase();
                         let detectedUnit = 'box';
-                        if (sizeText.includes('kilo')) {
-                            detectedUnit = 'kilo';
+                        if (sizeText === 'kg') {
+                            detectedUnit = 'kg';
                         } else if (sizeText.includes('box')) {
                             detectedUnit = 'box';
                         }
                         $('#quantityUnitSelect').val(detectedUnit);
-                        if (detectedUnit === 'kilo') {
-                            $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'Kilo');
+                        if (detectedUnit === 'kg') {
+                            $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'kg');
                         } else {
                             $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
                         }
@@ -3034,7 +3047,7 @@
                 const $unit = $('#quantityUnitSelect');
                 const applyUnit = () => {
                     const u = ($unit.val() || 'box').toLowerCase();
-                    if (u === 'kilo') { $qty.attr('list','').val('').prop('disabled', true).attr('placeholder','Kilo'); }
+                    if (u === 'kg') { $qty.attr('list','').val('').prop('disabled', true).attr('placeholder','kg'); }
                     else { $qty.attr('list','quantitySuggestions').prop('disabled', false).attr('placeholder','Enter quantity'); }
                 };
                 $unit.on('change', applyUnit);
@@ -3115,8 +3128,8 @@
                 const stock = parseInt($('#stockInput').val()) || 0;
                 if (!name){ showFormAlert('Product name is required.', 'danger'); return; }
                 if (!/^[A-Za-z][A-Za-z\s\-]*$/.test(name)){ showFormAlert('Product name can contain letters, spaces, and hyphens only.', 'danger'); return; }
-                if (unitSel === 'kilo'){ size = 'Kilo'; $('#productSizeDisplay').val(''); }
-                if (!size && unitSel !== 'kilo'){ showFormAlert('Product quantity is required.', 'danger'); return; }
+                if (unitSel === 'kg'){ size = 'kg'; $('#productSizeDisplay').val(''); }
+                if (!size && unitSel !== 'kg'){ showFormAlert('Product quantity is required.', 'danger'); return; }
                 if (!price || price <= 0){ showFormAlert('Price must be greater than 0.', 'danger'); return; }
                 if (cost > 0){
                     const minPrice = Math.round(cost * 1.10 * 100) / 100;
@@ -3133,7 +3146,7 @@
                 if (!isEditMode && stock < 0){ showFormAlert('Stock cannot be negative.', 'danger'); return; }
                 formData.set('name', name);
                 formData.set('variant', variantVal);
-                formData.set('quantity_unit', unitSel === 'kilo' ? 'Kilo' : (size || ''));
+                formData.set('quantity_unit', unitSel === 'kg' ? 'kg' : (size || ''));
                 const dateAdded = $('#productDate').val();
                 if (dateAdded) formData.set('date_added', dateAdded);
                 if (!isEditMode){
@@ -3206,7 +3219,7 @@
                     const product = products.find(p => p.product_id == productId);
                     if (product) {
                         const unit = String(product.quantity_unit||'').toLowerCase();
-                        const unitLabel = (unit.includes('kilo')||unit==='kg') ? 'kilo' : 'boxes';
+                        const unitLabel = (unit==='kg') ? 'kg' : 'boxes';
                         stockDisplay.text(`Current Stock: ${product.stock || 0} ${unitLabel}`);
                     }
                 } else {
@@ -3220,7 +3233,7 @@
                 $select.html('<option value="">Select a product</option>');
                 products.forEach(product => {
                     const variant = product.variant ? `(${product.variant})` : '';
-                    const size = product.quantity_unit ? `(${product.quantity_unit})` : '';
+                    const size = product.quantity_unit ? `(${String(product.quantity_unit).toLowerCase()==='kg' ? 'kg' : product.quantity_unit})` : '';
                     const option = $(`<option 
                         value="${product.product_id}"
                         data-name="${product.name}"
@@ -3244,19 +3257,14 @@
                             const $opt = $(option.element);
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                            const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
-                            const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
-                            const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : '';
-                            return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`);
+                            { const u=$opt.data('quantity_unit')||''; const u2=(String(u).toLowerCase()==='kg')?'kg':u; const size = u ? ` (${u2})` : ''; const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : ''; const stock = $opt.data('stock') ? ` - Stock: ${$opt.data('stock')}` : ''; return $(`<div><strong>${name}${variant}${size}</strong>${price}${stock}</div>`); }
                         },
                         templateSelection: function(option) {
                             if (!option.id) return option.text;
                             const $opt = $(option.element);
                             const name = $opt.data('name') || '';
                             const variant = $opt.data('variant') ? ` (${$opt.data('variant')})` : '';
-                            const size = $opt.data('quantity_unit') ? ` (${$opt.data('quantity_unit')})` : '';
-                            const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : '';
-                            return `${name}${variant}${size}${price}`;
+                            { const u=$opt.data('quantity_unit')||''; const u2=(String(u).toLowerCase()==='kg')?'kg':u; const size = u ? ` (${u2})` : ''; const price = $opt.data('price') ? ` - ₱${formatCurrency($opt.data('price'))}` : ''; return `${name}${variant}${size}${price}`; }
                         }
                     });
                 } else {
@@ -3273,8 +3281,14 @@
             $(document).on('click', '.discontinue-btn', function() {
                 currentStatusChangeProductId = $(this).data('id');
                 const currentStatus = $(this).data('status');
+                const currentStock = parseInt($(this).data('stock')) || 0;
                 const isDiscontinued = (currentStatus || '').toLowerCase() === 'discontinued';
                 
+                if (!isDiscontinued && currentStock > 0) {
+                    showAlert('Cannot discontinue a product that still has stock. Please reduce stock to 0 first.', 'warning');
+                    return;
+                }
+
                 if (isDiscontinued) {
                     // Continue/Reactivate mode
                     currentStatusChangeAction = 'continue';
@@ -3463,10 +3477,10 @@
                 const pid = $(this).val();
                 const p = products.find(pp=>String(pp.product_id)===String(pid));
                 const unit = (p && p.quantity_unit ? String(p.quantity_unit).toLowerCase() : '');
-                const isKilo = unit.includes('kilo') || unit==='kg';
+                const isKilo = unit==='kg';
                 const $row = $(this).closest('.stock-item');
                 const $qtyLabel = $row.find('.stock-quantity').closest('.col-md-3').find('.form-label');
-                $qtyLabel.text(isKilo ? 'Kilo to Add' : 'Boxes to Add');
+                $qtyLabel.text(isKilo ? 'kg to Add' : 'Boxes to Add');
                 validateStockItems();
             });
 
@@ -3808,14 +3822,16 @@
                 };
                 const categories = Array.from(new Set(rows.map(r => baseName(r.name)))).length;
                 const activeProducts = rows.filter(r => String(r.status||'').toLowerCase() === 'active').length;
-                const totalStock = rows.reduce((s,r) => s + (parseInt(r.stock)||0), 0);
                 const isBox = u => String(u||'').toLowerCase().includes('box');
-                const isKilo = u => String(u||'').toLowerCase().includes('kilo');
-                const totalStockKilos = rows.filter(r => isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseInt(r.stock)||0), 0);
-                const totalStockBoxes = Math.max(0, totalStock - totalStockKilos);
-                const restockAlerts = rows.filter(r => { const st = parseInt(r.stock)||0; return st>0 && st<=10; }).length;
-                const restockBoxes = Math.max(0, restockAlerts - rows.filter(r => isKilo(r.quantity_unit) && ((parseInt(r.stock)||0) > 0) && ((parseInt(r.stock)||0) <= 10)).length);
-                const restockKilos = rows.filter(r => isKilo(r.quantity_unit) && ((parseInt(r.stock)||0) > 0) && ((parseInt(r.stock)||0) <= 10)).length;
+                const isKilo = u => { const t=String(u||'').toLowerCase(); return t==='kg'; };
+                const totalStockKilos = rows.filter(r => isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseFloat(r.stock)||0), 0);
+                const totalStockBoxes = rows.filter(r => !isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseFloat(r.stock)||0), 0);
+                // Sum actual stock quantities for low stock alerts (not product count)
+                const restockKilos = rows.filter(r => isKilo(r.quantity_unit) && ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10))
+                    .reduce((s, r) => s + (parseFloat(r.stock) || 0), 0);
+                const restockBoxes = rows.filter(r => !isKilo(r.quantity_unit) && ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10))
+                    .reduce((s, r) => s + (parseFloat(r.stock) || 0), 0);
+                const restockAlerts = rows.filter(r => ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10)).length;  // Keep count for reference
                 const primaryCard = document.querySelector('.stats-grid .stat-icon.primary')?.closest('.stat-card');
                 const successCard = document.querySelector('.stats-grid .stat-icon.success')?.closest('.stat-card');
                 const warningCard = document.querySelector('.stats-grid .stat-icon.warning')?.closest('.stat-card');
@@ -3823,14 +3839,51 @@
                 if (primaryCard) primaryCard.querySelector('.stat-value').textContent = String(categories);
                 if (successCard) successCard.querySelector('.stat-value').textContent = String(activeProducts);
                 if (warningCard) {
-                    warningCard.querySelector('.stat-value').textContent = String(totalStock);
+                    // Format boxes and kg separately
+                    const formatQty = (val) => {
+                        const v = parseFloat(val) || 0;
+                        return v === Math.floor(v) ? String(Math.floor(v)) : v.toFixed(2).replace(/\.?0+$/, '');
+                    };
+                    const boxesFormatted = formatQty(totalStockBoxes);
+                    const kilosFormatted = formatQty(totalStockKilos);
+                    const valueEl = warningCard.querySelector('.stat-value');
+                    
+                    if (valueEl) {
+                        if (totalStockBoxes > 0 && totalStockKilos > 0) {
+                            valueEl.textContent = `${boxesFormatted} boxes • ${kilosFormatted} kg`;
+                        } else if (totalStockBoxes > 0) {
+                            valueEl.textContent = `${boxesFormatted} boxes`;
+                        } else if (totalStockKilos > 0) {
+                            valueEl.textContent = `${kilosFormatted} kg`;
+                        } else {
+                            valueEl.textContent = '0';
+                        }
+                    }
                     const sub = warningCard.querySelector('.stat-subtitle');
-                    if (sub) sub.textContent = `Boxes: ${totalStockBoxes} • Kilos: ${totalStockKilos}`;
+                    if (sub) sub.textContent = 'All units in inventory';
                 }
                 if (dangerCard) {
-                    dangerCard.querySelector('.stat-value').textContent = String(restockAlerts);
+                    // Format boxes and kg separately
+                    const formatCount = (val) => String(parseInt(val) || 0);
+                    const boxesFormatted = formatCount(restockBoxes);
+                    const kilosFormatted = formatCount(restockKilos);
+                    const valueEl = dangerCard.querySelector('.stat-value');
+                    
+                    if (valueEl) {
+                        if (restockBoxes > 0 && restockKilos > 0) {
+                            valueEl.textContent = `${boxesFormatted} boxes • ${kilosFormatted} kg`;
+                        } else if (restockBoxes > 0) {
+                            valueEl.textContent = `${boxesFormatted} boxes`;
+                        } else if (restockKilos > 0) {
+                            valueEl.textContent = `${kilosFormatted} kg`;
+                        } else {
+                            valueEl.textContent = '0';
+                        }
+                    }
+                    const labelEl = dangerCard.querySelector('.stat-label');
+                    if (labelEl) labelEl.textContent = 'Low Stock Alerts';
                     const sub = dangerCard.querySelector('.stat-subtitle');
-                    if (sub) sub.textContent = `Boxes ≤10: ${restockBoxes} • Kilos ≤10: ${restockKilos}`;
+                    if (sub) sub.textContent = 'Products with stock ≤10 units';
                 }
             } catch (e) {
                 console.warn('Failed to update inventory cards', e);
@@ -3855,7 +3908,7 @@
                 // Update all existing dropdowns
                 document.querySelectorAll('.product-select').forEach(select => {
                     select.innerHTML = '<option value="">Select a product</option>' + 
-                        products.map(function(p){ return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-quantity_unit="${p.quantity_unit || ''}" data-stock="${p.stock || 0}">${p.name} (${p.quantity_unit}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
+                        products.map(function(p){ const u=(p.quantity_unit||''); const u2=(String(u).toLowerCase()==='kg')?'kg':u; return `<option value="${p.product_id}" data-price="${p.price}" data-name="${p.name}" data-variant="${p.variant || ''}" data-quantity_unit="${u}" data-stock="${p.stock || 0}">${p.name} (${u2}) - ₱${formatCurrency(p.price)}</option>`; }).join('');
                 });
                 return products; // Return products for Promise chain
             });
@@ -3898,9 +3951,7 @@
                 const $this = $(this);
                 if ($this.find('option').length <= 1) { // Only has default option
                     let options = '<option value="">Select a product</option>';
-                    products.forEach(product => {
-                        options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-quantity_unit="${product.quantity_unit || ''}" data-stock="${product.stock || 0}">${product.name} (${product.quantity_unit || 'N/A'}) - ₱${formatCurrency(product.price)}</option>`;
-                    });
+                    products.forEach(product => { const u=(product.quantity_unit||''); const u2=(String(u).toLowerCase()==='kg')?'kg':(u||'N/A'); options += `<option value="${product.product_id}" data-price="${product.price}" data-name="${product.name}" data-variant="${product.variant || ''}" data-quantity_unit="${u}" data-stock="${product.stock || 0}">${product.name} (${u2}) - ₱${formatCurrency(product.price)}</option>`; });
                     $this.html(options);
                     
                     // Initialize Select2 if not already initialized
@@ -3944,9 +3995,9 @@
             const pid = $(this).val();
             const p = products.find(pp=>String(pp.product_id)===String(pid));
             const unit = (p && p.quantity_unit ? String(p.quantity_unit).toLowerCase() : '');
-            const isKilo = unit.includes('kilo') || unit==='kg';
+            const isKilo = unit==='kg';
             const $qtyLabel = $row.find('.quantity-input').closest('.col-md-4').find('.form-label');
-            $qtyLabel.text(isKilo ? 'Kilos' : 'Boxes');
+            $qtyLabel.text(isKilo ? 'kg' : 'Boxes');
         });
 
         function updateTotal() {
@@ -3998,7 +4049,7 @@
             items.forEach(item => {
                 let description = `${item.name}`;
                 if (item.variant) description += ` (${item.variant})`;
-                if (item.quantity_unit) description += ` (${item.quantity_unit})`;
+                if (item.quantity_unit){ const u=item.quantity_unit; const u2=(String(u).toLowerCase()==='kg')?'kg':u; description += ` (${u2})`; }
                 receiptItemsHtml += `
                     <tr>
                         <td>${description}</td>
@@ -4411,23 +4462,13 @@
 
         // Function to show alerts
         function showAlert(message, type) {
-            const alertHtml = `
-                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            `;
-            
-            // Remove existing alerts
-            $('.alert').remove();
-            
-            // Add new alert at the top of the content area
-            $('.content-area').prepend(alertHtml);
-            
-            // Auto-dismiss after 5 seconds
-            setTimeout(function() {
-                $('.alert').fadeOut();
-            }, 5000);
+            const t = String(type||'info').toLowerCase();
+            const mapped = t === 'danger' ? 'error' : (t === 'warning' ? 'warning' : (t === 'success' ? 'success' : 'info'));
+            if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                window.modernInventorySystem.showNotification(message, mapped, 5000);
+                return;
+            }
+            alert(message);
         }
     </script>
     <script>
@@ -4518,8 +4559,21 @@
                 const statusBadgeClass = statusLower === 'active' ? 'bg-success' : 'bg-danger';
                 const statusDisplay = product.status || 'N/A';
                 const isDiscontinued = statusLower === 'discontinued';
-                const stockClass = (product.stock === 0) ? 'text-danger' : (product.stock <= 10 ? 'text-warning' : 'text-success');
-                const stockValue = parseInt(product.stock)||0;
+                // Determine stock level for consistent indicator
+                const stockNum = parseFloat(product.stock) || 0;
+                const stockLevel = (stockNum === 0) ? 'low' : (stockNum <= 10 ? 'medium' : 'high');
+                const stockDotClass = `stock-dot ${stockLevel}`;
+                // Format stock value - preserve decimals for kg products
+                const unit = (product.quantity_unit || '').toLowerCase();
+                const isKg = unit === 'kg';
+                let stockValue;
+                if (isKg) {
+                    // For kg, show as integer if whole number, otherwise show 2 decimals
+                    stockValue = (stockNum === Math.floor(stockNum)) ? Math.floor(stockNum) : parseFloat(stockNum.toFixed(2));
+                } else {
+                    // For boxes, show as integer if whole number
+                    stockValue = Math.floor(stockNum);
+                }
                 let optionsHtml = `
                     <div class="dropdown">
                         <button class="btn btn-sm btn-icon dropdown-toggle" type="button" aria-expanded="false" title="More options">
@@ -4538,7 +4592,7 @@
                                 data-status="${statusDisplay}"
                                 title="View details"><i class="bi bi-eye me-2"></i> View Details</button></li>
                             <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
-                            <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
+                            <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" data-stock="${stockValue}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
                         </ul>
                     </div>`;
                 const isMobile = window.matchMedia('(max-width: 768px)').matches;
@@ -4550,9 +4604,9 @@
                     row.append(`<td>${product.product_id}</td>`);
                     row.append(`<td>${productName}</td>`);
                     row.append(`<td>${variant || '-'}</td>`);
-                    row.append(`<td>${product.quantity_unit||''}</td>`);
+                    { const u=(product.quantity_unit||''); const u2=(String(u).toLowerCase()==='kg')?'kg':u; row.append(`<td>${u2}</td>`); }
                     row.append(`<td>₱${formatCurrency(product.price)}</td>`);
-                    row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                    row.append(`<td><div class="stock-indicator"><span class="${stockDotClass}"></span><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></div></td>`);
                     row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
                     if (showAddStock) {
                         const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
@@ -4567,9 +4621,9 @@
                     row.append(`<td>${product.product_id}</td>`);
                     row.append(`<td>${productName}</td>`);
                     row.append(`<td>${variant || '-'}</td>`);
-                    row.append(`<td>${product.quantity_unit||''}</td>`);
+                    { const u=(product.quantity_unit||''); const u2=(String(u).toLowerCase()==='kg')?'kg':u; row.append(`<td>${u2}</td>`); }
                     row.append(`<td>₱${formatCurrency(product.price)}</td>`);
-                    row.append(`<td><i class="bi bi-circle-fill ${stockClass} me-1" style="font-size: .5rem"></i><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></td>`);
+                    row.append(`<td><div class="stock-indicator"><span class="${stockDotClass}"></span><a href="/stock_details/?product_id=${product.product_id}" class="stock-link" title="View Stock Details"><i class="bi bi-eye"></i> ${stockValue}</a></div></td>`);
                     row.append(`<td><span class="badge ${statusBadgeClass}">${statusDisplay}</span></td>`);
                     if (showAddStock) {
                         const addStockUrl = `{% url 'add_stock_page' %}?product_id=${product.product_id}`;
@@ -4629,10 +4683,10 @@
             }
             const addStockUrl = `{% url 'add_stock_page' %}?product_id=${productId}`;
             $('#mPDAddStock').attr('href', addStockUrl);
-            const stockClass = (stock === 0) ? 'text-danger' : (stock <= 10 ? 'text-warning' : 'text-success');
+            const stockLevel = (stock === 0) ? 'low' : (stock <= 10 ? 'medium' : 'high');
             $('#mPDStockCount').text(stock);
             $('#mPDStockLink').attr('href', `/stock_details/?product_id=${productId}`);
-            $('#mPDStockDot').removeClass('text-danger text-warning text-success').addClass(stockClass);
+            $('#mPDStockDot').removeClass('low medium high').addClass(`stock-dot ${stockLevel}`);
             $('.dropdown-menu').removeClass('show');
             $('.table tbody tr').removeClass('dropdown-open');
             $('.table tbody td').css('z-index','');
@@ -4680,9 +4734,9 @@
             function applyModalUnitBehavior() {
                 if (!sizeInput || !unitSelectModal) return;
                 const unit = (unitSelectModal.value || 'box').toLowerCase();
-                if (unit === 'kilo') {
+                if (unit === 'kg') {
                     sizeInput.value = '';
-                    sizeInput.setAttribute('placeholder', 'Kilo');
+                    sizeInput.setAttribute('placeholder', 'kg');
                     sizeInput.disabled = true;
                 } else {
                     sizeInput.disabled = false;
@@ -4698,9 +4752,9 @@
                     const unit = (unitSelectInline.value || 'box').toLowerCase();
                     const sizeField = document.getElementById('quantity_unit');
                     if (sizeField) {
-                        if (unit === 'kilo') {
+                        if (unit === 'kg') {
                             sizeField.value = '';
-                            sizeField.setAttribute('placeholder', 'Kilo');
+                            sizeField.setAttribute('placeholder', 'kg');
                             sizeField.disabled = true;
                         } else {
                             sizeField.disabled = false;
@@ -4711,9 +4765,9 @@
                 // initial
                 const sizeField = document.getElementById('quantity_unit');
                 if (sizeField) {
-                    if ((unitSelectInline.value || 'box').toLowerCase() === 'kilo') {
+                    if ((unitSelectInline.value || 'box').toLowerCase() === 'kg') {
                         sizeField.value = '';
-                        sizeField.setAttribute('placeholder', 'Kilo');
+                        sizeField.setAttribute('placeholder', 'kg');
                         sizeField.disabled = true;
                     } else {
                         sizeField.disabled = false;
@@ -4732,8 +4786,4 @@
     </script>
 </body>
 </html>
-            $('#quantityUnitSelect').on('change', function(){
-                const unitVal = (this.value || 'box').toLowerCase();
-                if (unitVal === 'kilo') { $('#stockLabel').text('Initial Stock (Per Kilo)'); }
-                else { $('#stockLabel').text('Initial Stock (Per Box)'); }
-            });
+            

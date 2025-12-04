@@ -95,7 +95,7 @@ def send_low_stock_alert(product):
 
         label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
         unit = (getattr(product, 'quantity_unit', None) or '').strip().lower()
-        unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+        unit_label = 'kg' if unit == 'kg' else 'boxes'
         if product.stock == 0:
             message = (
                 "STOCKWISE Stock Alert\n\n"

@@ -83,6 +83,7 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
+            -webkit-backdrop-filter: blur(16px);
             backdrop-filter: blur(16px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
@@ -2861,13 +2862,155 @@
                             </div>
                             <div class="modal-body">
                                 <div class="mb-3">
-                                    <label for="customStart" class="form-label">Start Date</label>
-                                    <input type="date" class="form-control" id="customStart">
+3333333322222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222.333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<label for="customStart" class="form-label">Start Date</label>
+                                    <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
                                     <div class="form-text" id="reportCustomStartHint"></div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="customEnd" class="form-label">End Date</label>
-                                    <input type="date" class="form-control" id="customEnd">
+                                    <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
                                     <div class="form-text" id="reportCustomEndHint"></div>
                                 </div>
                             </div>
@@ -2910,7 +3053,7 @@
                             <div class="stat-content">
                                 <div class="stat-value" id="statItemsSold">0</div>
                                 <div class="stat-label">Total Quantity Unit Sold</div>
-                        <div id="statItemsSubtitle" class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: 0 • Kilos: 0</div>
+                        <div id="statItemsSubtitle" class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: 0 • kg: 0</div>
                             </div>
                         </a>
                         <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); var el=document.getElementById('sales-tab'); if(el) el.click();">
@@ -2946,8 +3089,8 @@
                     <div class="filters-card mt-2">
                         <div class="filters-grid">
                             <div class="form-group">
-                                <label class="form-label">Date Range</label>
-                                <select class="form-select" id="dateRange">
+                                <label class="form-label" for="dateRange">Date Range</label>
+                                <select class="form-select" id="dateRange" title="Date range">
                                     <option value="today">Today</option>
                                     <option value="week">This Week</option>
                                     <option value="month">This Month</option>
@@ -2955,8 +3098,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">User</label>
-                                <select class="form-select" id="userFilter">
+                                <label class="form-label" for="userFilter">User</label>
+                                <select class="form-select" id="userFilter" title="User filter">
                                     <option value="all">All Users</option>
                                     {% for user in all_users %}
                                     <option value="{{ user.user_id }}">{{ user.username }}</option>
@@ -2964,8 +3107,8 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Product</label>
-                                <select class="form-select" id="productFilter">
+                                <label class="form-label" for="productFilter">Product</label>
+                                <select class="form-select" id="productFilter" title="Product filter">
                                     <option value="all">All Products</option>
                                     {% for fruit in fruits %}
                                     <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
@@ -3054,7 +3197,7 @@
                                         <h6>What does this show?</h6>
                                         <p>See how much you sold for each product every day. Check which items made the most money and which ones brought in the most profit.</p>
                                         <ul>
-                                            <li><strong>Quantity Sold:</strong> Total units sold (boxes or kilos) for this product on this date.</li>
+                                            <li><strong>Quantity Sold:</strong> Total units sold (boxes or kg) for this product on this date.</li>
                                             <li><strong>Revenue:</strong> Total money earned from selling this product (before subtracting costs).</li>
                                             <li><strong>Profit:</strong> Actual money you keep after subtracting the cost of the product.</li>
                                             <li>Click "Details" to see more information about any item.</li>
@@ -3453,6 +3596,27 @@
             return `${year}-${month}-${day}`;
         }
 
+        function formatUSDateStr(date) {
+            const d = new Date(date);
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+        }
+
+        function parseUSDateToISO(str) {
+            const m = String(str || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (!m) return '';
+            const mm = parseInt(m[1], 10);
+            const dd = parseInt(m[2], 10);
+            const yyyy = parseInt(m[3], 10);
+            const dt = new Date(yyyy, mm - 1, dd);
+            if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return '';
+            const mm2 = String(mm).padStart(2, '0');
+            const dd2 = String(dd).padStart(2, '0');
+            return `${yyyy}-${mm2}-${dd2}`;
+        }
+
         // Helper to format dates for display in select options
         const formatOptionDate = (dt) => dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
         const formatOptionRange = (start, end) => `${formatOptionDate(start)} – ${formatOptionDate(end)}`;
@@ -3514,8 +3678,8 @@
                 } else {
                     // Open custom range modal
                     const customRangeModal = new bootstrap.Modal(document.getElementById('customRangeModal'));
-                    $('#customStart').val(customStart || localISO(today));
-                    $('#customEnd').val(customEnd || localISO(today));
+                    $('#customStart').val(customStart ? formatUSDateStr(new Date(customStart)) : formatUSDateStr(today));
+                    $('#customEnd').val(customEnd ? formatUSDateStr(new Date(customEnd)) : formatUSDateStr(today));
                     try {
                         const sHint = document.getElementById('reportCustomStartHint');
                         const eHint = document.getElementById('reportCustomEndHint');
@@ -3721,16 +3885,20 @@
             // Update main stat cards
             $('#statTotalRevenue').text(`₱${formatCurrency(data.total_revenue || 0)}`);
             $('#statTransactions').text(parseInt(data.total_transactions || 0).toLocaleString());
-            $('#statItemsSold').text(parseInt(data.total_items_sold || 0).toLocaleString());
+            // Use quantity_display if available, otherwise fall back to total_items_sold
+            const quantityDisplay = data.quantity_display || parseInt(data.total_items_sold || 0).toLocaleString();
+            $('#statItemsSold').text(quantityDisplay);
             $('#statAvgOrder').text(`₱${formatCurrency(data.average_sale || 0)}`);
             try {
-                const arr = Array.isArray(summaryData) ? summaryData : (Array.isArray(repData.summary) ? repData.summary : []);
-                const totalUnits = parseInt(data.total_items_sold || 0) || 0;
-                const isKilo = u => String(u||'').toLowerCase().includes('kilo') || String(u||'').toLowerCase()==='kg';
-                const kilos = arr.filter(x => isKilo(x.quantity_unit)).reduce((s,x)=> s + (parseInt(x.boxes_sold||0)||0), 0);
-                const boxes = Math.max(0, totalUnits - kilos);
+                // Update subtitle with boxes and kg separately
+                const boxes = parseFloat(data.total_boxes || 0) || 0;
+                const kg = parseFloat(data.total_kg || 0) || 0;
                 const sub = document.getElementById('statItemsSubtitle');
-                if (sub) sub.textContent = `Boxes: ${boxes} • Kilos: ${kilos}`;
+                if (sub) {
+                    const boxesText = boxes === Math.floor(boxes) ? Math.floor(boxes) : boxes.toFixed(2);
+                    const kgText = kg === Math.floor(kg) ? Math.floor(kg) : kg.toFixed(2);
+                    sub.textContent = `Boxes: ${boxesText} • kg: ${kgText}`;
+                }
             } catch(e) { /* silent */ }
             
             // Update modal metrics
@@ -3775,10 +3943,11 @@
                 return;
             }
             items.forEach(entry => {
+                const quantityDisplay = entry.quantity_display || Number(entry.boxes_sold || 0).toLocaleString();
                 body.append(`
                     <tr>
                         <td>${entry.product_name || 'N/A'}</td>
-                        <td>${Number(entry.boxes_sold || 0).toLocaleString()}</td>
+                        <td>${quantityDisplay}</td>
                         <td>₱${formatCurrency(entry.revenue || 0)}</td>
                         <td>${Number(entry.avg_daily_sales || 0).toFixed(2)}</td>
                     </tr>
@@ -3925,12 +4094,12 @@
             const rows = repSlice(repData.summary, reportsPagination.currentPage.summary||1);
             if(!rows.length){ tbody.append('<tr><td colspan="6" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx) => {
-                const boxesSold = Number(item.boxes_sold ?? 0);
+                const quantityDisplay = item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString();
                 const row = `
                     <tr>
                         <td class="date-col">${item.date || 'N/A'}</td>
                         <td>${formatProductName(item.product_name)}</td>
-                        <td>${boxesSold.toLocaleString()}</td>
+                        <td>${quantityDisplay}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
                         <td class="amount-col currency">${formatCurrency(item.profit || 0)}</td>
                         <td class="text-end">
@@ -3958,11 +4127,12 @@
             rows.forEach((item, idx)=>{
                 const trend = Number(item.units_change || 0);
                 const trendLabel = trend > 0 ? `▲ ${trend}` : trend < 0 ? `▼ ${Math.abs(trend)}` : '—';
+                const quantityDisplay = item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString();
                 const row = `
                     <tr>
                         <td>${item.rank || '-'}</td>
                         <td>${formatProductName(item.product_name)}</td>
-                        <td>${Number(item.boxes_sold ?? 0).toLocaleString()}</td>
+                        <td>${quantityDisplay}</td>
                         <td class="amount-col currency">${formatCurrency(item.avg_price || 0)}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
                         <td>${formatPercent(item.profit_margin_pct || 0)}</td>
@@ -4050,7 +4220,7 @@
                             <td class="customer-info">${item.customer_name || 'N/A'}</td>
                             <td class="product-name">${productsText}</td>
                             <td>${item.items_count ?? 'N/A'}</td>
-                            <td>${item.boxes_count ?? 'N/A'}</td>
+                            <td>${item.quantity_display || (item.boxes_count ?? 'N/A')}</td>
                             <td class="amount-col currency">${formatCurrency(item.total_amount || 0)}</td>
                             <td>${item.processed_by || 'N/A'}</td>
                             <td><span class="${statusClass}">${statusLabel}</span></td>
@@ -4103,7 +4273,7 @@
                     <td>${row.voided_at || row.date_time || ''}</td>
                     <td>${row.customer_name || 'N/A'}</td>
                     <td>${productsText}</td>
-                    <td>${row.boxes_count ?? 'N/A'}</td>
+                    <td>${row.quantity_display || (row.boxes_count ?? 'N/A')}</td>
                     <td class="amount-col currency">${formatCurrency(row.subtotal || 0)}</td>
                     <td class="amount-col currency">${formatCurrency(row.vat_amount || 0)}</td>
                     <td class="amount-col currency">${formatCurrency(row.total_amount || 0)}</td>
@@ -4231,6 +4401,7 @@
                         const base = name.replace(/\s*\([^)]*\)\s*/g,'').trim();
                         let variant = String(item.variant || (pMap[item.product_id]?.variant) || pickUnique(pBaseMap[base]?.variants) || '').trim();
                         let unit = String(item.quantity_unit || item.product__quantity_unit || item.product__size || (pMap[item.product_id]?.quantity_unit) || pickUnique(pBaseMap[base]?.units) || '').trim();
+                        if (unit) { const u = unit.toLowerCase(); unit = (u === 'kg') ? 'kg' : unit; }
                         if (!variant || variant === unit) {
                             if (parenParts.length >= 2) {
                                 if (!variant) variant = parenParts[0];
@@ -4238,7 +4409,7 @@
                             } else if (parenParts.length === 1) {
                                 const p0 = parenParts[0];
                                 const p0Lower = p0.toLowerCase();
-                                const looksUnit = p0Lower.includes('kilo') || p0Lower === 'kg' || /^\d+/.test(p0);
+                                const looksUnit = p0Lower === 'kg' || /^\d+/.test(p0);
                                 if (looksUnit) { if (!unit) unit = p0; } else { if (!variant) variant = p0; }
                             }
                         }
@@ -4334,6 +4505,7 @@
             const base = name.replace(/\s*\([^)]*\)\s*/g,'').trim();
             let variant = String(item.variant || '').trim();
             let unit = String(item.quantity_unit || '').trim();
+            if (unit) { const u = unit.toLowerCase(); unit = (u === 'kg') ? 'kg' : unit; }
             if (!variant) variant = parts[0] || '';
             if (!unit) unit = parts.length>1 ? parts[parts.length-1] : '';
             if (variant && unit && variant === unit) variant = '';
@@ -4349,7 +4521,7 @@
             // Meta items
             $('#ssDate').text(item.date || 'N/A');
             $('#ssProduct').text(productLabel || name || 'N/A');
-            $('#ssBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
+            $('#ssBoxesSold').text(item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString());
             $('#ssTransactions').text(Number(item.transaction_count || 0).toLocaleString());
             $('#ssSalesGrowth').text(formatPercent(item.sales_growth_pct || 0));
             
@@ -4374,6 +4546,7 @@
             const base = name.replace(/\s*\([^)]*\)\s*/g,'').trim();
             let variant = String(item.variant || '').trim();
             let unit = String(item.quantity_unit || '').trim();
+            if (unit) { const u = unit.toLowerCase(); unit = (u === 'kg') ? 'kg' : unit; }
             if (!variant) variant = parts[0] || '';
             if (!unit) unit = parts.length>1 ? parts[parts.length-1] : parts[1] || '';
             if (variant && unit && variant === unit) variant = '';
@@ -4389,7 +4562,7 @@
             // Meta items
             $('#tpRank').text(item.rank || '-');
             $('#tpProduct').text(productLabel || name || 'N/A');
-            $('#tpBoxesSold').text(Number(item.boxes_sold ?? 0).toLocaleString());
+            $('#tpBoxesSold').text(item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString());
             $('#tpGrowth').text(formatPercent(item.growth_rate_pct || 0));
             $('#tpMarketShare').text(formatPercent(item.market_share_pct || 0));
             const unitsChange = (item.units_change || 0);
@@ -4412,6 +4585,7 @@
             const base = name.replace(/\s*\([^)]*\)\s*/g,'').trim();
             let variant = String(item.variant || '').trim();
             let unit = String(item.quantity_unit || '').trim();
+            if (unit) { const u = unit.toLowerCase(); unit = (u === 'kg') ? 'kg' : unit; }
             if (!variant) variant = parts[0] || '';
             if (!unit) unit = parts.length>1 ? parts[parts.length-1] : parts[1] || '';
             if (variant && unit && variant === unit) variant = '';
@@ -4663,20 +4837,25 @@
 
             $('#applyCustomRange').on('click', function() {
                 console.log('applyCustomRange clicked');
-                const customStartInput = $('#customStart').val();
-                const customEndInput = $('#customEnd').val();
-
-                if (customStartInput && customEndInput) {
-                    customStart = customStartInput;
-                    customEnd = customEndInput;
-                    startDate = customStart;
-                    endDate = customEnd;
+                const sText = ($('#customStart').val() || '').trim();
+                const eText = ($('#customEnd').val() || '').trim();
+                const sISO = parseUSDateToISO(sText);
+                const eISO = parseUSDateToISO(eText);
+                if (sISO && eISO) {
+                    customStart = sISO;
+                    customEnd = eISO;
+                    startDate = sISO;
+                    endDate = eISO;
                     saveReportsFilters();
                     $('#customRangeModal').modal('hide');
                     loadReports();
                 } else {
-                    showReportErrorBanner('Please select both start and end dates.', 'Choose a valid custom range.');
+                    showReportErrorBanner('Please use MM/DD/YYYY format for both dates.', 'Choose a valid custom range.');
                 }
+            });
+
+            $('#customStart, #customEnd').on('input', function() {
+                this.value = this.value.replace(/[^0-9\/]/g, '');
             });
 
             $('#generateReport').on('click', function() {
@@ -4887,7 +5066,7 @@
                                 <li><strong>Total Amount:</strong> Final amount the customer needs to pay (Subtotal + VAT).</li>
                                 <li><strong>Amount Paid:</strong> How much money the customer gave.</li>
                                 <li><strong>Change:</strong> Money returned to the customer (Amount Paid - Total Amount).</li>
-                                <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and size/unit (e.g., 125-138 or kilo) in parentheses.</li>
+                                <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and size/unit (e.g., 125-138 or kg) in parentheses.</li>
                                 <li><strong>Itemized Details:</strong> List of all products sold with their quantities and prices.</li>
                                 <li><strong>Payment Breakdown:</strong> Shows payment mode (currently Cash) and amount paid.</li>
                                 <li><strong>Audit Trail:</strong> Record of who created, modified, or voided this transaction and when.</li>

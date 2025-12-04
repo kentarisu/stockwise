@@ -27,6 +27,7 @@ import random
 from datetime import datetime, timedelta
 from decimal import Decimal
 from io import StringIO, BytesIO
+from pathlib import Path
 from django.http import HttpResponse, FileResponse, Http404
 import mimetypes
 from reportlab.lib.pagesizes import A4, landscape, letter
@@ -94,8 +95,8 @@ def _normalize_name_variant(name: str, variant: str):
 
 def _normalize_quantity(size: str, unit: str):
     u = (unit or 'box').strip().lower()
-    if u == 'kilo':
-        return 'kilo'
+    if u == 'kg':
+        return 'kg'
     s = (size or '').strip()
     try:
         s_norm = str(Decimal(s))
@@ -1181,9 +1182,14 @@ def dashboard_view(request):
     total_products = Product.objects.count()
     last_month_products = Product.objects.filter(created_at__date__lte=last_month).count()
     
-    low_stock = Product.objects.filter(status='active', stock__lte=10).count()
-    low_stock_kilos = Product.objects.filter(status='active', stock__lte=10, stock__gt=0, quantity_unit__icontains='kilo').count()
-    low_stock_boxes = max(0, low_stock - low_stock_kilos)
+    # Calculate low stock separately - sum actual stock quantities (not product count)
+    low_stock_kilos = Product.objects.filter(
+        status='active', stock__gt=0, stock__lte=10
+    ).filter(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+    low_stock_boxes = Product.objects.filter(
+        status='active', stock__gt=0, stock__lte=10
+    ).exclude(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+    low_stock = Product.objects.filter(status='active', stock__gt=0, stock__lte=10).count()  # Keep count for percentage change
     yesterday_low_stock = Product.objects.filter(status='active', stock__lte=10, last_updated__date__lte=yesterday).count()
     
     # Base sales queryset with role-based visibility
@@ -1204,11 +1210,13 @@ def dashboard_view(request):
         recorded_at__date=yesterday
     ).aggregate(total=Sum('total'))['total'] or 0
 
-    # Calculate percentage changes
+    # Calculate percentage changes (capped at 100% to avoid overwhelming values)
     def calculate_percentage_change(current, previous):
         if previous == 0:
             return 100 if current > 0 else 0
-        return round(((current - previous) / previous) * 100, 1)
+        change = round(((current - previous) / previous) * 100, 1)
+        # Cap at 100% maximum to avoid overwhelming percentages
+        return min(100.0, change) if change > 0 else max(-100.0, change)
 
     products_change = calculate_percentage_change(total_products, last_month_products)
     low_stock_change = calculate_percentage_change(low_stock, yesterday_low_stock)
@@ -1226,18 +1234,66 @@ def dashboard_view(request):
         ).aggregate(t=Sum('total'))['t'] or 0
         sales_totals.append(float(total))
 
-    # Top selling products (single-table sales) - include size to determine unit
+    # Top selling products (single-table sales) - include variant to display properly
     top_products = (
         sale_base_q
-        .values('product__name', 'product__quantity_unit')
+        .values('product__name', 'product__variant', 'product__quantity_unit')
         .annotate(quantity=Sum('quantity'))
         .order_by('-quantity')[:5]
     )
+    
+    # Format top products to include proper display names
+    formatted_top_products = []
+    for tp in top_products:
+        product_name = tp.get('product__name', '')
+        variant = (tp.get('product__variant') or '').strip()
+        quantity_unit = (tp.get('product__quantity_unit') or '').strip()
+        
+        # Strip any variant from the name if it's embedded
+        import re
+        base_name = re.sub(r'\s*\([^)]*\)\s*$', '', product_name).strip() if product_name else ''
+        
+        # Build display name: base_name (variant) (quantity_unit)
+        display_name = base_name
+        if variant:
+            display_name = f"{base_name} ({variant})"
+        if quantity_unit:
+            # Add quantity_unit after variant
+            display_name = f"{display_name} ({quantity_unit})"
+        
+        formatted_top_products.append({
+            'product__name': display_name,
+            'product__variant': variant,
+            'product__quantity_unit': quantity_unit,
+            'quantity': tp.get('quantity', 0)
+        })
+    top_products = formatted_top_products
 
     # Recent activity (last 5 activities)
     recent_sales = list(
         sale_base_q.select_related('product', 'user').order_by('-recorded_at')[:3]
     )
+    
+    # Format recent sales to extract base name and show variant and quantity_unit properly
+    for sale in recent_sales:
+        if sale.product:
+            product_name = sale.product.name or ''
+            variant = (sale.product.variant or '').strip()
+            quantity_unit = (sale.product.quantity_unit or '').strip()
+            
+            # Strip any variant from the name if it's embedded
+            import re
+            base_name = re.sub(r'\s*\([^)]*\)\s*$', '', product_name).strip() if product_name else ''
+            
+            # Build display name: base_name (variant) (quantity_unit)
+            display_name = base_name
+            if variant:
+                display_name = f"{base_name} ({variant})"
+            if quantity_unit:
+                display_name = f"{display_name} ({quantity_unit})"
+            
+            sale.product.formatted_name = display_name
+            sale.product.formatted_variant = variant
     
     recent_stock_additions = StockAddition.objects.select_related('product').order_by('-created_at')[:2]
     
@@ -1271,25 +1327,51 @@ def dashboard_view(request):
     for sale in recent_sales:
         sale.formatted_total = format_currency(sale.total)
     
-    # Out of stock products
-    out_of_stock = Product.objects.filter(status='active', stock=0).count()
-    out_of_stock_kilos = Product.objects.filter(status='active', stock=0, quantity_unit__icontains='kilo').count()
-    out_of_stock_boxes = max(0, out_of_stock - out_of_stock_kilos)
+    # Out of stock products - count products (stock is 0, so no quantity to sum)
+    out_of_stock_kilos = Product.objects.filter(status='active', stock=0).filter(
+        Q(quantity_unit__iexact='kg')
+    ).count()
+    out_of_stock_boxes = Product.objects.filter(status='active', stock=0).exclude(
+        Q(quantity_unit__iexact='kg')
+    ).count()
+    out_of_stock = out_of_stock_boxes + out_of_stock_kilos
     
     # Weekly sales summary
     week_start = today - timezone.timedelta(days=6)
     weekly_sales = sale_base_q.filter(
         recorded_at__date__gte=week_start
     ).aggregate(
-        total_sales=Sum('quantity'),
         total_revenue=Sum('total')
     )
-    # Weekly breakdown by unit
+    # Weekly breakdown by unit - calculate separately
     weekly_kilos_count = sale_base_q.filter(
-        recorded_at__date__gte=week_start,
-        product__quantity_unit__icontains='kilo'
-    ).aggregate(total_kilos=Sum('quantity'))['total_kilos'] or 0
-    weekly_boxes_count = max(0, (weekly_sales['total_sales'] or 0) - weekly_kilos_count)
+        recorded_at__date__gte=week_start
+    ).filter(Q(product__quantity_unit__iexact='kg')).aggregate(total_kilos=Sum('quantity'))['total_kilos'] or 0
+    weekly_boxes_count = sale_base_q.filter(
+        recorded_at__date__gte=week_start
+    ).exclude(Q(product__quantity_unit__iexact='kg')).aggregate(total_boxes=Sum('quantity'))['total_boxes'] or 0
+    
+    # Format weekly quantities
+    def format_quantity(value, unit='auto'):
+        """Format quantity value - remove excessive decimals"""
+        if value is None:
+            return '0'
+        val = float(value)
+        if unit == 'kg':
+            # For kg, show as integer if whole number, otherwise show 2 decimals
+            if val == int(val):
+                return f"{int(val)}"
+            # Format to 2 decimals for decimal values (e.g., 41.70, 2.50)
+            return f"{val:.2f}"
+        elif unit == 'boxes':
+            # For boxes, show as integer if whole number, otherwise 2 decimals max
+            return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+        else:
+            # Auto format - if whole number show as int, otherwise 2 decimals max
+            return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+    
+    weekly_boxes_count_formatted = format_quantity(weekly_boxes_count, 'boxes')
+    weekly_kilos_count_formatted = format_quantity(weekly_kilos_count, 'kg')
     
     # Format weekly revenue after weekly_sales is defined
     weekly_revenue_formatted = format_currency(weekly_sales['total_revenue'] or 0)
@@ -1322,7 +1404,9 @@ def dashboard_view(request):
         'products_change': products_change,
         'low_stock': low_stock,
         'low_stock_boxes': low_stock_boxes,
+        'low_stock_boxes_formatted': format_quantity(low_stock_boxes, 'boxes'),
         'low_stock_kilos': low_stock_kilos,
+        'low_stock_kilos_formatted': format_quantity(low_stock_kilos, 'kg'),
         'low_stock_change': low_stock_change,
         'today_sales': today_sales,
         'sales_change': sales_change,
@@ -1342,10 +1426,13 @@ def dashboard_view(request):
         'total_inventory_value_formatted': total_inventory_value_formatted,
         'out_of_stock': out_of_stock,
         'out_of_stock_boxes': out_of_stock_boxes,
+        'out_of_stock_boxes_formatted': str(out_of_stock_boxes),
         'out_of_stock_kilos': out_of_stock_kilos,
-        'weekly_sales_count': weekly_sales['total_sales'] or 0,
+        'out_of_stock_kilos_formatted': str(out_of_stock_kilos),
         'weekly_boxes_count': weekly_boxes_count,
+        'weekly_boxes_count_formatted': weekly_boxes_count_formatted,
         'weekly_kilos_count': weekly_kilos_count,
+        'weekly_kilos_count_formatted': weekly_kilos_count_formatted,
         'weekly_revenue': weekly_sales['total_revenue'] or 0,
         'weekly_revenue_formatted': weekly_revenue_formatted,
         'recent_transactions': recent_transactions,
@@ -1415,8 +1502,23 @@ def products_inventory(request):
         # Calculate dashboard stats - count ALL products
         total_products = products.count()
         active_products = products.filter(status='active').count()
-        total_stock = products.aggregate(total=Sum('stock'))['total'] or 0
-        restock_alerts = products.filter(status='active', stock__lt=10).count()
+        
+        # Calculate stock separately for boxes and kg
+        total_stock_kilos = products.filter(
+            Q(quantity_unit__iexact='kg')
+        ).aggregate(total=Sum('stock'))['total'] or 0
+        total_stock_boxes = products.exclude(
+            Q(quantity_unit__iexact='kg')
+        ).aggregate(total=Sum('stock'))['total'] or 0
+        
+        # Calculate restock alerts separately - sum actual stock quantities (not product count)
+        restock_alerts_kilos = products.filter(
+            status='active', stock__gt=0, stock__lt=10
+        ).filter(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+        restock_alerts_boxes = products.filter(
+            status='active', stock__gt=0, stock__lt=10
+        ).exclude(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+        restock_alerts = products.filter(status='active', stock__gt=0, stock__lt=10).count()  # Keep count for reference
 
         # For the table display, use the selected products
         table_products = products
@@ -1445,6 +1547,24 @@ def products_inventory(request):
         unique_fruits = sorted(list(unique_fruits))
         unique_suppliers = list(Product.objects.filter(is_built_in=False).exclude(supplier__isnull=True).exclude(supplier='').values_list('supplier', flat=True).distinct())
         
+        # Format inventory quantities
+        def format_quantity(value, unit='auto'):
+            """Format quantity value - remove excessive decimals"""
+            if value is None:
+                return '0'
+            val = float(value)
+            if unit == 'kg':
+                if val == int(val):
+                    return f"{int(val)}"
+                return f"{val:.2f}"
+            elif unit == 'boxes':
+                return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+            else:
+                return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+        
+        total_stock_boxes_formatted = format_quantity(total_stock_boxes, 'boxes')
+        total_stock_kilos_formatted = format_quantity(total_stock_kilos, 'kg')
+        
         # Get user object for profile picture
         user_id = request.session.get('app_user_id') or request.session.get('user_id')
         try:
@@ -1458,8 +1578,17 @@ def products_inventory(request):
             'total_products': total_products,
             'product_categories': len(unique_fruits),  # Count of unique product types
             'active_products': active_products,
-            'total_stock': total_stock,
-            'restock_alerts': restock_alerts,
+            'total_stock': total_stock_boxes + total_stock_kilos,  # Keep for backward compatibility
+            'total_stock_boxes': total_stock_boxes,
+            'total_stock_boxes_formatted': total_stock_boxes_formatted,
+            'total_stock_kilos': total_stock_kilos,
+            'total_stock_kilos_formatted': total_stock_kilos_formatted,
+            'restock_alerts': restock_alerts,  # Keep for backward compatibility
+            'low_stock_alerts': restock_alerts,  # New name for consistency
+            'restock_alerts_boxes': restock_alerts_boxes,
+            'restock_alerts_boxes_formatted': format_quantity(restock_alerts_boxes, 'boxes'),
+            'restock_alerts_kilos': restock_alerts_kilos,
+            'restock_alerts_kilos_formatted': format_quantity(restock_alerts_kilos, 'kg'),
             'user': request.user,
             'app_role': request.session.get('app_role', 'user'),
             'show_cost': request.session.get('app_role') == 'admin',
@@ -1727,8 +1856,8 @@ def product_add(request):
                 'success': False,
                 'message': f'Price too low. Set at least ₱{min_price} (cost ₱{cost} + 10% margin).'
             })
-        if unit == 'kilo':
-            size = 'kilo'
+        if unit == 'kg':
+            size = 'kg'
         else:
             try:
                 _s = str(Decimal(size))
@@ -1855,8 +1984,14 @@ def stock_decrease(request, product_id):
             payload = request.POST
         addition_id_raw = payload.get('addition_id') or payload.get('additionId')
         amount_raw = payload.get('amount') or payload.get('decrease') or payload.get('qty')
-        addition_id = int(addition_id_raw)
-        amount = int(amount_raw)
+        addition_id = int(str(addition_id_raw).strip())
+        # Accept decimal values for kg products - always parse as Decimal
+        amount_raw_str = str(amount_raw).strip()
+        try:
+            amount = Decimal(amount_raw_str)
+        except Exception:
+            # Try parsing as float first, then convert to Decimal
+            amount = Decimal(str(float(amount_raw_str)))
     except Exception:
         return JsonResponse({'success': False, 'message': 'Invalid input data'})
 
@@ -1868,20 +2003,40 @@ def stock_decrease(request, product_id):
     except StockAddition.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Stock addition not found'})
 
-    available = int(addition.remaining_quantity or 0)
+    try:
+        available = Decimal(str(addition.remaining_quantity or 0))
+    except Exception:
+        try:
+            available = Decimal(str(addition.quantity or 0))
+        except Exception:
+            available = Decimal('0')
     if available <= 0:
-        return JsonResponse({'success': False, 'message': 'No available boxes in this batch'})
+        unit = (product.quantity_unit or '').strip().lower()
+        unit_label = 'kg' if unit == 'kg' else 'boxes'
+        return JsonResponse({'success': False, 'message': f'No available {unit_label} in this batch'})
 
-    decrease = min(amount, available)
+    decrease = min(Decimal(str(amount)), available)
     with transaction.atomic():
-        addition.remaining_quantity = available - decrease
+        # Persist remaining and spoiled
+        new_remaining = max(Decimal('0'), available - decrease)
+        addition.remaining_quantity = new_remaining
+        try:
+            current_spoiled = Decimal(str(getattr(addition, 'spoiled', 0) or 0))
+        except Exception:
+            current_spoiled = Decimal('0')
+        addition.spoiled = current_spoiled + decrease
         addition.save()
-        current_stock = int(product.stock or 0)
-        product.stock = max(0, current_stock - decrease)
+        current_stock = Decimal(str(product.stock or 0))
+        product.stock = max(Decimal('0'), current_stock - decrease)
         product.save()
         log_action(request, 'Stock decreased', f'Product {product.product_id} ({product.name}), batch {addition.batch_id}, amount {decrease}')
 
-    return JsonResponse({'success': True, 'decreased': decrease, 'remaining': int(addition.remaining_quantity)})
+    return JsonResponse({
+        'success': True, 
+        'decreased': float(decrease), 
+        'remaining': float(addition.remaining_quantity), 
+        'spoiled_total': float(getattr(addition, 'spoiled', 0) or 0)
+    })
 
 @require_app_login
 @require_http_methods(["POST"])
@@ -2318,6 +2473,21 @@ def stock_details_view(request):
     except Product.DoesNotExist:
         return redirect('products_inventory')
 
+def _format_quantity_display(boxes, kg):
+    """Format quantity display showing boxes and kg separately"""
+    parts = []
+    if boxes > 0:
+        if boxes == int(boxes):
+            parts.append(f"{int(boxes)} box{'es' if boxes != 1 else ''}")
+        else:
+            parts.append(f"{boxes:.2f} boxes")
+    if kg > 0:
+        if kg == int(kg):
+            parts.append(f"{int(kg)} kg")
+        else:
+            parts.append(f"{kg:.2f} kg")
+    return ", ".join(parts) if parts else "0"
+
 @require_app_login
 def sales_view(request):
     """Sales management view."""
@@ -2413,8 +2583,13 @@ def sales_view(request):
                     Q(product__quantity_unit__icontains=s)
                 ).distinct()
 
-    # Calculate statistics (across all rows)
-    total_boxes = sales_query.aggregate(total=Sum('quantity'))['total'] or 0
+    # Calculate statistics (across all rows) - separate boxes and kg
+    total_kilos = sales_query.filter(
+        Q(product__quantity_unit__iexact='kg')
+    ).aggregate(total=Sum('quantity'))['total'] or 0
+    total_boxes = sales_query.exclude(
+        Q(product__quantity_unit__iexact='kg')
+    ).aggregate(total=Sum('quantity'))['total'] or 0
     total_revenue = sales_query.aggregate(total=Sum('total'))['total'] or Decimal('0.00')
 
     # Group rows by transaction number so multiple fruits appear as one sale
@@ -2436,14 +2611,27 @@ def sales_view(request):
         if unit:
             product_display = f"{product_display} ({unit})"
         
+        # Determine if this is kg or boxes
+        unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+        is_kg = unit == 'kg'
+        qty_value = float(row.quantity or 0)
+        
         item = {
             'product_name': product_display,
             'quantity_unit': row.product.quantity_unit if row.product else '',
-            'quantity': int(row.quantity or 0),
+            'quantity': float(row.quantity or 0),  # Keep as float for decimal support
             'price': row.price,
             'subtotal': row.total
         }
         if not g:
+            # Initialize with separate tracking for boxes and kg
+            total_boxes = 0.0
+            total_kg = 0.0
+            if is_kg:
+                total_kg = qty_value
+            else:
+                total_boxes = qty_value
+            
             grouped[key] = {
                 'sale_id': row.sale_id,  # representative id
                 'transaction_number': (key or '').upper(),
@@ -2453,7 +2641,9 @@ def sales_view(request):
                 'total': row.total,
                 'status': row.status,
                 'product_count': 1,
-                'total_boxes': int(row.quantity or 0),
+                'total_boxes': total_boxes,
+                'total_kg': total_kg,
+                'quantity_display': _format_quantity_display(total_boxes, total_kg),
                 'products': product_display,
                 'customer_name': (getattr(row, 'customer_name', '') or '').strip() if (getattr(row, 'customer_name', '') or '').strip() else '',
                 'recorded_by': row.user.username if row.user else 'N/A'
@@ -2463,7 +2653,13 @@ def sales_view(request):
             g['items_json'].append(item)
             g['total'] = (g['total'] or 0) + row.total
             g['product_count'] += 1
-            g['total_boxes'] += int(row.quantity or 0)
+            # Add to appropriate unit
+            if is_kg:
+                g['total_kg'] = g.get('total_kg', 0.0) + qty_value
+            else:
+                g['total_boxes'] = g.get('total_boxes', 0.0) + qty_value
+            # Update formatted display
+            g['quantity_display'] = _format_quantity_display(g.get('total_boxes', 0.0), g.get('total_kg', 0.0))
             if product_display and product_display not in g['products']:
                 g['products'] += f", {product_display}"
             if not g.get('customer_name') and ((getattr(row, 'customer_name', '') or '').strip()):
@@ -2587,6 +2783,24 @@ def sales_view(request):
     
     unique_fruits = sorted(list(unique_fruits))
 
+    # Format sales quantities
+    def format_quantity(value, unit='auto'):
+        """Format quantity value - remove excessive decimals"""
+        if value is None:
+            return '0'
+        val = float(value)
+        if unit == 'kg':
+            if val == int(val):
+                return f"{int(val)}"
+            return f"{val:.2f}"
+        elif unit == 'boxes':
+            return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+        else:
+            return f"{int(val)}" if val == int(val) else f"{val:.2f}".rstrip('0').rstrip('.')
+    
+    total_boxes_formatted = format_quantity(total_boxes, 'boxes')
+    total_kilos_formatted = format_quantity(total_kilos, 'kg')
+
     # Get user object for profile picture
     user_id = request.session.get('app_user_id') or request.session.get('user_id')
     try:
@@ -2607,6 +2821,9 @@ def sales_view(request):
         'fruits': unique_fruits,
         'total_sales': total_sales,
         'total_boxes': total_boxes,
+        'total_boxes_formatted': total_boxes_formatted,
+        'total_kilos': total_kilos,
+        'total_kilos_formatted': total_kilos_formatted,
         'total_revenue': total_revenue,
         'total_revenue_formatted': f"{float(total_revenue):,.2f}",
         'sales': sales_page,  # Use paginated sales
@@ -2778,7 +2995,20 @@ def fetch_sales(request):
                 'price': float(row.price or 0),
                 'subtotal': float(row.total or 0)
             }
+            # Determine if this is kg or boxes
+            unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+            is_kg = unit == 'kg'
+            qty_value = float(row.quantity or 0)
+            
             if not g:
+                # Initialize with separate tracking for boxes and kg
+                total_boxes = 0.0
+                total_kg = 0.0
+                if is_kg:
+                    total_kg = qty_value
+                else:
+                    total_boxes = qty_value
+                
                 grouped[key] = {
                     'sale_id': row.sale_id,
                     'transaction_number': (key or '').upper(),
@@ -2788,7 +3018,9 @@ def fetch_sales(request):
                     'total': str(row.total),
                     'status': row.status,
                     'product_count': 1,
-                    'total_boxes': int(row.quantity or 0),
+                    'total_boxes': total_boxes,
+                    'total_kg': total_kg,
+                    'quantity_display': _format_quantity_display(total_boxes, total_kg),
                     'products': product_display,
                     'customer_name': (getattr(row, 'customer_name', '') or '').strip() if (getattr(row, 'customer_name', '') or '').strip() else '',
                     'recorded_by': row.user.username if row.user else 'N/A',
@@ -2799,7 +3031,13 @@ def fetch_sales(request):
                 g['items_json'].append(item)
                 g['total'] = str((Decimal(g['total']) if isinstance(g['total'], str) else g['total']) + (row.total or 0))
                 g['product_count'] += 1
-                g['total_boxes'] += int(row.quantity or 0)
+                # Add to appropriate unit
+                if is_kg:
+                    g['total_kg'] = g.get('total_kg', 0.0) + qty_value
+                else:
+                    g['total_boxes'] = g.get('total_boxes', 0.0) + qty_value
+                # Update formatted display
+                g['quantity_display'] = _format_quantity_display(g.get('total_boxes', 0.0), g.get('total_kg', 0.0))
                 if product_display and product_display not in g['products']:
                     g['products'] += f", {product_display}"
                 if not g.get('customer_name') and ((getattr(row, 'customer_name', '') or '').strip()):
@@ -3273,13 +3511,29 @@ def fetch_reports(request):
             total_revenue=Sum('total'),
             transaction_count=Count('transaction_number', distinct=True),
             total_items_sold=Sum('quantity'),
+            total_boxes_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then=0),
+                    default='quantity',
+                    output_field=models.DecimalField()
+                )
+            ),
+            total_kg_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then='quantity'),
+                    default=0,
+                    output_field=models.DecimalField()
+                )
+            ),
             total_cogs=Sum(F('quantity') * F('product__cost')),
             total_rows=Count('sale_id')
         )
-        total_rev = Decimal(agg['total_revenue'] or 0)
+        total_rev = Decimal(str(agg['total_revenue'] or 0))
         trans_cnt = agg['transaction_count'] or 0
-        total_items = agg['total_items_sold'] or 0
-        total_cogs = Decimal(agg['total_cogs'] or 0)
+        total_items = Decimal(str(agg['total_items_sold'] or 0))  # Convert to Decimal for consistency
+        total_boxes = Decimal(str(agg['total_boxes_sold'] or 0))
+        total_kg = Decimal(str(agg['total_kg_sold'] or 0))
+        total_cogs = Decimal(str(agg['total_cogs'] or 0))
         gross_profit = total_rev - total_cogs
         gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
         vat_total = total_rev - (total_rev / Decimal('1.12'))
@@ -3327,6 +3581,9 @@ def fetch_reports(request):
             'total_revenue': float(total_rev),
             'total_transactions': trans_cnt,
             'total_items_sold': total_items,
+            'total_boxes': float(total_boxes),
+            'total_kg': float(total_kg),
+            'quantity_display': _format_quantity_display(float(total_boxes), float(total_kg)),
             'average_sale': float(total_rev / trans_cnt) if trans_cnt else 0,
             'total_cogs': float(total_cogs),
             'gross_profit': float(gross_profit),
@@ -3366,7 +3623,20 @@ def fetch_reports(request):
                 'product__quantity_unit',
                 'product__cost'
             ).annotate(
-                boxes_sold=Sum('quantity'),
+                boxes_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then=0),
+                        default='quantity',
+                        output_field=models.DecimalField()
+                    )
+                ),
+                kg_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then='quantity'),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
                 revenue=Sum('total'),
                 cogs=Sum(F('quantity') * F('product__cost')),
                 transaction_count=Count('sale_id', distinct=True)
@@ -3377,16 +3647,19 @@ def fetch_reports(request):
         sales_summary_data = []
         for s in summary:
             product_id = s['product__product_id']
-            boxes = s['boxes_sold'] or 0
-            revenue = Decimal(s['revenue'] or 0)
-            cogs = Decimal(s['cogs'] or 0)
+            boxes = Decimal(str(s['boxes_sold'] or 0))  # Convert to Decimal for consistent operations
+            kg = Decimal(str(s.get('kg_sold') or 0))  # Get kg separately
+            total_quantity = boxes + kg  # Total for calculations
+            revenue = Decimal(str(s['revenue'] or 0))
+            cogs = Decimal(str(s['cogs'] or 0))
             profit = revenue - cogs
             gross_margin = float((profit / revenue * 100) if revenue else 0)
             vat_amount = revenue - (revenue / Decimal('1.12'))
             transaction_count = s['transaction_count'] or 0
-            avg_transaction = float(revenue / transaction_count) if transaction_count else 0
-            unit_price = float(revenue / boxes) if boxes else 0
-            unit_cost = float(cogs / boxes) if boxes else 0
+            avg_transaction = float(revenue / Decimal(str(transaction_count))) if transaction_count else 0
+            # Use total_quantity for unit price/cost calculations
+            unit_price = float(revenue / total_quantity) if total_quantity else 0
+            unit_cost = float(cogs / total_quantity) if total_quantity else 0
             prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
             prev_revenue = prev['revenue']
             sales_growth_pct = 0.0
@@ -3417,7 +3690,9 @@ def fetch_reports(request):
                 'product_id': product_id,
                 'product_name': product_display,
                 'quantity_unit': s['product__quantity_unit'],
-                'boxes_sold': boxes,
+                'boxes_sold': float(boxes),
+                'kg_sold': float(kg),
+                'quantity_display': _format_quantity_display(float(boxes), float(kg)),
                 'unit_price': unit_price,
                 'unit_cost': unit_cost,
                 'revenue': float(revenue),
@@ -3452,14 +3727,17 @@ def fetch_reports(request):
             product_id__in=[s['product__product_id'] for s in summary]
         ).in_bulk(field_name='product_id')
 
-        top_summary_sorted = sorted(summary, key=lambda x: x['boxes_sold'] or 0, reverse=True)[:5]
+        # Sort by total quantity (boxes + kg) for ranking
+        top_summary_sorted = sorted(summary, key=lambda x: (x.get('boxes_sold') or 0) + (x.get('kg_sold') or 0), reverse=True)[:5]
         top_fruits = []
         for idx, t in enumerate(top_summary_sorted, start=1):
             product_id = t['product__product_id']
             revenue = Decimal(t['revenue'] or 0)
             cogs = Decimal(t['cogs'] or 0)
-            boxes = t['boxes_sold'] or 0
-            avg_price = float(revenue / boxes) if boxes else 0
+            boxes = Decimal(str(t.get('boxes_sold') or 0))
+            kg = Decimal(str(t.get('kg_sold') or 0))
+            total_quantity = boxes + kg
+            avg_price = float(revenue / total_quantity) if total_quantity else 0
             profit_margin_pct = float(((revenue - cogs) / revenue * 100) if revenue else 0)
             prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
             prev_revenue = prev['revenue']
@@ -3499,7 +3777,9 @@ def fetch_reports(request):
                 'product_id': product_id,
                 'product_name': product_display,
                 'quantity_unit': t['product__quantity_unit'],
-                'boxes_sold': boxes,
+                'boxes_sold': float(boxes),
+                'kg_sold': float(kg),
+                'quantity_display': _format_quantity_display(float(boxes), float(kg)),
                 'avg_price': avg_price,
                 'revenue': float(revenue),
                 'profit_margin_pct': profit_margin_pct,
@@ -3557,10 +3837,10 @@ def fetch_reports(request):
             for inv in low_q:
                 stats = stats_map.get(inv.product_id, {})
                 sold_30 = stats.get('sold_30') or 0
-                avg_daily_sales = float(Decimal(sold_30) / Decimal(30)) if sold_30 else 0.0
+                avg_daily_sales = float(Decimal(str(sold_30)) / Decimal('30')) if sold_30 else 0.0
                 days_of_supply = None
                 if avg_daily_sales > 0:
-                    days_of_supply = float(inv.stock / avg_daily_sales) if avg_daily_sales else None
+                    days_of_supply = float(Decimal(str(inv.stock)) / Decimal(str(avg_daily_sales))) if avg_daily_sales else None
                 history_dates = addition_map.get(inv.product_id, [])
                 if len(history_dates) >= 2:
                     delta = history_dates[0] - history_dates[1]
@@ -3568,7 +3848,7 @@ def fetch_reports(request):
                 else:
                     lead_time_days = 7
                 reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold)
-                reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - inv.stock, 0)
+                reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - int(float(inv.stock or 0)), 0)
                 stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
                 last_sale = stats.get('last_sale')
                 last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
@@ -3656,8 +3936,20 @@ def fetch_reports(request):
                 unit_part = f" ({unit})" if unit else ""
                 product_display = f"{base_name}{variant_part}{unit_part}".strip() if base_name else None
             
+            # Determine if this is kg or boxes
+            unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+            is_kg = unit == 'kg'
+            qty_value = float(row.quantity or 0)
+            
             if not g:
-                # Initialize new transaction
+                # Initialize new transaction with separate tracking for boxes and kg
+                total_boxes = 0.0
+                total_kg = 0.0
+                if is_kg:
+                    total_kg = qty_value
+                else:
+                    total_boxes = qty_value
+                
                 grouped[key] = {
                     'sale_id': row.sale_id,
                     'transaction_no': row.transaction_number if row.transaction_number else key,
@@ -3672,9 +3964,11 @@ def fetch_reports(request):
                     'quantity_unit': [row.product.quantity_unit] if row.product and row.product.quantity_unit else [], 
                     'product_ids': [row.product.product_id] if row.product else [],
                     'items_count': 1 if row.product else 0,
-                    'boxes_count': int(row.quantity or 0),
-                    'subtotal': float((row.total or 0) / Decimal('1.12')),
-                    'vat_amount': float((row.total or 0) - ((row.total or 0) / Decimal('1.12'))),
+                    'boxes_count': total_boxes,  # Keep as float for decimal support
+                    'kg_count': total_kg,
+                    'quantity_display': _format_quantity_display(total_boxes, total_kg),
+                    'subtotal': float((Decimal(str(row.total or 0)) / Decimal('1.12'))),
+                    'vat_amount': float((Decimal(str(row.total or 0)) - (Decimal(str(row.total or 0)) / Decimal('1.12')))),
                     'total_amount': float(row.total or 0),
                     'amount_paid': float(row.amount_paid or 0),
                     'change_amount': float((row.amount_paid or 0) - (row.total or 0)),
@@ -3685,15 +3979,21 @@ def fetch_reports(request):
                 }
             else:
                 # Accumulate to existing transaction
-                # Count distinct products as items; sum quantities as boxes
+                # Count distinct products as items; sum quantities as boxes or kg
                 if row.product:
                     pid = row.product.product_id
                     if pid not in g.get('product_ids', []):
                         g.setdefault('product_ids', []).append(pid)
                         g['items_count'] += 1
-                g['boxes_count'] += int(row.quantity or 0)
-                g['subtotal'] += float((row.total or 0) / Decimal('1.12'))
-                g['vat_amount'] += float((row.total or 0) - ((row.total or 0) / Decimal('1.12')))
+                # Add to appropriate unit
+                if is_kg:
+                    g['kg_count'] = g.get('kg_count', 0.0) + qty_value
+                else:
+                    g['boxes_count'] = g.get('boxes_count', 0.0) + qty_value
+                # Update formatted display
+                g['quantity_display'] = _format_quantity_display(g.get('boxes_count', 0.0), g.get('kg_count', 0.0))
+                g['subtotal'] += float((Decimal(str(row.total or 0)) / Decimal('1.12')))
+                g['vat_amount'] += float((Decimal(str(row.total or 0)) - (Decimal(str(row.total or 0)) / Decimal('1.12'))))
                 g['total_amount'] += float(row.total or 0)
                 
                 if not g.get('amount_paid') and row.amount_paid:
@@ -3727,7 +4027,20 @@ def fetch_reports(request):
                 unit_part = f" ({unit})" if unit else ""
                 product_display = f"{base_name}{variant_part}{unit_part}".strip() if base_name else None
             
+            # Determine if this is kg or boxes
+            unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+            is_kg = unit == 'kg'
+            qty_value = float(row.quantity or 0)
+            
             if not vg:
+                # Initialize with separate tracking for boxes and kg
+                total_boxes = 0.0
+                total_kg = 0.0
+                if is_kg:
+                    total_kg = qty_value
+                else:
+                    total_boxes = qty_value
+                
                 voided_grouped[key] = {
                     'sale_id': row.sale_id,
                     'transaction_no': row.transaction_number if row.transaction_number else key,
@@ -3737,7 +4050,9 @@ def fetch_reports(request):
                     'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
                     'processed_by': row.user.username if row.user else 'admin',
                     'products': [product_display] if product_display else [],
-                    'boxes_count': int(row.quantity or 0),
+                    'boxes_count': total_boxes,
+                    'kg_count': total_kg,
+                    'quantity_display': _format_quantity_display(total_boxes, total_kg),
                     'subtotal': float(row.total or 0),
                     'vat_amount': float((row.total or 0) * Decimal('0.12')),
                     'total_amount': float((row.total or 0) * Decimal('1.12')),
@@ -3745,7 +4060,13 @@ def fetch_reports(request):
                     'sale_ids': [row.sale_id],
                 }
             else:
-                vg['boxes_count'] += int(row.quantity or 0)
+                # Add to appropriate unit
+                if is_kg:
+                    vg['kg_count'] = vg.get('kg_count', 0.0) + qty_value
+                else:
+                    vg['boxes_count'] = vg.get('boxes_count', 0.0) + qty_value
+                # Update formatted display
+                vg['quantity_display'] = _format_quantity_display(vg.get('boxes_count', 0.0), vg.get('kg_count', 0.0))
                 vg['subtotal'] += float(row.total or 0)
                 vg['vat_amount'] += float((row.total or 0) * Decimal('0.12'))
                 vg['total_amount'] += float((row.total or 0) * Decimal('1.12'))
@@ -3876,6 +4197,9 @@ def fetch_reports(request):
                 return ' '.join([p.strip() for p in parts if p and p.strip()])
 
             for pr in prs:
+                # Skip HOLD recommendations - they should not appear in accepted pricing
+                if pr.action and pr.action.upper() == 'HOLD':
+                    continue
                 name_raw = pr.product.name if pr.product else 'Unknown'
                 base_name = re.sub(r"\s*\([^)]*\)\s*", "", name_raw).strip()
                 variant = getattr(pr.product, 'variant', '') or ''
@@ -4045,10 +4369,10 @@ def export_report(request):
         total_items_sold=Sum('quantity'),
         total_cogs=Sum(F('quantity') * F('product__cost'))
     )
-    total_rev = Decimal(agg['total_revenue'] or 0)
+    total_rev = Decimal(str(agg['total_revenue'] or 0))
     trans_cnt = agg['transaction_count'] or 0
-    total_items = agg['total_items_sold'] or 0
-    total_cogs = Decimal(agg['total_cogs'] or 0)
+    total_items = Decimal(str(agg['total_items_sold'] or 0))  # Convert to Decimal for consistency
+    total_cogs = Decimal(str(agg['total_cogs'] or 0))
     gross_profit = total_rev - total_cogs
     gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
     vat_total = total_rev - (total_rev / Decimal('1.12'))
@@ -4548,10 +4872,10 @@ def export_report(request):
         for inv in low_q:
             stats = stats_map.get(inv.product_id, {})
             sold_30 = stats.get('sold_30') or 0
-            avg_daily_sales = float(Decimal(sold_30) / Decimal(30)) if sold_30 else 0.0
+            avg_daily_sales = float(Decimal(str(sold_30)) / Decimal('30')) if sold_30 else 0.0
             days_of_supply = None
             if avg_daily_sales > 0:
-                days_of_supply = float(inv.stock / avg_daily_sales) if avg_daily_sales else None
+                days_of_supply = float(Decimal(str(inv.stock)) / Decimal(str(avg_daily_sales))) if avg_daily_sales else None
             history_dates = addition_map.get(inv.product_id, [])
             if len(history_dates) >= 2:
                 delta = history_dates[0] - history_dates[1]
@@ -4559,7 +4883,7 @@ def export_report(request):
             else:
                 lead_time_days = 7
             reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold if hasattr(inv, 'low_stock_threshold') else 5)
-            reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - inv.stock, 0)
+            reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - int(float(inv.stock or 0)), 0)
             stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
             last_sale = stats.get('last_sale')
             last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
@@ -5978,10 +6302,10 @@ def fetch_products(request):
     
     # Apply unit filter if specified
     if unit_filter and unit_filter != 'all':
-        if unit_filter == 'kilo':
-            products_qs = products_qs.filter(quantity_unit__icontains='kilo')
+        if unit_filter == 'kg':
+            products_qs = products_qs.filter(Q(quantity_unit__iexact='kg'))
         elif unit_filter == 'box':
-            products_qs = products_qs.exclude(quantity_unit__icontains='kilo')
+            products_qs = products_qs.exclude(Q(quantity_unit__iexact='kg'))
     # Apply supplier filter if specified (kept for backward compatibility elsewhere)
     if supplier_filter and supplier_filter != 'all':
         products_qs = products_qs.filter(supplier=supplier_filter)
@@ -6134,6 +6458,10 @@ def fetch_stock_details(request, product_id):
     # Meta totals from all batches (not just current page)
     added_total = all_batches.aggregate(total=Sum('quantity'))['total'] or 0
     available_total = all_batches.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+    try:
+        spoiled_total = all_batches.aggregate(total=Sum('spoiled'))['total'] or 0
+    except Exception:
+        spoiled_total = 0
     # Get latest date (first in descending order)
     latest_batch = all_batches.first()
     latest_date = latest_batch.date_added if latest_batch else None
@@ -6196,6 +6524,7 @@ def fetch_stock_details(request, product_id):
             'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
+            'spoiled_total': int(getattr(b, 'spoiled', 0) or 0),
             'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             'addition_id': b.addition_id,
             'batch_ids': group_visible_ids,
@@ -6207,6 +6536,7 @@ def fetch_stock_details(request, product_id):
         'meta': {
         'added_total': added_total,
         'available_total': available_total,
+        'spoiled_total': int(spoiled_total or 0),
             'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
             'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
         'supplier': product.supplier or '-',
@@ -6445,7 +6775,7 @@ def record_sale(request):
                 if single_product and single_qty:
                     items = [{
                         'product_id': int(single_product),
-                        'quantity': int(single_qty),
+                        'quantity': Decimal(str(single_qty)),
                     }]
             if not items:
                 return JsonResponse({'success': False, 'message': 'No items provided'})
@@ -6475,7 +6805,7 @@ def record_sale(request):
             pre_total = Decimal('0')
             for item in items:
                 product_id = item.get('product_id')
-                quantity = int(item.get('quantity', 0))
+                quantity = Decimal(str(item.get('quantity', 0)))
                 if not product_id or quantity <= 0:
                     continue
                 product = Product.objects.filter(product_id=product_id, status__iexact='active').first()
@@ -6700,6 +7030,10 @@ def stock_details(request, product_id):
     # Meta totals from all additions (not just current page)
     added_total = all_additions.aggregate(total=Sum('quantity'))['total'] or 0
     available_total = all_additions.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+    try:
+        spoiled_total = all_additions.aggregate(total=Sum('spoiled'))['total'] or 0
+    except Exception:
+        spoiled_total = 0
     # Get latest date (first in descending order)
     latest_addition = all_additions.first()
     latest_date = latest_addition.date_added if latest_addition else None
@@ -6714,49 +7048,71 @@ def stock_details(request, product_id):
     end_index = start_index + page_size
     paginated_additions = all_additions[start_index:end_index]
     
+    # Check if product uses kg or boxes
+    is_kg = (product.quantity_unit or '').strip().lower() == 'kg'
+    
     data = []
     groups = []
     for b in paginated_additions:
-        # Expand potentially aggregated rows into per-box entries
-        try:
-            total_boxes = int(b.quantity or 0)
-            prefix, start_seq = b.batch_id[:-2], int(b.batch_id[-2:]) if len(b.batch_id) >= 2 else (b.batch_id, 1)
-        except Exception:
-            total_boxes, prefix, start_seq = int(b.quantity or 0), b.batch_id, 1
-        total_boxes = max(total_boxes, 1)
-        group_visible_ids = []
-        for i in range(total_boxes):
-            seq = ((start_seq - 1 + i) % 99) + 1
-            box_id = f"{prefix}{seq:02d}" if prefix else f"{seq:02d}"
-            remaining_boxes = int(b.remaining_quantity or 0)
-            consumed = max(0, total_boxes - remaining_boxes)
-            box_remaining = 1 if (i >= consumed) else 0
-            if box_remaining <= 0:
-                continue
-            data.append({
-                'batch_id': box_id,
+        quantity = float(b.quantity or 0)
+        remaining_quantity = float(b.remaining_quantity or 0)
+        spoiled = float(getattr(b, 'spoiled', 0) or 0)
+        
+        if is_kg:
+            # For kg products, don't expand into individual boxes
+            groups.append({
                 'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
-                'quantity': 1,
-                'remaining': box_remaining,
+                'added_total': float(quantity),
+                'available_total': float(remaining_quantity),
+                'spoiled_total': float(spoiled),
                 'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
+                'addition_id': b.addition_id,
+                'batch_ids': [],  # No batch IDs for kg products
             })
-            group_visible_ids.append(box_id)
-        groups.append({
-            'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
-            'added_total': total_boxes,
-            'available_total': int(b.remaining_quantity or 0),
-            'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
-            'addition_id': b.addition_id,
-            'batch_ids': group_visible_ids,
-        })
+        else:
+            # For box products, expand into per-box entries
+            try:
+                total_boxes = int(quantity)
+                prefix, start_seq = b.batch_id[:-2], int(b.batch_id[-2:]) if len(b.batch_id) >= 2 else (b.batch_id, 1)
+            except Exception:
+                total_boxes, prefix, start_seq = int(quantity), b.batch_id, 1
+            total_boxes = max(total_boxes, 1)
+            group_visible_ids = []
+            for i in range(total_boxes):
+                seq = ((start_seq - 1 + i) % 99) + 1
+                box_id = f"{prefix}{seq:02d}" if prefix else f"{seq:02d}"
+                remaining_boxes = int(remaining_quantity)
+                consumed = max(0, total_boxes - remaining_boxes)
+                box_remaining = 1 if (i >= consumed) else 0
+                if box_remaining <= 0:
+                    continue
+                data.append({
+                    'batch_id': box_id,
+                    'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
+                    'quantity': 1,
+                    'remaining': box_remaining,
+                    'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
+                })
+                group_visible_ids.append(box_id)
+            groups.append({
+                'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
+                'added_total': float(total_boxes),
+                'available_total': float(remaining_boxes),
+                'spoiled_total': float(spoiled),
+                'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
+                'addition_id': b.addition_id,
+                'batch_ids': group_visible_ids,
+            })
     
     return JsonResponse({
         'success': True, 
         'data': data, 
         'groups': groups, 
         'meta': {
-        'added_total': added_total,
-        'available_total': available_total,
+        'added_total': float(added_total or 0),
+        'available_total': float(available_total or 0),
+        'spoiled_total': float(spoiled_total or 0),
+        'quantity_unit': product.quantity_unit or '',
             'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
             'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
         'supplier': product.supplier or '-',
@@ -6825,13 +7181,13 @@ def add_product(request):
             supplier = request.POST.get('supplier', '').strip()
             
             # Validate required fields
-            if not name or (quantity_unit != 'kilo' and not size) or cost < 0 or price < 0 or stock < 0:
+            if not name or (quantity_unit != 'kg' and not size) or cost < 0 or price < 0 or stock < 0:
                 raise ValueError("Invalid input data. Required fields: name, quantity, cost, price, stock.")
 
             # Normalize and validate quantity
-            if quantity_unit == 'kilo':
-                # No numeric quantity required when selling per kilo
-                size = 'kilo'
+            if quantity_unit == 'kg':
+                # No numeric quantity required when selling per kg
+                size = 'kg'
             else:
                 try:
                     size_norm = str(Decimal(size))
@@ -7037,7 +7393,7 @@ def edit_product(request):
                 min_price = (cost * (1 + MIN_MARGIN)).quantize(Decimal('0.01'))
                 raise ValueError(f'Minimum price must be {min_price} or higher (cost {cost} + 10% margin).')
             
-            if _exists_duplicate_product(name, variant, size, 'kilo' if (size or '').strip().lower() == 'kilo' else 'box', exclude_id=product_id):
+            if _exists_duplicate_product(name, variant, size, 'kg' if (size or '').strip().lower() == 'kg' else 'box', exclude_id=product_id):
                 log_action(request, 'Duplicate product attempt', f'{name} ({variant}) / {size} already exists (edit)')
                 raise ValueError("Duplicate product detected - this combination already exists in the system")
             
@@ -7129,6 +7485,14 @@ def update_product_status(request):
             raise ValueError("Invalid product ID or status.")
         
         product = Product.objects.get(product_id=product_id)
+        # Prevent discontinuation when stock exists
+        if status == 'discontinued':
+            try:
+                total_remaining = StockAddition.objects.filter(product=product).aggregate(total=models.Sum('remaining_quantity'))['total'] or 0
+            except Exception:
+                total_remaining = 0
+            if (product.stock or 0) > 0 or (float(total_remaining) > 0):
+                return JsonResponse({'success': False, 'message': 'Cannot discontinue product while stock is still available.'})
         old_status = product.status
         product.status = status
         product.save()
@@ -7151,8 +7515,14 @@ def update_product_status(request):
 
 # Helper functions
 def generate_batch_id(product, name, variant):
-    """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>."""
+    """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>.
+    Returns empty string for kg products (no batch IDs needed for decimal quantities)."""
     from datetime import date
+    
+    # Skip batch IDs for kg products
+    unit = (product.quantity_unit or '').strip().lower()
+    if unit == 'kg':
+        return ''
     
     # Clean name (remove variant if present)
     base_name = name
@@ -7219,10 +7589,11 @@ def deduct_stock_fifo(product_id, quantity):
         raise ValueError(f"Insufficient stock in batches for product ID {product_id}.")
     
     # Update product stock total from batch sums and clamp to >= 0
+    from decimal import Decimal
     total_remaining = StockAddition.objects.filter(
         product_id=product_id
-    ).aggregate(total=models.Sum('remaining_quantity'))['total'] or 0
-    total_remaining = max(0, int(total_remaining))
+    ).aggregate(total=models.Sum('remaining_quantity'))['total'] or Decimal('0')
+    total_remaining = max(Decimal('0'), Decimal(str(total_remaining)))
     Product.objects.filter(product_id=product_id).update(stock=total_remaining)
     try:
         p = Product.objects.get(product_id=product_id)
@@ -7235,7 +7606,12 @@ def deduct_stock_fifo(product_id, quantity):
 def _expand_batch_box_ids(batch_id, quantity):
     """Expand a batch_id into per-box IDs by appending/rolling 2-digit sequence.
     Assumes last two chars of batch_id are a numeric sequence start; if not, starts at 1.
+    Returns empty list for kg products (no batch IDs).
     """
+    # No batch IDs for kg products
+    if not batch_id or batch_id == '':
+        return []
+    
     try:
         start_seq = int(batch_id[-2:])
         prefix = batch_id[:-2]
@@ -7252,10 +7628,17 @@ def _expand_batch_box_ids(batch_id, quantity):
 def _compute_sale_batch_ids(sale):
     """Compute which per-box batch IDs were consumed by this sale using strict FIFO.
     Works for single-product sales by replaying prior completed sales.
+    Returns empty list for kg products (no batch IDs).
     """
     product = sale.product
     if not product:
         return []
+    
+    # Skip batch IDs for kg products
+    unit = (product.quantity_unit or '').strip().lower()
+    if unit == 'kg':
+        return []
+    
     # Build FIFO queue of box IDs from stock additions
     additions = (StockAddition.objects
                  .filter(product=product)
@@ -7357,7 +7740,7 @@ def sms_settings_view(request):
         'total_revenue_formatted': f"{float(today_revenue):,.2f}",
         'total_boxes': today_sales.aggregate(total=Sum('quantity'))['total'] or 0,
     }
-    kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
+    kilos_sold = today_sales.filter(Q(product__quantity_unit__iexact='kg')).aggregate(total=Sum('quantity'))['total'] or 0
     product_sales = (today_sales
         .values('product__name','product__variant','product__quantity_unit','product__stock')
         .annotate(boxes_sold=Sum('quantity'), revenue=Sum('total'))
@@ -7367,7 +7750,7 @@ def sms_settings_view(request):
     sales_preview_msg += "== OVERALL SUMMARY ==\n\n"
     sales_preview_msg += f"Total Revenue: PHP {float(today_revenue):,.2f}\n"
     sales_preview_msg += f"Total Boxes Sold: {int(today_stats['total_boxes'] or 0)}\n"
-    sales_preview_msg += f"Total Kilos Sold: {int(kilos_sold or 0)}\n"
+    sales_preview_msg += f"Total kg Sold: {int(kilos_sold or 0)}\n"
     sales_preview_msg += f"Total Transactions: {int(today_stats['total_sales'] or 0)}\n\n"
     if product_sales:
         sales_preview_msg += "== TOP PRODUCTS TODAY ==\n"
@@ -7378,8 +7761,8 @@ def sms_settings_view(request):
             remaining = int(prod.get('product__stock') or 0)
             sold_qty = int(prod.get('boxes_sold') or 0)
             revenue = float(prod.get('revenue') or 0)
-            unit_label = 'kilos' if unit == 'kilo' else 'boxes'
-            rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+            unit_label = 'kg' if unit == 'kg' else 'boxes'
+            rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
             label = f"{name}"
             if variant:
                 label += f" ({variant})"
@@ -7416,7 +7799,7 @@ def sms_settings_view(request):
         stock_preview_msg += "WARNING - LOW STOCK:\n"
         for i, p in enumerate(low_stock_products, 1):
             unit = (p.quantity_unit or '').strip().lower()
-            unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+            unit_label = 'kg' if unit == 'kg' else 'boxes'
             label = p.name or ""
             v = (getattr(p, 'variant', None) or '').strip()
             u = (getattr(p, 'quantity_unit', None) or '').strip()
@@ -7577,7 +7960,7 @@ def test_notification_type(request):
             total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
             total_transactions = today_sales.count()
             total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
-            kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
+            kilos_sold = today_sales.filter(Q(product__quantity_unit__iexact='kg')).aggregate(total=Sum('quantity'))['total'] or 0
             product_sales = today_sales.values(
                 'product__name',
                 'product__variant',
@@ -7592,7 +7975,7 @@ def test_notification_type(request):
             message += "== OVERALL SUMMARY ==\n\n"
             message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
             message += f"Total Boxes Sold: {int(total_boxes)}\n"
-            message += f"Total Kilos Sold: {int(kilos_sold)}\n"
+            message += f"Total kg Sold: {int(kilos_sold)}\n"
             message += f"Total Transactions: {int(total_transactions)}\n\n"
             if product_sales:
                 message += "== TOP PRODUCTS TODAY ==\n"
@@ -7603,8 +7986,8 @@ def test_notification_type(request):
                     remaining = int(prod['product__stock'] or 0)
                     sold_qty = int(prod['boxes_sold'] or 0)
                     revenue = float(prod['revenue'] or 0)
-                    unit_label = 'kilos' if unit == 'kilo' else 'boxes'
-                    rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+                    unit_label = 'kg' if unit == 'kg' else 'boxes'
+                    rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
                     label = f"{name}"
                     if variant:
                         label += f" ({variant})"
@@ -7647,7 +8030,7 @@ def test_notification_type(request):
                 message += "WARNING - LOW STOCK:\n"
                 for i, product in enumerate(low_stock_products, 1):
                     unit = (product.quantity_unit or '').strip().lower()
-                    unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+                    unit_label = 'kg' if unit == 'kg' else 'boxes'
                     n = product.name or ""
                     v = (getattr(product, 'variant', None) or '').strip()
                     u = (getattr(product, 'quantity_unit', None) or '').strip()
@@ -8108,6 +8491,9 @@ def generate_and_store_pricing_recommendations():
         PricingRecommendation.objects.filter(expires_at__gt=now_ts).delete()
         to_create = []
         for r in recommendations:
+            # Skip HOLD recommendations - they should not be stored
+            if r.get('action') and str(r['action']).upper() == 'HOLD':
+                continue
             p = Product.objects.get(product_id=r['product_id'])
             to_create.append(PricingRecommendation(
                 product=p,
@@ -8154,6 +8540,9 @@ def get_pricing_recommendations(request):
             recommendations = []
             seen = set()
             for rec in valid_qs:
+                # Skip HOLD recommendations - they should not appear in dashboard offcanvas
+                if rec.action and rec.action.upper() == 'HOLD':
+                    continue
                 key = (rec.product.product_id, float(rec.suggested_price))
                 if key in seen:
                     continue
@@ -8163,6 +8552,9 @@ def get_pricing_recommendations(request):
                 delta = abs(cur - sug)
                 chg_pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
                 action = rec.action if delta >= 0.01 else 'HOLD'
+                # Double-check: skip if action is HOLD
+                if action and action.upper() == 'HOLD':
+                    continue
                 recommendations.append({
                     'recommendation_id': rec.recommendation_id,
                     'product_id': rec.product.product_id,
@@ -9066,25 +9458,30 @@ def apply_pricing_recommendation(request):
         product.save()
 
         # Persist the accepted recommendation to the database for reporting
+        # Skip creating records for HOLD actions - they should not be stored
         try:
             change_pct = 0.0
             if old_price and float(old_price) != 0:
                 change_pct = ((float(new_price) / float(old_price)) - 1.0) * 100.0
             action = provided_action if provided_action in ('INCREASE', 'DECREASE', 'HOLD') else ('INCREASE' if float(new_price) > float(old_price) else 'DECREASE' if float(new_price) < float(old_price) else 'HOLD')
-            reason = provided_reason or 'Accepted by admin via dashboard.'
-            expires_at = timezone.now()  # Prevent inclusion in outbound recommendation messages
-            PricingRecommendation.objects.create(
-                product=product,
-                current_price=old_price,
-                suggested_price=new_price,
-                change_pct=abs(change_pct),
-                action=action,
-                reason=reason,
-                elasticity=None,
-                r2=None,
-                confidence=None,
-                expires_at=expires_at,
-            )
+            # Don't create records for HOLD actions
+            if action and action.upper() == 'HOLD':
+                pass  # Skip creating HOLD records
+            else:
+                reason = provided_reason or 'Accepted by admin via dashboard.'
+                expires_at = timezone.now()  # Prevent inclusion in outbound recommendation messages
+                PricingRecommendation.objects.create(
+                    product=product,
+                    current_price=old_price,
+                    suggested_price=new_price,
+                    change_pct=abs(change_pct),
+                    action=action,
+                    reason=reason,
+                    elasticity=None,
+                    r2=None,
+                    confidence=None,
+                    expires_at=expires_at,
+                )
             # Invalidate any previously stored valid recommendations for this product
             try:
                 PricingRecommendation.objects.filter(product=product, expires_at__gt=timezone.now()).delete()
@@ -9229,6 +9626,9 @@ def send_pricing_notification(request):
                         affected_ids = unique_proposals['product_id'].tolist()
                         expires_at = timezone.now() + timedelta(days=3)
                         for _, rec in unique_proposals.iterrows():
+                            # Skip HOLD recommendations - they should not be stored
+                            if rec.get('action') and str(rec['action']).upper() == 'HOLD':
+                                continue
                             try:
                                 p = Product.objects.get(product_id=rec['product_id'])
                             except Exception:
@@ -9488,13 +9888,13 @@ def send_all_notifications_now(request):
         total_transactions = today_sales.count()
         total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
         product_sales = today_sales.values('product__name', 'product__quantity_unit', 'product__stock').annotate(boxes_sold=Sum('quantity'), revenue=Sum('total')).order_by('-boxes_sold')[:5]
-        kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
+        kilos_sold = today_sales.filter(Q(product__quantity_unit__iexact='kg')).aggregate(total=Sum('quantity'))['total'] or 0
         sales_msg = "STOCKWISE Daily Sales Report\n\n"
         sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
         sales_msg += "== OVERALL SUMMARY ==\n\n"
         sales_msg += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
         sales_msg += f"Total Boxes Sold: {int(total_boxes)}\n"
-        sales_msg += f"Total Kilos Sold: {int(kilos_sold)}\n"
+        sales_msg += f"Total kg Sold: {int(kilos_sold)}\n"
         sales_msg += f"Total Transactions: {int(total_transactions)}\n\n"
         if product_sales:
             sales_msg += "== TOP PRODUCTS TODAY ==\n"
@@ -9504,8 +9904,8 @@ def send_all_notifications_now(request):
                 remaining = int(prod['product__stock'] or 0)
                 sold_qty = int(prod['boxes_sold'] or 0)
                 revenue = float(prod['revenue'] or 0)
-                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
-                rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+                unit_label = 'kg' if unit == 'kg' else 'boxes'
+                rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
                 sales_msg += f"{i}. {name} ({unit})\n"
                 sales_msg += f"Sold: {sold_qty} {unit_label}\n"
                 sales_msg += f"Revenue: PHP {revenue:,.2f}\n"
@@ -9569,7 +9969,7 @@ def send_all_notifications_now(request):
             stock_msg += "WARNING - LOW STOCK:\n"
             for i, p in enumerate(low_stock, 1):
                 unit = (p.quantity_unit or '').strip().lower()
-                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+                unit_label = 'kg' if unit == 'kg' else 'boxes'
                 variant_part = f" ({p.variant})" if getattr(p, 'variant', None) else ""
                 unit_part = f" ({p.quantity_unit})" if getattr(p, 'quantity_unit', None) else ""
                 stock_msg += f"{i}. {p.name}{variant_part}{unit_part}: {int(p.stock)} {unit_label} left\n"
@@ -9879,7 +10279,7 @@ def print_thermal_receipt(request, sale_id):
         
         for row in rows:
             batch_ids = _compute_sale_batch_ids(row)
-            quantity = int(row.quantity or 0)
+            quantity = float(row.quantity or 0)  # Keep as float for decimal support
             price = float(row.price or 0)
             amount = float(row.total or Decimal('0'))
             

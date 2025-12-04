@@ -52,7 +52,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--gray-50);
             min-height: 100vh;
             color: var(--gray-800);
             overflow-x: hidden;
@@ -306,9 +306,105 @@
             font-size: 1rem;
             color: var(--primary);
         }
+        
+        /* Modal Styling - Match card-modern design */
+        #decreaseStockModal .modal-dialog {
+            max-width: 500px;
+        }
+        
+        #decreaseStockModal .modal-content {
+            border-radius: 12px;
+            border: 1px solid var(--gray-200);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+        }
+        
+        #decreaseStockModal .modal-header {
+            background: var(--gray-100);
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 1rem;
+        }
+        
+        #decreaseStockModal .modal-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--gray-900);
+            margin: 0;
+        }
+        
+        #decreaseStockModal .modal-body {
+            padding: 1rem;
+        }
+        
+        #decreaseStockModal .modal-footer {
+            background: var(--gray-50);
+            border-top: 1px solid var(--gray-200);
+            padding: 0.75rem 1rem;
+            gap: 0.5rem;
+        }
+        
+        #decreaseStockModal .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.8125rem;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        #decreaseStockModal .btn-secondary {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+        }
+        
+        #decreaseStockModal .btn-secondary:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+            color: var(--gray-900);
+        }
+        
+        #decreaseStockModal .btn-danger {
+            background: var(--danger);
+            color: white;
+            border: 1px solid var(--danger);
+        }
+        
+        #decreaseStockModal .btn-danger:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+        
+        #decreaseStockModal .form-control {
+            border-radius: 6px;
+            border: 1px solid var(--gray-300);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        #decreaseStockModal .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        
+        #decreaseStockModal .badge {
+            border-radius: 4px;
+            padding: 0.375rem 0.625rem;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        
+        #decreaseStockModal .alert-warning {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            color: #92400e;
+            font-size: 0.8125rem;
+        }
 
         .stock-additions-table {
             margin: 0;
+            table-layout: fixed;
+            width: 100%;
         }
 
         .stock-additions-table thead th {
@@ -317,17 +413,22 @@
             border-bottom: 1px solid var(--gray-200);
             font-weight: 600;
             color: var(--gray-700);
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 0.75rem;
             font-size: 0.8125rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
         .stock-additions-table tbody td {
-            padding: 0.75rem 1rem;
+            padding: 0.5rem 0.6rem;
             border-bottom: 1px solid var(--gray-100);
             vertical-align: middle;
-            font-size: 0.8125rem;
+            font-size: 0.8rem;
+        }
+        
+        .stock-additions-table tbody .col-options {
+            padding: 0.5rem;
+            overflow: visible !important;
         }
 
         .stock-additions-table tbody tr:hover {
@@ -336,6 +437,33 @@
 
         .stock-additions-table tbody tr:last-child td {
             border-bottom: none;
+        }
+
+        /* Column widths (percent-based to fit screen without scrolling - totals 100%) */
+        .stock-additions-table .col-addition { width: 10%; }
+        .stock-additions-table .col-date { width: 10%; }
+        .stock-additions-table .col-added { width: 10%; }
+        .stock-additions-table .col-available { width: 10%; }
+        .stock-additions-table .col-sold { width: 10%; }
+        .stock-additions-table .col-spoiled { width: 10%; }
+        .stock-additions-table .col-supplier { width: 10%; }
+        .stock-additions-table .col-status { width: 12%; }
+        .stock-additions-table .col-batch { 
+            width: 14%; 
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .stock-additions-table .col-options { 
+            width: 12%;
+            white-space: nowrap;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        
+        .stock-additions-table tbody .col-options {
+            padding: 0.5rem;
+            overflow: visible !important;
+            text-overflow: clip !important;
         }
 
         /* Status badges */
@@ -361,14 +489,13 @@
             border: 1px solid rgba(107, 114, 128, 0.2);
         }
 
-        /* Batch IDs */
         .batch-ids-container {
-            max-height: 120px;
-            overflow-y: auto;
-            padding: 0.5rem;
-            background: var(--gray-50);
-            border-radius: 8px;
-            border: 1px solid var(--gray-200);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            max-width: 100%;
+            padding-right: 0.5rem;
+            align-items: flex-start;
         }
 
         .batch-id-badge {
@@ -377,12 +504,16 @@
             color: var(--primary);
             padding: 0.25rem 0.5rem;
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 600;
-            margin: 0.125rem;
+            margin: 0;
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             border: 1px solid rgba(99, 102, 241, 0.2);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
+
+        .to-sep { color: var(--gray-700); }
 
         /* Numbers */
         .number-cell {
@@ -407,9 +538,43 @@
         }
 
         .edit-stock-btn {
-            padding: 2px 8px;
-            font-size: 12px;
-            line-height: 1.2;
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .edit-stock-btn:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+            color: var(--gray-900);
+        }
+        
+        .edit-stock-btn:active {
+            background: var(--gray-100);
+            transform: translateY(1px);
+        }
+        
+        .edit-stock-btn i {
+            font-size: 0.875rem;
+        }
+        
+        .col-options {
+            overflow: visible !important;
         }
 
         /* Loading states */
@@ -484,7 +649,7 @@
 
             .stock-additions-table thead th,
             .stock-additions-table tbody td {
-                padding: 0.75rem;
+                padding: 0.5rem;
             }
 
             .card-header {
@@ -676,14 +841,47 @@
         const pageSize = 10;
         let quantityUnit = '';
 
+        function formatQuantity(value, unit) {
+            /**Format quantity value - remove excessive decimals and add unit label*/
+            if (value === null || value === undefined) return '0';
+            const val = parseFloat(value) || 0;
+            const isKilo = (unit || quantityUnit || '').toLowerCase() === 'kg';
+            
+            let formatted;
+            if (isKilo) {
+                // For kg, show as integer if whole number, otherwise show 2 decimals
+                formatted = (val === Math.floor(val)) ? String(Math.floor(val)) : val.toFixed(2);
+                return `${formatted} kg`;
+            } else {
+                // For boxes, show as integer if whole number
+                formatted = String(Math.floor(val));
+                return `${formatted} ${val === 1 ? 'box' : 'boxes'}`;
+            }
+        }
+        
+        function formatQuantityNumber(value, unit) {
+            /**Format quantity number only (without unit label) - remove excessive decimals*/
+            if (value === null || value === undefined) return '0';
+            const val = parseFloat(value) || 0;
+            const isKilo = (unit || quantityUnit || '').toLowerCase() === 'kg';
+            
+            if (isKilo) {
+                // For kg, show as integer if whole number, otherwise show 2 decimals
+                return (val === Math.floor(val)) ? String(Math.floor(val)) : val.toFixed(2);
+            } else {
+                // For boxes, show as integer
+                return String(Math.floor(val));
+            }
+        }
+
         function updateUnitLabels(){
-            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
+            const isKilo = quantityUnit === 'kg';
             const totalAddedSubtitle = document.querySelector('#summaryStats a.summary-stat-card.clickable .summary-stat-subtitle');
             const totalAvailableSubtitle = document.querySelector('#summaryStats div.summary-stat-card .summary-stat-subtitle');
             const soldSubtitle = document.querySelector('#soldCard .summary-stat-subtitle');
-            if(totalAddedSubtitle){ totalAddedSubtitle.textContent = isKilo ? 'All kilos added since first stock-in' : 'All boxes added since first stock-in'; }
-            if(totalAvailableSubtitle){ totalAvailableSubtitle.textContent = isKilo ? 'Kilos ready for sale right now' : 'Boxes ready for sale right now'; }
-            if(soldSubtitle){ soldSubtitle.textContent = isKilo ? 'Total kilos sold across all transactions' : 'Total boxes sold across all transactions'; }
+            if(totalAddedSubtitle){ totalAddedSubtitle.textContent = isKilo ? 'All kg added since first stock-in' : 'All boxes added since first stock-in'; }
+            if(totalAvailableSubtitle){ totalAvailableSubtitle.textContent = isKilo ? 'kg ready for sale right now' : 'Boxes ready for sale right now'; }
+            if(soldSubtitle){ soldSubtitle.textContent = isKilo ? 'Total kg sold across all transactions' : 'Total boxes sold across all transactions'; }
         }
 
         if (!productId) {
@@ -718,7 +916,12 @@
                     // Update product info and summary (only on first page load or if needed)
                     if (page === 1 && resp.data && resp.data.length > 0) {
                         updateProductInfo(resp.data[0]);
-                        quantityUnit = (resp.data[0].quantity_unit || '').toLowerCase();
+                        quantityUnit = (resp.data[0].quantity_unit || resp.meta?.quantity_unit || '').toLowerCase();
+                        updateUnitLabels();
+                    }
+                    // Get quantity_unit from meta if available
+                    if (resp.meta && resp.meta.quantity_unit) {
+                        quantityUnit = (resp.meta.quantity_unit || '').toLowerCase();
                         updateUnitLabels();
                     }
                     updateSummaryStats(resp);
@@ -745,7 +948,12 @@
                             // Update product info and summary (only on first page load or if needed)
                             if (page === 1 && resp.data && resp.data.length > 0) {
                                 updateProductInfo(resp.data[0]);
-                                quantityUnit = (resp.data[0].quantity_unit || '').toLowerCase();
+                                quantityUnit = (resp.data[0].quantity_unit || resp.meta?.quantity_unit || '').toLowerCase();
+                                updateUnitLabels();
+                            }
+                            // Get quantity_unit from meta if available
+                            if (resp.meta && resp.meta.quantity_unit) {
+                                quantityUnit = (resp.meta.quantity_unit || '').toLowerCase();
                                 updateUnitLabels();
                             }
                             updateSummaryStats(resp);
@@ -795,7 +1003,7 @@
             // Use meta totals (from all pages) instead of calculating from current page only
             const totalAdded = meta.added_total || 0;
             const totalAvailable = meta.available_total || 0;
-            const totalSold = totalAdded - totalAvailable;
+            const totalSold = Math.max(0, totalAdded - totalAvailable - (meta.spoiled_total || 0));
             
             // Update first added date from meta (earliest date)
             if (meta.earliest_date) {
@@ -818,10 +1026,11 @@
                 document.getElementById('firstAddedDate').textContent = dateText;
             }
             
-            // Update summary stats
-            document.getElementById('totalAdded').textContent = totalAdded;
-            document.getElementById('totalAvailable').textContent = totalAvailable;
-            document.getElementById('totalSold').textContent = totalSold;
+            // Update summary stats with formatted values
+            const unit = (meta.quantity_unit || quantityUnit || '').toLowerCase();
+            document.getElementById('totalAdded').textContent = formatQuantity(totalAdded, unit);
+            document.getElementById('totalAvailable').textContent = formatQuantity(totalAvailable, unit);
+            document.getElementById('totalSold').textContent = formatQuantity(totalSold, unit);
         }
 
         function formatBatchIdRange(batchIds) {
@@ -838,33 +1047,41 @@
             let currentGroup = [batchIds[0]];
             
             for (let i = 1; i < batchIds.length; i++) {
-                const current = batchIds[i];
-                const previous = batchIds[i - 1];
+                const current = String(batchIds[i] || '');
+                const previous = String(batchIds[i - 1] || '');
                 
-                // Check if they have the same prefix and consecutive sequence
-                const currentMatch = current.match(/^(.+?)(\d{2})$/);
-                const previousMatch = previous.match(/^(.+?)(\d{2})$/);
+                // Extract prefix and numeric suffix more flexibly
+                const currentMatch = current.match(/^(.+?)(\d+)$/);
+                const previousMatch = previous.match(/^(.+?)(\d+)$/);
                 
                 if (currentMatch && previousMatch && 
-                    currentMatch[1] === previousMatch[1] && 
-                    parseInt(currentMatch[2]) === parseInt(previousMatch[2]) + 1) {
-                    // Consecutive, add to current group
-                    currentGroup.push(current);
+                    currentMatch[1] === previousMatch[1]) {
+                    const currentNum = parseInt(currentMatch[2]);
+                    const previousNum = parseInt(previousMatch[2]);
+                    
+                    // Check if consecutive (difference of 1)
+                    if (currentNum === previousNum + 1) {
+                        // Consecutive, add to current group
+                        currentGroup.push(current);
+                    } else {
+                        // Not consecutive, start new group
+                        groups.push(currentGroup);
+                        currentGroup = [current];
+                    }
                 } else {
-                    // Not consecutive, start new group
+                    // Different prefix or format, start new group
                     groups.push(currentGroup);
                     currentGroup = [current];
                 }
             }
             groups.push(currentGroup);
             
-            // Format each group
+            // Format each group consistently - always use range format for 2+ consecutive IDs
             return groups.map(group => {
                 if (group.length === 1) {
                     return group[0];
-                } else if (group.length === 2) {
-                    return `${group[0]}, ${group[1]}`;
                 } else {
+                    // Always use range format for 2 or more consecutive IDs
                     return `${group[0]} to ${group[group.length - 1]}`;
                 }
             });
@@ -896,20 +1113,21 @@
             const startNumber = ((currentPage - 1) * pageSize) + 1;
 
             const pdText = (document.getElementById('productDetails')?.textContent||'').toLowerCase();
-            const isKilo = (quantityUnit && (quantityUnit.includes('kilo') || quantityUnit === 'kg')) || (pdText.includes('quantity: kilo'));
+            const isKilo = (quantityUnit && (quantityUnit === 'kg')) || (pdText.includes('quantity: kg'));
             const tableHtml = `
                 <table class="table stock-additions-table">
                     <thead>
                         <tr>
-                            <th>Addition #</th>
-                            <th>Date Added</th>
-                            <th>Added</th>
-                            <th>Available</th>
-                            <th>Sold</th>
-                            <th>Supplier</th>
-                            <th>Status</th>
-                            ${isKilo ? '' : '<th>Batch IDs</th>'}
-                            <th>Options</th>
+                            <th class="col-addition">Addition #</th>
+                            <th class="col-date">Date Added</th>
+                            <th class="col-added">Added</th>
+                            <th class="col-available">Available</th>
+                            <th class="col-sold">Sold</th>
+                            <th class="col-spoiled">${isKilo ? 'Spoiled kg' : 'Spoiled boxes'}</th>
+                            <th class="col-supplier">Supplier</th>
+                            <th class="col-status">Status</th>
+                            ${isKilo ? '' : '<th class="col-batch">Batch IDs</th>'}
+                            <th class="col-options">Options</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -928,28 +1146,37 @@
                             const statusText = group.available_total > 0 ? 'Available' : 'Sold Out';
                             const statusIcon = group.available_total > 0 ? 'check-circle' : 'x-circle';
                             
-                            const batchIds = isKilo ? '' : formatBatchIdRange(group.batch_ids || []).map(id => 
-                                `<span class="batch-id-badge">${id}</span>`
-                            ).join('');
+                            const batchIds = isKilo ? '' : formatBatchIdRange(group.batch_ids || []).map(id => {
+                                const s = String(id || '');
+                                const formatted = s.includes(' to ') ? s.replace(' to ', ' <span class="to-sep">to</span><br> ') : s;
+                                return `<span class="batch-id-badge">${formatted}</span>`;
+                            }).join('');
+                            
+                            // Calculate sold quantity (prevent negative values)
+                            const added = group.added_total || 0;
+                            const available = group.available_total || 0;
+                            const spoiled = group.spoiled_total || 0;
+                            const sold = Math.max(0, added - available - spoiled);
                             
                             return `
                                 <tr>
-                                    <td>
+                                    <td class="col-addition">
                                         <strong>#${additionNumber}</strong>
                                     </td>
-                                    <td class="date-cell">${dateText}</td>
-                                    <td class="number-cell added">${group.added_total || 0}</td>
-                                    <td class="number-cell available">${group.available_total || 0}</td>
-                                    <td class="number-cell sold">${(group.added_total || 0) - (group.available_total || 0)}</td>
-                                    <td class="supplier-cell">${group.supplier || '-'}</td>
-                                    <td>
+                                    <td class="date-cell col-date">${dateText}</td>
+                                    <td class="number-cell added col-added">${formatQuantity(added, quantityUnit)}</td>
+                                    <td class="number-cell available col-available">${formatQuantity(available, quantityUnit)}</td>
+                                    <td class="number-cell sold col-sold">${formatQuantity(sold, quantityUnit)}</td>
+                                    <td class="number-cell spoiled col-spoiled">${formatQuantity(spoiled, quantityUnit)}</td>
+                                    <td class="supplier-cell col-supplier">${group.supplier || '-'}</td>
+                                    <td class="col-status">
                                         <span class="status-badge ${status}">
                                             <i class="bi bi-${statusIcon}"></i>
                                             ${statusText}
                                         </span>
                                     </td>
-                                    ${isKilo ? '' : `<td><div class="batch-ids-container">${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}</div></td>`}
-                                    <td>
+                                    ${isKilo ? '' : `<td class="col-batch"><div class="batch-ids-container">${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}</div></td>`}
+                                    <td class="col-options">
                                         ${group.available_total > 0 ? `<button class="btn btn-outline-secondary btn-sm edit-stock-btn" data-addition-id="${group.addition_id}" data-available="${group.available_total}" data-added="${group.added_total}" data-batch="${(group.batch_ids||[]).join(',')}"><i class="bi bi-pencil"></i> Edit Stock</button>` : `<span class="text-muted small">No actions</span>`}
                                     </td>
                                 </tr>
@@ -1031,8 +1258,10 @@
             document.querySelectorAll('.edit-stock-btn').forEach(btn => {
                 btn.addEventListener('click', function(){
                     const id = parseInt(this.getAttribute('data-addition-id'));
-                    const avail = parseInt(this.getAttribute('data-available'));
-                    const added = parseInt(this.getAttribute('data-added'));
+                    const isKilo = quantityUnit === 'kg';
+                    // Parse as float for kg products to preserve decimals
+                    const avail = isKilo ? parseFloat(this.getAttribute('data-available')||0) : parseInt(this.getAttribute('data-available')||0);
+                    const added = isKilo ? parseFloat(this.getAttribute('data-added')||0) : parseInt(this.getAttribute('data-added')||0);
                     const batchStr = this.getAttribute('data-batch') || '';
                     const batchList = batchStr ? batchStr.split(',').filter(Boolean) : [];
                     showDecreaseModal(id, avail, added, batchList);
@@ -1076,7 +1305,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Decrease by</label>
-                        <input type="number" class="form-control" id="decreaseAmount" step="1" placeholder="Enter amount to decrease">
+                        <input type="number" class="form-control" id="decreaseAmount" step="1" min="1" placeholder="Enter amount to decrease">
                         <div class="form-text" id="decreaseHelper"></div>
                     </div>
                     <div class="mb-2" id="removalPreview"></div>
@@ -1095,32 +1324,116 @@
         let currentBatchIds = [];
         let currentBatchAdded = 0;
         let currentBatchAvailable = 0;
+        // Helper function to format values for display
+        function formatModalValue(val, isKilo) {
+            if (isKilo) {
+                const v = parseFloat(val);
+                if (isNaN(v)) return '0';
+                return (v === Math.floor(v)) ? String(Math.floor(v)) : v.toFixed(2);
+            } else {
+                return String(Math.floor(parseFloat(val) || 0));
+            }
+        }
+        
         function showDecreaseModal(additionId, available, added, batchList){
             currentDecreaseAdditionId = additionId;
-            currentBatchAvailable = parseInt(available||0);
-            currentBatchAdded = parseInt(added||0);
+            const isKilo = quantityUnit === 'kg';
+            // Parse as float for kg products, int for boxes
+            currentBatchAvailable = isKilo ? parseFloat(available||0) : parseInt(available||0);
+            currentBatchAdded = isKilo ? parseFloat(added||0) : parseInt(added||0);
             currentBatchIds = Array.isArray(batchList) ? batchList.slice() : [];
             const input = document.getElementById('decreaseAmount');
             input.value = '';
+            // Set step and min based on unit type - boxes only accept integers
+            input.step = isKilo ? '0.01' : '1';
+            input.min = isKilo ? '0.01' : '1';
             input.max = currentBatchAvailable;
-            document.getElementById('modalBatchAdded').textContent = currentBatchAdded;
-            document.getElementById('modalBatchAvailable').textContent = currentBatchAvailable;
+            // Prevent decimal input for box products
+            if (!isKilo) {
+                input.setAttribute('pattern', '[0-9]*');
+            } else {
+                input.removeAttribute('pattern');
+            }
+            document.getElementById('modalBatchAdded').textContent = formatModalValue(currentBatchAdded, isKilo);
+            document.getElementById('modalBatchAvailable').textContent = formatModalValue(currentBatchAvailable, isKilo);
             const rangeEl = document.getElementById('modalBatchRange');
-            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
             const rangeText = isKilo ? '' : formatBatchIdRange(currentBatchIds).join(', ');
             rangeEl.textContent = rangeText ? `Remaining batch IDs: ${rangeText}` : '';
             const helper = document.getElementById('decreaseHelper');
-            const unitWord = isKilo ? (currentBatchAvailable === 1 ? 'kilo' : 'kilos') : (currentBatchAvailable === 1 ? 'box' : 'boxes');
-            helper.textContent = `Available: ${currentBatchAvailable} ${unitWord}.`;
+            const unitWord = isKilo ? 'kg' : (currentBatchAvailable === 1 ? 'box' : 'boxes');
+            helper.textContent = `Available: ${formatModalValue(currentBatchAvailable, isKilo)} ${unitWord}.`;
             const alertBox = document.getElementById('decreaseAlert');
             alertBox.innerHTML = '';
             renderRemovalPreview(0);
             const warnEl = document.getElementById('decreaseWarning');
-            if (warnEl){ warnEl.textContent = isKilo ? 'This will permanently deduct kilos from this batch.' : 'This will permanently deduct boxes from this batch and remove the earliest batch IDs listed. This action cannot be undone.'; }
+            if (warnEl){ warnEl.textContent = isKilo ? 'This will permanently deduct kg from this batch.' : 'This will permanently deduct boxes from this batch and remove the earliest batch IDs listed. This action cannot be undone.'; }
             if (!decreaseModal){
                 decreaseModal = new bootstrap.Modal(document.getElementById('decreaseStockModal'));
             }
             decreaseModal.show();
+
+            const confirmBtn = document.getElementById('confirmDecreaseBtn');
+            if (confirmBtn){
+                confirmBtn.disabled = false;
+                confirmBtn.onclick = function(){
+                    const inputEl = document.getElementById('decreaseAmount');
+                    const alertBoxLocal = document.getElementById('decreaseAlert');
+                    const isKilo = quantityUnit === 'kg';
+                    let inputValue = (inputEl.value || '0').trim();
+                    
+                    // For box products, ensure no decimals are entered
+                    if (!isKilo) {
+                        // Remove all non-numeric characters (including decimal points, 'e', 'E', '+', '-')
+                        const cleaned = inputValue.replace(/[^0-9]/g, '');
+                        if (cleaned !== inputValue) {
+                            inputValue = cleaned;
+                            inputEl.value = cleaned;
+                        }
+                        // If empty after cleaning, set to 0
+                        if (!inputValue) {
+                            inputValue = '0';
+                            inputEl.value = '0';
+                        }
+                    }
+                    
+                    // Parse as float for kg products, int for boxes
+                    let amt = isKilo ? parseFloat(inputValue) : parseInt(inputValue, 10);
+                    const minValue = isKilo ? 0.01 : 1;
+                    
+                    // Additional validation: for boxes, ensure it's a whole number
+                    if (!isKilo) {
+                        // Force integer conversion
+                        amt = Math.floor(Math.abs(amt));
+                        inputEl.value = String(amt);
+                    }
+                    
+                    if (isNaN(amt) || amt < minValue){
+                        alertBoxLocal.innerHTML = `<div class="alert alert-warning">Enter a valid amount (${minValue} to ${formatModalValue(currentBatchAvailable, isKilo)}).</div>`;
+                        return;
+                    }
+                    if (amt > currentBatchAvailable) {
+                        amt = currentBatchAvailable;
+                        inputEl.value = formatModalValue(currentBatchAvailable, isKilo);
+                    }
+                    confirmBtn.disabled = true;
+                    fetch(`/api/products/${productId}/stock/decrease/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken || '' },
+                        body: JSON.stringify({ addition_id: currentDecreaseAdditionId, amount: amt })
+                    }).then(r=>r.json()).then(resp=>{
+                        confirmBtn.disabled = false;
+                        if (!resp.success){
+                            alertBoxLocal.innerHTML = `<div class="alert alert-danger">${resp.message||'Failed to update stock.'}</div>`;
+                            return;
+                        }
+                        decreaseModal.hide();
+                        loadStockDetails(productId, currentPage);
+                    }).catch(()=>{
+                        confirmBtn.disabled = false;
+                        alertBoxLocal.innerHTML = `<div class="alert alert-danger">Failed to update stock.</div>`;
+                    });
+                };
+            }
         }
         function renderRemovalPreview(amount){
             const raw = parseInt(amount||'0');
@@ -1128,55 +1441,61 @@
                 document.getElementById('removalPreview').innerHTML = '';
                 return;
             }
-            const isKilo = quantityUnit.includes('kilo') || quantityUnit === 'kg';
+            const isKilo = quantityUnit === 'kg';
             if (isKilo){ document.getElementById('removalPreview').innerHTML = ''; return; }
             const amt = Math.min(raw, currentBatchAvailable||0);
             const ids = currentBatchIds.slice(0, amt);
             const html = ids.length ? `<div class="small text-muted mb-1">Will remove ${ids.length} box(es):</div>` + ids.map(id=>`<span class="batch-id-badge" style="background:#fde68a;border-color:#f59e0b;color:#a16207;">${id}</span>`).join('') : '';
             document.getElementById('removalPreview').innerHTML = html;
         }
+        // Prevent decimal point and scientific notation for box products
+        document.getElementById('decreaseAmount').addEventListener('keydown', function(e){
+            const isKilo = quantityUnit === 'kg';
+            if (!isKilo) {
+                // Prevent decimal point, 'e', 'E', '+', '-' for box products
+                if (e.key === '.' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+        
         document.getElementById('decreaseAmount').addEventListener('input', function(){
-            const str = (this.value || '').trim();
+            let str = (this.value || '').trim();
             if (!str) { renderRemovalPreview(0); return; }
-            let v = parseInt(str);
-            if (isNaN(v) || v < 1) { renderRemovalPreview(0); return; }
-            const maxV = parseInt(this.max || currentBatchAvailable || 1);
-            if (v > maxV) v = maxV;
-            this.value = v;
+            const isKilo = quantityUnit === 'kg';
+            
+            // For box products, aggressively remove any decimal point and digits after it
+            if (!isKilo) {
+                // Remove all non-numeric characters (including decimal points, 'e', 'E', '+', '-')
+                const cleaned = str.replace(/[^0-9]/g, '');
+                if (cleaned !== str) {
+                    this.value = cleaned;
+                    // If value is now empty, return early
+                    if (!cleaned) {
+                        renderRemovalPreview(0);
+                        return;
+                    }
+                    // Update str to cleaned value for parsing
+                    str = cleaned;
+                }
+            }
+            
+            // Parse as float for kg products, int for boxes
+            let v = isKilo ? parseFloat(str) : parseInt(str, 10);
+            const minValue = isKilo ? 0.01 : 1;
+            if (isNaN(v) || v < minValue) { 
+                renderRemovalPreview(0); 
+                return; 
+            }
+            const maxV = parseFloat(this.max || currentBatchAvailable || 1);
+            if (v > maxV) {
+                v = maxV;
+                this.value = isKilo ? formatModalValue(maxV, true) : String(Math.floor(maxV));
+            }
             renderRemovalPreview(v);
         });
-        document.getElementById('confirmDecreaseBtn').addEventListener('click', function(){
-            const inputEl = document.getElementById('decreaseAmount');
-            let amt = parseInt(inputEl.value || '0');
-            if (amt > currentBatchAvailable) {
-                amt = currentBatchAvailable;
-                inputEl.value = currentBatchAvailable;
-            }
-            if (!currentDecreaseAdditionId || !amt || amt < 1){
-                const alertBox = document.getElementById('decreaseAlert');
-                alertBox.innerHTML = `<div class="alert alert-warning">Enter a valid amount (1 to ${currentBatchAvailable}).</div>`;
-                return;
-            }
-            this.disabled = true;
-            fetch(`/api/products/${productId}/stock/decrease/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken || '' },
-                body: JSON.stringify({ addition_id: currentDecreaseAdditionId, amount: amt })
-            }).then(r=>r.json()).then(resp=>{
-                this.disabled = false;
-                if (!resp.success){
-                    const alertBox = document.getElementById('decreaseAlert');
-                    alertBox.innerHTML = `<div class="alert alert-danger">${resp.message||'Failed to update stock.'}</div>`;
-                    return;
-                }
-                decreaseModal.hide();
-                loadStockDetails(productId, currentPage);
-            }).catch(()=>{
-                this.disabled = false;
-                const alertBox = document.getElementById('decreaseAlert');
-                alertBox.innerHTML = `<div class="alert alert-danger">Failed to update stock.</div>`;
-            });
-        });
+        
     </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 - Case-insensitive match for duplicates and quantity_unit values.
 - Quantity input:
   - Box: numeric, non-negative, supports decimals.
-  - Kilo: no numeric value required; stored as "kilo".
+  - kg: no numeric value required; stored as "kg".
 - Pricing: price must be at least cost × 1.10; cost and price non-negative.
 - Stock: non-negative; FIFO used for deductions.
 - Server-side checks run on add and edit; client-side checks guide input.

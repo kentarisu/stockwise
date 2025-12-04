@@ -5,7 +5,7 @@ def is_unit_like(text: str) -> bool:
     if not text:
         return False
     t = str(text).strip().lower()
-    if t in ("kilo", "kg"):
+    if t == "kg":
         return True
     # Numeric sizes like 50, 100, 120, 130, etc.
     import re

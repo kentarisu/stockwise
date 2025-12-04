@@ -50,7 +50,7 @@
     "date_added": "2025-09-16",
     "price": "1233.79",
     "cost": "800.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 19,
     "is_built_in": false,
@@ -72,7 +72,7 @@
     "date_added": "2025-11-11",
     "price": "1100.00",
     "cost": "1000.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 48,
     "is_built_in": false,
@@ -138,7 +138,7 @@
     "date_added": "2025-11-18",
     "price": "1233.38",
     "cost": "1000.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 40,
     "is_built_in": false,
@@ -160,7 +160,7 @@
     "date_added": "2025-11-22",
     "price": "1100.00",
     "cost": "1000.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 0,
     "is_built_in": false,
@@ -270,7 +270,7 @@
     "date_added": "2025-11-23",
     "price": "235.75",
     "cost": "200.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 15,
     "is_built_in": false,
@@ -292,7 +292,7 @@
     "date_added": "2025-11-24",
     "price": "300.00",
     "cost": "200.00",
-    "quantity_unit": "kilo",
+    "quantity_unit": "kg",
     "low_stock_threshold": 10,
     "stock": 10,
     "is_built_in": false,
@@ -1007,7 +1007,7 @@
     "created_at": "2025-11-11T13:00:10.511Z",
     "remaining_quantity": "0.00",
     "cost": "0.00",
-    "batch_id": "AAkilo1111202501",
+    "batch_id": "AAkg1111202501",
     "supplier": null
   }
 },
@@ -1035,7 +1035,7 @@
     "created_at": "2025-11-18T15:45:50.387Z",
     "remaining_quantity": "40.00",
     "cost": "0.00",
-    "batch_id": "PPkilo1118202501",
+    "batch_id": "PPkg1118202501",
     "supplier": null
   }
 },
@@ -1049,7 +1049,7 @@
     "created_at": "2025-11-18T15:47:01.392Z",
     "remaining_quantity": "0.00",
     "cost": "0.00",
-    "batch_id": "AAkilo1118202502",
+    "batch_id": "AAkg1118202502",
     "supplier": null
   }
 },
@@ -1077,7 +1077,7 @@
     "created_at": "2025-11-18T17:57:21.895Z",
     "remaining_quantity": "0.00",
     "cost": "0.00",
-    "batch_id": "AAkilo1119202503",
+    "batch_id": "AAkg1119202503",
     "supplier": null
   }
 },
@@ -1147,7 +1147,7 @@
     "created_at": "2025-11-24T19:18:50.071Z",
     "remaining_quantity": "10.00",
     "cost": "0.00",
-    "batch_id": "BFkilo1125202501",
+    "batch_id": "BFkg1125202501",
     "supplier": null
   }
 },
@@ -1161,7 +1161,7 @@
     "created_at": "2025-11-24T19:20:56.852Z",
     "remaining_quantity": "15.00",
     "cost": "0.00",
-    "batch_id": "SFkilo1125202501",
+    "batch_id": "SFkg1125202501",
     "supplier": null
   }
 },
@@ -1315,7 +1315,7 @@
     "created_at": "2025-11-27T13:59:20.280Z",
     "remaining_quantity": "10.00",
     "cost": "0.00",
-    "batch_id": "Ckilo1127202501",
+    "batch_id": "Ckg1127202501",
     "supplier": null
   }
 },
@@ -3183,7 +3183,7 @@
     "user": 3,
     "message_type": "stock_alert",
     "demand_level": "high",
-    "message_content": "STOCKWISE Stock Alert\n\nCRITICAL - OUT OF STOCK:\n- Apple (Granny Smith) (Granny Smith) (50)\n- Papaya (Formosa) (Formosa) (kilo)\n- Pomegranate (Standard) (Standard) (10)\n\nWARNING - LOW STOCK:\n- Apple (Fuji) (Fuji) (130): 9 boxes left\n- Blueberry (Fresh) (Fresh) (kilo): 10 boxes left\n\n- STOCKWISE",
+    "message_content": "STOCKWISE Stock Alert\n\nCRITICAL - OUT OF STOCK:\n- Apple (Granny Smith) (Granny Smith) (50)\n- Papaya (Formosa) (Formosa) (kg)\n- Pomegranate (Standard) (Standard) (10)\n\nWARNING - LOW STOCK:\n- Apple (Fuji) (Fuji) (130): 9 boxes left\n- Blueberry (Fresh) (Fresh) (kg): 10 boxes left\n\n- STOCKWISE",
     "sent_at": "2025-11-24T21:20:29.391Z"
   }
 },
@@ -3195,7 +3195,7 @@
     "user": 3,
     "message_type": "pricing_alert",
     "demand_level": "high",
-    "message_content": "STOCKWISE Pricing\n\nApple (Red Delicious) (200)\nPHP 261 -> 220 (-16%)\nReason: Low sales activity\n\nApple (Fuji) (Fuji) (130)\nPHP 16 -> 19 (+20%)\nReason: Good sales trend\n\nApple (Gala) (Gala) (50)\nPHP 1071 -> 1285 (+20%)\nReason: Good sales trend\n\nPear (Packham) (Packham) (kilo)\nPHP 1265 -> 1297 (+2%)\nReason: Good sales trend\n\nSTOCKWISE",
+    "message_content": "STOCKWISE Pricing\n\nApple (Red Delicious) (200)\nPHP 261 -> 220 (-16%)\nReason: Low sales activity\n\nApple (Fuji) (Fuji) (130)\nPHP 16 -> 19 (+20%)\nReason: Good sales trend\n\nApple (Gala) (Gala) (50)\nPHP 1071 -> 1285 (+20%)\nReason: Good sales trend\n\nPear (Packham) (Packham) (kg)\nPHP 1265 -> 1297 (+2%)\nReason: Good sales trend\n\nSTOCKWISE",
     "sent_at": "2025-11-24T21:20:38.208Z"
   }
 },
@@ -3207,7 +3207,7 @@
     "user": 3,
     "message_type": "stock_alert",
     "demand_level": "mid",
-    "message_content": "STOCKWISE Stock Alert\n\nCRITICAL - OUT OF STOCK:\n1. Apple (Granny Smith) (50)\n2. Papaya (Formosa) (kilo)\n3. Pomegranate (Standard) (10)\n\nWARNING - LOW STOCK:\n1. Apple (Fuji) (130): 10 boxes left\n2. Blueberry (Fresh) (kilo): 10 kilos left\n\n",
+    "message_content": "STOCKWISE Stock Alert\n\nCRITICAL - OUT OF STOCK:\n1. Apple (Granny Smith) (50)\n2. Papaya (Formosa) (kg)\n3. Pomegranate (Standard) (10)\n\nWARNING - LOW STOCK:\n1. Apple (Fuji) (130): 10 boxes left\n2. Blueberry (Fresh) (kg): 10 kg left\n\n",
     "sent_at": "2025-11-26T16:46:54.231Z"
   }
 },
@@ -3219,7 +3219,7 @@
     "user": 3,
     "message_type": "sales_summary_daily",
     "demand_level": "mid",
-    "message_content": "STOCKWISE Daily Sales Report\n\nDate: November 27, 2025\n\n== OVERALL SUMMARY ==\n\nTotal Revenue: PHP 8,571.43\nTotal Boxes Sold: 20\nTotal Kilos Sold: 5\nTotal Transactions: 6\n\n== TOP PRODUCTS TODAY ==\n1. Apple (Red Delicious) (200)\nSold: 10 boxes\nRevenue: PHP 2,480.64\nRemaining: 90 boxes\n\n2. Strawberry (Fresh) (Fresh) (kilo)\nSold: 5 kilos\nRevenue: PHP 1,092.50\nRemaining: 15 kilos\n\n3. Apple (Gala) (Gala) (50)\nSold: 4 boxes\nRevenue: PHP 4,884.29\nRemaining: 15 boxes\n\n4. Longan (Yellow) (Yellow) (120)\nSol",
+    "message_content": "STOCKWISE Daily Sales Report\n\nDate: November 27, 2025\n\n== OVERALL SUMMARY ==\n\nTotal Revenue: PHP 8,571.43\nTotal Boxes Sold: 20\nTotal kg Sold: 5\nTotal Transactions: 6\n\n== TOP PRODUCTS TODAY ==\n1. Apple (Red Delicious) (200)\nSold: 10 boxes\nRevenue: PHP 2,480.64\nRemaining: 90 boxes\n\n2. Strawberry (Fresh) (Fresh) (kg)\nSold: 5 kg\nRevenue: PHP 1,092.50\nRemaining: 15 kg\n\n3. Apple (Gala) (Gala) (50)\nSold: 4 boxes\nRevenue: PHP 4,884.29\nRemaining: 15 boxes\n\n4. Longan (Yellow) (Yellow) (120)\nSol",
     "sent_at": "2025-11-27T13:54:19.795Z"
   }
 },
@@ -6814,7 +6814,7 @@
     "user": null,
     "role": "System",
     "action": "Automatic SMS: LOW STOCK Alert",
-    "details": "Product: Apple (Ambit) (kilo)\nStock: 1 boxes\nRecipients: admin",
+    "details": "Product: Apple (Ambit) (kg)\nStock: 1 boxes\nRecipients: admin",
     "ip_address": "127.0.0.1",
     "user_agent": "StockWise Automated System",
     "created_at": "2025-11-19T21:39:23.369Z"
@@ -10792,7 +10792,7 @@
     "user": null,
     "role": "System",
     "action": "Automatic SMS: LOW STOCK Alert",
-    "details": "Product: Blueberry (Fresh) (kilo)\nStock: 10 boxes\nRecipients: admin\nMessage Codes: iSms-ktp5pf",
+    "details": "Product: Blueberry (Fresh) (kg)\nStock: 10 boxes\nRecipients: admin\nMessage Codes: iSms-ktp5pf",
     "ip_address": "127.0.0.1",
     "user_agent": "StockWise Automated System",
     "created_at": "2025-11-24T19:18:50.856Z"
@@ -18501,7 +18501,7 @@
     "user": 3,
     "role": "admin",
     "action": "Stock Decreased",
-    "details": "Product 281 (Pear (Packham)), Batch Ppkilo1118202501, Amount 4",
+    "details": "Product 281 (Pear (Packham)), Batch Ppkg1118202501, Amount 4",
     "ip_address": "127.0.0.1",
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
     "created_at": "2025-11-27T03:58:35.287Z"
@@ -22583,7 +22583,7 @@
     "user": null,
     "role": "System",
     "action": "Automatic Sms Low Stock Alert",
-    "details": "Product Cherry (Kilo)\nStock 9 Boxes\nRecipients Admin\nMessage Codes Isms-Rttnwd",
+    "details": "Product Cherry (kg)\nStock 9 Boxes\nRecipients Admin\nMessage Codes Isms-Rttnwd",
     "ip_address": "127.0.0.1",
     "user_agent": "StockWise Automated System",
     "created_at": "2025-11-27T13:58:18.128Z"
@@ -22609,7 +22609,7 @@
     "user": 3,
     "role": "admin",
     "action": "Post /Productsinventory/Post/",
-    "details": "Role: Admin\nStatuscode: 200\nDurationms: 1958\nQuery: \nBody: Action Buy, Items Productid277,Namecherry (Rainer),Variantrainer,Quantityunitkilo,Quantity10,Price1233.79,Amount12337.9, Amountpaid 12000, Discountpct 5, Discountamount 616.895, Customername , Custome\nReferer: Http//Localhost8000/Sales/Record/",
+    "details": "Role: Admin\nStatuscode: 200\nDurationms: 1958\nQuery: \nBody: Action Buy, Items Productid277,Namecherry (Rainer),Variantrainer,Quantityunitkg,Quantity10,Price1233.79,Amount12337.9, Amountpaid 12000, Discountpct 5, Discountamount 616.895, Customername , Custome\nReferer: Http//Localhost8000/Sales/Record/",
     "ip_address": "127.0.0.1",
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0",
     "created_at": "2025-11-27T13:58:18.151Z"

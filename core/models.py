@@ -20,7 +20,7 @@ class Product(models.Model):
 	cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	quantity_unit = models.CharField(max_length=50)
 	low_stock_threshold = models.IntegerField(default=10)
-	stock = models.IntegerField(default=0)
+	stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Supports decimal for kg products
 	is_built_in = models.BooleanField(default=False)  # Distinguishes built-in products from inventory products
 	supplier = models.CharField(max_length=100, null=True, blank=True)
 	qr_code = models.BinaryField(default=b'')  # VARBINARY(MAX)
@@ -42,13 +42,14 @@ class Product(models.Model):
 class StockAddition(models.Model):
 	addition_id = models.AutoField(primary_key=True)
 	product = models.ForeignKey(Product, on_delete=models.CASCADE)
-	quantity = models.IntegerField(default=0)
+	quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Supports decimal for kg products
 	date_added = models.DateTimeField(default=timezone.now)
 	created_at = models.DateTimeField(auto_now_add=True)
 	remaining_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	batch_id = models.CharField(max_length=20)
 	supplier = models.CharField(max_length=100, null=True, blank=True)
+	spoiled = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Supports decimal for kg products
 
 	class Meta:
 		db_table = 'stock_additions'
@@ -91,7 +92,7 @@ class Sale(models.Model):
 
 	sale_id = models.AutoField(primary_key=True)
 	product = models.ForeignKey(Product, on_delete=models.PROTECT)
-	quantity = models.IntegerField(default=0)
+	quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Supports decimal for kg products
 	price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	transaction_number = models.CharField(max_length=32, default='')
 	or_number = models.CharField(max_length=32, default='')

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from datetime import datetime, timedelta
 from core.models import Sale, Product, AppUser, SMSNotificationSettings, SMS
 from core.sms_service import sms_service
@@ -237,7 +237,7 @@ class Command(BaseCommand):
             total_sales = today_sales.count()
             total_revenue = today_sales.aggregate(total=Sum('total'))['total'] or 0
             total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
-            kilos_sold = today_sales.filter(product__quantity_unit__iexact='kilo').aggregate(total=Sum('quantity'))['total'] or 0
+            kilos_sold = today_sales.filter(Q(product__quantity_unit__iexact='kg')).aggregate(total=Sum('quantity'))['total'] or 0
             
             # Get top selling products with revenue
             top_products = (today_sales
@@ -577,7 +577,7 @@ class Command(BaseCommand):
         message += "== OVERALL SUMMARY ==\n\n"
         message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
         message += f"Total Boxes Sold: {int(total_boxes)}\n"
-        message += f"Total Kilos Sold: {int(kilos_sold or 0)}\n"
+        message += f"Total kg Sold: {int(kilos_sold or 0)}\n"
         message += f"Total Transactions: {int(total_sales)}\n\n"
         if top_products:
             message += "== TOP PRODUCTS TODAY ==\n"
@@ -588,8 +588,8 @@ class Command(BaseCommand):
                 remaining = int(product.get('product__stock') or 0)
                 sold_qty = int(product.get('quantity') or 0)
                 revenue = float(product.get('revenue') or 0)
-                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
-                rem_label = ('kilo' if unit == 'kilo' and remaining == 1 else 'kilos' if unit == 'kilo' else 'box' if remaining == 1 else 'boxes')
+                unit_label = 'kg' if unit == 'kg' else 'boxes'
+                rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
                 label = f"{name}"
                 if variant:
                     label += f" ({variant})"
@@ -631,7 +631,7 @@ class Command(BaseCommand):
             message += "WARNING - LOW STOCK:\n"
             for i, product in enumerate(low_stock_products, 1):
                 unit = (getattr(product, 'quantity_unit', '') or '').strip().lower()
-                unit_label = 'kilos' if unit == 'kilo' else 'boxes'
+                unit_label = 'kg' if unit == 'kg' else 'boxes'
                 label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
                 message += f"{i}. {label}: {int(product.stock)} {unit_label} left\n"
             message += "\n"

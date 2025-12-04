@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="StockWise">
@@ -273,15 +273,15 @@
           <div class="stock-item">
             <div class="row g-3 align-items-end">
             <div class="col-md-4">
-              <label class="form-label">Product</label>
-              <select class="form-select stock-product-select" required>
+              <label class="form-label" for="stockProductSelect">Product</label>
+              <select class="form-select stock-product-select" id="stockProductSelect" required title="Product">
                 <option value="">Select a product</option>
               </select>
                 <div class="stock-indicator text-muted"></div>
             </div>
             <div class="col-md-3">
-              <label class="form-label quantity-label">Boxes to Add</label>
-              <input type="number" class="form-control stock-quantity" min="1" required>
+              <label class="form-label quantity-label" for="stockQuantity">Boxes to Add</label>
+              <input type="number" class="form-control stock-quantity" id="stockQuantity" min="1" required title="Quantity to add" placeholder="Enter quantity">
                 <div style="height: 18px; visibility: hidden;">&nbsp;</div>
             </div>
             <div class="col-md-3">
@@ -319,8 +319,8 @@
       
       <div class="form-section date-recorded-section">
         <div class="d-flex align-items-center gap-2">
-        <label class="form-label mb-0">Date Added:</label>
-          <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="stockDateDisplay" readonly>
+        <label class="form-label mb-0" for="stockDateDisplay">Date Added:</label>
+          <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="stockDateDisplay" readonly title="Date added">
         <input type="hidden" id="stockDate" value="{{ today|date:'Y-m-d' }}">
           <small class="text-muted">Set to today and cannot be changed.</small>
       </div>
@@ -542,7 +542,7 @@ function populateProductSelect(sel){
   console.log('Product select populated with', products.length, 'products');
 }
 function validateStockItems(){ let ok=true; $('.stock-item').each(function(){ const p=$(this).find('.stock-product-select').val(); const q=$(this).find('.stock-quantity').val(); if(!p||!q||q<1){ ok=false; return false; } }); $('#saveStockBtn').prop('disabled', !ok); return ok; }
-function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const st=product.stock||0; const unit=(product.quantity_unit||'').toLowerCase(); const unitLabel=(unit.includes('kilo')||unit==='kg')?'kilo':'boxes'; $disp.text(`Current Stock: ${st} ${unitLabel}`); $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); if(st<=0){ $disp.addClass('stock-indicator-red'); } else if(st<=10){ $disp.addClass('stock-indicator-yellow'); } else { $disp.addClass('stock-indicator-green'); } } } else { $disp.text(''); $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); } }
+function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const st=product.stock||0; const unit=(product.quantity_unit||'').toLowerCase(); const unitLabel=(unit==='kg')?'kg':'boxes'; $disp.text(`Current Stock: ${st} ${unitLabel}`); $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); if(st<=0){ $disp.addClass('stock-indicator-red'); } else if(st<=10){ $disp.addClass('stock-indicator-yellow'); } else { $disp.addClass('stock-indicator-green'); } } } else { $disp.text(''); $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); } }
 
 async function updateBatchIdPreview(stockItem) {
   const $item = $(stockItem);
@@ -560,7 +560,7 @@ async function updateBatchIdPreview(stockItem) {
   }
   const product = products.find(p=>p.product_id==productId);
   const unit = (product?.quantity_unit||'').toLowerCase();
-  const isKilo = unit.includes('kilo') || unit==='kg';
+  const isKilo = unit==='kg';
   if (isKilo) {
     $previewBox.addClass('d-none');
     $previewLabel.addClass('d-none');
@@ -647,7 +647,7 @@ $(document).ready(function(){
     const $qtyLabel=$item.find('.quantity-label');
     if(pid){ let duplicate=false; $('.stock-product-select').not($this).each(function(){ if($(this).val()==pid){ duplicate=true; }}); if(duplicate){ $('#addStockFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">This product is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } const sp=products.find(pp=>pp.product_id==pid); const selBase=sp && sp.name ? (sp.name.split('(')[0].trim() || sp.name.trim()) : ''; const hasSameBaseElsewhere=$('.stock-product-select').not($this).toArray().some(el=>{ const v=$(el).val(); if(!v) return false; const p=products.find(pp=>pp.product_id==v); const b=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; return b===selBase; }); const isVariantFiltered=!!$this.data('baseFilter'); if(!isVariantFiltered && hasSameBaseElsewhere){ $('#addStockFormAlert').html('<div class=\"alert alert-info alert-dismissible fade show\" role=\"alert\">This base is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } }
     updateCurrentStock(this); 
-    if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const unit=(product.quantity_unit||'').toLowerCase(); if(unit.includes('kilo')||unit==='kg'){ $qtyLabel.text('Kilo to Add'); } else { $qtyLabel.text('Boxes to Add'); } } }
+    if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const unit=(product.quantity_unit||'').toLowerCase(); if(unit==='kg'){ $qtyLabel.text('kg to Add'); } else { $qtyLabel.text('Boxes to Add'); } } }
     validateStockItems(); 
     updateBatchIdPreview($item);
     updateStockProductSelects();

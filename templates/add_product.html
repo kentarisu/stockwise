@@ -330,7 +330,7 @@
                     <input type="number" class="form-control" id="productSizeDisplay" name="quantity_value" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled>
                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit" disabled>
                         <option value="box" selected>Box</option>
-                        <option value="kilo">Kilo</option>
+                        <option value="kg">kg</option>
                     </select>
                 </div>
             </div>
@@ -437,7 +437,7 @@ function searchBuiltInProducts(query) {
     });
 }
 
-// Global helper: set unit to Kilo when CSV sizes include 'Kilo'
+// Global helper: set unit to kg when CSV sizes include 'kg'
 function applyUnitFromCSV(){
     const base = $('#productNameDisplay').val().trim(); if (!base) return;
     const varText = $('#productVariantDisplay').val().trim();
@@ -445,9 +445,9 @@ function applyUnitFromCSV(){
     $.get('{% url "fruit_master_sizes" %}', { name: base, variant: varText })
      .done(function(resp){
         const vals = (resp && resp.success && resp.data) ? resp.data : [];
-        const hasKilo = vals.some(v => String(v).trim().toLowerCase() === 'kilo');
+    const hasKilo = vals.some(v => { const t=String(v).trim().toLowerCase(); return t === 'kg'; });
         if (hasKilo) {
-            $unit.val('kilo').trigger('change');
+            $unit.val('kg').trigger('change');
         } else {
             $unit.val('box').trigger('change');
         }
@@ -544,7 +544,7 @@ function setupProductAutocomplete() {
     });
     $size.on('focus', function(){
         const unitNow = ($unit.val() || 'box').toLowerCase();
-        if (unitNow === 'kilo') { return; }
+        if (unitNow === 'kg') { return; }
         const base = ensureName(); if (!base) return;
         const varText = $variant.val().trim();
         $.get('{% url "fruit_master_sizes" %}', { name: base, variant: varText })
@@ -594,7 +594,7 @@ $(document).ready(function(){
         formData.set('variant', variantVal);
         const unitSel = (formData.get('quantity_unit') || 'box').toLowerCase();
         const quantityVal = formData.get('quantity_value');
-        if (unitSel === 'kilo') {
+        if (unitSel === 'kg') {
             formData.set('quantity_value', '');
         }
         const price = parseFloat(formData.get('price'));
@@ -606,7 +606,7 @@ $(document).ready(function(){
             showPageAlert('Product name can contain letters, spaces, and hyphens only.', 'danger');
             return;
         }
-        if (unitSel !== 'kilo') {
+        if (unitSel !== 'kg') {
             const qn = parseFloat(quantityVal);
             if (isNaN(qn) || qn < 0) { showPageAlert('Product quantity is required.', 'danger'); return; }
         }
@@ -682,18 +682,18 @@ $(document).ready(function(){
     updateMinPriceHint();
     validatePriceAgainstMin();
 
-    // Quantity unit behavior: when Kilo is picked, remove suggestions (no choosing);
+    // Quantity unit behavior: when kg is picked, remove suggestions (no choosing);
     // when Box is picked, re-enable suggestions list.
         (function(){
             const $qty = $('#productSizeDisplay');
             const $unit = $('#quantityUnitSelect');
             const applyUnitBehavior = () => {
                 const unit = ($unit.val() || 'box').toLowerCase();
-                if (unit === 'kilo') {
+                if (unit === 'kg') {
                     $qty.val('');
                     $qty.prop('disabled', true);
-                    $qty.attr('placeholder', 'Kilo');
-                    $('#stockLabel').text('Initial Stock (Kilo)');
+                    $qty.attr('placeholder', 'kg');
+                    $('#stockLabel').text('Initial Stock (kg)');
                 } else {
                     $qty.prop('disabled', false);
                     $qty.attr('placeholder', 'Enter quantity');

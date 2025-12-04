@@ -8061,6 +8061,7 @@ def generate_and_store_pricing_recommendations():
     from core.pricing_ai import DemandPricingAI, PolicyConfig
     from core.models import Sale, Product, PricingRecommendation
     from datetime import datetime, timedelta
+    from django.utils import timezone
     import pandas as pd
     
     end_date = datetime.now().date()
@@ -8088,12 +8089,12 @@ def generate_and_store_pricing_recommendations():
     # Configure pricing AI
     cfg = PolicyConfig(
         min_margin_pct=0.10,
-        max_move_pct=0.20,
+        max_move_pct=0.12,
         cooldown_days=3,
         planning_horizon_days=7,
-        min_obs_per_product=3,
+        min_obs_per_product=5,
         default_elasticity=-1.0,
-        hold_band_pct=0.02,
+        hold_band_pct=0.03,
     )
     
     # Generate recommendations
@@ -8211,9 +8212,9 @@ def get_pricing_recommendations(request):
             if is_silent:
                 try:
                     from core.models import SMSNotificationSettings, SMS, ActionLog
-                    settings = SMSNotificationSettings.get_settings()
+                    sms_settings = SMSNotificationSettings.get_settings()
                     now_local = timezone.localtime()
-                    phh, pmm = [int(x) for x in str(getattr(settings, 'pricing_time', '08:00')).split(':')]
+                    phh, pmm = [int(x) for x in str(getattr(sms_settings, 'pricing_time', '08:00')).split(':')]
                     scheduled_dt = now_local.replace(hour=phh, minute=pmm, second=0, microsecond=0)
                     user_id = request.session.get('app_user_id') or request.session.get('user_id')
                     last_sms = SMS.objects.filter(user_id=user_id, message_type='pricing_alert').order_by('-sent_at').first()

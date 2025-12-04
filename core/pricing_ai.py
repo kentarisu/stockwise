@@ -231,11 +231,27 @@ class DemandPricingAI:
                 e = cfg.default_elasticity
 
             # Price search (bounded grid around current price)
+            total_sales_count = len(hist)
+            # Dynamic aggressiveness caps based on recent data volume and model confidence
+            local_max_move = cfg.max_move_pct
+            if total_sales_count < 6:
+                local_max_move = min(local_max_move, 0.06)
+            elif total_sales_count < 10:
+                local_max_move = min(local_max_move, 0.10)
+            if r2 < 0.3:
+                local_max_move = min(local_max_move, 0.08)
+            local_hold_band = cfg.hold_band_pct
+            if total_sales_count < 6:
+                local_hold_band = max(local_hold_band, 0.04)
+            elif total_sales_count < 10:
+                local_hold_band = max(local_hold_band, 0.03)
+            if r2 < 0.3:
+                local_hold_band = max(local_hold_band, 0.03)
             candidates = []
             for mult in cfg.grid_steps:
                 p_new = current_price * mult
-                # Clamp to +/- max_move_pct
-                if p_new < current_price * (1 - cfg.max_move_pct) or p_new > current_price * (1 + cfg.max_move_pct):
+                # Clamp to +/- local_max_move
+                if p_new < current_price * (1 - local_max_move) or p_new > current_price * (1 + local_max_move):
                     continue
 
                 # Enforce minimum margin
@@ -273,7 +289,7 @@ class DemandPricingAI:
 
             change_pct = (p_new / current_price) - 1.0
             action = "HOLD"
-            if abs(change_pct) >= self.cfg.hold_band_pct:
+            if abs(change_pct) >= local_hold_band:
                 action = "INCREASE" if change_pct > 0 else "DECREASE"
 
             # Explain reason based on demand pressure & coverage
@@ -282,7 +298,6 @@ class DemandPricingAI:
                 days_cover = self._days_of_cover(on_hand, base_daily)
 
             # Calculate actual sales statistics for user-friendly reason
-            total_sales_count = len(hist)
             total_qty_sold = hist['quantity'].sum() if 'quantity' in hist.columns else nobs
             
             # Generate user-friendly reason

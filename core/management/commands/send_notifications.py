@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Expose a simple wrapper for SMS sending so tests can patch it easily
 def send_sms(phone_number, message):
-    return sms_service.send_sms(phone_number, message, allow_multipart=True)
+    return sms_service.send_sms(phone_number, message, allow_multipart=False)
 
 def schedule_now(phone_number, message):
     try:
@@ -23,7 +23,7 @@ def schedule_now(phone_number, message):
     res = sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
     msg = str(res.get('message','')) if isinstance(res, dict) else ''
     if (not res.get('success')) and (('403' in msg) or ('approved sender name' in msg.lower())):
-        return sms_service.send_sms(phone_number, message, allow_multipart=True)
+        return sms_service.send_sms(phone_number, message, allow_multipart=False)
     return res
 
 def _normalize_text(msg):
@@ -292,7 +292,7 @@ class Command(BaseCommand):
                             changed = False
                         if not changed:
                             continue
-                result = schedule_chunked(admin.phone_number, message)
+                result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')
@@ -379,7 +379,7 @@ class Command(BaseCommand):
             for admin in admins:
                 if SMS.objects.filter(user=admin, message_type='stock_alert', sent_at__gte=now - timezone.timedelta(minutes=30)).exists():
                     continue
-                result = send_sms_chunked(admin.phone_number, message)
+                result = send_sms(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')
@@ -510,7 +510,7 @@ class Command(BaseCommand):
                         if local_recent.date() == now_local.date():
                             # Already sent today; skip duplicate
                             continue
-                result = schedule_chunked(admin.phone_number, message)
+                result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
                         code = result.get('message_code')

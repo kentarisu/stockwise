@@ -280,7 +280,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-{% if not session_expired and (seconds_remaining is not None or minutes_remaining is not None) %}
+{% if not session_expired %}
 <script>
 document.addEventListener('DOMContentLoaded',function(){
   var totalSeconds = Math.max(0, parseInt('{{ seconds_remaining|default:0 }}',10));

@@ -317,7 +317,9 @@
             if (q && nm.toLowerCase().indexOf(q) === -1) return;
             namesSet.add(nm);
         });
-        const items = Array.from(namesSet).map(n => ({ name: n }));
+        const items = Array.from(namesSet)
+            .sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}))
+            .map(n => ({ name: n }));
         displayNameSuggestions(items);
     }
  
@@ -328,6 +330,8 @@
             dropdown.html('<div class="dropdown-item text-muted">No products found</div>').show();
             return;
         }
+        // Ensure alphabetical order regardless of source order
+        items.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'en',{sensitivity:'base'}));
         items.forEach(p => {
             const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
             option.on('click', function(){

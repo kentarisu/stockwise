@@ -326,6 +326,9 @@
             border-color: #ef4444;
             color: #fff;
         }
+        .action-btns { display: flex; gap: 0.5rem; width: 100%; flex-wrap: nowrap; }
+        .action-btns .btn { flex: 1 1 0; min-width: 0; }
+        @media (max-width: 480px) { .action-btns .btn { padding: 0.45rem 0.5rem; font-size: 0.82rem; } }
         
         .payment-summary-table {
             width: 100%;
@@ -351,6 +354,7 @@
             .payment-summary-table table {
                 font-size: 0.8rem;
                 width: 100%;
+                table-layout: auto;
             }
             .payment-summary-table th,
             .payment-summary-table td {
@@ -364,7 +368,7 @@
             /* Make description column wrap */
             .payment-summary-table tbody td:first-child,
             .payment-summary-table thead th:first-child {
-                max-width: 140px;
+                max-width: 120px;
                 white-space: normal;
                 word-wrap: break-word;
                 overflow-wrap: break-word;
@@ -372,18 +376,20 @@
             /* Reduce column widths */
             .payment-summary-table thead th:nth-child(2),
             .payment-summary-table tbody td:nth-child(2) {
-                width: 50px;
-                min-width: 50px;
+                width: 48px;
+                min-width: 48px;
             }
             .payment-summary-table thead th:nth-child(3),
             .payment-summary-table tbody td:nth-child(3) {
-                width: 60px;
-                min-width: 60px;
+                width: 64px;
+                min-width: 64px;
+                white-space: nowrap;
             }
             .payment-summary-table thead th:nth-child(4),
             .payment-summary-table tbody td:nth-child(4) {
-                width: 70px;
-                min-width: 70px;
+                width: 92px;
+                min-width: 92px;
+                white-space: nowrap;
             }
         }
         
@@ -632,20 +638,16 @@
         </div>
       </div>
 
-      <div class="d-flex justify-content-between align-items-center mt-3">
-        <div>
-          <button type="button" class="btn btn-outline-secondary" id="backToStep1" style="display:none;">Back</button>
-        </div>
-        <div>
-          <button type="button" class="btn btn-outline-secondary" id="cancelBtn">Cancel</button>
-          <button type="button" class="btn btn-primary" id="nextToStep2">Proceed to Payment</button>
-          <button type="button" class="btn btn-success" id="confirmPaymentStep" style="display:none;" disabled>Confirm Payment</button>
-          <button type="button" class="btn btn-success" id="recordSaleBtn" style="display:none;">Record Transaction</button>
-          <button type="button" class="btn btn-outline-success" id="printReceiptBtn" style="display:none;">Print Receipt</button>
-          <button type="button" class="btn btn-outline-success" id="printReceiptAfterBtn" style="display:none;">Print Receipt</button>
-          <button type="button" class="btn btn-success" id="doneBtn" style="display:none;">Done</button>
-</div>
-</div>
+      <div class="action-btns mt-3">
+        <button type="button" class="btn btn-outline-secondary" id="backToStep1" style="display:none;">Back</button>
+        <button type="button" class="btn btn-outline-secondary" id="cancelBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="nextToStep2">Proceed to Payment</button>
+        <button type="button" class="btn btn-success" id="confirmPaymentStep" style="display:none;" disabled>Confirm Payment</button>
+        <button type="button" class="btn btn-success" id="recordSaleBtn" style="display:none;">Record Transaction</button>
+        <button type="button" class="btn btn-outline-success" id="printReceiptBtn" style="display:none;">Print Receipt</button>
+        <button type="button" class="btn btn-outline-success" id="printReceiptAfterBtn" style="display:none;">Print Receipt</button>
+        <button type="button" class="btn btn-success" id="doneBtn" style="display:none;">Done</button>
+      </div>
 </div>
 </div>
 </div>
@@ -1017,7 +1019,7 @@ function recordSale(){
   const customerAddress=toTitleCase($('#customerAddress').val()||'');
   if(customerContact && customerContact.length!==11){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Contact number must be exactly 11 digits.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; }
   const saleData={ action:'buy', items: JSON.stringify(items), amount_paid: amountPaid, discount_pct: discountPct, discount_amount: discountAmount, customer_name: customerName, customer_contact: customerContact, customer_address: customerAddress, transaction_number: transactionNumber, or_number: orNumber, purchase_date: new Date().toISOString().split('T')[0], csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val() };
-  return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; } if(resp.transaction_number){ transactionNumber=String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); } if(resp.or_number){ orNumber=String(resp.or_number); $('#orNumber').text(orNumber); } }catch(e){} $('#saleSuccessMessage').hide(); if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Sale recorded successfully!', 'success', 6000); } else { alert('Sale recorded successfully!'); } $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); try { $('#cancelBtn').text('Record Again').off('click').on('click', function(){ try { if (window.top && window.top.location) { window.top.location.href = "{% url 'record_sale_main' %}"; } else { window.location.href = "{% url 'record_sale_main' %}"; } } catch(e){ window.location.href = "{% url 'record_sale_main' %}"; } }); } catch(_){ } } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }});
+  return $.ajax({ url: "{% url 'handle_product_post' %}", method:'POST', data:saleData, success:function(resp){ if(resp.success){ try{ if(resp.sale_ids && resp.sale_ids.length){ const savedId=parseInt(resp.sale_ids[0],10); window.lastRecordedSaleId=!Number.isNaN(savedId)?savedId:null; } if(resp.transaction_number){ transactionNumber=String(resp.transaction_number); $('#transactionNumber').text(transactionNumber); } if(resp.or_number){ orNumber=String(resp.or_number); $('#orNumber').text(orNumber); } }catch(e){} $('#saleSuccessMessage').hide(); if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Sale recorded successfully!', 'success', 6000); } else { alert('Sale recorded successfully!'); } $('#printReceiptBtn').hide(); $('#printReceiptAfterBtn,#doneBtn').show(); if(!SALE_PAGE_CONFIG || !SALE_PAGE_CONFIG.isQRMode){ try { $('#cancelBtn').text('Record Again').off('click').on('click', function(){ try { if (window.top && window.top.location) { window.top.location.href = "{% url 'record_sale_main' %}"; } else { window.location.href = "{% url 'record_sale_main' %}"; } } catch(e){ window.location.href = "{% url 'record_sale_main' %}"; } }); } catch(_){ } } else { $('#cancelBtn').hide(); } } else { $('#buyFormAlert').html(`<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">${resp.message}<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>`); }}, error:function(){ $('#buyFormAlert').html('<div class=\"alert alert-danger alert-dismissible fade show\" role=\"alert\">Error recording sale. Please try again.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); }});
 }
  // Detect if device is mobile/tablet or desktop
  function isMobileOrTablet() {
@@ -1301,6 +1303,7 @@ function showPrinterErrorModal(message){
 
 
 $(document).ready(function(){
+  if(SALE_PAGE_CONFIG && SALE_PAGE_CONFIG.isQRMode){ $('#cancelBtn').hide(); }
   $('#purchaseDate').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   loadActiveProducts();
   showStep(1);

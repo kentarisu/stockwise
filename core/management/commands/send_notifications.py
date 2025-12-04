@@ -209,7 +209,7 @@ class Command(BaseCommand):
                 return
             # Additional duplicate suppression window to prevent concurrent sends
             try:
-                recent_window = timezone.localtime() - timezone.timedelta(minutes=3)
+                recent_window = timezone.localtime() - timezone.timedelta(minutes=1)
                 recent_global = SMS.objects.filter(
                     message_type='sales_summary_daily',
                     sent_at__gt=recent_window
@@ -225,7 +225,7 @@ class Command(BaseCommand):
                     )
                 except Exception:
                     pass
-                self.stdout.write(self.style.WARNING('Suppressed duplicate daily sales summary within 3-minute window.'))
+                self.stdout.write(self.style.WARNING('Suppressed duplicate daily sales summary within 1-minute window.'))
                 return
 
             # Get today's sales data (since we're sending at 8:00 PM)
@@ -469,23 +469,32 @@ class Command(BaseCommand):
             has_actionable = actionable_qs.exists()
             # Global duplicate suppression window (handles concurrent workers)
             try:
-                dup_window = now_local - timezone.timedelta(minutes=3)
+                dup_window = now_local - timezone.timedelta(minutes=1)
                 recent_pricing_global = SMS.objects.filter(
                     message_type='pricing_alert',
                     sent_at__gt=dup_window
                 ).exists()
             except Exception:
                 recent_pricing_global = False
-            if recent_pricing_global and not force and not allow_resend_today:
+            # Additional suppression via action logs to avoid race conditions
+            try:
+                from core.models import ActionLog
+                recent_log_global = ActionLog.objects.filter(
+                    action__startswith='Automatic SMS: Pricing Recommendations',
+                    created_at__gt=dup_window
+                ).exists()
+            except Exception:
+                recent_log_global = False
+            if (recent_pricing_global or recent_log_global) and not force and not allow_resend_today:
                 try:
                     from core.views import log_system_action
                     log_system_action(
                         action='Automatic SMS: Pricing Recommendations (Skipped)',
-                        details='Status: Duplicate suppression (recent send within 3 minutes)'
+                        details='Status: Duplicate suppression (recent send within 1 minute)'
                     )
                 except Exception:
                     pass
-                self.stdout.write(self.style.WARNING('Suppressed duplicate pricing recommendations within 3-minute window.'))
+                self.stdout.write(self.style.WARNING('Suppressed duplicate pricing recommendations within 1-minute window.'))
                 return
             for admin in admins:
                 recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()

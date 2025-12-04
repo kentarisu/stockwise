@@ -390,21 +390,57 @@ def format_log_details(details: str) -> str:
 
     def _normalize_value(key: str, value: str) -> str:
         val_raw = str(value).strip()
+        masked_email = False
         if '@' in val_raw:
             val_raw = _mask_email(val_raw)
+            masked_email = True
         # Simplify full URLs to path only
         import re as _re
         if key.lower() in ('referer', 'referrer', 'path', 'page'):
             val_raw = _re.sub(r'^https?://[^/]+', '', val_raw, flags=_re.IGNORECASE)
-        val = sanitize_text(val_raw, 200)
+        # Do not title-case masked emails
+        val = val_raw if masked_email else sanitize_text(val_raw, 200)
         # Append units for duration
         if _friendly_label(key) == 'Duration (ms)':
             try:
-                if val.isdigit():
+                if (val if isinstance(val, str) else str(val)).isdigit():
                     val = f"{val} ms"
             except Exception:
                 pass
         return val
+
+    def _humanize_phrase(text_line: str) -> str:
+        import re as _re
+        t = (text_line or '').strip()
+        # Email updated from X to Y
+        m = _re.match(r'(?i)^email\s+updated\s+from\s+(.+?)\s+to\s+(.+?)\.?$', t, flags=_re.IGNORECASE)
+        if m:
+            old = _mask_email(m.group(1).strip())
+            new = _mask_email(m.group(2).strip())
+            return f"Email updated from {old} to {new}"
+        # Updated secretary <username> (ID N)
+        m = _re.match(r'(?i)^updated\s+secretary\s+([A-Za-z0-9_\-]+)\s*\(id\s*(\d+)\)\.?$', t, flags=_re.IGNORECASE)
+        if m:
+            uname = sanitize_text(m.group(1), 60)
+            return f"Secretary account updated: {uname}"
+        # User logged in with username/password (Role)
+        m = _re.match(r'(?i)^user\s+logged\s+in\s+with\s+username/password\s*\(([^)]+)\)\.?$', t, flags=_re.IGNORECASE)
+        if m:
+            who = m.group(1).strip()
+            who_disp = sanitize_text(who, 40)
+            return f"Login success ({who_disp})"
+        # User logged out of the system
+        if _re.match(r'(?i)^user\s+logged\s+out\s+of\s+the\s+system\.?$', t, flags=_re.IGNORECASE):
+            return "Logout"
+        # Account enabled/disabled
+        m = _re.match(r'(?i)^account\s+(enabled|disabled)\.?$', t, flags=_re.IGNORECASE)
+        if m:
+            return f"Account {m.group(1).lower()}"
+        # Default
+        # Avoid title-case on masked email-only lines
+        if '@' in t and '*' in t:
+            return t
+        return sanitize_text(t, 200)
 
     if isinstance(obj, dict):
         for k, v in obj.items():
@@ -440,7 +476,7 @@ def format_log_details(details: str) -> str:
                 norm = _normalize_value(key, val)
                 lines.append(f"{label}: {norm}")
             else:
-                lines.append(sanitize_text(p, 200))
+                lines.append(_humanize_phrase(p))
     result = "\n".join(lines)
     if len(result) > 2000:
         result = result[:2000]
@@ -7814,7 +7850,6 @@ def update_notification_settings(request):
         pricing_enabled = request.POST.get('pricing_enabled') == 'true'
         sales_time = request.POST.get('sales_time', '20:00')
         stock_threshold = int(request.POST.get('stock_threshold', 10))
-        pricing_sensitivity = request.POST.get('pricing_sensitivity', 'moderate')
         pricing_time = (request.POST.get('pricing_time') or '08:00')
         try:
             pricing_frequency_days = int(request.POST.get('pricing_frequency_days', 3))
@@ -7834,9 +7869,6 @@ def update_notification_settings(request):
         if pricing_frequency_days < 1 or pricing_frequency_days > 30:
             return JsonResponse({'success': False, 'message': 'Pricing frequency must be between 1 and 30 days'})
         
-        # Validate pricing_sensitivity
-        if pricing_sensitivity not in ['conservative', 'moderate', 'aggressive']:
-            return JsonResponse({'success': False, 'message': 'Invalid pricing sensitivity value'})
         
         # Detect available DB columns to avoid errors on deployments missing recent migrations
         from django.db import connection
@@ -7867,11 +7899,10 @@ def update_notification_settings(request):
             settings.pricing_enabled = pricing_enabled
             settings.sales_time = sales_time
             settings.stock_threshold = stock_threshold
-            settings.pricing_sensitivity = pricing_sensitivity
             settings.pricing_time = pricing_time
             settings.pricing_frequency_days = pricing_frequency_days
             settings.save(update_fields=[
-                'sales_enabled','stock_enabled','pricing_enabled','sales_time','stock_threshold','pricing_sensitivity','pricing_time','pricing_frequency_days'
+                'sales_enabled','stock_enabled','pricing_enabled','sales_time','stock_threshold','pricing_time','pricing_frequency_days'
             ])
         else:
             # Partial update path: update only supported columns
@@ -7881,7 +7912,6 @@ def update_notification_settings(request):
                 'pricing_enabled': pricing_enabled,
                 'sales_time': sales_time,
                 'stock_threshold': stock_threshold,
-                'pricing_sensitivity': pricing_sensitivity,
             }
             available = {k: v for k, v in updates.items() if k in cols}
             # Ensure there is at least one row; create minimal if empty
@@ -7908,14 +7938,14 @@ def update_notification_settings(request):
             log_action(
                 request,
                 'SMS notification settings changed',
-                '; '.join(changes) + f' (Sales time: {sales_time}, Stock threshold: {stock_threshold}, Pricing sensitivity: {pricing_sensitivity})'
+                '; '.join(changes) + f' (Sales time: {sales_time}, Stock threshold: {stock_threshold})'
             )
         else:
             # Still log if settings were saved (even if no status changes)
             log_action(
                 request,
                 'SMS notification settings updated',
-                f'Settings saved: sales={sales_enabled}, stock={stock_enabled}, pricing={pricing_enabled}, time={sales_time}, threshold={stock_threshold}, sensitivity={pricing_sensitivity}'
+                f'Settings saved: sales={sales_enabled}, stock={stock_enabled}, pricing={pricing_enabled}, time={sales_time}, threshold={stock_threshold}'
             )
         
         return JsonResponse({
@@ -7927,7 +7957,6 @@ def update_notification_settings(request):
                 'pricing_enabled': pricing_enabled,
                 'sales_time': sales_time,
                 'stock_threshold': stock_threshold,
-                'pricing_sensitivity': pricing_sensitivity,
                 'pricing_time': pricing_time,
                 'pricing_frequency_days': pricing_frequency_days
             }
@@ -7997,9 +8026,21 @@ def get_notification_stats(request):
         stats = {
             'messages_today': messages_today,
             'messages_week': SMS.objects.filter(sent_at__gte=week_ago_start).count(),
-            'stock_alerts': SMS.objects.filter(message_type='stock_alert', sent_at__gte=week_ago_start).count(),
-            'sales_summaries': SMS.objects.filter(message_type='sales_summary_daily', sent_at__gte=week_ago_start).count(),
-            'pricing_alerts': SMS.objects.filter(message_type='pricing_alert', sent_at__gte=week_ago_start).count(),
+            'stock_alerts': SMS.objects.filter(
+                message_type='stock_alert',
+                sent_at__gte=today_start,
+                sent_at__lt=today_end
+            ).count(),
+            'sales_summaries': SMS.objects.filter(
+                message_type='sales_summary_daily',
+                sent_at__gte=today_start,
+                sent_at__lt=today_end
+            ).count(),
+            'pricing_alerts': SMS.objects.filter(
+                message_type='pricing_alert',
+                sent_at__gte=today_start,
+                sent_at__lt=today_end
+            ).count(),
             'last_sales': format_datetime(last_sales),
             'last_stock': format_datetime(last_stock),
             'last_pricing': format_datetime(last_pricing)
@@ -8014,10 +8055,8 @@ def get_notification_stats(request):
 
 def generate_and_store_pricing_recommendations():
     """
-    Generate pricing recommendations for display only.
-    
-    Do not persist auto-generated recommendations. Only accepted recommendations
-    are stored for reporting.
+    Generate pricing recommendations and persist them with 3-day expiration.
+    Existing non-expired recommendations are replaced to keep the batch fresh.
     """
     from core.pricing_ai import DemandPricingAI, PolicyConfig
     from core.models import Sale, Product, PricingRecommendation
@@ -8082,6 +8121,31 @@ def generate_and_store_pricing_recommendations():
             })
         except Product.DoesNotExist:
             continue
+    # Persist recommendations (replace current batch)
+    try:
+        now_ts = timezone.now()
+        expires = now_ts + timezone.timedelta(days=3)
+        # Clear existing non-expired to avoid duplicates
+        PricingRecommendation.objects.filter(expires_at__gt=now_ts).delete()
+        to_create = []
+        for r in recommendations:
+            p = Product.objects.get(product_id=r['product_id'])
+            to_create.append(PricingRecommendation(
+                product=p,
+                current_price=r['current_price'],
+                suggested_price=r['suggested_price'],
+                change_pct=r['change_pct'],
+                action=r['action'],
+                reason=r['reason'],
+                elasticity=r.get('elasticity'),
+                r2=r.get('r2'),
+                confidence=r.get('confidence'),
+                expires_at=expires
+            ))
+        if to_create:
+            PricingRecommendation.objects.bulk_create(to_create)
+    except Exception:
+        pass
     return recommendations
 
 

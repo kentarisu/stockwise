@@ -43,9 +43,9 @@ class Command(BaseCommand):
                 from core.models import ActionLog
                 from django.utils import timezone as _tz
                 now_local = _tz.localtime(_tz.now())
-                recent_cutoff = now_local - _tz.timedelta(minutes=3)
+                recent_cutoff = now_local - _tz.timedelta(minutes=1)
                 if ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations', created_at__gte=recent_cutoff).exists() and not force:
-                    self.stdout.write(self.style.WARNING('Skip: Pricing recommendations recently logged (≤3 min); preventing duplicate send'))
+                    self.stdout.write(self.style.WARNING('Skip: Pricing recommendations recently logged (≤1 min); preventing duplicate send'))
                     return
             except Exception:
                 pass

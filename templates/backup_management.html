@@ -891,10 +891,7 @@
                                                 {% endif %}
                                             </div>
                                         </div>
-                                        <span class="backup-status {% if backup.is_verified %}status-verified{% else %}status-missing{% endif %}">
-                                            <i class="bi bi-{% if backup.is_verified %}check-circle{% else %}x-circle{% endif %}"></i>
-                                            {% if backup.is_verified %}Verified{% else %}Missing{% endif %}
-                                        </span>
+                                        
                                     </div>
                                     <div class="backup-actions">
                                         <a href="{% url 'download_backup' backup.backup_id %}" class="btn-action btn-download">

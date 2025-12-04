@@ -164,10 +164,6 @@
       <h5 class="m-0"><i class="bi bi-qr-code-scan me-2"></i>QR Code Verification</h5>
       {% if request.session.app_user_id %}
       <div class="d-flex gap-2 align-items-center">
-        <div class="qr-verified-badge">
-          <i class="bi bi-shield-check"></i>
-          VERIFIED
-        </div>
         <div class="admin-badge">
           <i class="bi bi-person-badge"></i>
           {{ request.session.app_role|upper|default:"USER" }}

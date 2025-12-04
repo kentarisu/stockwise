@@ -4198,7 +4198,8 @@ def fetch_reports(request):
 
             for pr in prs:
                 # Skip HOLD recommendations - they should not appear in accepted pricing
-                if pr.action and pr.action.upper() == 'HOLD':
+                action_str = str(pr.action or '').strip().upper()
+                if action_str == 'HOLD':
                     continue
                 name_raw = pr.product.name if pr.product else 'Unknown'
                 base_name = re.sub(r"\s*\([^)]*\)\s*", "", name_raw).strip()
@@ -8492,7 +8493,8 @@ def generate_and_store_pricing_recommendations():
         to_create = []
         for r in recommendations:
             # Skip HOLD recommendations - they should not be stored
-            if r.get('action') and str(r['action']).upper() == 'HOLD':
+            action_str = str(r.get('action') or '').strip().upper()
+            if action_str == 'HOLD':
                 continue
             p = Product.objects.get(product_id=r['product_id'])
             to_create.append(PricingRecommendation(
@@ -8540,8 +8542,12 @@ def get_pricing_recommendations(request):
             recommendations = []
             seen = set()
             for rec in valid_qs:
+                # Skip if product is missing (shouldn't happen with CASCADE, but be defensive)
+                if not rec.product:
+                    continue
                 # Skip HOLD recommendations - they should not appear in dashboard offcanvas
-                if rec.action and rec.action.upper() == 'HOLD':
+                action_str = str(rec.action or '').strip().upper()
+                if action_str == 'HOLD':
                     continue
                 key = (rec.product.product_id, float(rec.suggested_price))
                 if key in seen:
@@ -8553,7 +8559,8 @@ def get_pricing_recommendations(request):
                 chg_pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
                 action = rec.action if delta >= 0.01 else 'HOLD'
                 # Double-check: skip if action is HOLD
-                if action and action.upper() == 'HOLD':
+                action_str = str(action or '').strip().upper()
+                if action_str == 'HOLD':
                     continue
                 recommendations.append({
                     'recommendation_id': rec.recommendation_id,
@@ -9465,7 +9472,8 @@ def apply_pricing_recommendation(request):
                 change_pct = ((float(new_price) / float(old_price)) - 1.0) * 100.0
             action = provided_action if provided_action in ('INCREASE', 'DECREASE', 'HOLD') else ('INCREASE' if float(new_price) > float(old_price) else 'DECREASE' if float(new_price) < float(old_price) else 'HOLD')
             # Don't create records for HOLD actions
-            if action and action.upper() == 'HOLD':
+            action_str = str(action or '').strip().upper()
+            if action_str == 'HOLD':
                 pass  # Skip creating HOLD records
             else:
                 reason = provided_reason or 'Accepted by admin via dashboard.'
@@ -9627,7 +9635,8 @@ def send_pricing_notification(request):
                         expires_at = timezone.now() + timedelta(days=3)
                         for _, rec in unique_proposals.iterrows():
                             # Skip HOLD recommendations - they should not be stored
-                            if rec.get('action') and str(rec['action']).upper() == 'HOLD':
+                            action_str = str(rec.get('action') or '').strip().upper()
+                            if action_str == 'HOLD':
                                 continue
                             try:
                                 p = Product.objects.get(product_id=rec['product_id'])

@@ -142,7 +142,8 @@ class Command(BaseCommand):
                     expires_at = timezone.now() + timezone.timedelta(days=3)
                     for _, rec in unique_proposals.iterrows():
                         # Skip HOLD recommendations - they should not be stored
-                        if rec.get('action') and str(rec['action']).upper() == 'HOLD':
+                        action_str = str(rec.get('action') or '').strip().upper()
+                        if action_str == 'HOLD':
                             continue
                         try:
                             product = Product.objects.get(product_id=rec['product_id'])

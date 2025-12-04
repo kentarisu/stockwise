@@ -2,8 +2,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Required meta tags -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="StockWise">
@@ -237,6 +238,7 @@
         .sidebar {
             width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
+            -webkit-backdrop-filter: blur(20px);
             backdrop-filter: blur(20px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
             position: fixed;
@@ -2016,8 +2018,8 @@
                         </div>
                         <div class="col">
                             <div class="form-group">
-                                <label class="form-label">Status</label>
-                                <select class="form-select" id="filterSelect">
+                                <label class="form-label" for="filterSelect">Status</label>
+                                <select class="form-select" id="filterSelect" aria-label="Filter by status">
                                     <option value="All Products">All Products</option>
                                     <option value="Active">Active Only</option>
                                     <option value="Discontinued">Discontinued</option>
@@ -2026,8 +2028,8 @@
                         </div>
                         <div class="col">
                             <div class="form-group">
-                                <label class="form-label">Products</label>
-                                <select class="form-select" id="productFilter">
+                                <label class="form-label" for="productFilter">Products</label>
+                                <select class="form-select" id="productFilter" aria-label="Filter by product">
                                     <option value="all">All Products</option>
                                     {% for fruit in fruits %}
                                     <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
@@ -2037,8 +2039,8 @@
                         </div>
                         <div class="col">
                             <div class="form-group">
-                                <label class="form-label">Quantity</label>
-                                <select class="form-select" id="unitFilter">
+                                <label class="form-label" for="unitFilter">Quantity</label>
+                                <select class="form-select" id="unitFilter" aria-label="Filter by quantity unit">
                                     <option value="all">All Units</option>
                                     <option value="box">Boxes</option>
                                     <option value="kg">kg</option>
@@ -2047,8 +2049,8 @@
                         </div>
                         <div class="col">
                             <div class="form-group">
-                                <label class="form-label">Sort By</label>
-                                <select class="form-select" id="sortOrderSelect">
+                                <label class="form-label" for="sortOrderSelect">Sort By</label>
+                                <select class="form-select" id="sortOrderSelect" aria-label="Sort products by">
                                     <option value="alpha">Alphabetical (A–Z)</option>
                                     <option value="date_new">Date Added (Newest)</option>
                                     <option value="date_old">Date Added (Oldest)</option>
@@ -2449,7 +2451,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Delete</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     Are you sure you want to delete this product? This action cannot be undone.

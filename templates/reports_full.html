@@ -4631,9 +4631,25 @@
                 let endDate = '';
                 const today = new Date();
                 
-                if (filterType === 'custom' && customStart && customEnd) {
-                    startDate = customStart;
-                    endDate = customEnd;
+                if (filterType === 'custom') {
+                    // Use customStart/customEnd if available, otherwise fall back to startDate/endDate
+                    if (customStart && customEnd) {
+                        startDate = customStart;
+                        endDate = customEnd;
+                    } else if (startDate && endDate) {
+                        // Fallback to startDate/endDate if customStart/customEnd not set
+                        // startDate and endDate are already set, no need to reassign
+                    } else {
+                        // Custom range selected but dates not set - show error
+                        const printBtn = $('#printReportBtn');
+                        printBtn.prop('disabled', false).html('<i class="bi bi-printer"></i> Print Report');
+                        if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                            window.modernInventorySystem.showNotification('Please select a custom date range first.', 'warning', 6000);
+                        } else {
+                            alert('Please select a custom date range first.');
+                        }
+                        return;
+                    }
                 } else if (filterType === 'today') {
                     const localISO = (dt) => {
                         const y = dt.getFullYear();
@@ -4775,7 +4791,9 @@
                 fruitFilter: $('#productFilter').val() || 'all',
                 currentReportType: currentReportType || 'sales',
                 startDate: startDate || '',
-                endDate: endDate || ''
+                endDate: endDate || '',
+                customStart: customStart || '',
+                customEnd: customEnd || ''
             };
             localStorage.setItem('reports_filters', JSON.stringify(filters));
         }
@@ -4819,6 +4837,8 @@
             }
             if (saved.startDate) startDate = saved.startDate;
             if (saved.endDate) endDate = saved.endDate;
+            if (saved.customStart) customStart = saved.customStart;
+            if (saved.customEnd) customEnd = saved.customEnd;
         }
 
         $(document).ready(function() {
@@ -4933,8 +4953,26 @@
                 const fruitFilter = $('#productFilter').val() || 'all';
                 let s = '', e = '';
                 const now = new Date();
-                if (filterType === 'custom' && typeof customStart !== 'undefined' && typeof customEnd !== 'undefined' && customStart && customEnd) {
-                    s = customStart; e = customEnd;
+                if (filterType === 'custom') {
+                    // Use customStart/customEnd if available, otherwise fall back to startDate/endDate
+                    if (customStart && customEnd) {
+                        s = customStart;
+                        e = customEnd;
+                    } else if (startDate && endDate) {
+                        // Fallback to startDate/endDate if customStart/customEnd not set
+                        s = startDate;
+                        e = endDate;
+                    } else {
+                        // Custom range selected but dates not set - show error
+                        errorMessage.textContent = 'Please select a custom date range first. Click on "Custom Range" in the date filter dropdown to set your dates.';
+                        loadingDiv.style.display = 'none';
+                        errorDiv.classList.remove('d-none');
+                        frame.style.display = 'none';
+                        exportBtn.style.display = 'none';
+                        const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
+                        modal.show();
+                        return;
+                    }
                 } else if (filterType === 'today') {
                     s = now.toISOString().slice(0,10); e = s;
                 } else if (filterType === 'week') {

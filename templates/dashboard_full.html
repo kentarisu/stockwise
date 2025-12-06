@@ -2183,6 +2183,7 @@
                     e.stopPropagation();
                     if (dashboardRefreshSpinner) dashboardRefreshSpinner.classList.remove('d-none');
                     dashboardRefreshBtn.disabled = true;
+                    // Reload page to reset everything (like browser refresh)
                     setTimeout(() => { window.location.reload(); }, 200);
                 });
             }

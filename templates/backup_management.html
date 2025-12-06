@@ -1180,6 +1180,7 @@
                     e.stopPropagation();
                     if (backupsRefreshSpinner) backupsRefreshSpinner.classList.remove('d-none');
                     backupsRefreshBtn.disabled = true;
+                    // Reload page to reset everything (like browser refresh)
                     setTimeout(() => { window.location.reload(); }, 200);
                 });
             }

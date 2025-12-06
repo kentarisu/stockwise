@@ -2392,10 +2392,8 @@
                     e.stopPropagation();
                     if (profileRefreshSpinner) profileRefreshSpinner.classList.remove('d-none');
                     profileRefreshBtn.disabled = true;
-                    setTimeout(() => {
-                        if (profileRefreshSpinner) profileRefreshSpinner.classList.add('d-none');
-                        profileRefreshBtn.disabled = false;
-                    }, 600);
+                    // Reload page to reset everything (like browser refresh)
+                    setTimeout(() => { window.location.reload(); }, 200);
                 });
             }
         });

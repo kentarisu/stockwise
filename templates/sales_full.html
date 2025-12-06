@@ -2968,7 +2968,21 @@
         refreshBtn?.addEventListener('click', function() {
             if (refreshSpinner) refreshSpinner.classList.remove('d-none');
             refreshBtn.disabled = true;
-            saveSalesFilters();
+            
+            // Reset ALL filters to defaults
+            const rangeFilterEl = document.getElementById('rangeFilter');
+            if (rangeFilterEl) rangeFilterEl.value = 'today';
+            if (dateInput) {
+                dateInput.valueAsDate = new Date();
+            }
+            const userFilterEl = document.getElementById('userFilter');
+            if (userFilterEl) userFilterEl.value = 'all';
+            const productFilterEl = document.getElementById('productFilter');
+            if (productFilterEl) productFilterEl.value = 'all';
+            const searchFilterEl = document.getElementById('searchFilter');
+            if (searchFilterEl) searchFilterEl.value = '';
+            clearSalesFilters();
+            
             Promise.all([updateSummaryCards(), new Promise(resolve => setTimeout(resolve, 800))])
                 .finally(() => {
                     refreshBtn.disabled = false;

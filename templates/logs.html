@@ -1316,9 +1316,24 @@
                     e.stopPropagation();
                     if (refreshSpinner) refreshSpinner.classList.remove('d-none');
                     refreshBtn.disabled = true;
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 200);
+                    
+                    // Reset ALL filters to defaults
+                    if (dateRangeSelect) dateRangeSelect.value = 'today';
+                    if (userSelect) userSelect.value = 'all';
+                    customStart = '';
+                    customEnd = '';
+                    if (dateStartInput) dateStartInput.value = '';
+                    if (dateEndInput) dateEndInput.value = '';
+                    updateRangeLabels();
+                    
+                    // Submit the form with reset values to reload with defaults
+                    if (filtersForm) {
+                        filtersForm.submit();
+                    } else {
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 200);
+                    }
                 });
             }
             

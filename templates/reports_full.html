@@ -5123,7 +5123,18 @@
                 e.stopPropagation();
                 if (reportsRefreshSpinner) reportsRefreshSpinner.classList.remove('d-none');
                 reportsRefreshBtn.disabled = true;
-                saveReportsFilters();
+                
+                // Reset ALL filters to defaults
+                $('#dateRange').val('today');
+                $('#userFilter').val('all');
+                $('#productFilter').val('all');
+                startDate = '';
+                endDate = '';
+                customStart = '';
+                customEnd = '';
+                updateRangeLabels();
+                clearReportsFilters();
+                
                 Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
                     reportsRefreshBtn.disabled = false;
                     reportsRefreshSpinner?.classList.add('d-none');

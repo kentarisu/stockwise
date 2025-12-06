@@ -2873,7 +2873,15 @@
                 e.stopPropagation();
                 if (inventoryRefreshSpinner) inventoryRefreshSpinner.classList.remove('d-none');
                 inventoryRefreshBtn.disabled = true;
-                saveFilters();
+                
+                // Reset ALL filters to defaults
+                $('#searchInput').val('');
+                $('#filterSelect').val('All Products');
+                $('#productFilter').val('all');
+                $('#unitFilter').val('all');
+                $('#sortOrderSelect').val('alpha');
+                clearFilters();
+                
                 Promise.all([updateInventoryCards(), new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
                     inventoryRefreshBtn.disabled = false;
                     inventoryRefreshSpinner?.classList.add('d-none');

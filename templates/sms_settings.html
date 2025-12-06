@@ -2035,13 +2035,8 @@
                 e.stopPropagation();
                 if (smsRefreshSpinner) smsRefreshSpinner.classList.remove('d-none');
                 smsRefreshBtn.disabled = true;
-                try { saveNotificationSettings(); } catch (_) {}
-                loadNotificationStats();
-                // Do not auto-generate pricing recommendations after a settings refresh
-                Promise.all([new Promise(resolve => setTimeout(resolve, 800))]).finally(() => {
-                    smsRefreshBtn.disabled = false;
-                    smsRefreshSpinner?.classList.add('d-none');
-                });
+                // Reload page to reset everything (like browser refresh)
+                setTimeout(() => { window.location.reload(); }, 200);
             });
         });
 

@@ -4444,7 +4444,20 @@ def export_report(request):
 
         # Use the same comprehensive calculation logic as fetch_reports
         base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
-        date_range = _resolve_report_range(filter_type, start_date, end_date)
+        # For custom range, resolve dates directly from start_date and end_date
+        if filter_type == 'custom' and start_date and end_date:
+            try:
+                tz = timezone.get_current_timezone()
+                start_dt = timezone.make_aware(datetime.strptime(start_date, '%Y-%m-%d'), tz)
+                end_dt = timezone.make_aware(datetime.strptime(end_date, '%Y-%m-%d'), tz).replace(
+                    hour=23, minute=59, second=59, microsecond=999999
+                )
+                date_range = (start_dt, end_dt)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing custom dates: {e}")
+                date_range = None
+        else:
+            date_range = _resolve_report_range(filter_type, start_date, end_date)
         sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
         
         # Apply filters
@@ -4471,6 +4484,15 @@ def export_report(request):
                     Q(customer_name__icontains=search) |
                     Q(transaction_number__icontains=search)
                 ).distinct()
+        
+        # Check if there's any data to generate a report - do this early before PDF generation
+        if not sales_queryset.exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'No sales data found for the selected filters. Please adjust your date range, user, or product filters and try again.',
+                'error': 'No data available',
+                'error_id': timezone.now().strftime('%Y%m%d%H%M%S')
+            }, status=400)
         
         # Get previous period for comparison
         previous_queryset = base_queryset.none()

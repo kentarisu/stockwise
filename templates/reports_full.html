@@ -2863,156 +2863,14 @@
                             </div>
                             <div class="modal-body">
                                 <div class="mb-3">
-3333333322222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222.333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <label for="customStart" class="form-label">Start Date</label>
                                     <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
-                                    <div class="form-text" id="reportCustomStartHint"></div>
+                                    <div class="form-text" id="customStartHint">Format: MM/DD/YYYY</div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="customEnd" class="form-label">End Date</label>
                                     <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
-                                    <div class="form-text" id="reportCustomEndHint"></div>
+                                    <div class="form-text" id="customEndHint">Format: MM/DD/YYYY</div>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -3022,6 +2880,141 @@
                         </div>
                     </div>
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                 
 
@@ -3095,7 +3088,7 @@
                                     <option value="today">Today</option>
                                     <option value="week">This Week</option>
                                     <option value="month">This Month</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="custom">Custom Range</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -3661,6 +3654,7 @@
                 $('#dateRange option[value="custom"]').text('Custom Range');
             }
             
+            // Set dates based on selection (but don't open modal here - that's handled by change event)
             if (selectedValue === 'today') {
                 // start and end are already today (local)
                 startDate = localISO(today);
@@ -3672,24 +3666,13 @@
                 startDate = localISO(monthStart);
                 endDate = localISO(today);
             } else if (selectedValue === 'custom') {
-                // If custom dates are already set, use them
+                // Use existing custom dates if set
                 if (customStart && customEnd) {
                 startDate = customStart;
                 endDate = customEnd;
                 } else {
-                    // Open custom range modal
-                    const customRangeModal = new bootstrap.Modal(document.getElementById('customRangeModal'));
-                    $('#customStart').val(customStart ? formatUSDateStr(new Date(customStart)) : formatUSDateStr(today));
-                    $('#customEnd').val(customEnd ? formatUSDateStr(new Date(customEnd)) : formatUSDateStr(today));
-                    try {
-                        const sHint = document.getElementById('reportCustomStartHint');
-                        const eHint = document.getElementById('reportCustomEndHint');
-                        const pattern = 'MM/DD/YYYY';
-                        if (sHint) sHint.textContent = `Format: ${pattern}`;
-                        if (eHint) eHint.textContent = `Format: ${pattern}`;
-                    } catch(_) {}
-                    customRangeModal.show();
-                    return; // Don't trigger loadReports yet, wait for modal apply
+                    startDate = localISO(today);
+                    endDate = localISO(today);
                 }
             }
             
@@ -4366,7 +4349,6 @@
                 $('#reportDetailPaymentRef').text(transaction.payment_reference || 'N/A');
                 $('#reportDetailDepositRef').text(transaction.deposit_reference || 'N/A');
                 $('#reportDetailNotes').text(transaction.notes || 'None');
-                $('#reportDetailVoidReason').text(transaction.void_reason || 'N/A');
                 $('#reportDetailRestocked').text(transaction.restocked || 'No');
 
                 const statusBadge = $('#reportDetailStatus');
@@ -4376,6 +4358,16 @@
                 else if (status === 'cancelled' || status === 'voided') statusBadge.addClass('status-cancelled');
                 else statusBadge.addClass('status-default');
                 statusBadge.text((transaction.status || 'N/A').toUpperCase());
+
+                // Show/hide void reason based on status
+                const voidReasonItem = $('#voidReasonMetaItem');
+                const voidReasonValue = $('#reportDetailVoidReason');
+                if (status === 'voided' || status === 'cancelled') {
+                    voidReasonItem.show();
+                    voidReasonValue.text(transaction.void_reason || 'N/A');
+                } else {
+                    voidReasonItem.hide();
+                }
 
                 const itemsBody = $('#reportDetailItems');
                 itemsBody.empty();
@@ -4435,10 +4427,15 @@
                         const priceRaw = item.price ?? 0;
                         const price = typeof priceRaw === 'string' ? parseFloat(priceRaw.replace(/,/g,'')) : Number(priceRaw);
                         const amount = Number(item.total_price ?? item.amount ?? (qty * price));
+                        // Format quantity: show decimals for kg, integer for boxes
+                        const isKg = unit && unit.toLowerCase() === 'kg';
+                        const qtyFormatted = isKg 
+                            ? (qty === Math.floor(qty) ? String(Math.floor(qty)) : qty.toFixed(2))
+                            : String(Math.floor(qty));
                         itemsBody.append(`
                             <tr>
                                 <td>${desc}</td>
-                                <td class="text-end">${qty}</td>
+                                <td class="text-end">${qtyFormatted}</td>
                                 <td class="text-end amount-col">${formatCurrency(price || 0)}</td>
                                 <td class="text-end amount-col">${formatCurrency(amount || 0)}</td>
                             </tr>
@@ -4815,12 +4812,59 @@
                 loadReports();
             }, 100);
 
+            // Function to open custom range modal
+            function openCustomRangeModal() {
+                const customRangeModal = new bootstrap.Modal(document.getElementById('customRangeModal'));
+                const today = new Date();
+                $('#customStart').val(customStart ? formatUSDateStr(new Date(customStart)) : formatUSDateStr(today));
+                $('#customEnd').val(customEnd ? formatUSDateStr(new Date(customEnd)) : formatUSDateStr(today));
+                try {
+                    const sHint = document.getElementById('customStartHint');
+                    const eHint = document.getElementById('customEndHint');
+                    const pattern = 'MM/DD/YYYY';
+                    if (sHint) sHint.textContent = `Format: ${pattern}`;
+                    if (eHint) eHint.textContent = `Format: ${pattern}`;
+                } catch(_) {}
+                customRangeModal.show();
+            }
+            
+            // Handle date range change - open modal when custom is selected
             $('#dateRange').on('change', function() {
                 console.log('dateRange changed to:', $(this).val());
+                const selectedValue = $(this).val();
                 saveReportsFilters();
+                
+                if (selectedValue === 'custom') {
+                    // Open modal when custom is selected
+                    openCustomRangeModal();
+                    // Don't call updateRangeLabels or loadReports here - wait for modal apply
+                } else {
                 updateRangeLabels();
-                if ($(this).val() !== 'custom') {
                     loadReports();
+                }
+            });
+            
+            // Allow reselection: when clicking on select while custom is selected,
+            // temporarily change value to 'today' so clicking 'custom' will trigger change event
+            let isReselecting = false;
+            $('#dateRange').on('mousedown', function() {
+                const $select = $(this);
+                if ($select.val() === 'custom' && !isReselecting) {
+                    isReselecting = true;
+                    // Temporarily change to 'today' so clicking custom will trigger change event
+                    $select.val('today');
+                    
+                    // After a delay, check if user selected something else or clicked custom
+                    setTimeout(() => {
+                        // If still 'today', user didn't select custom, restore it
+                        if ($select.val() === 'today') {
+                            $select.val('custom');
+                        }
+                        // Reset flag after dropdown interaction completes
+                        setTimeout(() => {
+                            isReselecting = false;
+                        }, 100);
+                    }, 200);
                 }
             });
 
@@ -4847,6 +4891,7 @@
                     customEnd = eISO;
                     startDate = sISO;
                     endDate = eISO;
+                    updateRangeLabels(); // Update dropdown text to show dates
                     saveReportsFilters();
                     $('#customRangeModal').modal('hide');
                     loadReports();
@@ -4970,6 +5015,10 @@
                             <div class="meta-item">
                                 <span class="meta-label">Processed By</span>
                                 <span class="meta-value" id="reportDetailProcessedBy">N/A</span>
+                            </div>
+                            <div class="meta-item" id="voidReasonMetaItem" style="display: none;">
+                                <span class="meta-label">Void Reason</span>
+                                <span class="meta-value" id="reportDetailVoidReason">N/A</span>
                             </div>
                         </div>
 

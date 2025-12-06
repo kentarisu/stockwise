@@ -1012,6 +1012,23 @@
                                 <small class="text-muted">The file must be a valid StockWise backup containing saved data and images/files. Maximum size: 500MB.</small>
                             </div>
                         </div>
+                        <!-- Upload Progress Bar -->
+                        <div id="uploadProgressContainer" class="mb-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Upload Progress</small>
+                                <small class="text-muted" id="uploadProgressPercent">0%</small>
+                            </div>
+                            <div class="progress" style="height: 25px;">
+                                <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%" 
+                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    <span id="uploadProgressText">0%</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted" id="uploadStatusText">Preparing upload...</small>
+                            </div>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -1228,8 +1245,42 @@
             // Upload & Restore button
             document.getElementById('uploadRestoreBtn').addEventListener('click', function() {
                 const modal = new bootstrap.Modal(document.getElementById('uploadRestoreModal'));
+                // Reset form and progress when opening modal
+                document.getElementById('uploadRestoreForm').reset();
+                const progressContainer = document.getElementById('uploadProgressContainer');
+                if (progressContainer) {
+                    progressContainer.style.display = 'none';
+                }
                 modal.show();
             });
+            
+            // Reset progress when modal is closed
+            const uploadModal = document.getElementById('uploadRestoreModal');
+            if (uploadModal) {
+                uploadModal.addEventListener('hidden.bs.modal', function() {
+                    const progressContainer = document.getElementById('uploadProgressContainer');
+                    if (progressContainer) {
+                        progressContainer.style.display = 'none';
+                    }
+                    const progressBar = document.getElementById('uploadProgressBar');
+                    if (progressBar) {
+                        progressBar.style.width = '0%';
+                        progressBar.setAttribute('aria-valuenow', '0');
+                    }
+                    const progressText = document.getElementById('uploadProgressText');
+                    if (progressText) {
+                        progressText.textContent = '0%';
+                    }
+                    const progressPercent = document.getElementById('uploadProgressPercent');
+                    if (progressPercent) {
+                        progressPercent.textContent = '0%';
+                    }
+                    const statusText = document.getElementById('uploadStatusText');
+                    if (statusText) {
+                        statusText.textContent = 'Preparing upload...';
+                    }
+                });
+            }
 
             // Confirm upload & restore
             document.getElementById('confirmUploadRestoreBtn').addEventListener('click', async function() {
@@ -1272,38 +1323,103 @@
                 btn.disabled = true;
                 btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading & Restoring...';
                 
+                // Show progress bar
+                const progressContainer = document.getElementById('uploadProgressContainer');
+                const progressBar = document.getElementById('uploadProgressBar');
+                const progressPercent = document.getElementById('uploadProgressPercent');
+                const progressText = document.getElementById('uploadProgressText');
+                const statusText = document.getElementById('uploadStatusText');
+                progressContainer.style.display = 'block';
+                
+                // Reset progress
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', '0');
+                progressText.textContent = '0%';
+                progressPercent.textContent = '0%';
+                statusText.textContent = 'Preparing upload...';
+                
                 try {
                     const formData = new FormData();
                     formData.append('backup_file', file);
                     formData.append('csrfmiddlewaretoken', window.getCookie('csrftoken'));
                     
-                    const response = await fetch('{% url "upload_and_restore_backup" %}', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
+                    // Use XMLHttpRequest instead of fetch to track upload progress
+                    const xhr = new XMLHttpRequest();
+                    
+                    // Track upload progress
+                    xhr.upload.addEventListener('progress', function(e) {
+                        if (e.lengthComputable) {
+                            const percentComplete = Math.round((e.loaded / e.total) * 100);
+                            progressBar.style.width = percentComplete + '%';
+                            progressBar.setAttribute('aria-valuenow', percentComplete);
+                            progressText.textContent = percentComplete + '%';
+                            progressPercent.textContent = percentComplete + '%';
+                            
+                            const uploadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+                            const totalMB = (e.total / (1024 * 1024)).toFixed(2);
+                            statusText.textContent = `Uploading: ${uploadedMB} MB / ${totalMB} MB`;
                         }
                     });
                     
-                    // Always try to parse JSON response (even for errors)
-                    let data = {};
-                    let errorMessage = '';
-                    
-                    try {
-                        const text = await response.text();
-                        if (text) {
-                            data = JSON.parse(text);
-                        }
+                    // Handle completion
+                    xhr.addEventListener('load', function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            statusText.textContent = 'Upload complete. Restoring backup...';
+                            progressBar.style.width = '90%';
+                            progressBar.setAttribute('aria-valuenow', '90');
+                            progressText.textContent = '90%';
+                            progressPercent.textContent = '90%';
+                            
+                            // Parse response
+                            let data = {};
+                            try {
+                                data = JSON.parse(xhr.responseText);
                     } catch (jsonError) {
                         console.error('Failed to parse JSON response:', jsonError);
-                        // If response is not JSON, create error message
-                        errorMessage = `Server error (${response.status}): ${response.statusText || 'Unknown error'}. The file may not be a valid StockWise backup.`;
-                    }
-                    
-                    // Handle non-OK responses (400, 500, etc.)
-                    if (!response.ok) {
-                        errorMessage = data.message || data.error || errorMessage || `Server returned error: ${response.status} ${response.statusText}`;
-                        console.error('Upload failed:', response.status, errorMessage);
+                                throw new Error(`Server error (${xhr.status}): Invalid JSON response. The file may not be a valid StockWise backup.`);
+                            }
+                            
+                            // Handle successful response
+                            if (data.success) {
+                                progressBar.style.width = '100%';
+                                progressBar.setAttribute('aria-valuenow', '100');
+                                progressText.textContent = '100%';
+                                progressPercent.textContent = '100%';
+                                statusText.textContent = 'Restore complete!';
+                                
+                                setTimeout(() => {
+                                    const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
+                                    if (uploadModal) {
+                                        uploadModal.hide();
+                                    }
+                                    showMessage('success', 'Success', data.message, function() {
+                                        location.reload();
+                                    });
+                                }, 500);
+                            } else {
+                                // Response OK but success=false
+                                const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
+                                if (uploadModal) {
+                                    uploadModal.hide();
+                                }
+                                const errorMessage = data.message || 'Unknown error occurred';
+                                btn.disabled = false;
+                                btn.innerHTML = originalText;
+                                progressContainer.style.display = 'none';
+                                showMessage('error', 'Upload Failed', errorMessage);
+                            }
+                        } else {
+                            // HTTP error status
+                            let data = {};
+                            let errorMessage = '';
+                            try {
+                                data = JSON.parse(xhr.responseText);
+                                errorMessage = data.message || data.error || `Server returned error: ${xhr.status} ${xhr.statusText}`;
+                            } catch (jsonError) {
+                                errorMessage = `Server error (${xhr.status}): ${xhr.statusText || 'Unknown error'}. The file may not be a valid StockWise backup.`;
+                            }
+                            
+                            console.error('Upload failed:', xhr.status, errorMessage);
                         
                         // Close upload modal first
                         const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
@@ -1313,35 +1429,52 @@
                         // Reset button state immediately
                         btn.disabled = false;
                         btn.innerHTML = originalText;
+                            progressContainer.style.display = 'none';
                         // Show error message
                         setTimeout(function() {
                             showMessage('error', 'Upload Failed', errorMessage);
                         }, 300); // Small delay to ensure modal is closed
-                        return;
                     }
+                    });
                     
-                    // Handle successful response
-                    if (data.success) {
+                    // Handle errors
+                    xhr.addEventListener('error', function() {
+                        console.error('Upload error: Network error');
                         const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
                         if (uploadModal) {
                             uploadModal.hide();
                         }
-                        showMessage('success', 'Success', data.message, function() {
-                            location.reload();
-                        });
-                    } else {
-                        // Response OK but success=false
-                        const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
-                        if (uploadModal) {
-                            uploadModal.hide();
-                        }
-                        const errorMessage = data.message || 'Unknown error occurred';
+                        const errorMessage = 'Network error. Please check your connection and try again.';
                         btn.disabled = false;
                         btn.innerHTML = originalText;
+                        progressContainer.style.display = 'none';
                         showMessage('error', 'Upload Failed', errorMessage);
-                    }
+                    });
+                    
+                    // Handle timeout
+                    xhr.addEventListener('timeout', function() {
+                        console.error('Upload error: Timeout');
+                        const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
+                        if (uploadModal) {
+                            uploadModal.hide();
+                        }
+                        const errorMessage = 'Upload timeout. The file may be too large or the server is taking too long to respond. Please try again.';
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                        progressContainer.style.display = 'none';
+                        showMessage('error', 'Upload Failed', errorMessage);
+                    });
+                    
+                    // Set timeout to 10 minutes (600000ms) for large files and restore operations
+                    xhr.timeout = 600000;
+                    
+                    // Send request
+                    xhr.open('POST', '{% url "upload_and_restore_backup" %}');
+                    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    xhr.send(formData);
+                    
                 } catch (error) {
-                    // Handle network errors, JSON parse errors, and server errors
+                    // Handle unexpected errors
                     console.error('Upload error:', error);
                     const uploadModal = bootstrap.Modal.getInstance(document.getElementById('uploadRestoreModal'));
                     if (uploadModal) {
@@ -1350,6 +1483,7 @@
                     const errorMessage = error.message || 'Error uploading backup. Please try again.';
                     btn.disabled = false;
                     btn.innerHTML = originalText;
+                    progressContainer.style.display = 'none';
                     showMessage('error', 'Upload Failed', errorMessage);
                 }
             });

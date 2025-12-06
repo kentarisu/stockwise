@@ -964,7 +964,7 @@
                                     <option value="today" {% if current_date_range == 'today' %}selected{% endif %}>Today</option>
                                     <option value="week" {% if current_date_range == 'week' %}selected{% endif %}>This Week</option>
                                     <option value="month" {% if current_date_range == 'month' %}selected{% endif %}>This Month</option>
-                                    <option value="custom" {% if current_date_range == 'custom' %}selected{% endif %}>Custom</option>
+                                    <option value="custom" {% if current_date_range == 'custom' %}selected{% endif %}>Custom Range</option>
                                 </select>
                                 <input type="hidden" name="date_start" id="dateStart" value="{{ current_date_start }}">
                                 <input type="hidden" name="date_end" id="dateEnd" value="{{ current_date_end }}">
@@ -1117,17 +1117,19 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="customRangeModalLabel">Custom Date Range</h5>
+                    <h5 class="modal-title" id="customRangeModalLabel">Select Custom Date Range</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="customStart" class="form-label">Start Date</label>
-                        <input type="date" class="form-control" id="customStart">
+                        <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
+                        <div class="form-text" id="customStartHint">Format: MM/DD/YYYY</div>
                     </div>
                     <div class="mb-3">
                         <label for="customEnd" class="form-label">End Date</label>
-                        <input type="date" class="form-control" id="customEnd">
+                        <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
+                        <div class="form-text" id="customEndHint">Format: MM/DD/YYYY</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1207,9 +1209,9 @@
                 }
                 
                 if (customOpt && customStart && customEnd) {
-                    customOpt.textContent = `Custom (${formatDate(new Date(customStart))} – ${formatDate(new Date(customEnd))})`;
+                    customOpt.textContent = `Custom Range (${formatDate(new Date(customStart))} – ${formatDate(new Date(customEnd))})`;
                 } else if (customOpt) {
-                    customOpt.textContent = 'Custom';
+                    customOpt.textContent = 'Custom Range';
                 }
             }
             
@@ -1297,14 +1299,15 @@
             // Initialize labels
             updateRangeLabels();
             
-            // Load saved custom dates if any
+            // Load saved custom dates if any (from URL parameters or hidden inputs)
             const savedStart = dateStartInput.value;
             const savedEnd = dateEndInput.value;
             if (savedStart && savedEnd && dateRangeSelect.value === 'custom') {
                 customStart = savedStart;
                 customEnd = savedEnd;
-                updateRangeLabels();
             }
+            // Always update labels to show dates if custom range is selected
+            updateRangeLabels();
             
             // Refresh button
             if (refreshBtn) {
@@ -1319,32 +1322,119 @@
                 });
             }
             
+            // Date formatting functions (MM/DD/YYYY format)
+            function formatUSDateStr(date) {
+                const d = new Date(date);
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return `${mm}/${dd}/${yyyy}`;
+            }
+
+            function parseUSDateToISO(str) {
+                const m = String(str || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                if (!m) return '';
+                const mm = parseInt(m[1], 10);
+                const dd = parseInt(m[2], 10);
+                const yyyy = parseInt(m[3], 10);
+                const dt = new Date(yyyy, mm - 1, dd);
+                if (dt.getFullYear() !== yyyy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return '';
+                const mm2 = String(mm).padStart(2, '0');
+                const dd2 = String(dd).padStart(2, '0');
+                return `${yyyy}-${mm2}-${dd2}`;
+            }
+
+            // Format date inputs to only allow numbers and slashes
+            document.querySelectorAll('#customStart,#customEnd').forEach(el => {
+                el.addEventListener('input', function(){ 
+                    this.value = this.value.replace(/[^0-9\/]/g, ''); 
+                });
+            });
+
+            // Function to open custom range modal
+            function openCustomRangeModal() {
+                const modal = new bootstrap.Modal(document.getElementById('customRangeModal'));
+                const today = new Date();
+                const todayUS = formatUSDateStr(today);
+                const customStartEl = document.getElementById('customStart');
+                const customEndEl = document.getElementById('customEnd');
+                if (customStart) {
+                    // Convert ISO to US format if needed
+                    if (customStart.includes('-')) {
+                        customStartEl.value = formatUSDateStr(customStart);
+                    } else {
+                        customStartEl.value = customStart;
+                    }
+                } else {
+                    customStartEl.value = todayUS;
+                }
+                if (customEnd) {
+                    // Convert ISO to US format if needed
+                    if (customEnd.includes('-')) {
+                        customEndEl.value = formatUSDateStr(customEnd);
+                    } else {
+                        customEndEl.value = customEnd;
+                    }
+                } else {
+                    customEndEl.value = todayUS;
+                }
+                modal.show();
+            }
+            
             // Date range change handler
             if (dateRangeSelect) {
                 dateRangeSelect.addEventListener('change', function() {
                     const selected = this.value;
                     if (selected === 'custom') {
-                        const modal = new bootstrap.Modal(document.getElementById('customRangeModal'));
-                        const todayIso = new Date().toISOString().slice(0, 10);
-                        document.getElementById('customStart').value = customStart || todayIso;
-                        document.getElementById('customEnd').value = customEnd || todayIso;
-                        modal.show();
+                        openCustomRangeModal();
                     } else {
                         computeDateRange();
                         filtersForm.submit();
+                    }
+                });
+                
+                // Allow reselection: when clicking on select while custom is selected,
+                // temporarily change value to 'today' so clicking 'custom' will trigger change event
+                let isReselecting = false;
+                dateRangeSelect.addEventListener('mousedown', function() {
+                    if (this.value === 'custom' && !isReselecting) {
+                        isReselecting = true;
+                        // Temporarily change to 'today' so clicking custom will trigger change event
+                        this.value = 'today';
+                        
+                        // After a delay, check if user selected something else or clicked custom
+                        setTimeout(() => {
+                            // If still 'today', user didn't select custom, restore it
+                            if (this.value === 'today') {
+                                this.value = 'custom';
+                            }
+                            // Reset flag after dropdown interaction completes
+                            setTimeout(() => {
+                                isReselecting = false;
+                            }, 100);
+                        }, 200);
                     }
                 });
             }
             
             // Apply custom range
             document.getElementById('applyCustomRange')?.addEventListener('click', function() {
-                customStart = document.getElementById('customStart').value;
-                customEnd = document.getElementById('customEnd').value;
-                if (customStart && customEnd) {
-                    dateStartInput.value = customStart;
-                    dateEndInput.value = customEnd;
-                    updateRangeLabels();
+                const startUS = document.getElementById('customStart').value;
+                const endUS = document.getElementById('customEnd').value;
+                if (startUS && endUS) {
+                    // Convert MM/DD/YYYY to ISO format
+                    const startISO = parseUSDateToISO(startUS);
+                    const endISO = parseUSDateToISO(endUS);
+                    if (startISO && endISO) {
+                        customStart = startISO;
+                        customEnd = endISO;
+                        dateStartInput.value = startISO;
+                        dateEndInput.value = endISO;
+                        updateRangeLabels(); // This will update the dropdown text to show dates
                     filtersForm.submit();
+                    } else {
+                        alert('Please enter valid dates in MM/DD/YYYY format');
+                    }
                 }
             });
             

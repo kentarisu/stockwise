@@ -327,7 +327,7 @@
             <div class="col-md-6">
                 <label class="form-label" for="productSizeDisplay">Quantity</label>
                 <div class="input-group quantity-unit-group">
-                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_value" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" disabled>
+                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_value" placeholder="Enter quantity" autocomplete="off" step="1" min="0" disabled>
                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit" disabled>
                         <option value="box" selected>Box</option>
                         <option value="kg">kg</option>
@@ -355,14 +355,14 @@
                 <label class="form-label" for="costInput">Cost (₱)</label>
                 <div class="input-group">
                     <span class="input-group-text">₱</span>
-                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="0.01" required autocomplete="off">
+                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="1" required autocomplete="off">
                 </div>
             </div>
             <div class="col-md-6">
                 <label class="form-label" for="priceInput">Price (₱)</label>
                 <div class="input-group">
                     <span class="input-group-text">₱</span>
-                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required autocomplete="off">
+                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="1" required autocomplete="off">
                 </div>
                 <small id="minPriceHint" class="text-muted d-block mt-1"></small>
             </div>

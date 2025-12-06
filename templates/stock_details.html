@@ -189,6 +189,13 @@
             margin-bottom: 1rem;
         }
 
+        @media (max-width: 1200px) {
+            .summary-stats {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.75rem;
+            }
+        }
+
         .summary-stat-card {
             background: white;
             border-radius: 12px;
@@ -285,6 +292,11 @@
             border: 1px solid var(--gray-200);
             overflow: hidden;
             margin-bottom: 1rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .card-header {
@@ -603,7 +615,44 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Responsive */
+        /* Responsive - Mobile First Approach */
+        @media (max-width: 992px) {
+            .summary-stats {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.75rem;
+            }
+
+            .summary-stat-card {
+                padding: 0.875rem 0.75rem;
+            }
+
+            .summary-stat-icon {
+                width: 2.25rem;
+                height: 2.25rem;
+                font-size: 1.125rem;
+            }
+
+            .summary-stat-value {
+                font-size: 1.0625rem;
+            }
+
+            .summary-stat-label {
+                font-size: 0.7rem;
+            }
+
+            .summary-stat-subtitle {
+                font-size: 0.65rem;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+            }
+
+            .stock-additions-table {
+                min-width: 800px;
+            }
+        }
+
         @media (max-width: 768px) {
             .content-area {
                 padding: 0.5rem;
@@ -612,30 +661,46 @@
             .card-modern {
                 max-width: 100%;
                 border-radius: 12px;
+                margin: 0;
             }
 
             .card-header-modern {
-                padding: 0.75rem 1rem;
+                padding: 0.75rem;
+                flex-direction: row;
+                gap: 0.75rem;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .card-header-modern .card-title {
+                font-size: 0.875rem;
+            }
+
+            .back-btn {
+                width: auto;
+                justify-content: flex-start;
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8125rem;
+                flex-shrink: 0;
+            }
+
+            .p-3 {
+                padding: 0.75rem;
+            }
+
+            .product-header-card {
+                padding: 0;
+            }
+
+            .product-header-row {
                 flex-direction: column;
                 gap: 0.75rem;
                 align-items: flex-start;
             }
 
-            .p-3 {
-                padding: 1rem;
-            }
-
-            .product-header-card {
-                padding: 1rem;
-            }
-
-            .product-header-row {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
             .product-title {
-                font-size: 1.25rem;
+                font-size: 1.125rem;
+                line-height: 1.4;
             }
 
             .product-date {
@@ -643,18 +708,231 @@
                 align-items: flex-start;
             }
 
+            .product-subtitle {
+                font-size: 0.8125rem;
+            }
+
             .summary-stats {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(3, 1fr);
                 gap: 0.75rem;
             }
 
-            .stock-additions-table thead th,
-            .stock-additions-table tbody td {
-                padding: 0.5rem;
+            .summary-stat-card {
+                padding: 0.875rem 0.75rem;
+            }
+
+            .summary-stat-icon {
+                width: 2.25rem;
+                height: 2.25rem;
+                font-size: 1.125rem;
+            }
+
+            .summary-stat-value {
+                font-size: 1.125rem;
+            }
+
+            .summary-stat-label {
+                font-size: 0.7rem;
+            }
+
+            .summary-stat-subtitle {
+                font-size: 0.65rem;
             }
 
             .card-header {
                 padding: 0.75rem;
+            }
+
+            .card-title {
+                font-size: 0.875rem;
+            }
+
+            /* Keep table vertical - enable horizontal scrolling on mobile */
+            .stock-additions-card {
+                overflow: hidden;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+            }
+
+            .stock-additions-table {
+                min-width: 800px;
+                width: 100%;
+            }
+
+            .stock-additions-table thead th,
+            .stock-additions-table tbody td {
+                padding: 0.5rem 0.4rem;
+                font-size: 0.75rem;
+            }
+
+            .stock-additions-table thead th {
+                font-size: 0.7rem;
+                white-space: nowrap;
+            }
+
+            .stock-additions-table tbody td {
+                white-space: nowrap;
+            }
+
+            .edit-stock-btn {
+                white-space: nowrap;
+                padding: 0.25rem 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            /* Modal responsive */
+            #decreaseStockModal .modal-dialog {
+                max-width: 95%;
+                margin: 1rem auto;
+            }
+
+            #decreaseStockModal .modal-content {
+                border-radius: 12px;
+            }
+
+            #decreaseStockModal .modal-header,
+            #decreaseStockModal .modal-body,
+            #decreaseStockModal .modal-footer {
+                padding: 1rem;
+            }
+
+            #decreaseStockModal .modal-footer {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            #decreaseStockModal .modal-footer .btn {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content-area {
+                padding: 0.25rem;
+            }
+
+            .card-modern {
+                border-radius: 8px;
+            }
+
+            .p-3 {
+                padding: 0.5rem;
+            }
+
+            .product-title {
+                font-size: 1rem;
+            }
+
+            .summary-stats {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+            }
+
+            .summary-stat-card {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .summary-stat-icon {
+                width: 2rem;
+                height: 2rem;
+                font-size: 1rem;
+            }
+
+            .summary-stat-value {
+                font-size: 0.9375rem;
+            }
+
+            .summary-stat-label {
+                font-size: 0.65rem;
+            }
+
+            .summary-stat-subtitle {
+                font-size: 0.6rem;
+            }
+
+            .stock-additions-table {
+                min-width: 700px;
+            }
+
+            .stock-additions-table thead th,
+            .stock-additions-table tbody td {
+                padding: 0.4rem 0.3rem;
+                font-size: 0.7rem;
+            }
+
+            .stock-additions-table thead th {
+                font-size: 0.65rem;
+            }
+
+            .number-cell {
+                font-size: 0.9rem;
+            }
+
+            .edit-stock-btn {
+                padding: 0.2rem 0.4rem;
+                font-size: 0.7rem;
+            }
+
+            .status-badge {
+                font-size: 0.7rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .batch-id-badge {
+                font-size: 0.65rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .number-cell {
+                font-size: 1rem;
+            }
+
+            .status-badge {
+                font-size: 0.7rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            .batch-id-badge {
+                font-size: 0.65rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .empty-state {
+                padding: 2rem 1rem;
+            }
+
+            .empty-state i {
+                font-size: 3rem;
+            }
+
+            .empty-state h3 {
+                font-size: 1rem;
+            }
+
+            .empty-state p {
+                font-size: 0.875rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .empty-state {
+                padding: 1.5rem 1rem;
+            }
+
+            .empty-state i {
+                font-size: 2.5rem;
+            }
+
+            .empty-state h3 {
+                font-size: 0.9375rem;
+            }
+
+            .empty-state p {
+                font-size: 0.8125rem;
             }
         }
 
@@ -674,10 +952,12 @@
         .empty-state h3 {
             color: var(--gray-600);
             margin-bottom: 0.5rem;
+            font-size: 1.125rem;
         }
 
         .empty-state p {
             color: var(--gray-500);
+            font-size: 0.9375rem;
         }
 
         /* Pagination */
@@ -686,6 +966,10 @@
             background: var(--gray-50);
             border-radius: 8px;
             border: 1px solid var(--gray-200);
+        }
+
+        .pagination-container .d-flex {
+            flex-wrap: wrap;
         }
 
         .pagination-info {
@@ -721,8 +1005,7 @@
 
         @media (max-width: 768px) {
             .pagination-container {
-                flex-direction: column;
-                gap: 1rem;
+                padding: 0.75rem;
             }
 
             .pagination-container .d-flex {
@@ -733,10 +1016,36 @@
 
             .pagination-info {
                 text-align: center;
+                font-size: 0.8125rem;
             }
 
             .pagination {
                 justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .pagination .page-link {
+                padding: 0.375rem 0.5rem;
+                font-size: 0.8125rem;
+            }
+
+            .pagination .page-item {
+                margin: 0.125rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .pagination-container {
+                padding: 0.5rem;
+            }
+
+            .pagination-info {
+                font-size: 0.75rem;
+            }
+
+            .pagination .page-link {
+                padding: 0.25rem 0.375rem;
+                font-size: 0.75rem;
             }
         }
     </style>
@@ -1116,6 +1425,7 @@
             const pdText = (document.getElementById('productDetails')?.textContent||'').toLowerCase();
             const isKilo = (quantityUnit && (quantityUnit === 'kg')) || (pdText.includes('quantity: kg'));
             const tableHtml = `
+                <div class="table-wrapper">
                 <table class="table stock-additions-table">
                     <thead>
                         <tr>
@@ -1161,23 +1471,23 @@
                             
                             return `
                                 <tr>
-                                    <td class="col-addition">
+                                    <td class="col-addition" data-label="Addition #">
                                         <strong>#${additionNumber}</strong>
                                     </td>
-                                    <td class="date-cell col-date">${dateText}</td>
-                                    <td class="number-cell added col-added">${formatQuantity(added, quantityUnit)}</td>
-                                    <td class="number-cell available col-available">${formatQuantity(available, quantityUnit)}</td>
-                                    <td class="number-cell sold col-sold">${formatQuantity(sold, quantityUnit)}</td>
-                                    <td class="number-cell spoiled col-spoiled">${formatQuantity(spoiled, quantityUnit)}</td>
-                                    <td class="supplier-cell col-supplier">${group.supplier || '-'}</td>
-                                    <td class="col-status">
+                                    <td class="date-cell col-date" data-label="Date Added">${dateText}</td>
+                                    <td class="number-cell added col-added" data-label="Added">${formatQuantity(added, quantityUnit)}</td>
+                                    <td class="number-cell available col-available" data-label="Available">${formatQuantity(available, quantityUnit)}</td>
+                                    <td class="number-cell sold col-sold" data-label="Sold">${formatQuantity(sold, quantityUnit)}</td>
+                                    <td class="number-cell spoiled col-spoiled" data-label="${isKilo ? 'Spoiled kg' : 'Spoiled boxes'}">${formatQuantity(spoiled, quantityUnit)}</td>
+                                    <td class="supplier-cell col-supplier" data-label="Supplier">${group.supplier || '-'}</td>
+                                    <td class="col-status" data-label="Status">
                                         <span class="status-badge ${status}">
                                             <i class="bi bi-${statusIcon}"></i>
                                             ${statusText}
                                         </span>
                                     </td>
-                                    ${isKilo ? '' : `<td class="col-batch"><div class="batch-ids-container">${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}</div></td>`}
-                                    <td class="col-options">
+                                    ${isKilo ? '' : `<td class="col-batch" data-label="Batch IDs"><div class="batch-ids-container">${batchIds || '<span class="text-muted fst-italic">No batch IDs available</span>'}</div></td>`}
+                                    <td class="col-options" data-label="Options">
                                         ${group.available_total > 0 ? `<button class="btn btn-outline-secondary btn-sm edit-stock-btn" data-addition-id="${group.addition_id}" data-available="${group.available_total}" data-added="${group.added_total}" data-batch="${(group.batch_ids||[]).join(',')}"><i class="bi bi-pencil"></i> Edit Stock</button>` : `<span class="text-muted small">No actions</span>`}
                                     </td>
                                 </tr>
@@ -1185,6 +1495,7 @@
                         }).join('')}
                     </tbody>
                 </table>
+                </div>
                 ${totalPages > 1 ? `
                 <div class="pagination-container mt-3">
                     <div class="d-flex justify-content-between align-items-center">

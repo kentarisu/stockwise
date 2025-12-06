@@ -1217,13 +1217,29 @@
 
         .table tbody td:last-child {
             position: relative;
-            z-index: 10;
+            z-index: 100;
+        }
+
+        .table tbody td:last-child .dropdown {
+            position: static;
         }
 
         .dropdown-menu {
             background: white !important;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
             border: 1px solid rgba(0, 0, 0, 0.15) !important;
+            z-index: 1050 !important;
+            position: absolute !important;
+        }
+
+        .pagination-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .pagination {
+            position: relative;
+            z-index: 1;
         }
 
         /* Report Design Styles (matching reports page) */
@@ -1427,8 +1443,7 @@
             #voidedSalesTable th:nth-child(3), #voidedSalesTable td:nth-child(3),
             #voidedSalesTable th:nth-child(5), #voidedSalesTable td:nth-child(5),
             #voidedSalesTable th:nth-child(6), #voidedSalesTable td:nth-child(6),
-            #voidedSalesTable th:nth-child(8), #voidedSalesTable td:nth-child(8),
-            #voidedSalesTable th:nth-child(9), #voidedSalesTable td:nth-child(9) { display: none !important; }
+            #voidedSalesTable th:nth-child(8), #voidedSalesTable td:nth-child(8) { display: none !important; }
             /* Column widths for visible ones using colgroup */
             .content-area table.table-mobile-card col.col-date { width: 22% !important; }
             .content-area table.table-mobile-card col.col-products { width: 44% !important; }
@@ -1820,21 +1835,15 @@
                                                             <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
-                                                        </li>
-                                                        {% if app_role|default:'user'|lower != 'secretary' %}
-                                                        <li class="role-hide-secretary">
+                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
-                                                        </li>
-                                                        {% if app_role == 'admin' and sale.status|lower == 'completed' %}
-                                                        <li>
+                                                        </li>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<li>
                                                             <button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale">
                                                                 <i class="bi bi-x-circle me-2"></i> Void Sale
                                                             </button>
-                                                        </li>
-                                                        {% endif %}
-                                                        {% endif %}
+                                                        </li>{% endif %}
                                                     </ul>
                                                 </div>
                                             </td>
@@ -1954,21 +1963,15 @@
                                                             <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
-                                                        </li>
-                                                        {% if app_role|default:'user'|lower != 'secretary' %}
-                                                        <li class="role-hide-secretary">
+                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
-                                                        </li>
-                                                        {% if app_role == 'admin' and sale.status|lower == 'completed' %}
-                                                        <li>
+                                                        </li>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<li>
                                                             <button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale">
                                                                 <i class="bi bi-x-circle me-2"></i> Void Sale
                                                             </button>
-                                                        </li>
-                                                        {% endif %}
-                                                        {% endif %}
+                                                        </li>{% endif %}
                                                     </ul>
                                                 </div>
                                             </td>
@@ -2009,6 +2012,7 @@
                                             <th>Quantity</th>
                                             <th>Total</th>
                                             <th>Recorded By</th>
+                                            <th>Reason</th>
                                             <th>Status</th>
                                             <th>Options</th>
                                         </tr>
@@ -2030,6 +2034,7 @@
                                                 {% endif %}
                                             </td>
                                             <td>{{ sale.recorded_by|default:"N/A" }}</td>
+                                            <td><span class="text-muted small">{{ sale.void_reason|default:"N/A" }}</span></td>
                                             <td><span class="badge bg-danger">Voided</span></td>
                                             <td>
                                                 <div class="dropdown">
@@ -2042,15 +2047,11 @@
                                                             <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
                                                                 <i class="bi bi-eye me-2"></i> View Details
                                                             </button>
-                                                        </li>
-                                                        {% if app_role|default:'user'|lower != 'secretary' %}
-                                                        <li class="role-hide-secretary">
+                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
                                                             <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
                                                                 <i class="bi bi-printer me-2"></i> Print Receipt
                                                             </button>
-                                                        </li>
-                                                        {% endif %}
-                                                        
+                                                        </li>{% endif %}
                                                     </ul>
                                                 </div>
                                             </td>
@@ -2086,6 +2087,44 @@
                     <div id="voidModalAlert" class="alert d-none mb-3" role="alert"></div>
                     <p>Are you sure you want to mark this sale as Voided? This action will restore the inventory stock.</p>
                     <input type="hidden" id="voidSaleId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Reason for Voiding <span class="text-danger">*</span></label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason1" value="Customer Request" required>
+                            <label class="form-check-label" for="voidReason1">
+                                Customer Request
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason2" value="Wrong Product" required>
+                            <label class="form-check-label" for="voidReason2">
+                                Wrong Product
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason3" value="Wrong Quantity" required>
+                            <label class="form-check-label" for="voidReason3">
+                                Wrong Quantity
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason4" value="Duplicate Transaction" required>
+                            <label class="form-check-label" for="voidReason4">
+                                Duplicate Transaction
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason5" value="Other" required>
+                            <label class="form-check-label" for="voidReason5">
+                                Other
+                            </label>
+                        </div>
+                        <div id="voidReasonOtherContainer" class="mt-2" style="display: none;">
+                            <label for="voidReasonOther" class="form-label">Please specify:</label>
+                            <textarea class="form-control" id="voidReasonOther" placeholder="Enter reason..." maxlength="200" rows="3" style="width: 100%; resize: vertical;"></textarea>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -2506,7 +2545,9 @@
             
             if (!rows || rows.length === 0) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td colspan="8" class="text-center text-muted py-4">No sales found</td>`;
+                const isVoidedTable = tableId === 'voidedSalesTable';
+                const colspan = isVoidedTable ? '11' : '10';
+                tr.innerHTML = `<td colspan="${colspan}" class="text-center text-muted py-4">No sales found</td>`;
                 tbody.appendChild(tr);
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 return;
@@ -2526,6 +2567,9 @@
                                     </button>
                                 </li>` : '';
 
+                const isVoidedTable = tableId === 'voidedSalesTable';
+                const voidReasonCell = isVoidedTable ? `<td><span class="text-muted small">${safeText(row.void_reason, 'N/A')}</span></td>` : '';
+
                 tr.innerHTML = `
                     <td>${safeText(String(row.transaction_number || ('SID'+row.sale_id)).toUpperCase(),'N/A')}</td>
                     <td>${safeText(row.recorded_at,'N/A')}</td>
@@ -2535,6 +2579,7 @@
                     <td class="boxes-column">${row.quantity_display || safeNum(row.total_boxes || row.items?.reduce((a,b)=>a+(b.quantity||0),0) || row.quantity, 0)}</td>
                     <td>${currency(row.total)}</td>
                     <td>${safeText(row.recorded_by,'N/A')}</td>
+                    ${voidReasonCell}
                     <td>${getStatusBadge(row.status)}</td>
                     <td>
                         <div class="dropdown">
@@ -2589,17 +2634,37 @@
                 return isFinite(n) ? n : 0;
             };
             const total = (rows||[]).reduce((s,r)=> s + toNum(r.total), 0);
-            const units = (rows||[]).reduce((s,r)=>s+Number(r.total_boxes||r.quantity||0),0);
+            // Calculate boxes and kg separately from items to ensure accuracy
             const allItems = (rows||[]).flatMap(r => Array.isArray(r.items_json) ? r.items_json : (Array.isArray(r.items) ? r.items : []));
             const isKilo = u => {
                 const t = String(u||'').toLowerCase();
                 return t === 'kg';
             };
-            const kilos = allItems.reduce((s,it)=> s + (isKilo(it?.quantity_unit) ? Number(it?.quantity||0) : 0), 0);
-            const boxes = Math.max(0, units - kilos);
+            
+            // Safely parse quantity values
+            const parseQty = (qty) => {
+                if (qty === null || qty === undefined || qty === '') return 0;
+                const parsed = parseFloat(qty);
+                return isNaN(parsed) ? 0 : parsed;
+            };
+            
+            // Sum boxes and kg separately from items
+            const boxes = allItems.reduce((s, it) => {
+                if (!isKilo(it?.quantity_unit)) {
+                    return s + parseQty(it?.quantity);
+                }
+                return s;
+            }, 0);
+            
+            const kilos = allItems.reduce((s, it) => {
+                if (isKilo(it?.quantity_unit)) {
+                    return s + parseQty(it?.quantity);
+                }
+                return s;
+            }, 0);
             const count = rows?.length||0;
             
-            console.log('Updating stats:', { total, boxes, count, rowsCount: rows?.length });
+            console.log('Updating stats:', { total, boxes, count, rowsCount: rows?.length, kilos, kilosRaw: allItems.filter(it=>isKilo(it?.quantity_unit)).map(it=>it?.quantity) });
             
             // Try multiple selector strategies to find the elements
             const totalEl = document.querySelector('.sales-stats-grid .stat-card:first-child .stat-content .stat-value') ||
@@ -2627,13 +2692,27 @@
                 console.log('Updated count:', count);
             }
             if (qtyValueEl) {
-                // Format boxes and kg separately
-                const formatQty = (val) => {
+                // Format boxes and kg separately - kg should show 2 decimals, boxes should be integers
+                const formatBoxes = (val) => {
                     const v = parseFloat(val) || 0;
-                    return v === Math.floor(v) ? String(Math.floor(v)) : v.toFixed(2).replace(/\.?0+$/, '');
+                    return String(Math.floor(v));
                 };
-                const boxesFormatted = formatQty(boxes);
-                const kilosFormatted = formatQty(kilos);
+                const formatKilos = (val) => {
+                    const v = parseFloat(val) || 0;
+                    if (isNaN(v)) return '0';
+                    // Check if value has decimals by comparing string representation or using modulo
+                    const valStr = String(val);
+                    const hasDecimals = valStr.includes('.') || (Math.abs(v % 1) > 0.0001);
+                    if (hasDecimals) {
+                        // Has decimals, always show 2 decimal places
+                        return v.toFixed(2);
+                    } else {
+                        // Whole number, show as integer
+                        return String(Math.floor(v));
+                    }
+                };
+                const boxesFormatted = formatBoxes(boxes);
+                const kilosFormatted = formatKilos(kilos);
                 
                 if (boxes > 0 && kilos > 0) {
                     qtyValueEl.textContent = `${boxesFormatted} boxes • ${kilosFormatted} kg`;
@@ -2671,13 +2750,27 @@
                     if (warningCard) {
                         const el = warningCard.querySelector('.stat-value');
                         if (el) {
-                            // Format boxes and kg separately
-                            const formatQty = (val) => {
+                            // Format boxes and kg separately - kg should show 2 decimals, boxes should be integers
+                            const formatBoxes = (val) => {
                                 const v = parseFloat(val) || 0;
-                                return v === Math.floor(v) ? String(Math.floor(v)) : v.toFixed(2).replace(/\.?0+$/, '');
+                                return String(Math.floor(v));
                             };
-                            const boxesFormatted = formatQty(boxes);
-                            const kilosFormatted = formatQty(kilos);
+                            const formatKilos = (val) => {
+                                const v = parseFloat(val) || 0;
+                                if (isNaN(v)) return '0';
+                                // Check if value has decimals by comparing string representation or using modulo
+                                const valStr = String(val);
+                                const hasDecimals = valStr.includes('.') || (Math.abs(v % 1) > 0.0001);
+                                if (hasDecimals) {
+                                    // Has decimals, always show 2 decimal places
+                                    return v.toFixed(2);
+                                } else {
+                                    // Whole number, show as integer
+                                    return String(Math.floor(v));
+                                }
+                            };
+                            const boxesFormatted = formatBoxes(boxes);
+                            const kilosFormatted = formatKilos(kilos);
                             
                             if (boxes > 0 && kilos > 0) {
                                 el.textContent = `${boxesFormatted} boxes • ${kilosFormatted} kg`;
@@ -2903,11 +2996,26 @@
             if(mOpt) mOpt.textContent = `This Month (${fmt(monthStart)} – ${fmt(today)})`;
         }
 
-        rangeInput?.addEventListener('change', ()=>{
-            console.log('Date filter changed');
-            const sel = (rangeInput.value||'today').toLowerCase();
-            const isCustom = sel==='custom';
-            if (isCustom) {
+        // Function to update custom range dropdown text
+        function updateCustomRangeLabel() {
+            if (customStart && customEnd) {
+                const startDate = new Date(customStart);
+                const endDate = new Date(customEnd);
+                const formatDate = (dt) => dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                const customOption = rangeInput?.querySelector('option[value="custom"]');
+                if (customOption) {
+                    customOption.textContent = `Custom Range (${formatDate(startDate)} – ${formatDate(endDate)})`;
+                }
+            } else {
+                const customOption = rangeInput?.querySelector('option[value="custom"]');
+                if (customOption) {
+                    customOption.textContent = 'Custom Range';
+                }
+            }
+        }
+
+        // Function to open custom range modal
+        function openCustomRangeModal() {
                 const modal = new bootstrap.Modal(document.getElementById('customRangeModal'));
                 const today = new Date();
                 document.getElementById('customStart').value = customStart ? formatUSDateStr(new Date(customStart)) : formatUSDateStr(today);
@@ -2920,6 +3028,15 @@
                     if (eHint) eHint.textContent = `Format: ${pattern}`;
                 } catch(_) {}
                 modal.show();
+        }
+
+        rangeInput?.addEventListener('change', ()=>{
+            console.log('Date filter changed');
+            const sel = (rangeInput.value||'today').toLowerCase();
+            const isCustom = sel==='custom';
+            if (isCustom) {
+                // Open modal when custom is selected
+                openCustomRangeModal();
             }
             // Always keep the single-day input hidden; label shows the date instead
             dateInput?.classList.add('d-none');
@@ -2930,6 +3047,29 @@
                 console.log('Calling updateSummaryCards from date filter change');
                 updateSummaryCards();
                 loadCurrentTab();
+            }
+        });
+        
+        // Allow reselection: when clicking on select while custom is selected,
+        // temporarily change value to 'today' so clicking 'custom' will trigger change event
+        let isReselecting = false;
+        rangeInput?.addEventListener('mousedown', function() {
+            if (this.value === 'custom' && !isReselecting) {
+                isReselecting = true;
+                // Temporarily change to 'today' so clicking custom will trigger change event
+                this.value = 'today';
+                
+                // After a delay, check if user selected something else or clicked custom
+                setTimeout(() => {
+                    // If still 'today', user didn't select custom, restore it
+                    if (this.value === 'today') {
+                        this.value = 'custom';
+                    }
+                    // Reset flag after dropdown interaction completes
+                    setTimeout(() => {
+                        isReselecting = false;
+                    }, 100);
+                }, 200);
             }
         });
         // Apply custom range from modal
@@ -2959,6 +3099,7 @@
         });
 
         function updateCustomLabel(){
+            updateCustomRangeLabel(); // Use the new function
             const opt = document.querySelector('#rangeFilter option[value="custom"]');
             if(!opt) return;
             if(customStart){
@@ -3328,7 +3469,10 @@
                         const batchHeaderEl = document.getElementById('detailBatchHeader');
                         if (batchHeaderEl) { batchHeaderEl.classList.toggle('d-none', !!allKilo); }
                         items.forEach(it=>{
-                            const qty = safeNum(it.quantity, 0);
+                            // Get quantity - handle both Decimal (string) and number types like reports page
+                            const qtyRaw = it.quantity ?? it.qty ?? it.quantity_sold ?? 0;
+                            // Convert to number - handles both string "3.5" and number 3.5
+                            const qty = typeof qtyRaw === 'string' ? parseFloat(qtyRaw.replace(/,/g,'')) : Number(qtyRaw);
                             const price = safeNum(it.price, 0);
                             const amount = qty * price;
                             subtotal += amount;
@@ -3342,6 +3486,60 @@
                             const size = sizeVal ? ` (${safeText(sizeVal)})` : '';
                             const unit = getUnit(it);
                             const isKiloRow = unit === 'kg';
+                            // Format quantity: show decimals for kg, integer for boxes
+                            const formatQty = (val, isKg) => {
+                                if (isKg) {
+                                    // For kg, show 2 decimals if there are any decimal places
+                                    const numVal = parseFloat(val);
+                                    if (isNaN(numVal)) return '0';
+                                    // Check if it's a whole number - use multiple methods for reliability
+                                    const floorVal = Math.floor(numVal);
+                                    const diff = Math.abs(numVal - floorVal);
+                                    const isWholeNumber = diff < 0.0001;
+                                    const hasModulo = Math.abs(numVal % 1) > 0.0001;
+                                    
+                                    // If it has decimals (not a whole number), show 2 decimal places
+                                    if (!isWholeNumber || hasModulo) {
+                                        return numVal.toFixed(2);
+                                    } else {
+                                        // Whole number, show as integer
+                                        return String(floorVal);
+                                    }
+                                } else {
+                                    return String(Math.floor(val));
+                                }
+                            };
+                            // Format quantity - for kg, show 2 decimals if not whole number
+                            let qtyFormatted;
+                            if (isKiloRow) {
+                                const numQty = parseFloat(qty) || 0;
+                                // Check if it has decimal places
+                                const remainder = numQty % 1;
+                                if (Math.abs(remainder) > 0.0001) {
+                                    // Has decimals, show 2 decimal places
+                                    qtyFormatted = numQty.toFixed(2);
+                                } else {
+                                    // Whole number, show as integer
+                                    qtyFormatted = String(Math.floor(numQty));
+                                }
+                            } else {
+                                qtyFormatted = String(Math.floor(parseFloat(qty) || 0));
+                            }
+                            // Debug logging to help identify issues
+                            if (isKiloRow) {
+                                console.log('Modal kg quantity formatting:', { 
+                                    qtyRaw, 
+                                    qty, 
+                                    qtyType: typeof qty,
+                                    isKiloRow, 
+                                    qtyFormatted, 
+                                    unit,
+                                    quantity_unit: it.quantity_unit,
+                                    isWhole: Math.abs(qty - Math.floor(qty)) < 0.0001,
+                                    modulo: qty % 1,
+                                    toFixed: qty.toFixed(2)
+                                });
+                            }
                             const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
                                             : Array.isArray(it.batches) ? it.batches
                                             : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
@@ -3352,14 +3550,14 @@
                             if (allKilo) {
                                 tr.innerHTML = `
                                     <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
-                                    <td class="text-end">${qty}</td>
+                                    <td class="text-end">${qtyFormatted}</td>
                                     <td class="text-end">${currency(price)}</td>
                                     <td class="text-end">${currency(amount)}</td>
                                 `;
                             } else {
                                 tr.innerHTML = `
                                     <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
-                                    <td class="text-end">${qty}</td>
+                                    <td class="text-end">${qtyFormatted}</td>
                                     <td>${isKiloRow ? '' : batchHtml}</td>
                                     <td class="text-end">${currency(price)}</td>
                                     <td class="text-end">${currency(amount)}</td>
@@ -3664,11 +3862,50 @@ function printReceipt(saleId) {
 
         
 
+        // Handle "Other" reason input visibility
+        document.querySelectorAll('input[name="voidReason"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const otherContainer = document.getElementById('voidReasonOtherContainer');
+                const otherInput = document.getElementById('voidReasonOther');
+                if (this.value === 'Other') {
+                    otherContainer.style.display = 'block';
+                    otherInput.required = true;
+                } else {
+                    otherContainer.style.display = 'none';
+                    otherInput.required = false;
+                    otherInput.value = '';
+                }
+            });
+        });
+
         // Confirm void sale
         document.getElementById('confirmVoidSale').addEventListener('click', function () {
             const saleId = document.getElementById('voidSaleId').value;
             const alertElement = document.getElementById('voidModalAlert');
             const confirmButton = this;
+
+            // Get selected reason
+            const selectedReason = document.querySelector('input[name="voidReason"]:checked');
+            if (!selectedReason) {
+                alertElement.textContent = 'Please select a reason for voiding this sale.';
+                alertElement.classList.remove('d-none', 'alert-success');
+                alertElement.classList.add('alert-danger');
+                return;
+            }
+
+            let voidReason = selectedReason.value;
+            if (voidReason === 'Other') {
+                const otherInput = document.getElementById('voidReasonOther');
+                const otherReason = otherInput.value.trim();
+                if (!otherReason) {
+                    alertElement.textContent = 'Please specify the reason for voiding.';
+                    alertElement.classList.remove('d-none', 'alert-success');
+                    alertElement.classList.add('alert-danger');
+                    otherInput.focus();
+                    return;
+                }
+                voidReason = otherReason;
+            }
 
             // Show loading state
             confirmButton.disabled = true;
@@ -3684,7 +3921,9 @@ function printReceipt(saleId) {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': window.getCookie('csrftoken') || ''
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({
+                    reason: voidReason
+                })
             })
             .then(response => response.json())
             .then(data => {
@@ -3727,9 +3966,22 @@ function printReceipt(saleId) {
             const alertElement = document.getElementById('voidModalAlert');
             alertElement.classList.add('d-none');
             alertElement.classList.remove('alert-success', 'alert-danger');
+            alertElement.textContent = '';
             const confirmButton = document.getElementById('confirmVoidSale');
             confirmButton.disabled = false;
             confirmButton.innerHTML = 'Void Sale';
+            
+            // Reset form
+            document.querySelectorAll('input[name="voidReason"]').forEach(radio => {
+                radio.checked = false;
+            });
+            const otherContainer = document.getElementById('voidReasonOtherContainer');
+            const otherInput = document.getElementById('voidReasonOther');
+            if (otherContainer) otherContainer.style.display = 'none';
+            if (otherInput) {
+                otherInput.value = '';
+                otherInput.required = false;
+            }
         });
 
         

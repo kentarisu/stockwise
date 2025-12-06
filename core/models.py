@@ -108,6 +108,7 @@ class Sale(models.Model):
 	status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='completed')
 	user = models.ForeignKey(AppUser, on_delete=models.PROTECT)
 	voided_at = models.DateTimeField(null=True, blank=True)
+	void_reason = models.CharField(max_length=255, null=True, blank=True)
 	stock_restored = models.BooleanField(default=False)
 
 	class Meta:

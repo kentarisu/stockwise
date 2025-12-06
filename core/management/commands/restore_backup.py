@@ -240,12 +240,13 @@ class Command(BaseCommand):
                     media_files = [f for f in file_list if f.startswith('media/')]
                     if media_files:
                         self.stdout.write('Restoring media files...')
-                        media_root = Path(settings.BASE_DIR.parent) / 'uploads'
+                        # Use MEDIA_ROOT from settings (not legacy uploads path)
+                        media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
                         media_root.mkdir(parents=True, exist_ok=True)
                         
-                        # Backup current media files
+                        # Backup current media files if they exist
                         if media_root.exists() and any(media_root.iterdir()):
-                            backup_media = Path(settings.BASE_DIR.parent) / f'uploads_backup_{Path(backup_file).stem}'
+                            backup_media = media_root.parent / f'media_backup_{Path(backup_file).stem}'
                             if backup_media.exists():
                                 shutil.rmtree(backup_media)
                             shutil.copytree(media_root, backup_media)
@@ -264,7 +265,7 @@ class Command(BaseCommand):
                                     target.write(source.read())
                             media_count += 1
                         
-                        self.stdout.write(self.style.SUCCESS(f'  ✓ {media_count} media files restored'))
+                        self.stdout.write(self.style.SUCCESS(f'  ✓ {media_count} media files restored to {media_root}'))
                     else:
                         self.stdout.write(self.style.WARNING('No media files found in backup'))
                 

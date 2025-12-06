@@ -233,8 +233,12 @@ WHITENOISE_USE_FINDERS = True
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' if _HAS_WHITENOISE else 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Media files (user uploads)
+# Use persistent media directory from environment variable if set (for hosting)
+# Otherwise use project directory (for local development)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media')))
+# Ensure MEDIA_ROOT directory exists
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 BACKUPS_DIR = Path(os.getenv('BACKUPS_DIR') or (BASE_DIR / 'backups'))
 

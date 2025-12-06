@@ -1182,14 +1182,14 @@ def dashboard_view(request):
     total_products = Product.objects.count()
     last_month_products = Product.objects.filter(created_at__date__lte=last_month).count()
     
-    # Calculate low stock separately - sum actual stock quantities (not product count)
+    # Calculate low stock - count products (not sum stock quantities)
     low_stock_kilos = Product.objects.filter(
         status='active', stock__gt=0, stock__lte=10
-    ).filter(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+    ).filter(Q(quantity_unit__iexact='kg')).count()
     low_stock_boxes = Product.objects.filter(
         status='active', stock__gt=0, stock__lte=10
-    ).exclude(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
-    low_stock = Product.objects.filter(status='active', stock__gt=0, stock__lte=10).count()  # Keep count for percentage change
+    ).exclude(Q(quantity_unit__iexact='kg')).count()
+    low_stock = low_stock_boxes + low_stock_kilos  # Total count for percentage change
     yesterday_low_stock = Product.objects.filter(status='active', stock__lte=10, last_updated__date__lte=yesterday).count()
     
     # Base sales queryset with role-based visibility
@@ -1405,9 +1405,9 @@ def dashboard_view(request):
         'products_change': products_change,
         'low_stock': low_stock,
         'low_stock_boxes': low_stock_boxes,
-        'low_stock_boxes_formatted': format_quantity(low_stock_boxes, 'boxes'),
+        'low_stock_boxes_formatted': str(low_stock_boxes),  # Count, not quantity
         'low_stock_kilos': low_stock_kilos,
-        'low_stock_kilos_formatted': format_quantity(low_stock_kilos, 'kg'),
+        'low_stock_kilos_formatted': str(low_stock_kilos),  # Count, not quantity
         'low_stock_change': low_stock_change,
         'today_sales': today_sales,
         'sales_change': sales_change,
@@ -1500,26 +1500,42 @@ def products_inventory(request):
         
         products = products.order_by(sort_field)
 
-        # Calculate dashboard stats - count ALL products
-        total_products = products.count()
-        active_products = products.filter(status='active').count()
+        # Calculate dashboard stats - use ALL products (unfiltered) for accurate totals
+        all_products = Product.objects.all()
+        total_products = all_products.count()
+        active_products = all_products.filter(status='active').count()
         
-        # Calculate stock separately for boxes and kg
-        total_stock_kilos = products.filter(
+        # Calculate stock separately for boxes and kg - from ALL products
+        # Convert Decimal to float for proper calculation
+        total_stock_kilos_raw = all_products.filter(
             Q(quantity_unit__iexact='kg')
-        ).aggregate(total=Sum('stock'))['total'] or 0
-        total_stock_boxes = products.exclude(
-            Q(quantity_unit__iexact='kg')
-        ).aggregate(total=Sum('stock'))['total'] or 0
+        ).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+        total_stock_kilos = float(total_stock_kilos_raw) if total_stock_kilos_raw else 0.0
         
-        # Calculate restock alerts separately - sum actual stock quantities (not product count)
-        restock_alerts_kilos = products.filter(
-            status='active', stock__gt=0, stock__lt=10
-        ).filter(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
-        restock_alerts_boxes = products.filter(
-            status='active', stock__gt=0, stock__lt=10
-        ).exclude(Q(quantity_unit__iexact='kg')).aggregate(total=Sum('stock'))['total'] or Decimal('0')
-        restock_alerts = products.filter(status='active', stock__gt=0, stock__lt=10).count()  # Keep count for reference
+        total_stock_boxes_raw = all_products.exclude(
+            Q(quantity_unit__iexact='kg')
+        ).aggregate(total=Sum('stock'))['total'] or Decimal('0')
+        total_stock_boxes = float(total_stock_boxes_raw) if total_stock_boxes_raw else 0.0
+        
+        # Calculate restock alerts - count products (not sum stock quantities) - from ALL products
+        restock_alerts_kilos = all_products.filter(
+            status='active', stock__gt=0, stock__lte=10
+        ).filter(Q(quantity_unit__iexact='kg')).count()
+        
+        restock_alerts_boxes = all_products.filter(
+            status='active', stock__gt=0, stock__lte=10
+        ).exclude(Q(quantity_unit__iexact='kg')).count()
+        restock_alerts = restock_alerts_boxes + restock_alerts_kilos  # Total count
+        
+        # Calculate out of stock - count products (not sum stock quantities) - from ALL products
+        out_of_stock_kilos = all_products.filter(
+            status='active', stock=0
+        ).filter(Q(quantity_unit__iexact='kg')).count()
+        
+        out_of_stock_boxes = all_products.filter(
+            status='active', stock=0
+        ).exclude(Q(quantity_unit__iexact='kg')).count()
+        out_of_stock = out_of_stock_boxes + out_of_stock_kilos  # Total count
 
         # For the table display, use the selected products
         table_products = products
@@ -1587,9 +1603,14 @@ def products_inventory(request):
             'restock_alerts': restock_alerts,  # Keep for backward compatibility
             'low_stock_alerts': restock_alerts,  # New name for consistency
             'restock_alerts_boxes': restock_alerts_boxes,
-            'restock_alerts_boxes_formatted': format_quantity(restock_alerts_boxes, 'boxes'),
+            'restock_alerts_boxes_formatted': str(restock_alerts_boxes),  # Count, not quantity
             'restock_alerts_kilos': restock_alerts_kilos,
-            'restock_alerts_kilos_formatted': format_quantity(restock_alerts_kilos, 'kg'),
+            'restock_alerts_kilos_formatted': str(restock_alerts_kilos),  # Count, not quantity
+            'out_of_stock': out_of_stock,
+            'out_of_stock_boxes': out_of_stock_boxes,
+            'out_of_stock_boxes_formatted': str(out_of_stock_boxes),  # Count, not quantity
+            'out_of_stock_kilos': out_of_stock_kilos,
+            'out_of_stock_kilos_formatted': str(out_of_stock_kilos),  # Count, not quantity
             'user': request.user,
             'app_role': request.session.get('app_role', 'user'),
             'show_cost': request.session.get('app_role') == 'admin',
@@ -1916,10 +1937,15 @@ def product_add(request):
                     cost=cost
                 )
 
+        # Build user-friendly product description
+        variant_part = f" ({variant})" if variant else ""
+        unit_part = f" - {size}" if size and size != 'kg' else " (kg)" if unit == 'kg' else ""
+        product_desc = f"{name}{variant_part}{unit_part}"
+
         log_action(
             request,
             'Product added',
-            f'Added product {product.name} (ID {product.product_id}) with stock {stock}.'
+            f'Added new product: {product_desc}. Price: ₱{price:.2f}, Cost: ₱{cost:.2f}, Initial Stock: {stock} units'
         )
         try:
             csv_path = getattr(settings, 'FRUIT_MASTER_PATH', os.path.join(settings.BASE_DIR, 'fruit_master_full.csv'))
@@ -2031,7 +2057,15 @@ def stock_decrease(request, product_id):
         current_stock = Decimal(str(product.stock or 0))
         product.stock = max(Decimal('0'), current_stock - decrease)
         product.save()
-        log_action(request, 'Stock decreased', f'Product {product.product_id} ({product.name}), batch {addition.batch_id}, amount {decrease}')
+        variant_part = f" ({product.variant})" if product.variant else ""
+        unit_label = "kg" if (product.quantity_unit or '').strip().lower() == 'kg' else "boxes"
+        product_desc = f"{product.name}{variant_part}"
+        
+        log_action(
+            request, 
+            'Stock decreased', 
+            f'Decreased stock for product: {product_desc}. Removed {decrease} {unit_label} from batch {addition.batch_id}. New stock: {product.stock} {unit_label}'
+        )
 
     return JsonResponse({
         'success': True, 
@@ -2071,10 +2105,31 @@ def product_edit(request, product_id):
                 product.stock = max(0, stock_val)
                 product.save()
 
+        # Build user-friendly update details
+        changes = []
+        if 'stock' in data:
+            new_stock = data.get('stock', product.stock)
+            changes.append(f"Stock: {new_stock} units")
+        role = request.session.get('app_role')
+        if role != 'secretary':
+            if 'price' in data:
+                new_price = data.get('price', product.price)
+                changes.append(f"Price: ₱{float(new_price):.2f}")
+            if 'cost' in data:
+                new_cost = data.get('cost', product.cost)
+                changes.append(f"Cost: ₱{float(new_cost):.2f}")
+        if 'status' in data:
+            new_status = data.get('status', product.status)
+            changes.append(f"Status: {new_status.title()}")
+        
+        changes_str = ", ".join(changes) if changes else "Product details updated"
+        variant_part = f" ({product.variant})" if product.variant else ""
+        product_desc = f"{product.name}{variant_part}"
+
         log_action(
             request,
             'Product updated',
-            f'Updated product {product.product_id} ({product.name}).'
+            f'Updated product: {product_desc}. Changes: {changes_str}'
         )
         return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
     except Product.DoesNotExist:
@@ -2471,10 +2526,17 @@ def stock_add(request, product_id):
                 from core.signals import send_low_stock_alert
                 send_low_stock_alert(product)
 
+            # Build user-friendly log message
+            variant_part = f" ({product.variant})" if product.variant else ""
+            unit_label = "kg" if (product.quantity_unit or '').strip().lower() == 'kg' else "boxes"
+            product_desc = f"{product.name}{variant_part}"
+            supplier_info = f" from supplier: {supplier_to_save}" if supplier_to_save else ""
+            batch_info = f" (Batch: {batch_id})" if batch_id else ""
+
             log_action(
                 request,
                 'Stock added',
-                f'Added {quantity_decimal} units to product {product_id}.'
+                f'Added {quantity_decimal} {unit_label} to product: {product_desc}{supplier_info}{batch_info}. New stock: {product.stock} {unit_label}'
             )
 
             return JsonResponse({
@@ -2786,7 +2848,8 @@ def sales_view(request):
                 'total_boxes': sale.quantity,
                 'products': (f"{sale.product.name}{(' (' + sale.product.variant.strip() + ')') if (sale.product.variant or '').strip() else ''}{(' (' + sale.product.quantity_unit + ')') if sale.product.quantity_unit else ''}") if sale.product else '',
                 'days_until_deletion': days_until_deletion,
-                'recorded_by': sale.user.username if sale.user else 'N/A'
+                'recorded_by': sale.user.username if sale.user else 'N/A',
+                'void_reason': sale.void_reason or 'N/A'
             })
 
     # Get all users for the filter dropdown
@@ -3022,7 +3085,7 @@ def fetch_sales(request):
             item = {
                 'product_name': product_display,
                 'quantity_unit': row.product.quantity_unit if row.product else '',
-                'quantity': int(row.quantity or 0),
+                'quantity': float(row.quantity or 0),  # Use float to preserve decimals for kg products
                 'price': float(row.price or 0),
                 'subtotal': float(row.total or 0)
             }
@@ -3055,7 +3118,8 @@ def fetch_sales(request):
                     'products': product_display,
                     'customer_name': (getattr(row, 'customer_name', '') or '').strip() if (getattr(row, 'customer_name', '') or '').strip() else '',
                     'recorded_by': row.user.username if row.user else 'N/A',
-                    'discount': float(getattr(row, 'discount_amount', 0) or 0)
+                    'discount': float(getattr(row, 'discount_amount', 0) or 0),
+                    'void_reason': getattr(row, 'void_reason', None) or (None if row.status != 'voided' else 'N/A')
                 }
             else:
                 g['items'].append(item)
@@ -3096,6 +3160,21 @@ def void_sale(request, sale_id):
         })
 
     try:
+        # Get void reason from request body
+        import json
+        body = json.loads(request.body) if request.body else {}
+        void_reason = (body.get('reason') or '').strip()
+        
+        if not void_reason:
+            return JsonResponse({
+                'success': False,
+                'message': 'Please provide a reason for voiding this sale.'
+            })
+        
+        # Limit reason length
+        if len(void_reason) > 255:
+            void_reason = void_reason[:255]
+
         with transaction.atomic():
             sale = Sale.objects.select_related().get(sale_id=sale_id)
             if sale.status == 'voided':
@@ -3136,13 +3215,14 @@ def void_sale(request, sale_id):
             # Mark sale as voided
             sale.status = 'voided'
             sale.voided_at = timezone.now()
+            sale.void_reason = void_reason
             sale.stock_restored = True
             sale.save()
 
             log_action(
                 request,
                 'Sale voided',
-                f'Voided sale {sale_id} (OR {sale.or_number}).'
+                f'Voided sale {sale_id} (OR {sale.or_number}). Reason: {void_reason}'
             )
 
             return JsonResponse({
@@ -3223,12 +3303,17 @@ def complete_sale(request, sale_id):
 def get_sale_details(request, sale_id):
     """AJAX endpoint to get sale details."""
     try:
-        sale = Sale.objects.select_related('user').get(sale_id=sale_id)
-        items = sale.items.select_related('product').all()
+        main_sale = Sale.objects.select_related('user', 'product').get(sale_id=sale_id)
+        # Get all sales with the same transaction number (like reports page does)
+        txn_number = main_sale.transaction_number
+        if txn_number:
+            related_sales = Sale.objects.select_related('product', 'user').filter(transaction_number=txn_number).order_by('sale_id')
+        else:
+            related_sales = Sale.objects.select_related('product', 'user').filter(sale_id=sale_id)
         
         items_data = []
-        for item in items:
-            product_name = item.product.name
+        for sale in related_sales:
+            product_name = sale.product.name if sale.product else 'Unknown'
             variant = ''
             # Extract variant if product name has format "Name (Variant)"
             if '(' in product_name and ')' in product_name:
@@ -3236,26 +3321,39 @@ def get_sale_details(request, sale_id):
                 product_name = name_parts[0].strip()
                 variant = name_parts[1].rstrip(')').strip()
 
+            # Get quantity and preserve decimals - use str() then float() to ensure precision
+            qty_value = sale.quantity
+            # Convert Decimal to string first, then to float to preserve all decimal places
+            # This ensures 3.50 becomes 3.5 (not 3.0)
+            if qty_value is None:
+                qty_float = 0.0
+            else:
+                # Convert to string first to preserve decimal representation
+                qty_str = str(qty_value)
+                qty_float = float(qty_str)
+
             items_data.append({
                 'product_name': product_name,
                 'variant': variant,
-                'quantity_unit': item.product.quantity_unit,
-                'quantity': item.quantity,
-                'price': str(item.product.price),
-                'subtotal': str(item.subtotal)
+                'quantity_unit': sale.product.quantity_unit if sale.product else '',
+                'quantity': qty_float,
+                'price': float(sale.product.price) if sale.product else 0.0,
+                'subtotal': float(sale.total) if sale.total else 0.0
             })
 
         return JsonResponse({
             'success': True,
             'data': {
-                'sale_id': sale.sale_id,
-                'or_number': sale.or_number,
-                'recorded_at': sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
-                'status': sale.status,
-                'total': str(sale.total),
-                'amount_paid': str(sale.amount_paid),
-                'change_given': str(sale.change_given),
-                'username': sale.user.username if sale.user else 'Unknown',
+                'sale_id': main_sale.sale_id,
+                'transaction_number': main_sale.transaction_number,
+                'or_number': main_sale.or_number,
+                'recorded_at': main_sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                'status': main_sale.status,
+                'total': str(main_sale.total),
+                'amount_paid': str(main_sale.amount_paid),
+                'change_given': str(main_sale.change_given),
+                'username': main_sale.user.username if main_sale.user else 'Unknown',
+                'customer_name': getattr(main_sale, 'customer_name', '') or '',
                 'items': items_data
             }
         })
@@ -4289,181 +4387,182 @@ def fetch_reports(request):
 
 @require_app_login
 def export_report(request):
-    if request.method not in ('POST','GET') or request.session.get('app_role')!='admin':
-        return JsonResponse({'success':False,'message':'Forbidden'},status=403)
-    getp = (lambda k, d=None: (request.POST.get(k) if request.method=='POST' else request.GET.get(k)) or d)
-    report_type = getp('report_type', 'transactions')
-    filter_type = getp('filter', 'Daily')
-    start_date = getp('start_date', '')
-    end_date = getp('end_date', '')
-    search = getp('search', '')
-    user_filter = getp('user', 'all')
-    fruit_filter = getp('product', getp('fruit', 'all'))
-    accepted_prices_json = getp('accepted_prices', '{}')
-    
     try:
-        accepted_prices = json.loads(accepted_prices_json)
-    except json.JSONDecodeError:
-        accepted_prices = {}
+        if request.method not in ('POST','GET') or request.session.get('app_role')!='admin':
+            return JsonResponse({'success':False,'message':'Forbidden'},status=403)
+        getp = (lambda k, d=None: (request.POST.get(k) if request.method=='POST' else request.GET.get(k)) or d)
+        report_type = getp('report_type', 'transactions')
+        filter_type = getp('filter', 'Daily')
+        start_date = getp('start_date', '')
+        end_date = getp('end_date', '')
+        search = getp('search', '')
+        user_filter = getp('user', 'all')
+        fruit_filter = getp('product', getp('fruit', 'all'))
+        accepted_prices_json = getp('accepted_prices', '{}')
+        
+        try:
+            accepted_prices = json.loads(accepted_prices_json)
+        except json.JSONDecodeError:
+            accepted_prices = {}
 
-    # Identify the user who generated the report (optional)
-    generated_by_user = None
-    try:
-        uid = request.session.get('app_user_id') or request.session.get('user_id')
-        if uid:
-            generated_by_user = AppUser.objects.filter(user_id=uid).first()
-    except Exception:
+        # Identify the user who generated the report (optional)
         generated_by_user = None
-
-    sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
-    sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
-    
-    # Apply user filter if specified
-    if user_filter and user_filter != 'all':
         try:
-            sales_q = sales_q.filter(user_id=int(user_filter))
-        except (ValueError, TypeError):
-            pass
-    
-    # Apply fruit filter if specified
-    if fruit_filter and fruit_filter != 'all':
-        # Match products where the base name (before parentheses) matches the fruit
-        sales_q = sales_q.filter(
-            Q(product__name__istartswith=fruit_filter + ' ') |
-            Q(product__name__istartswith=fruit_filter + '(') |
-            Q(product__name__iexact=fruit_filter)
-        )
-    
-    if search:
-        if search.isdigit():
-            sales_q = sales_q.filter(sale_id=search)
-        else:
-            # Match product name or quantity
-            sales_q = sales_q.filter(
-                Q(product__name__icontains=search) | Q(product__quantity_unit__icontains=search)
-            ).distinct()
+            uid = request.session.get('app_user_id') or request.session.get('user_id')
+            if uid:
+                generated_by_user = AppUser.objects.filter(user_id=uid).first()
+        except Exception:
+            generated_by_user = None
 
-    # Use the same comprehensive calculation logic as fetch_reports
-    base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
-    date_range = _resolve_report_range(filter_type, start_date, end_date)
-    sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
-    
-    # Apply filters
-    if user_filter and user_filter != 'all':
-        try:
-            sales_queryset = sales_queryset.filter(user_id=int(user_filter))
-        except (ValueError, TypeError):
-            pass
-    
-    if fruit_filter and fruit_filter != 'all':
-        sales_queryset = sales_queryset.filter(
-            Q(product__name__istartswith=fruit_filter + ' ') |
-            Q(product__name__istartswith=fruit_filter + '(') |
-            Q(product__name__iexact=fruit_filter)
-        )
-    
-    if search:
-        if search.isdigit():
-            sales_queryset = sales_queryset.filter(sale_id=search)
-        else:
-            sales_queryset = sales_queryset.filter(
-                Q(product__name__icontains=search) |
-                Q(product__quantity_unit__icontains=search) |
-                Q(customer_name__icontains=search) |
-                Q(transaction_number__icontains=search)
-            ).distinct()
-    
-    # Get previous period for comparison
-    previous_queryset = base_queryset.none()
-    current_start = None
-    current_end = None
-    if date_range:
-        current_start, current_end = date_range
-        period_delta = current_end - current_start
-        previous_end = current_start - timedelta(seconds=1)
-        previous_start = previous_end - period_delta
-        previous_queryset = base_queryset.filter(recorded_at__range=(previous_start, previous_end))
+        sales_q = Sale.objects.filter(status__iexact='completed').select_related('product','user')
+        sales_q = _apply_report_filters(sales_q, filter_type, start_date, end_date)
+        
+        # Apply user filter if specified
         if user_filter and user_filter != 'all':
             try:
-                previous_queryset = previous_queryset.filter(user_id=int(user_filter))
+                sales_q = sales_q.filter(user_id=int(user_filter))
             except (ValueError, TypeError):
                 pass
+        
+        # Apply fruit filter if specified
         if fruit_filter and fruit_filter != 'all':
-            previous_queryset = previous_queryset.filter(
+            # Match products where the base name (before parentheses) matches the fruit
+            sales_q = sales_q.filter(
                 Q(product__name__istartswith=fruit_filter + ' ') |
                 Q(product__name__istartswith=fruit_filter + '(') |
                 Q(product__name__iexact=fruit_filter)
             )
-    
-    # Comprehensive sales summary
-    agg = sales_queryset.aggregate(
-        total_revenue=Sum('total'),
-        transaction_count=Count('transaction_number', distinct=True),
-        total_items_sold=Sum('quantity'),
-        total_cogs=Sum(F('quantity') * F('product__cost'))
-    )
-    total_rev = Decimal(str(agg['total_revenue'] or 0))
-    trans_cnt = agg['transaction_count'] or 0
-    total_items = Decimal(str(agg['total_items_sold'] or 0))  # Convert to Decimal for consistency
-    total_cogs = Decimal(str(agg['total_cogs'] or 0))
-    gross_profit = total_rev - total_cogs
-    gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
-    vat_total = total_rev - (total_rev / Decimal('1.12'))
-    net_profit = gross_profit
-    
-    # Previous period summary for growth calculation
-    prev_agg = previous_queryset.aggregate(
-        total_revenue=Sum('total'),
-        transaction_count=Count('transaction_number', distinct=True),
-        total_items_sold=Sum('quantity')
-    )
-    prev_revenue = Decimal(prev_agg['total_revenue'] or 0)
-    prev_trans_cnt = prev_agg['transaction_count'] or 0
-    revenue_growth_pct = float(((total_rev - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if total_rev else 0.0))
-    transaction_growth_pct = float(((trans_cnt - prev_trans_cnt) / prev_trans_cnt * 100) if prev_trans_cnt else (100.0 if trans_cnt else 0.0))
-    
-    total_revenue = float(total_rev)
-    transaction_count = int(trans_cnt)
-    total_boxes = int(total_items)
+        
+        if search:
+            if search.isdigit():
+                sales_q = sales_q.filter(sale_id=search)
+            else:
+                # Match product name or quantity
+                sales_q = sales_q.filter(
+                    Q(product__name__icontains=search) | Q(product__quantity_unit__icontains=search)
+                ).distinct()
 
-    # Build PDF with portrait letter size (8.5" x 11")
-    buffer = BytesIO()
-    # Letter portrait is 8.5" x 11" = 612 x 792 points
-    from reportlab.platypus import PageTemplate, Frame, PageBreak
-    from reportlab.lib.units import inch
-    
-    # Compact margins for more content
-    doc = SimpleDocTemplate(buffer, pagesize=letter, 
-                          leftMargin=0.5*inch, rightMargin=0.5*inch, 
-                          topMargin=0.5*inch, bottomMargin=0.5*inch,
-                          showBoundary=0)
-    
-    styles = getSampleStyleSheet()
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
-    
-    elems = []
+        # Use the same comprehensive calculation logic as fetch_reports
+        base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
+        date_range = _resolve_report_range(filter_type, start_date, end_date)
+        sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
+        
+        # Apply filters
+        if user_filter and user_filter != 'all':
+            try:
+                sales_queryset = sales_queryset.filter(user_id=int(user_filter))
+            except (ValueError, TypeError):
+                pass
+        
+        if fruit_filter and fruit_filter != 'all':
+            sales_queryset = sales_queryset.filter(
+                Q(product__name__istartswith=fruit_filter + ' ') |
+                Q(product__name__istartswith=fruit_filter + '(') |
+                Q(product__name__iexact=fruit_filter)
+            )
+        
+        if search:
+            if search.isdigit():
+                sales_queryset = sales_queryset.filter(sale_id=search)
+            else:
+                sales_queryset = sales_queryset.filter(
+                    Q(product__name__icontains=search) |
+                    Q(product__quantity_unit__icontains=search) |
+                    Q(customer_name__icontains=search) |
+                    Q(transaction_number__icontains=search)
+                ).distinct()
+        
+        # Get previous period for comparison
+        previous_queryset = base_queryset.none()
+        current_start = None
+        current_end = None
+        if date_range:
+            current_start, current_end = date_range
+            period_delta = current_end - current_start
+            previous_end = current_start - timedelta(seconds=1)
+            previous_start = previous_end - period_delta
+            previous_queryset = base_queryset.filter(recorded_at__range=(previous_start, previous_end))
+            if user_filter and user_filter != 'all':
+                try:
+                    previous_queryset = previous_queryset.filter(user_id=int(user_filter))
+                except (ValueError, TypeError):
+                    pass
+            if fruit_filter and fruit_filter != 'all':
+                previous_queryset = previous_queryset.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
+        
+        # Comprehensive sales summary
+        agg = sales_queryset.aggregate(
+            total_revenue=Sum('total'),
+            transaction_count=Count('transaction_number', distinct=True),
+            total_items_sold=Sum('quantity'),
+            total_cogs=Sum(F('quantity') * F('product__cost'))
+        )
+        total_rev = Decimal(str(agg['total_revenue'] or 0))
+        trans_cnt = agg['transaction_count'] or 0
+        total_items = Decimal(str(agg['total_items_sold'] or 0))  # Convert to Decimal for consistency
+        total_cogs = Decimal(str(agg['total_cogs'] or 0))
+        gross_profit = total_rev - total_cogs
+        gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
+        vat_total = total_rev - (total_rev / Decimal('1.12'))
+        net_profit = gross_profit
+        
+        # Previous period summary for growth calculation
+        prev_agg = previous_queryset.aggregate(
+            total_revenue=Sum('total'),
+            transaction_count=Count('transaction_number', distinct=True),
+            total_items_sold=Sum('quantity')
+        )
+        prev_revenue = Decimal(prev_agg['total_revenue'] or 0)
+        prev_trans_cnt = prev_agg['transaction_count'] or 0
+        revenue_growth_pct = float(((total_rev - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if total_rev else 0.0))
+        transaction_growth_pct = float(((trans_cnt - prev_trans_cnt) / prev_trans_cnt * 100) if prev_trans_cnt else (100.0 if trans_cnt else 0.0))
+        
+        total_revenue = float(total_rev)
+        transaction_count = int(trans_cnt)
+        total_boxes = int(total_items)
 
-    def _fmt_prod(name, variant=None, unit=None):
-        try:
-            import re as _re
-            base = (_re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "")).strip())
-        except Exception:
-            base = str(name or "").strip()
-        v = str(variant or "").strip()
-        u = str(unit or "").strip()
-        if v:
-            base = f"{base} ({v})"
-        if u:
-            base = f"{base} ({u})"
-        return base
+        # Build PDF with portrait letter size (8.5" x 11")
+        buffer = BytesIO()
+        # Letter portrait is 8.5" x 11" = 612 x 792 points
+        from reportlab.platypus import PageTemplate, Frame, PageBreak
+        from reportlab.lib.units import inch
+        
+        # Compact margins for more content
+        doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                              leftMargin=0.5*inch, rightMargin=0.5*inch, 
+                              topMargin=0.5*inch, bottomMargin=0.5*inch,
+                              showBoundary=0)
+        
+        styles = getSampleStyleSheet()
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+        
+        elems = []
 
-    # Calculate available width (portrait letter width minus margins)
-    # Letter portrait: 612 points wide, minus 0.5 inch (36 points) on each side
-    available_width = letter[0] - (0.5 * inch * 2)  # 612 - 72 = 540 points
+        def _fmt_prod(name, variant=None, unit=None):
+            try:
+                import re as _re
+                base = (_re.sub(r"\s*\([^)]*\)\s*$", "", str(name or "")).strip())
+            except Exception:
+                base = str(name or "").strip()
+            v = str(variant or "").strip()
+            u = str(unit or "").strip()
+            if v:
+                base = f"{base} ({v})"
+            if u:
+                base = f"{base} ({u})"
+            return base
 
-    # Custom styles for better appearance (adjusted for portrait)
-    title_style = ParagraphStyle(
+        # Calculate available width (portrait letter width minus margins)
+        # Letter portrait: 612 points wide, minus 0.5 inch (36 points) on each side
+        available_width = letter[0] - (0.5 * inch * 2)  # 612 - 72 = 540 points
+
+        # Custom styles for better appearance (adjusted for portrait)
+        title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Title'],
         fontSize=18,
@@ -4472,9 +4571,9 @@ def export_report(request):
         spaceBefore=0,
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
-    )
+        )
     
-    subtitle_style = ParagraphStyle(
+        subtitle_style = ParagraphStyle(
         'CustomSubtitle',
         parent=styles['Normal'],
         fontSize=9,
@@ -4482,51 +4581,51 @@ def export_report(request):
         spaceAfter=8,
         alignment=TA_CENTER,
         fontName='Helvetica'
-    )
+        )
     
-    # Title - professional style
-    title_text = "FruitMaster Marketing Sales Report"
-    elems.append(Paragraph(title_text, title_style))
+        # Title - professional style
+        title_text = "FruitMaster Marketing Sales Report"
+        elems.append(Paragraph(title_text, title_style))
+        
+        # Report metadata - compact formatting
+        if start_date and end_date:
+            try:
+                s_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                e_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                period_text = f"{s_dt.strftime('%B %d, %Y')} - {e_dt.strftime('%B %d, %Y')}"
+            except Exception:
+                period_text = f"{start_date} to {end_date}"
+        elif current_start and current_end:
+            period_text = f"{timezone.localtime(current_start).strftime('%B %d, %Y')} - {timezone.localtime(current_end).strftime('%B %d, %Y')}"
+        else:
+            period_text = filter_type.replace('_', ' ').title()
+        generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
     
-    # Report metadata - compact formatting
-    if start_date and end_date:
-        try:
-            s_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            e_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            period_text = f"{s_dt.strftime('%B %d, %Y')} - {e_dt.strftime('%B %d, %Y')}"
-        except Exception:
-            period_text = f"{start_date} to {end_date}"
-    elif current_start and current_end:
-        period_text = f"{timezone.localtime(current_start).strftime('%B %d, %Y')} - {timezone.localtime(current_end).strftime('%B %d, %Y')}"
-    else:
-        period_text = filter_type.replace('_', ' ').title()
-    generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
+        # Add filter info if applied
+        filter_info = []
+        if user_filter and user_filter != 'all':
+            try:
+                user_obj = AppUser.objects.get(user_id=int(user_filter))
+                filter_info.append(f"User: {user_obj.username}")
+            except:
+                pass
+        if fruit_filter and fruit_filter != 'all':
+            filter_info.append(f"Product: {fruit_filter}")
+        
+        meta_parts = [
+            f"<b>Period:</b> {period_text}",
+            f"<b>Generated:</b> {generated_time}",
+            f"<b>Prepared by:</b> Francis Hernia"
+        ]
+        if filter_info:
+            meta_parts.append(f"<b>Filters:</b> {', '.join(filter_info)}")
     
-    # Add filter info if applied
-    filter_info = []
-    if user_filter and user_filter != 'all':
-        try:
-            user_obj = AppUser.objects.get(user_id=int(user_filter))
-            filter_info.append(f"User: {user_obj.username}")
-        except:
-            pass
-    if fruit_filter and fruit_filter != 'all':
-        filter_info.append(f"Product: {fruit_filter}")
-    
-    meta_parts = [
-        f"<b>Period:</b> {period_text}",
-        f"<b>Generated:</b> {generated_time}",
-        f"<b>Prepared by:</b> Francis Hernia"
-    ]
-    if filter_info:
-        meta_parts.append(f"<b>Filters:</b> {', '.join(filter_info)}")
-    
-    meta = " | ".join(meta_parts)
-    elems.append(Paragraph(meta, subtitle_style))
-    elems.append(Spacer(1, 12))
+        meta = " | ".join(meta_parts)
+        elems.append(Paragraph(meta, subtitle_style))
+        elems.append(Spacer(1, 12))
 
-    # ========== SECTION 1: SALES SUMMARY ==========
-    section_style = ParagraphStyle(
+        # ========== SECTION 1: SALES SUMMARY ==========
+        section_style = ParagraphStyle(
         'SectionHeader', 
         parent=styles['Heading2'], 
         textColor=colors.HexColor('#1f2937'), 
@@ -4534,21 +4633,21 @@ def export_report(request):
         spaceBefore=8,
         fontSize=12,
         fontName='Helvetica-Bold'
-    )
+        )
     
-    # Executive Summary Section with comprehensive metrics
-    elems.append(Paragraph("EXECUTIVE SUMMARY", section_style))
-    elems.append(Spacer(1, 8))
+        # Executive Summary Section with comprehensive metrics
+        elems.append(Paragraph("EXECUTIVE SUMMARY", section_style))
+        elems.append(Spacer(1, 8))
     
-    avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
-    card_style = ParagraphStyle('Card', fontSize=7, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=10)
-    card_small_style = ParagraphStyle('CardSmall', fontSize=6, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=8)
-    table_header_style = ParagraphStyle('TableHeaderDefault', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
-    cell_style = ParagraphStyle('CellDefault', fontSize=7, leading=9)
-    cell_small_style = ParagraphStyle('CellSmallDefault', fontSize=6, leading=8)
+        avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
+        card_style = ParagraphStyle('Card', fontSize=7, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=10)
+        card_small_style = ParagraphStyle('CardSmall', fontSize=6, textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, leading=8)
+        table_header_style = ParagraphStyle('TableHeaderDefault', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        cell_style = ParagraphStyle('CellDefault', fontSize=7, leading=9)
+        cell_small_style = ParagraphStyle('CellSmallDefault', fontSize=6, leading=8)
     
-    # Enhanced summary cards (3x3 grid for comprehensive metrics - adjusted for portrait)
-    summary_cards = [
+        # Enhanced summary cards (3x3 grid for comprehensive metrics - adjusted for portrait)
+        summary_cards = [
         [
             Paragraph("<b>TOTAL REVENUE</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5>Growth: {:.1f}%</font><br/><font size=5 color='#6b7280'>Total money earned from sales</font>".format(int(total_revenue), revenue_growth_pct), card_style),
             Paragraph("<b>GROSS PROFIT</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5>Margin: {:.1f}%</font><br/><font size=5 color='#6b7280'>Revenue minus cost of goods</font>".format(int(gross_profit), gross_margin_pct), card_style),
@@ -4564,11 +4663,11 @@ def export_report(request):
             Paragraph("<b>NET PROFIT</b><br/><font size=12 color='#10b981'>PHP {:,}</font><br/><font size=5 color='#6b7280'>Profit before operating costs</font>".format(int(net_profit)), card_style),
             Paragraph("<b>TOTAL BOXES SOLD</b><br/><font size=12 color='#6366f1'>{}</font><br/><font size=5 color='#6b7280'>Sum of quantities sold</font>".format(total_items), card_style),
         ]
-    ]
+        ]
     
-    card_width = (available_width - 20) / 3
-    summary_grid = Table(summary_cards, colWidths=[card_width, card_width, card_width], rowHeights=[60, 60, 60])
-    summary_grid.setStyle(TableStyle([
+        card_width = (available_width - 20) / 3
+        summary_grid = Table(summary_cards, colWidths=[card_width, card_width, card_width], rowHeights=[60, 60, 60])
+        summary_grid.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.white),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -4585,17 +4684,17 @@ def export_report(request):
         ('BACKGROUND', (0,2), (0,2), colors.HexColor('#f3e8ff')),
         ('BACKGROUND', (1,2), (1,2), colors.HexColor('#f0fdf4')),
         ('BACKGROUND', (2,2), (2,2), colors.HexColor('#eef2ff')),
-    ]))
-    elems.append(summary_grid)
-    elems.append(Spacer(1, 10))
+        ]))
+        elems.append(summary_grid)
+        elems.append(Spacer(1, 10))
 
 
-    # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
-    elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
-    elems.append(Spacer(1, 8))
+        # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
+        elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
+        elems.append(Spacer(1, 8))
     
-    # Calculate comprehensive sales summary data
-    summary = list(
+        # Calculate comprehensive sales summary data - separate boxes and kg
+        summary = list(
         sales_queryset.values(
             'product__product_id',
             'product__name',
@@ -4603,129 +4702,180 @@ def export_report(request):
             'product__quantity_unit',
             'product__cost'
         ).annotate(
-            boxes_sold=Sum('quantity'),
+            boxes_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then=0),
+                    default='quantity',
+                    output_field=models.DecimalField()
+                )
+            ),
+            kg_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then='quantity'),
+                    default=0,
+                    output_field=models.DecimalField()
+                )
+            ),
             revenue=Sum('total'),
             cogs=Sum(F('quantity') * F('product__cost')),
             transaction_count=Count('sale_id', distinct=True)
         ).order_by('-revenue')[:20]
-    )
+        )
     
-    # Get previous period data for comparison
-    previous_summary_map = {}
-    previous_summary_queryset = previous_queryset.values(
-        'product__product_id'
-    ).annotate(
-        boxes_sold=Sum('quantity'),
-        revenue=Sum('total'),
-        cogs=Sum(F('quantity') * F('product__cost'))
-    )
-    for prev in previous_summary_queryset:
-        product_id = prev['product__product_id']
-        previous_summary_map[product_id] = {
-            'boxes_sold': prev['boxes_sold'] or 0,
-            'revenue': Decimal(prev['revenue'] or 0),
-            'cogs': Decimal(prev['cogs'] or 0)
-        }
-    
-    total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
-    
-    if summary:
-        header_style = ParagraphStyle('TableHeader', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
-        sales_summary_rows = [[
-            Paragraph('Product', header_style),
-            Paragraph('Boxes Sold', header_style),
-            Paragraph('Unit Price', header_style),
-            Paragraph('Unit Cost', header_style),
-            Paragraph('Revenue', header_style),
-            Paragraph('COGS', header_style),
-            Paragraph('Profit', header_style),
-            Paragraph('Gross Margin<br/>%', header_style),
-            Paragraph('Sales Growth<br/>%', header_style),
-            Paragraph('Transactions', header_style),
-        ]]
-        for s in summary:
-            product_id = s['product__product_id']
-            boxes = s['boxes_sold'] or 0
-            revenue = Decimal(s['revenue'] or 0)
-            cogs = Decimal(s['cogs'] or 0)
-            profit = revenue - cogs
-            gross_margin = float((profit / revenue * 100) if revenue else 0)
-            unit_price = float(revenue / boxes) if boxes else 0
-            unit_cost = float(cogs / boxes) if boxes else 0
-            transaction_count = s['transaction_count'] or 0
-            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
-            prev_revenue = prev['revenue']
-            sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
+        # Get previous period data for comparison
+        previous_summary_map = {}
+        previous_summary_queryset = previous_queryset.values(
+            'product__product_id'
+        ).annotate(
+            boxes_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then=0),
+                    default='quantity',
+                    output_field=models.DecimalField()
+                )
+            ),
+            kg_sold=Sum(
+                Case(
+                    When(product__quantity_unit__iexact='kg', then='quantity'),
+                    default=0,
+                    output_field=models.DecimalField()
+                )
+            ),
+            revenue=Sum('total'),
+            cogs=Sum(F('quantity') * F('product__cost'))
+        )
+        for prev in previous_summary_queryset:
+            product_id = prev['product__product_id']
+            prev_boxes = Decimal(str(prev['boxes_sold'] or 0))
+            prev_kg = Decimal(str(prev.get('kg_sold') or 0))
+            previous_summary_map[product_id] = {
+                'boxes_sold': prev_boxes + prev_kg,  # Total quantity for comparison
+                'revenue': Decimal(prev['revenue'] or 0),
+                'cogs': Decimal(prev['cogs'] or 0)
+            }
+        
+        total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
+        
+        if summary:
+            header_style = ParagraphStyle('TableHeader', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+            sales_summary_rows = [[
+                Paragraph('Product', header_style),
+                Paragraph('Quantity Sold', header_style),
+                Paragraph('Unit Price', header_style),
+                Paragraph('Unit Cost', header_style),
+                Paragraph('Revenue', header_style),
+                Paragraph('COGS', header_style),
+                Paragraph('Profit', header_style),
+                Paragraph('Gross Margin<br/>%', header_style),
+                Paragraph('Sales Growth<br/>%', header_style),
+                Paragraph('Transactions', header_style),
+            ]]
+            for s in summary:
+                product_id = s['product__product_id']
+                boxes = Decimal(str(s['boxes_sold'] or 0))
+                kg = Decimal(str(s.get('kg_sold') or 0))
+                total_quantity = boxes + kg  # Use total for calculations
+                quantity_unit = (s.get('product__quantity_unit') or '').strip().lower()
+                is_kg = quantity_unit == 'kg'
             
-            product_name = _fmt_prod(s.get('product__name'), s.get('product__variant'), s.get('product__quantity_unit'))
-
-            # Accepted price from frontend (optional)
-            raw_ap = accepted_prices.get(str(product_id))
-            try:
-                accepted_price_value = clamp_decimal(str(raw_ap)) if raw_ap not in (None, '', 'null') else None
-            except Exception:
-                accepted_price_value = None
-
-            # Compute additional inventory metrics for the period
-            try:
-                # Added during period
-                added_qty = StockAddition.objects.filter(
-                    product_id=product_id,
-                    date_added__range=(current_start, current_end)
-                ).aggregate(total=Sum('quantity'))['total'] or 0
-
-                # Closing stock (end of period)
-                product_obj = Product.objects.filter(product_id=product_id).only('stock', 'low_stock_threshold').first()
-                closing_qty = Decimal(str(getattr(product_obj, 'stock', 0)))
-
-                # Opening stock approximation: closing + sold - added
-                opening_qty = closing_qty + Decimal(str(boxes)) - Decimal(str(added_qty))
-                if opening_qty < Decimal('0'):
-                    opening_qty = Decimal('0')
-
-                # Unit cost average and profit metrics
-                avg_unit_cost = (cogs / Decimal(str(boxes))) if boxes else None
-                gross_profit = revenue - cogs
-                gross_margin_pct = (gross_profit / revenue * Decimal('100')) if revenue else None
-
-                # Period days for rate metrics
-                if current_start and current_end:
-                    period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+                # Skip products with 0 sales
+                if total_quantity == 0:
+                    continue
+                
+                # Format quantity display - show kg for kg products, boxes for box products
+                if is_kg:
+                    # For kg products, show decimal if needed
+                    if kg == int(kg):
+                        qty_display = f"{int(kg)} kg"
+                    else:
+                        qty_display = f"{float(kg):.2f} kg"
                 else:
-                    ft_lookup = (filter_type or '').lower()
-                    period_days = 7 if ft_lookup in ('weekly','week') else 30 if ft_lookup in ('monthly','month') else 1
+                    # For box products, show integer
+                    if boxes == 1:
+                        qty_display = "1 box"
+                    else:
+                        qty_display = f"{int(boxes)} boxes"
+            
+                revenue = Decimal(s['revenue'] or 0)
+                cogs = Decimal(s['cogs'] or 0)
+                profit = revenue - cogs
+                gross_margin = float((profit / revenue * 100) if revenue else 0)
+                unit_price = float(revenue / total_quantity) if total_quantity else 0
+                unit_cost = float(cogs / total_quantity) if total_quantity else 0
+                transaction_count = s['transaction_count'] or 0
+                prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+                prev_revenue = prev['revenue']
+                sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
+            
+                product_name = _fmt_prod(s.get('product__name'), s.get('product__variant'), s.get('product__quantity_unit'))
 
-                avg_daily_sales = (Decimal(str(boxes)) / Decimal(str(period_days))) if boxes else Decimal('0')
-                days_of_cover_end = (closing_qty / avg_daily_sales) if avg_daily_sales > 0 else None
+                # Accepted price from frontend (optional)
+                raw_ap = accepted_prices.get(str(product_id))
+                try:
+                    accepted_price_value = clamp_decimal(str(raw_ap)) if raw_ap not in (None, '', 'null') else None
+                except Exception:
+                    accepted_price_value = None
 
-                # Stock thresholds and flags
-                low_stock_threshold = Decimal(str(getattr(product_obj, 'low_stock_threshold', 0))) if product_obj else None
-                low_stock_flag = bool(product_obj and product_obj.stock <= int(getattr(product_obj, 'low_stock_threshold', 0)))
+                # Compute additional inventory metrics for the period
+                try:
+                    # Added during period
+                    added_qty = StockAddition.objects.filter(
+                        product_id=product_id,
+                        date_added__range=(current_start, current_end)
+                    ).aggregate(total=Sum('quantity'))['total'] or 0
 
-                # First and last sale timestamps in the period
-                product_sales = sales_queryset.filter(product_id=product_id)
-                first_sale_at = product_sales.order_by('recorded_at').values_list('recorded_at', flat=True).first()
-                last_sale_at = product_sales.order_by('-recorded_at').values_list('recorded_at', flat=True).first()
+                    # Closing stock (end of period)
+                    product_obj = Product.objects.filter(product_id=product_id).only('stock', 'low_stock_threshold').first()
+                    closing_qty = Decimal(str(getattr(product_obj, 'stock', 0)))
 
-                # Last addition timestamp
-                last_addition_at = StockAddition.objects.filter(product_id=product_id).aggregate(last=Max('date_added'))['last']
-            except Exception:
-                added_qty = 0
-                closing_qty = Decimal('0')
-                opening_qty = Decimal('0')
-                avg_unit_cost = None
-                gross_profit = Decimal('0')
-                gross_margin_pct = None
-                avg_daily_sales = Decimal('0')
-                days_of_cover_end = None
-                low_stock_threshold = None
-                low_stock_flag = False
-                first_sale_at = None
-                last_sale_at = None
-                last_addition_at = None
+                    # Opening stock approximation: closing + sold - added (use total_quantity)
+                    opening_qty = closing_qty + total_quantity - Decimal(str(added_qty))
+                    if opening_qty < Decimal('0'):
+                        opening_qty = Decimal('0')
 
-            # Persist full summary row
-            ReportProductSummary.objects.create(
+                    # Unit cost average and profit metrics
+                    avg_unit_cost = (cogs / total_quantity) if total_quantity else None
+                    gross_profit = revenue - cogs
+                    gross_margin_pct = (gross_profit / revenue * Decimal('100')) if revenue else None
+
+                    # Period days for rate metrics
+                    if current_start and current_end:
+                        period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+                    else:
+                        ft_lookup = (filter_type or '').lower()
+                        period_days = 7 if ft_lookup in ('weekly','week') else 30 if ft_lookup in ('monthly','month') else 1
+
+                    avg_daily_sales = (total_quantity / Decimal(str(period_days))) if total_quantity else Decimal('0')
+                    days_of_cover_end = (closing_qty / avg_daily_sales) if avg_daily_sales > 0 else None
+
+                    # Stock thresholds and flags
+                    low_stock_threshold = Decimal(str(getattr(product_obj, 'low_stock_threshold', 0))) if product_obj else None
+                    low_stock_flag = bool(product_obj and product_obj.stock <= int(getattr(product_obj, 'low_stock_threshold', 0)))
+
+                    # First and last sale timestamps in the period
+                    product_sales = sales_queryset.filter(product_id=product_id)
+                    first_sale_at = product_sales.order_by('recorded_at').values_list('recorded_at', flat=True).first()
+                    last_sale_at = product_sales.order_by('-recorded_at').values_list('recorded_at', flat=True).first()
+
+                    # Last addition timestamp
+                    last_addition_at = StockAddition.objects.filter(product_id=product_id).aggregate(last=Max('date_added'))['last']
+                except Exception:
+                    added_qty = 0
+                    closing_qty = Decimal('0')
+                    opening_qty = Decimal('0')
+                    avg_unit_cost = None
+                    gross_profit = Decimal('0')
+                    gross_margin_pct = None
+                    avg_daily_sales = Decimal('0')
+                    days_of_cover_end = None
+                    low_stock_threshold = None
+                    low_stock_flag = False
+                    first_sale_at = None
+                    last_sale_at = None
+                    last_addition_at = None
+
+                # Persist full summary row
+                ReportProductSummary.objects.create(
                 product_id=s['product__product_id'],
                 period_start=current_start,
                 period_end=current_end,
@@ -4733,7 +4883,7 @@ def export_report(request):
                 generated_by=generated_by_user,
                 opening_qty=opening_qty,
                 added_qty=Decimal(str(added_qty)),
-                sold_qty=boxes,
+                sold_qty=total_quantity,  # Store total quantity (boxes + kg)
                 closing_qty=closing_qty,
                 last_addition_at=last_addition_at,
                 avg_sell_price=Decimal(str(unit_price)) if unit_price else None,
@@ -4742,7 +4892,7 @@ def export_report(request):
                 cogs=cogs,
                 gross_profit=gross_profit,
                 gross_margin_pct=gross_margin_pct,
-                sell_through_pct=((Decimal('0') if opening_qty <= 0 else (Decimal(str(boxes)) / opening_qty * Decimal('100')))),
+                sell_through_pct=((Decimal('0') if opening_qty <= 0 else (total_quantity / opening_qty * Decimal('100')))),
                 avg_daily_sales=avg_daily_sales,
                 days_of_cover_end=days_of_cover_end,
                 low_stock_threshold=low_stock_threshold,
@@ -4754,11 +4904,11 @@ def export_report(request):
                 demand_level=None,
                 first_sale_at=first_sale_at,
                 last_sale_at=last_sale_at,
-            )
+                )
             
-            sales_summary_rows.append([
+                sales_summary_rows.append([
                 product_name[:35],
-                str(boxes),
+                qty_display,  # Use formatted quantity display (always defined since we skip 0 sales)
                 f"PHP {unit_price:,.2f}",
                 f"PHP {unit_cost:,.2f}",
                 f"PHP {float(revenue):,.2f}",
@@ -4767,197 +4917,214 @@ def export_report(request):
                 f"{gross_margin:.1f}%",
                 f"{sales_growth_pct:+.1f}%",
                 str(transaction_count)
-            ])
+                ])
+            
+            # Column widths optimized with line-break headers to prevent overlap
+            col_widths = [110, 40, 45, 45, 50, 50, 45, 55, 55, 50]
+            sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
+            sales_summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (2,1), (10,-1), 'RIGHT'),  # Right align numbers
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F0FDF4')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ('WORDWRAP', (0,0), (-1,-1), True),
+            ]))
+            elems.append(sales_summary_table)
+        else:
+            elems.append(Paragraph("No product data available.", styles['Normal']))
         
-        # Column widths optimized with line-break headers to prevent overlap
-        col_widths = [110, 40, 45, 45, 50, 50, 45, 55, 55, 50]
-        sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
-        sales_summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (2,1), (10,-1), 'RIGHT'),  # Right align numbers
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F0FDF4')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ('WORDWRAP', (0,0), (-1,-1), True),
-        ]))
-        elems.append(sales_summary_table)
-    else:
-        elems.append(Paragraph("No product data available.", styles['Normal']))
+        elems.append(Spacer(1, 8))
     
-    elems.append(Spacer(1, 8))
+        # ========== SECTION 3: TOP PRODUCTS (Enhanced) ==========
+        elems.append(Paragraph("TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
+        elems.append(Spacer(1, 8))
     
-    # ========== SECTION 3: TOP PRODUCTS (Enhanced) ==========
-    elems.append(Paragraph("TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
-    elems.append(Spacer(1, 8))
-    
-    # Get top products with comprehensive metrics
-    top_summary_sorted = sorted(summary, key=lambda x: x['boxes_sold'] or 0, reverse=True)[:10]
-    product_map = Product.objects.filter(
-        product_id__in=[s['product__product_id'] for s in top_summary_sorted]
-    ).in_bulk(field_name='product_id')
-    
-    if top_summary_sorted:
-        top_rows = [[
-            Paragraph('Rank', table_header_style),
-            Paragraph('Product', table_header_style),
-            Paragraph('Boxes Sold', table_header_style),
-            Paragraph('Avg Price', table_header_style),
-            Paragraph('Revenue', table_header_style),
-            Paragraph('Profit Margin %', table_header_style),
-            Paragraph('Growth %', table_header_style),
-            Paragraph('Market Share %', table_header_style),
-            Paragraph('Inv Turnover', table_header_style)
-        ]]
-        for idx, t in enumerate(top_summary_sorted, start=1):
-            product_id = t['product__product_id']
-            revenue = Decimal(t['revenue'] or 0)
-            cogs = Decimal(t['cogs'] or 0)
-            boxes = t['boxes_sold'] or 0
-            avg_price = float(revenue / boxes) if boxes else 0
-            profit_margin_pct = float(((revenue - cogs) / revenue * 100) if revenue else 0)
-            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
-            prev_revenue = prev['revenue']
-            prev_boxes = prev['boxes_sold'] or 0
-            growth_rate = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
-            market_share_pct = float((revenue / total_current_revenue * 100) if total_current_revenue else 0)
-            units_change = boxes - prev_boxes
-            product_obj = product_map.get(product_id)
-            ending_stock = product_obj.stock if product_obj else 0
-            average_inventory = ending_stock + (boxes / 2) if product_obj else max(boxes, 1)
-            inventory_turnover = float(boxes / average_inventory) if average_inventory else 0.0
+        # Get top products with comprehensive metrics - use total quantity (boxes + kg)
+        top_summary_sorted = sorted(summary, key=lambda x: (Decimal(str(x.get('boxes_sold') or 0)) + Decimal(str(x.get('kg_sold') or 0))), reverse=True)[:10]
+        product_map = Product.objects.filter(
+            product_id__in=[s['product__product_id'] for s in top_summary_sorted]
+        ).in_bulk(field_name='product_id')
+        
+        if top_summary_sorted:
+            top_rows = [[
+                Paragraph('Rank', table_header_style),
+                Paragraph('Product', table_header_style),
+                Paragraph('Quantity Sold', table_header_style),
+                Paragraph('Avg Price', table_header_style),
+                Paragraph('Revenue', table_header_style),
+                Paragraph('Profit Margin %', table_header_style),
+                Paragraph('Growth %', table_header_style),
+                Paragraph('Market Share %', table_header_style),
+                Paragraph('Inv Turnover', table_header_style)
+            ]]
+            for idx, t in enumerate(top_summary_sorted, start=1):
+                product_id = t['product__product_id']
+                revenue = Decimal(t['revenue'] or 0)
+                cogs = Decimal(t['cogs'] or 0)
+                boxes = Decimal(str(t.get('boxes_sold') or 0))
+                kg = Decimal(str(t.get('kg_sold') or 0))
+                total_qty = boxes + kg
+                quantity_unit = (t.get('product__quantity_unit') or '').strip().lower()
+                is_kg = quantity_unit == 'kg'
             
-            product_name = _fmt_prod(t.get('product__name'), t.get('product__variant'), t.get('product__quantity_unit'))
+                # Format quantity display
+                if is_kg:
+                    if kg == int(kg):
+                        qty_display = f"{int(kg)} kg"
+                    else:
+                        qty_display = f"{float(kg):.2f} kg"
+                else:
+                    if boxes == 1:
+                        qty_display = "1 box"
+                    else:
+                        qty_display = f"{int(boxes)} boxes"
             
-            top_rows.append([
+                avg_price = float(revenue / total_qty) if total_qty else 0
+                profit_margin_pct = float(((revenue - cogs) / revenue * 100) if revenue else 0)
+                prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+                prev_revenue = prev['revenue']
+                prev_total_qty = prev['boxes_sold']  # This is actually total quantity now
+                growth_rate = float(((revenue - prev_revenue) / prev_revenue * 100) if prev_revenue else (100.0 if revenue else 0.0))
+                market_share_pct = float((revenue / total_current_revenue * 100) if total_current_revenue else 0)
+                units_change = float(total_qty - prev_total_qty)
+                product_obj = product_map.get(product_id)
+                ending_stock = float(product_obj.stock) if product_obj else 0
+                average_inventory = ending_stock + (float(total_qty) / 2) if product_obj else max(float(total_qty), 1)
+                inventory_turnover = (float(total_qty) / average_inventory) if average_inventory else 0.0
+            
+                product_name = _fmt_prod(t.get('product__name'), t.get('product__variant'), t.get('product__quantity_unit'))
+            
+                top_rows.append([
                 Paragraph(str(idx), cell_small_style),
                 Paragraph(product_name[:30], cell_style),
-                Paragraph(str(boxes), cell_small_style),
+                Paragraph(qty_display, cell_small_style),
                 Paragraph(f"PHP {avg_price:,.2f}", cell_small_style),
                 Paragraph(f"PHP {float(revenue):,.2f}", cell_small_style),
                 Paragraph(f"{profit_margin_pct:.1f}%", cell_small_style),
                 Paragraph(f"{growth_rate:+.1f}%", cell_small_style),
                 Paragraph(f"{market_share_pct:.1f}%", cell_small_style),
                 Paragraph(f"{inventory_turnover:.2f}", cell_small_style)
-            ])
+                ])
         
-        # Column widths for top products (portrait, removed separate quantity column)
-        top_col_widths = [25, 130, 45, 50, 60, 55, 45, 55, 45]
-        top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
-        top_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center rank
-            ('ALIGN', (3,1), (9,-1), 'RIGHT'),  # Right align numbers
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-            ('WORDWRAP', (0,0), (-1,-1), True),
-        ]))
-        elems.append(top_table)
-    else:
-        elems.append(Paragraph("No product data available.", styles['Normal']))
+            # Column widths for top products (portrait, removed separate quantity column)
+            top_col_widths = [25, 130, 45, 50, 60, 55, 45, 55, 45]
+            top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
+            top_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (0,0), (0,-1), 'CENTER'),  # Center rank
+                ('ALIGN', (3,1), (9,-1), 'RIGHT'),  # Right align numbers
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('WORDWRAP', (0,0), (-1,-1), True),
+                ]))
+            elems.append(top_table)
+        else:
+            elems.append(Paragraph("No product data available.", styles['Normal']))
     
-    elems.append(Spacer(1, 8))
+        elems.append(Spacer(1, 8))
 
-    # ========== SECTION 4: LOW STOCK INVENTORY (Enhanced) ==========
-    elems.append(Paragraph("LOW STOCK ANALYSIS", section_style))
-    elems.append(Spacer(1, 8))
+        # ========== SECTION 4: LOW STOCK INVENTORY (Enhanced) ==========
+        elems.append(Paragraph("LOW STOCK ANALYSIS", section_style))
+        elems.append(Spacer(1, 8))
     
-    # Get low stock items with comprehensive analytics
-    low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock')[:20])
-    low_ids = [inv.product_id for inv in low_q]
-    low_stock_data = []
+        # Get low stock items with comprehensive analytics
+        low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock')[:20])
+        low_ids = [inv.product_id for inv in low_q]
+        low_stock_data = []
     
-    if low_ids:
-        thirty_days_ago = timezone.localtime() - timedelta(days=30)
-        sales_stats = Sale.objects.filter(
-            status__iexact='completed',
-            product_id__in=low_ids
-        ).values('product_id').annotate(
-            last_sale=Max('recorded_at'),
-            sold_30=Sum('quantity', filter=Q(recorded_at__gte=thirty_days_ago)),
-            total_sold=Sum('quantity')
-        )
-        stats_map = {row['product_id']: row for row in sales_stats}
-        
-        addition_map = {}
-        additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
-        for add in additions:
-            bucket = addition_map.setdefault(add.product_id, [])
-            if len(bucket) < 2:
-                bucket.append(add.date_added)
-        
-        for inv in low_q:
-            stats = stats_map.get(inv.product_id, {})
-            sold_30 = stats.get('sold_30') or 0
-            avg_daily_sales = float(Decimal(str(sold_30)) / Decimal('30')) if sold_30 else 0.0
-            days_of_supply = None
-            if avg_daily_sales > 0:
-                days_of_supply = float(Decimal(str(inv.stock)) / Decimal(str(avg_daily_sales))) if avg_daily_sales else None
-            history_dates = addition_map.get(inv.product_id, [])
-            if len(history_dates) >= 2:
-                delta = history_dates[0] - history_dates[1]
-                lead_time_days = max(int(delta.total_seconds() // 86400), 1)
-            else:
-                lead_time_days = 7
-            reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold if hasattr(inv, 'low_stock_threshold') else 5)
-            reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - int(float(inv.stock or 0)), 0)
-            stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
-            last_sale = stats.get('last_sale')
-            last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
-            status_text = 'Critical' if inv.stock <= reorder_point else 'Low'
-            action_required = 'Reorder' if inv.stock <= reorder_point else 'Monitor'
+        if low_ids:
+            thirty_days_ago = timezone.localtime() - timedelta(days=30)
+            sales_stats = Sale.objects.filter(
+                status__iexact='completed',
+                product_id__in=low_ids
+            ).values('product_id').annotate(
+                last_sale=Max('recorded_at'),
+                sold_30=Sum('quantity', filter=Q(recorded_at__gte=thirty_days_ago)),
+                total_sold=Sum('quantity')
+            )
+            stats_map = {row['product_id']: row for row in sales_stats}
             
-            low_stock_data.append({
-                'product_name': inv.name,
-                'variant': inv.variant or 'N/A',
-                'quantity_unit': inv.quantity_unit,
-                'current_stock': inv.stock,
-                'stock_value': stock_value,
-                'average_daily_sales': avg_daily_sales,
-                'days_of_supply': days_of_supply,
-                'reorder_point': reorder_point,
-                'reorder_quantity': reorder_quantity,
-                'lead_time_days': lead_time_days,
-                'last_sale_date': last_sale_date,
-                'status': status_text,
-                'action_required': action_required
-            })
-    
-    if low_stock_data:
-        low_rows = [[
-            Paragraph('Product', table_header_style),
-            Paragraph('Current Stock', table_header_style),
-            Paragraph('Stock Value', table_header_style),
-            Paragraph('Avg Daily Sales', table_header_style),
-            Paragraph('Days of Supply', table_header_style),
-            Paragraph('Reorder Point', table_header_style),
-            Paragraph('Reorder Qty', table_header_style),
-            Paragraph('Lead Time', table_header_style),
-            Paragraph('Last Sale', table_header_style),
-            Paragraph('Status', table_header_style),
-            Paragraph('Action', table_header_style)
-        ]]
-        for item in low_stock_data:
-            days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
-            label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
-            low_rows.append([
-                Paragraph(label[:30], cell_style),
+            addition_map = {}
+            additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
+            for add in additions:
+                bucket = addition_map.setdefault(add.product_id, [])
+                if len(bucket) < 2:
+                    bucket.append(add.date_added)
+            
+            for inv in low_q:
+                stats = stats_map.get(inv.product_id, {})
+                sold_30 = stats.get('sold_30') or 0
+                avg_daily_sales = float(Decimal(str(sold_30)) / Decimal('30')) if sold_30 else 0.0
+                days_of_supply = None
+                if avg_daily_sales > 0:
+                    days_of_supply = float(Decimal(str(inv.stock)) / Decimal(str(avg_daily_sales))) if avg_daily_sales else None
+                history_dates = addition_map.get(inv.product_id, [])
+                if len(history_dates) >= 2:
+                    delta = history_dates[0] - history_dates[1]
+                    lead_time_days = max(int(delta.total_seconds() // 86400), 1)
+                else:
+                    lead_time_days = 7
+                reorder_point = max(int(round(avg_daily_sales * lead_time_days)) or 0, inv.low_stock_threshold if hasattr(inv, 'low_stock_threshold') else 5)
+                reorder_quantity = max(int(round(avg_daily_sales * (lead_time_days + 3))) - int(float(inv.stock or 0)), 0)
+                stock_value = float(Decimal(inv.stock or 0) * Decimal(inv.cost or 0))
+                last_sale = stats.get('last_sale')
+                last_sale_date = last_sale.strftime('%Y-%m-%d') if last_sale else 'N/A'
+                status_text = 'Critical' if inv.stock <= reorder_point else 'Low'
+                action_required = 'Reorder' if inv.stock <= reorder_point else 'Monitor'
+            
+                low_stock_data.append({
+                    'product_name': inv.name,
+                    'variant': inv.variant or 'N/A',
+                    'quantity_unit': inv.quantity_unit,
+                    'current_stock': inv.stock,
+                    'stock_value': stock_value,
+                    'average_daily_sales': avg_daily_sales,
+                    'days_of_supply': days_of_supply,
+                    'reorder_point': reorder_point,
+                    'reorder_quantity': reorder_quantity,
+                    'lead_time_days': lead_time_days,
+                    'last_sale_date': last_sale_date,
+                    'status': status_text,
+                    'action_required': action_required
+                })
+        
+        if low_stock_data:
+            low_rows = [[
+                Paragraph('Product', table_header_style),
+                Paragraph('Current Stock', table_header_style),
+                Paragraph('Stock Value', table_header_style),
+                Paragraph('Avg Daily Sales', table_header_style),
+                Paragraph('Days of Supply', table_header_style),
+                Paragraph('Reorder Point', table_header_style),
+                Paragraph('Reorder Qty', table_header_style),
+                Paragraph('Lead Time', table_header_style),
+                Paragraph('Last Sale', table_header_style),
+                Paragraph('Status', table_header_style),
+                Paragraph('Action', table_header_style)
+            ]]
+            for item in low_stock_data:
+                days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
+                label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
+                low_rows.append([
+                    Paragraph(label[:30], cell_style),
                 Paragraph(str(int(item['current_stock'])), cell_small_style),
                 Paragraph(f"PHP {item['stock_value']:,.0f}", cell_small_style),
                 Paragraph(f"{item['average_daily_sales']:.1f}", cell_small_style),
@@ -4967,93 +5134,93 @@ def export_report(request):
                 Paragraph(f"{item['lead_time_days']}d", cell_small_style),
                 Paragraph(item['last_sale_date'][:10] if item['last_sale_date'] != 'N/A' else 'N/A', cell_small_style),
                 Paragraph(item['status'], cell_small_style),
-                Paragraph(item['action_required'], cell_small_style)
-            ])
-        
-        # Column widths fit portrait letter exactly (540pt)
-        low_col_widths = [110, 45, 50, 50, 45, 45, 40, 40, 60, 30, 25]
-        low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
-        low_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (1,1), (7,-1), 'RIGHT'),  # Right align numbers
-            ('ALIGN', (9,1), (10,-1), 'CENTER'),  # Center status/action
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-            ('WORDWRAP', (0,0), (-1,-1), True),
-        ]))
-        elems.append(low_table)
-    else:
-        elems.append(Paragraph("All products have sufficient stock.", styles['Normal']))
-    
-    elems.append(Spacer(1, 8))
-
-    # ========== SECTION 5: DETAILED TRANSACTIONS ==========
-    elems.append(Paragraph("DETAILED TRANSACTIONS", section_style))
-    elems.append(Spacer(1, 8))
-
-    # Group transactions by transaction_number (same as display logic)
-    sale_rows = sales_q.order_by('-recorded_at','transaction_number','sale_id')[:500]
-    grouped = {}
-    for row in sale_rows:
-        key = row.transaction_number or f"ORD{row.sale_id:06d}"
-        g = grouped.get(key)
-        
-        product_display_name = ''
-        if row.product:
-            product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
-        
-        if not g:
-            grouped[key] = {
-                'sale_id': row.sale_id,
-                'transaction_number': row.transaction_number if row.transaction_number else key,
-                'or_number': row.or_number or 'N/A',
-                'recorded_at': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
-                'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
-                'address': row.address or 'N/A',
-                'processed_by': row.user.username if row.user else 'admin',
-                'products': [product_display_name] if product_display_name else [],
-                'total_boxes': int(row.quantity or 0),
-                'subtotal': float(row.total or 0),
-                'vat': float((row.total or 0) * Decimal('0.12')),
-                'total': float(row.total or 0),
-                'status': row.status,
-                'product_count': 1,
-            }
+                    Paragraph(item['action_required'], cell_small_style)
+                ])
+            
+            # Column widths fit portrait letter exactly (540pt)
+            low_col_widths = [110, 45, 50, 50, 45, 45, 40, 40, 60, 30, 25]
+            low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
+            low_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (1,1), (7,-1), 'RIGHT'),  # Right align numbers
+                ('ALIGN', (9,1), (10,-1), 'CENTER'),  # Center status/action
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 5),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                ('WORDWRAP', (0,0), (-1,-1), True),
+                ]))
+            elems.append(low_table)
         else:
-            # Add to existing transaction
-            g['total_boxes'] += int(row.quantity or 0)
-            g['subtotal'] += float(row.total or 0)
-            g['vat'] += float((row.total or 0) * Decimal('0.12'))
-            g['total'] += float(row.total or 0)
-            g['product_count'] += 1
-            if product_display_name and product_display_name not in g['products']:
-                g['products'].append(product_display_name)
+            elems.append(Paragraph("All products have sufficient stock.", styles['Normal']))
+    
+        elems.append(Spacer(1, 8))
 
-    tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
+        # ========== SECTION 5: DETAILED TRANSACTIONS ==========
+        elems.append(Paragraph("DETAILED TRANSACTIONS", section_style))
+        elems.append(Spacer(1, 8))
 
-    # Simplified transactions table with better spacing (portrait)
-    rows = [[
-        Paragraph('OR No.', table_header_style),
-        Paragraph('Date', table_header_style),
-        Paragraph('Customer', table_header_style),
-        Paragraph('Products', table_header_style),
-        Paragraph('Boxes Sold', table_header_style),
-        Paragraph('Total', table_header_style)
-    ]]
-    for tx in tx_data:
-        products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
-        
-        rows.append([
+        # Group transactions by transaction_number (same as display logic)
+        sale_rows = sales_q.order_by('-recorded_at','transaction_number','sale_id')[:500]
+        grouped = {}
+        for row in sale_rows:
+            key = row.transaction_number or f"ORD{row.sale_id:06d}"
+            g = grouped.get(key)
+            
+            product_display_name = ''
+            if row.product:
+                product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
+            
+            if not g:
+                grouped[key] = {
+                    'sale_id': row.sale_id,
+                    'transaction_number': row.transaction_number if row.transaction_number else key,
+                    'or_number': row.or_number or 'N/A',
+                    'recorded_at': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
+                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
+                    'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
+                    'address': row.address or 'N/A',
+                    'processed_by': row.user.username if row.user else 'admin',
+                    'products': [product_display_name] if product_display_name else [],
+                    'total_boxes': int(row.quantity or 0),
+                    'subtotal': float(row.total or 0),
+                    'vat': float((row.total or 0) * Decimal('0.12')),
+                    'total': float(row.total or 0),
+                    'status': row.status,
+                    'product_count': 1,
+                }
+            else:
+                # Add to existing transaction
+                g['total_boxes'] += int(row.quantity or 0)
+                g['subtotal'] += float(row.total or 0)
+                g['vat'] += float((row.total or 0) * Decimal('0.12'))
+                g['total'] += float(row.total or 0)
+                g['product_count'] += 1
+                if product_display_name and product_display_name not in g['products']:
+                    g['products'].append(product_display_name)
+
+        tx_data = list(grouped.values())[:200]  # Limit to 200 transactions for PDF
+
+        # Simplified transactions table with better spacing (portrait)
+        rows = [[
+            Paragraph('OR No.', table_header_style),
+            Paragraph('Date', table_header_style),
+            Paragraph('Customer', table_header_style),
+            Paragraph('Products', table_header_style),
+            Paragraph('Boxes Sold', table_header_style),
+            Paragraph('Total', table_header_style)
+        ]]
+        for tx in tx_data:
+            products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
+            
+            rows.append([
             Paragraph(str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A', cell_small_style),
             Paragraph(tx['recorded_at'][:10], cell_small_style),
             Paragraph(str(tx['customer_name'])[:20], cell_small_style),
@@ -5062,9 +5229,9 @@ def export_report(request):
             Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
         ])
     
-    # Column widths optimized for portrait letter - 6 columns with better spacing
-    table = Table(rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
-    table.setStyle(TableStyle([
+        # Column widths optimized for portrait letter - 6 columns with better spacing
+        table = Table(rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
+        table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
@@ -5079,28 +5246,28 @@ def export_report(request):
         ('TOPPADDING', (0,0), (-1,-1), 5),
         ('BOTTOMPADDING', (0,0), (-1,-1), 5),
         ('WORDWRAP', (0,0), (-1,-1), True),
-    ]))
-    elems.append(table)
+        ]))
+        elems.append(table)
     
-    # Add summary footer - simplified
-    elems.append(Spacer(1, 10))
-    total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
-    total_all = sum(float(tx['total']) for tx in tx_data)
-    total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
+        # Add summary footer - simplified
+        elems.append(Spacer(1, 10))
+        total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
+        total_all = sum(float(tx['total']) for tx in tx_data)
+        total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
     
-    # Create footer with proper Paragraph formatting
-    footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold', alignment=TA_RIGHT)
+        # Create footer with proper Paragraph formatting
+        footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold', alignment=TA_RIGHT)
     
-    footer_data = [
+        footer_data = [
         [
             '', '', '',
             Paragraph('<b>Total:</b>', footer_style),
             Paragraph(f'<b>{total_boxes_all}</b>', footer_style),
             Paragraph(f'<b>PHP {total_all:,.2f}</b>', footer_style)
         ]
-    ]
-    footer_table = Table(footer_data, colWidths=[70, 60, 90, 220, 45, 55])
-    footer_table.setStyle(TableStyle([
+        ]
+        footer_table = Table(footer_data, colWidths=[70, 60, 90, 220, 45, 55])
+        footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
         ('FONTNAME', (3,0), (5,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,-1), 9),
@@ -5111,89 +5278,89 @@ def export_report(request):
         ('RIGHTPADDING', (0,0), (-1,-1), 8),
         ('TOPPADDING', (0,0), (-1,-1), 8),
         ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-    ]))
-    elems.append(footer_table)
-    elems.append(Spacer(1, 8))
-
-    # ========== SECTION 6: ABC ANALYSIS ==========
-    elems.append(Paragraph("ABC ANALYSIS - PRODUCT CATEGORIZATION", section_style))
-    elems.append(Spacer(1, 8))
-    
-    # Calculate ABC analysis
-    total_current_revenue_for_abc = sum(Decimal(item['revenue'] or 0) for item in summary)
-    abc_data = []
-    if total_current_revenue_for_abc:
-        sorted_by_revenue = sorted(summary, key=lambda x: Decimal(x['revenue'] or 0), reverse=True)
-        cumulative_share = Decimal('0')
-        for entry in sorted_by_revenue[:20]:  # Top 20 for PDF
-            revenue_value = Decimal(entry['revenue'] or 0)
-            share_pct = (revenue_value / total_current_revenue_for_abc * Decimal('100')) if total_current_revenue_for_abc else Decimal('0')
-            cumulative_share += share_pct
-            if cumulative_share <= Decimal('70'):
-                category = 'A'
-            elif cumulative_share <= Decimal('90'):
-                category = 'B'
-            else:
-                category = 'C'
-            pn = _fmt_prod(entry.get('product__name'), entry.get('product__variant'), entry.get('product__quantity_unit'))
-            abc_data.append({
-                'product_name': pn,
-                'revenue': float(revenue_value),
-                'revenue_share_pct': float(share_pct),
-                'cumulative_pct': float(cumulative_share),
-                'category': category
-            })
-    
-    if abc_data:
-        header_style_abc = ParagraphStyle('TableHeaderABC', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
-        abc_rows = [[
-            Paragraph('Category', header_style_abc),
-            Paragraph('Product', header_style_abc),
-            Paragraph('Revenue', header_style_abc),
-            Paragraph('Revenue Share<br/>%', header_style_abc),
-            Paragraph('Cumulative<br/>%', header_style_abc)
-        ]]
-        for item in abc_data:
-            abc_rows.append([
-                item['category'],
-                str(item['product_name'])[:25],
-                f"PHP {item['revenue']:,.2f}",
-                f"{item['revenue_share_pct']:.2f}%",
-                f"{item['cumulative_pct']:.2f}%"
-            ])
-        
-        abc_table = Table(abc_rows, repeatRows=1, colWidths=[30, 130, 80, 80, 80])
-        abc_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (2,1), (4,-1), 'RIGHT'),
-            ('ALIGN', (0,1), (0,-1), 'CENTER'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3E8FF')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
-        elems.append(abc_table)
-    else:
-        elems.append(Paragraph("No ABC analysis data available.", styles['Normal']))
-    
-    elems.append(Spacer(1, 8))
+        elems.append(footer_table)
+        elems.append(Spacer(1, 8))
 
-    # ========== SECTION 7: SLOW MOVERS ==========
-    elems.append(Paragraph("SLOW MOVERS - LOW SALES PERFORMANCE", section_style))
-    elems.append(Spacer(1, 8))
+        # ========== SECTION 6: ABC ANALYSIS ==========
+        elems.append(Paragraph("ABC ANALYSIS - PRODUCT CATEGORIZATION", section_style))
+        elems.append(Spacer(1, 8))
     
-    # Calculate slow movers
-    slow_movers_data = []
-    if summary:
-        sorted_by_boxes = sorted(summary, key=lambda x: x.get('boxes_sold') or 0)[:10]
+        # Calculate ABC analysis
+        total_current_revenue_for_abc = sum(Decimal(item['revenue'] or 0) for item in summary)
+        abc_data = []
+        if total_current_revenue_for_abc:
+            sorted_by_revenue = sorted(summary, key=lambda x: Decimal(x['revenue'] or 0), reverse=True)
+            cumulative_share = Decimal('0')
+            for entry in sorted_by_revenue[:20]:  # Top 20 for PDF
+                revenue_value = Decimal(entry['revenue'] or 0)
+                share_pct = (revenue_value / total_current_revenue_for_abc * Decimal('100')) if total_current_revenue_for_abc else Decimal('0')
+                cumulative_share += share_pct
+                if cumulative_share <= Decimal('70'):
+                    category = 'A'
+                elif cumulative_share <= Decimal('90'):
+                    category = 'B'
+                else:
+                    category = 'C'
+                pn = _fmt_prod(entry.get('product__name'), entry.get('product__variant'), entry.get('product__quantity_unit'))
+                abc_data.append({
+                    'product_name': pn,
+                    'revenue': float(revenue_value),
+                    'revenue_share_pct': float(share_pct),
+                    'cumulative_pct': float(cumulative_share),
+                    'category': category
+                })
+    
+        if abc_data:
+            header_style_abc = ParagraphStyle('TableHeaderABC', fontSize=7, alignment=TA_CENTER, fontName='Helvetica-Bold')
+            abc_rows = [[
+                Paragraph('Category', header_style_abc),
+                Paragraph('Product', header_style_abc),
+                Paragraph('Revenue', header_style_abc),
+                Paragraph('Revenue Share<br/>%', header_style_abc),
+                Paragraph('Cumulative<br/>%', header_style_abc)
+            ]]
+            for item in abc_data:
+                abc_rows.append([
+                    item['category'],
+                    str(item['product_name'])[:25],
+                    f"PHP {item['revenue']:,.2f}",
+                    f"{item['revenue_share_pct']:.2f}%",
+                    f"{item['cumulative_pct']:.2f}%"
+                ])
+            
+            abc_table = Table(abc_rows, repeatRows=1, colWidths=[30, 130, 80, 80, 80])
+            abc_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (2,1), (4,-1), 'RIGHT'),
+                ('ALIGN', (0,1), (0,-1), 'CENTER'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3E8FF')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ('WORDWRAP', (0,0), (-1,-1), True),
+            ]))
+            elems.append(abc_table)
+        else:
+            elems.append(Paragraph("No ABC analysis data available.", styles['Normal']))
+    
+        elems.append(Spacer(1, 8))
+
+        # ========== SECTION 7: SLOW MOVERS ==========
+        elems.append(Paragraph("SLOW MOVERS - LOW SALES PERFORMANCE", section_style))
+        elems.append(Spacer(1, 8))
+    
+        # Calculate slow movers
+        slow_movers_data = []
+        if summary:
+            sorted_by_boxes = sorted(summary, key=lambda x: x.get('boxes_sold') or 0)[:10]
         for entry in sorted_by_boxes:
             boxes = entry.get('boxes_sold') or 0
             revenue = Decimal(entry.get('revenue') or 0)
@@ -5223,320 +5390,332 @@ def export_report(request):
                 'avg_daily_sales': avg_daily_sales
             })
     
-    if slow_movers_data:
-        slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
-        for item in slow_movers_data:
-            slow_rows.append([
-                _fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit'))[:30],
-                str(item['boxes_sold']),
-                f"PHP {item['revenue']:,.2f}",
-                f"{item['avg_daily_sales']:.2f}"
-            ])
-        
-        slow_table = Table(slow_rows, repeatRows=1, colWidths=[180, 70, 90, 80])
-        slow_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (1,1), (3,-1), 'RIGHT'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF3C7')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ]))
-        elems.append(slow_table)
-    else:
-        elems.append(Paragraph("No slow movers identified.", styles['Normal']))
-    
-    elems.append(Spacer(1, 8))
-
-    # ========== SECTION 8: DEAD STOCK ==========
-    elems.append(Paragraph("DEAD STOCK - AGING INVENTORY", section_style))
-    elems.append(Spacer(1, 8))
-    
-    # Calculate dead stock
-    dead_stock_data = []
-    dead_cutoff = timezone.localtime() - timedelta(days=45)
-    last_sales_lookup = {
-        row['product_id']: row['last_sale']
-        for row in Sale.objects.filter(status__iexact='completed').values('product_id').annotate(last_sale=Max('recorded_at'))
-    }
-    for prod in Product.objects.filter(status='active').order_by('-stock')[:15]:
-        last_sale = last_sales_lookup.get(prod.product_id)
-        if not last_sale or last_sale < dead_cutoff:
-            if last_sale:
-                idle_days = max((timezone.localtime() - last_sale).days, 0)
-                last_sale_label = format_local_datetime(last_sale, '%b %d, %Y')
-            else:
-                idle_days = None
-                last_sale_label = 'No recorded sale'
-            dead_stock_data.append({
-                'product_name': prod.name,
-                'stock': prod.stock,
-                'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
-                'last_sale': last_sale_label,
-                'days_idle': idle_days if idle_days is not None else '∞'
-            })
-    
-    if dead_stock_data:
-        dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
-        for item in dead_stock_data:
-            dead_rows.append([
-                _fmt_prod(item.get('product_name'), None, None)[:30],
-                str(item['stock']),
-                f"PHP {item['stock_value']:,.2f}",
-                item['last_sale'],
-                str(item['days_idle'])
-            ])
-        
-        dead_table = Table(dead_rows, repeatRows=1, colWidths=[150, 70, 90, 90, 70])
-        dead_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 7),
-            ('FONTSIZE', (0,1), (-1,-1), 6),
-            ('ALIGN', (1,1), (4,-1), 'RIGHT'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEE2E2')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 4),
-            ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ]))
-        elems.append(dead_table)
-    else:
-        elems.append(Paragraph("No dead stock identified. All products have recent sales activity.", styles['Normal']))
-    
-    elems.append(Spacer(1, 8))
-
-    # ========== SECTION 9: VOIDED TRANSACTIONS ==========
-    elems.append(Paragraph("VOIDED TRANSACTIONS", section_style))
-    elems.append(Spacer(1, 8))
-    
-    # Get voided transactions
-    voided_queryset = Sale.objects.filter(status__iexact='voided').select_related('user', 'product')
-    voided_queryset = _apply_report_filters(voided_queryset, filter_type, start_date, end_date)
-    if user_filter and user_filter != 'all':
-        try:
-            voided_queryset = voided_queryset.filter(user_id=int(user_filter))
-        except (ValueError, TypeError):
-            pass
-    if fruit_filter and fruit_filter != 'all':
-        voided_queryset = voided_queryset.filter(
-            Q(product__name__istartswith=fruit_filter + ' ') |
-            Q(product__name__istartswith=fruit_filter + '(') |
-            Q(product__name__iexact=fruit_filter)
-        )
-    
-    voided_rows_data = voided_queryset.order_by('-voided_at', '-recorded_at', 'sale_id')[:100]
-    voided_grouped_pdf = {}
-    for row in voided_rows_data:
-        key = row.transaction_number or f"VOID{row.sale_id:06d}"
-        vg = voided_grouped_pdf.get(key)
-        
-        product_display_name = ''
-        if row.product:
-            product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
-        
-        if not vg:
-            voided_grouped_pdf[key] = {
-                'sale_no': row.sale_id,
-                'or_no': row.or_number or 'N/A',
-                'transaction_no': row.transaction_number if row.transaction_number else key,
-                'voided_at': format_local_datetime(row.voided_at, '%m/%d/%Y %I:%M %p') if row.voided_at else format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                'original_date': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
-                'processed_by': row.user.username if row.user else 'admin',
-                'products': [product_display_name] if product_display_name else [],
-                'boxes_sold': int(row.quantity or 0),
-                'total': float(row.total or 0),
-            }
+        if slow_movers_data:
+            slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
+            for item in slow_movers_data:
+                slow_rows.append([
+                    _fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit'))[:30],
+                    str(item['boxes_sold']),
+                    f"PHP {item['revenue']:,.2f}",
+                    f"{item['avg_daily_sales']:.2f}"
+                ])
+            
+            slow_table = Table(slow_rows, repeatRows=1, colWidths=[180, 70, 90, 80])
+            slow_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (1,1), (3,-1), 'RIGHT'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF3C7')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elems.append(slow_table)
         else:
-            vg['boxes_sold'] += int(row.quantity or 0)
-            vg['total'] += float(row.total or 0)
-            if product_display_name and product_display_name not in vg['products']:
-                vg['products'].append(product_display_name)
+            elems.append(Paragraph("No slow movers identified.", styles['Normal']))
     
-    voided_data_pdf = list(voided_grouped_pdf.values())
-    
-    if voided_data_pdf:
-        voided_rows = [[
-            Paragraph('OR No.', table_header_style),
-            Paragraph('Voided Date', table_header_style),
-            Paragraph('Customer', table_header_style),
-            Paragraph('Products', table_header_style),
-            Paragraph('Boxes Sold', table_header_style),
-            Paragraph('Total', table_header_style)
-        ]]
-        for tx in voided_data_pdf:
-            products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
-            voided_rows.append([
-                Paragraph(str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A', cell_small_style),
-                Paragraph(tx['voided_at'][:10], cell_small_style),
-                Paragraph(str(tx['customer_name'])[:20], cell_small_style),
-                Paragraph(products_html, cell_style),
-                Paragraph(str(tx['boxes_sold']), cell_small_style),
-                Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
-            ])
-        
-        voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
-        voided_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 8),
-            ('FONTSIZE', (0,1), (-1,-1), 7),
-            ('ALIGN', (4,1), (5,-1), 'RIGHT'),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (-1,-1), 8),
-            ('RIGHTPADDING', (0,0), (-1,-1), 8),
-            ('TOPPADDING', (0,0), (-1,-1), 5),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-            ('WORDWRAP', (0,0), (-1,-1), True),
-        ]))
-        elems.append(voided_table)
-        
-        # Add voided summary
-        total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
-        total_voided_boxes = sum(int(tx['boxes_sold']) for tx in voided_data_pdf)
         elems.append(Spacer(1, 8))
-        voided_summary = Paragraph(
-            f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, PHP {total_voided_amount:,.2f}",
-            ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
-        )
-        elems.append(voided_summary)
-    else:
-        elems.append(Paragraph("No voided transactions in this period.", styles['Normal']))
 
-    elems.append(Spacer(1, 10))
-    elems.append(Paragraph("ACCEPTED PRICING CHANGES", section_style))
-    elems.append(Spacer(1, 8))
+        # ========== SECTION 8: DEAD STOCK ==========
+        elems.append(Paragraph("DEAD STOCK - AGING INVENTORY", section_style))
+        elems.append(Spacer(1, 8))
+    
+        # Calculate dead stock
+        dead_stock_data = []
+        dead_cutoff = timezone.localtime() - timedelta(days=45)
+        last_sales_lookup = {
+            row['product_id']: row['last_sale']
+            for row in Sale.objects.filter(status__iexact='completed').values('product_id').annotate(last_sale=Max('recorded_at'))
+        }
+        for prod in Product.objects.filter(status='active').order_by('-stock')[:15]:
+            last_sale = last_sales_lookup.get(prod.product_id)
+            if not last_sale or last_sale < dead_cutoff:
+                if last_sale:
+                    idle_days = max((timezone.localtime() - last_sale).days, 0)
+                    last_sale_label = format_local_datetime(last_sale, '%b %d, %Y')
+                else:
+                    idle_days = None
+                    last_sale_label = 'No recorded sale'
+                dead_stock_data.append({
+                    'product_name': prod.name,
+                    'stock': prod.stock,
+                    'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
+                    'last_sale': last_sale_label,
+                    'days_idle': idle_days if idle_days is not None else '∞'
+                })
+    
+        if dead_stock_data:
+            dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
+            for item in dead_stock_data:
+                dead_rows.append([
+                    _fmt_prod(item.get('product_name'), None, None)[:30],
+                    str(item['stock']),
+                    f"PHP {item['stock_value']:,.2f}",
+                    item['last_sale'],
+                    str(item['days_idle'])
+                ])
+            
+            dead_table = Table(dead_rows, repeatRows=1, colWidths=[150, 70, 90, 90, 70])
+            dead_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (1,1), (4,-1), 'RIGHT'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEE2E2')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elems.append(dead_table)
+        else:
+            elems.append(Paragraph("No dead stock identified. All products have recent sales activity.", styles['Normal']))
+    
+        elems.append(Spacer(1, 8))
 
-    try:
-        from core.models import PricingRecommendation
-        prs_q = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at'))
-        if current_start and current_end:
-            prs_q = prs_q.filter(
-                created_at__date__gte=current_start.date(),
-                created_at__date__lte=current_end.date()
-            )
+        # ========== SECTION 9: VOIDED TRANSACTIONS ==========
+        elems.append(Paragraph("VOIDED TRANSACTIONS", section_style))
+        elems.append(Spacer(1, 8))
+    
+        # Get voided transactions
+        voided_queryset = Sale.objects.filter(status__iexact='voided').select_related('user', 'product')
+        voided_queryset = _apply_report_filters(voided_queryset, filter_type, start_date, end_date)
+        if user_filter and user_filter != 'all':
+            try:
+                voided_queryset = voided_queryset.filter(user_id=int(user_filter))
+            except (ValueError, TypeError):
+                pass
         if fruit_filter and fruit_filter != 'all':
-            prs_q = prs_q.filter(
+            voided_queryset = voided_queryset.filter(
                 Q(product__name__istartswith=fruit_filter + ' ') |
                 Q(product__name__istartswith=fruit_filter + '(') |
                 Q(product__name__iexact=fruit_filter)
             )
-        prs = list(prs_q.order_by('-created_at')[:100])
-
-        def _fmt_reason(txt, action, pct, conf):
-            import re as _re
-            t = (txt or '').strip()
-            t = _re.sub(r"\[.*?\]", "", t)
-            t = t.replace('past 3 days', 'last 3 days').strip()
-            try:
-                p = abs(float(pct)) if pct is not None else None
-            except Exception:
-                p = None
-            suffix = ''
-            a = (action or '').upper()
-            if a == 'INCREASE':
-                suffix = f" Increase of {int(round(p))}% to improve profit." if p is not None else " Increase to improve profit."
-            elif a == 'DECREASE':
-                suffix = f" Decrease of {int(round(p))}% to boost sales." if p is not None else " Decrease to boost sales."
-            c = (conf or '').upper()
-            if c:
-                label = 'High' if c.startswith('H') else 'Medium' if c.startswith('M') else 'Low'
-                suffix += f" Confidence: {label}."
-            return (t + suffix).strip()
-
-        if prs:
-            rows = [[
-                Paragraph('Date', table_header_style),
-                Paragraph('Product', table_header_style),
-                Paragraph('Previous Price', table_header_style),
-                Paragraph('New Price', table_header_style),
-                Paragraph('Change %', table_header_style),
-                Paragraph('Action', table_header_style),
-                Paragraph('Reason', table_header_style)
+    
+        voided_rows_data = voided_queryset.order_by('-voided_at', '-recorded_at', 'sale_id')[:100]
+        voided_grouped_pdf = {}
+        for row in voided_rows_data:
+            key = row.transaction_number or f"VOID{row.sale_id:06d}"
+            vg = voided_grouped_pdf.get(key)
+            
+            product_display_name = ''
+            if row.product:
+                product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
+            
+            if not vg:
+                voided_grouped_pdf[key] = {
+                    'sale_no': row.sale_id,
+                    'or_no': row.or_number or 'N/A',
+                    'transaction_no': row.transaction_number if row.transaction_number else key,
+                    'voided_at': format_local_datetime(row.voided_at, '%m/%d/%Y %I:%M %p') if row.voided_at else format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
+                    'original_date': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
+                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
+                    'processed_by': row.user.username if row.user else 'admin',
+                    'products': [product_display_name] if product_display_name else [],
+                    'boxes_sold': int(row.quantity or 0),
+                    'total': float(row.total or 0),
+                }
+                vg = voided_grouped_pdf[key]
+            else:
+                vg['boxes_sold'] += int(row.quantity or 0)
+                vg['total'] += float(row.total or 0)
+                if product_display_name and product_display_name not in vg['products']:
+                    vg['products'].append(product_display_name)
+    
+        voided_data_pdf = list(voided_grouped_pdf.values())
+    
+        if voided_data_pdf:
+            voided_rows = [[
+                Paragraph('OR No.', table_header_style),
+                Paragraph('Voided Date', table_header_style),
+                Paragraph('Customer', table_header_style),
+                Paragraph('Products', table_header_style),
+                Paragraph('Boxes Sold', table_header_style),
+                Paragraph('Total', table_header_style)
             ]]
-            for pr in prs:
-                name = _fmt_prod(pr.product.name if pr.product else 'Unknown', getattr(pr.product, 'variant', None) if pr.product else None, getattr(pr.product, 'quantity_unit', None) if pr.product else None)
-                change_label = f"{float(pr.change_pct):.1f}%" if pr.change_pct is not None else '—'
-                rows.append([
-                    Paragraph(pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A', cell_small_style),
-                    Paragraph(name[:30], cell_style),
-                    Paragraph(f"PHP {float(pr.current_price or 0):,.2f}", cell_small_style),
-                    Paragraph(f"PHP {float(pr.suggested_price or 0):,.2f}", cell_small_style),
-                    Paragraph(change_label, cell_small_style),
-                    Paragraph((pr.action or '—'), cell_small_style),
-                    Paragraph(_fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence), cell_style)
+            for tx in voided_data_pdf:
+                products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
+                voided_rows.append([
+                    Paragraph(str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A', cell_small_style),
+                    Paragraph(tx['voided_at'][:10], cell_small_style),
+                    Paragraph(str(tx['customer_name'])[:20], cell_small_style),
+                    Paragraph(products_html, cell_style),
+                    Paragraph(str(tx['boxes_sold']), cell_small_style),
+                    Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
                 ])
-
-            price_col_widths = [60, 120, 70, 70, 50, 60, available_width - (60+120+70+70+50+60) - 10]
-            pricing_table = Table(rows, repeatRows=1, colWidths=price_col_widths)
-            pricing_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3b82f6')),
+            
+            voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
+            voided_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
                 ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0,0), (-1,0), 8),
                 ('FONTSIZE', (0,1), (-1,-1), 7),
-                ('ALIGN', (2,1), (5,-1), 'RIGHT'),
+                ('ALIGN', (4,1), (5,-1), 'RIGHT'),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('LEFTPADDING', (0,0), (-1,-1), 4),
-                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('LEFTPADDING', (0,0), (-1,-1), 8),
+                ('RIGHTPADDING', (0,0), (-1,-1), 8),
                 ('TOPPADDING', (0,0), (-1,-1), 5),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                 ('WORDWRAP', (0,0), (-1,-1), True),
             ]))
-            elems.append(pricing_table)
+            elems.append(voided_table)
+            
+            # Add voided summary
+            total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
+            total_voided_boxes = sum(int(tx['boxes_sold']) for tx in voided_data_pdf)
+            elems.append(Spacer(1, 8))
+            voided_summary = Paragraph(
+                f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, PHP {total_voided_amount:,.2f}",
+                ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
+            )
+            elems.append(voided_summary)
         else:
-            elems.append(Paragraph("No accepted pricing changes in this period.", styles['Normal']))
-    except Exception:
-        elems.append(Paragraph("Accepted pricing data unavailable.", styles['Normal']))
+            elems.append(Paragraph("No voided transactions in this period.", styles['Normal']))
 
-    doc.build(elems)
-    pdf = buffer.getvalue()
-    buffer.close()
+        elems.append(Spacer(1, 10))
+        elems.append(Paragraph("ACCEPTED PRICING CHANGES", section_style))
+        elems.append(Spacer(1, 8))
 
-    # Generate filename with date
-    filename = f"StockWise_Complete_Report_{timezone.localtime().strftime('%Y%m%d_%H%M%S')}.pdf"
-    
-    # Log PDF export
-    filter_details = []
-    if user_filter and user_filter != 'all':
         try:
-            user_obj = AppUser.objects.get(user_id=int(user_filter))
-            filter_details.append(f"user: {user_obj.username}")
-        except:
-            pass
-    if fruit_filter and fruit_filter != 'all':
-        filter_details.append(f"fruit: {fruit_filter}")
-    period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
-    log_action(
+            from core.models import PricingRecommendation
+            prs_q = PricingRecommendation.objects.select_related('product').filter(expires_at__lte=F('created_at'))
+            if current_start and current_end:
+                prs_q = prs_q.filter(
+                    created_at__date__gte=current_start.date(),
+                    created_at__date__lte=current_end.date()
+                )
+            if fruit_filter and fruit_filter != 'all':
+                prs_q = prs_q.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
+            prs = list(prs_q.order_by('-created_at')[:100])
+
+            def _fmt_reason(txt, action, pct, conf):
+                import re as _re
+                t = (txt or '').strip()
+                t = _re.sub(r"\[.*?\]", "", t)
+                t = t.replace('past 3 days', 'last 3 days').strip()
+                try:
+                    p = abs(float(pct)) if pct is not None else None
+                except Exception:
+                    p = None
+                suffix = ''
+                a = (action or '').upper()
+                if a == 'INCREASE':
+                    suffix = f" Increase of {int(round(p))}% to improve profit." if p is not None else " Increase to improve profit."
+                elif a == 'DECREASE':
+                    suffix = f" Decrease of {int(round(p))}% to boost sales." if p is not None else " Decrease to boost sales."
+                c = (conf or '').upper()
+                if c:
+                    label = 'High' if c.startswith('H') else 'Medium' if c.startswith('M') else 'Low'
+                    suffix += f" Confidence: {label}."
+                return (t + suffix).strip()
+
+            if prs:
+                rows = [[
+                    Paragraph('Date', table_header_style),
+                    Paragraph('Product', table_header_style),
+                    Paragraph('Previous Price', table_header_style),
+                    Paragraph('New Price', table_header_style),
+                    Paragraph('Change %', table_header_style),
+                    Paragraph('Action', table_header_style),
+                    Paragraph('Reason', table_header_style)
+                ]]
+                for pr in prs:
+                    name = _fmt_prod(pr.product.name if pr.product else 'Unknown', getattr(pr.product, 'variant', None) if pr.product else None, getattr(pr.product, 'quantity_unit', None) if pr.product else None)
+                    change_label = f"{float(pr.change_pct):.1f}%" if pr.change_pct is not None else '—'
+                    rows.append([
+                        Paragraph(pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A', cell_small_style),
+                        Paragraph(name[:30], cell_style),
+                        Paragraph(f"PHP {float(pr.current_price or 0):,.2f}", cell_small_style),
+                        Paragraph(f"PHP {float(pr.suggested_price or 0):,.2f}", cell_small_style),
+                        Paragraph(change_label, cell_small_style),
+                        Paragraph((pr.action or '—'), cell_small_style),
+                        Paragraph(_fmt_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence), cell_style)
+                    ])
+
+                price_col_widths = [60, 120, 70, 70, 50, 60, available_width - (60+120+70+70+50+60) - 10]
+                pricing_table = Table(rows, repeatRows=1, colWidths=price_col_widths)
+                pricing_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3b82f6')),
+                    ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0,0), (-1,0), 8),
+                    ('FONTSIZE', (0,1), (-1,-1), 7),
+                    ('ALIGN', (2,1), (5,-1), 'RIGHT'),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('LEFTPADDING', (0,0), (-1,-1), 4),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                    ('TOPPADDING', (0,0), (-1,-1), 5),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                    ('WORDWRAP', (0,0), (-1,-1), True),
+                ]))
+                elems.append(pricing_table)
+            else:
+                elems.append(Paragraph("No accepted pricing changes in this period.", styles['Normal']))
+        except Exception:
+            elems.append(Paragraph("Accepted pricing data unavailable.", styles['Normal']))
+
+        doc.build(elems)
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        # Generate filename with date
+        filename = f"StockWise_Complete_Report_{timezone.localtime().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+        # Log PDF export
+        filter_details = []
+        if user_filter and user_filter != 'all':
+            try:
+                user_obj = AppUser.objects.get(user_id=int(user_filter))
+                filter_details.append(f"user: {user_obj.username}")
+            except:
+                pass
+        if fruit_filter and fruit_filter != 'all':
+            filter_details.append(f"fruit: {fruit_filter}")
+        period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
+        log_action(
         request,
         'Report exported',
         f'Exported PDF report: {period_text}' + (f' ({", ".join(filter_details)})' if filter_details else '.')
-    )
+        )
     
-    response = HttpResponse(content_type='application/pdf')
-    inline_flag = (request.GET.get('inline') or request.POST.get('inline') or '').strip().lower()
-    disposition = 'inline' if inline_flag in ('1','true','yes') else 'attachment'
-    response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
-    if disposition == 'inline':
-        response['X-Frame-Options'] = 'SAMEORIGIN'
-    response.write(pdf)
-    return response
+        response = HttpResponse(content_type='application/pdf')
+        inline_flag = (request.GET.get('inline') or request.POST.get('inline') or '').strip().lower()
+        disposition = 'inline' if inline_flag in ('1','true','yes') else 'attachment'
+        response['Content-Disposition'] = f'{disposition}; filename="{filename}"'
+        if disposition == 'inline':
+            response['X-Frame-Options'] = 'SAMEORIGIN'
+        response.write(pdf)
+        return response
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in export_report: {str(e)}")
+        print(error_trace)
+        return JsonResponse({
+            'success': False, 
+            'message': f'Something went wrong. Please try again or refresh the page.',
+            'error': str(e),
+            'error_id': timezone.now().strftime('%Y%m%d%H%M%S')
+        }, status=500)
 
 
 @require_app_login
@@ -6934,10 +7113,30 @@ def record_sale(request):
                 created_sales.append(sale_row.sale_id)
                 total_amount += line_total_after
 
+            # Build user-friendly sale details
+            items_list = []
+            for entry in prepared:
+                product = entry['product']
+                qty = entry['quantity']
+                variant_part = f" ({product.variant})" if product.variant else ""
+                unit_label = "kg" if (product.quantity_unit or '').strip().lower() == 'kg' else "boxes"
+                items_list.append(f"{product.name}{variant_part}: {qty} {unit_label}")
+            
+            items_desc = "; ".join(items_list[:3])  # Show first 3 items
+            if len(items_list) > 3:
+                items_desc += f" and {len(items_list) - 3} more item(s)"
+            
+            customer_info = f" | Customer: {customer_name}" if customer_name else ""
+            discount_info = ""
+            if discount_amount > 0:
+                discount_info = f" | Discount: ₱{discount_amount:.2f}"
+                if discount_pct > 0:
+                    discount_info += f" ({discount_pct}%)"
+
             log_action(
                 request,
                 'Sale recorded',
-                f'Recorded {len(created_sales)} sale item(s) totaling {total_amount}.'
+                f'Recorded sale transaction {transaction_number}: {items_desc}. Total: ₱{total_amount:.2f}{discount_info}{customer_info}'
             )
             return JsonResponse({
                 'success': True,
@@ -6982,6 +7181,15 @@ def get_sale_details(request, sale_id):
         total_boxes = 0
         for row in rows:
             batch_ids = _compute_sale_batch_ids(row)
+            # Get quantity and preserve decimals - convert Decimal to float
+            qty_value = row.quantity
+            if qty_value is None:
+                qty_float = 0.0
+            else:
+                # Convert to string first to preserve decimal representation, then to float
+                qty_str = str(qty_value)
+                qty_float = float(qty_str)
+            
             items_data.append({
                 'product_id': row.product.product_id if row.product else None,
                 'product__name': row.product.name if row.product else 'Unknown',
@@ -6990,7 +7198,7 @@ def get_sale_details(request, sale_id):
                 'quantity_unit': (row.product.quantity_unit or '') if row.product else '',
                 'product__quantity_unit': row.product.quantity_unit if row.product else '',
                 'product__size': row.product.quantity_unit if row.product else '',
-                'quantity': int(row.quantity or 0),
+                'quantity': qty_float,
                 'price': float(row.price or 0),
                 'batch_ids': batch_ids
             })
@@ -10280,7 +10488,7 @@ def transaction_details(request, sale_id):
             'payment_reference': txn_number or 'N/A',
             'deposit_reference': main_sale.or_number or 'N/A',
             'notes': '',
-            'void_reason': '',
+            'void_reason': getattr(main_sale, 'void_reason', '') or 'N/A',
             'restocked': 'Yes' if main_sale.stock_restored else 'No',
             'created_by': main_sale.user.username if main_sale.user else 'System',
         }
@@ -10760,15 +10968,24 @@ def create_backup(request):
 def download_backup(request, backup_id):
     """Download a backup file"""
     if request.session.get('app_role') != 'admin':
+        # Use messages but clear them after redirect to prevent persistence
         messages.error(request, 'Only admins can download backups.')
-        return redirect('backup_management')
+        response = redirect('backup_management')
+        # Clear messages after they're displayed once
+        storage = messages.get_messages(request)
+        list(storage)  # Consume messages
+        return response
     
     try:
         backup = Backup.objects.get(backup_id=backup_id)
         
         if not backup.verify_file_exists():
             messages.error(request, 'Backup file no longer exists.')
-            return redirect('backup_management')
+            response = redirect('backup_management')
+            # Clear messages after they're displayed once
+            storage = messages.get_messages(request)
+            list(storage)  # Consume messages
+            return response
         
         from django.http import FileResponse
         from pathlib import Path
@@ -10776,7 +10993,11 @@ def download_backup(request, backup_id):
         file_path = Path(backup.file_path)
         if not file_path.exists():
             messages.error(request, 'Backup file not found.')
-            return redirect('backup_management')
+            response = redirect('backup_management')
+            # Clear messages after they're displayed once
+            storage = messages.get_messages(request)
+            list(storage)  # Consume messages
+            return response
         
         # Log the action
         log_action(
@@ -10793,10 +11014,18 @@ def download_backup(request, backup_id):
         
     except Backup.DoesNotExist:
         messages.error(request, 'Backup not found.')
-        return redirect('backup_management')
+        response = redirect('backup_management')
+        # Clear messages after they're displayed once
+        storage = messages.get_messages(request)
+        list(storage)  # Consume messages
+        return response
     except Exception as e:
         messages.error(request, f'Error downloading backup: {str(e)}')
-        return redirect('backup_management')
+        response = redirect('backup_management')
+        # Clear messages after they're displayed once
+        storage = messages.get_messages(request)
+        list(storage)  # Consume messages
+        return response
 
 
 @require_app_login
@@ -10815,9 +11044,30 @@ def restore_backup(request, backup_id):
             return JsonResponse({'success': False, 'message': 'Backup file no longer exists'}, status=404)
         
         from django.core.management import call_command
+        from io import StringIO
+        import sys
         
-        # Call restore command
-        call_command('restore_backup', backup.file_path, force=True)
+        # Call restore command with proper error handling
+        # Capture stdout/stderr to prevent HTML error pages
+        try:
+            # Redirect stdout/stderr to capture any output
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            
+            try:
+                call_command('restore_backup', backup.file_path, force=True)
+            finally:
+                # Restore stdout/stderr
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+        except SystemExit:
+            # call_command can raise SystemExit, catch it
+            raise Exception('Restore command failed')
+        except Exception as restore_error:
+            # Re-raise as a regular exception so it's caught by outer try/except
+            raise Exception(f'Restore command error: {str(restore_error)}')
         
         # After successful restore, remove backup record so it no longer appears in the list
         try:
@@ -10835,7 +11085,7 @@ def restore_backup(request, backup_id):
         
         return JsonResponse({
             'success': True,
-            'message': 'System restored successfully. Please restart the server.',
+            'message': 'System restored successfully. Please refresh.',
             'removed_backup': filename_removed
         })
         
@@ -10889,7 +11139,12 @@ def delete_backup(request, backup_id):
 
 @require_app_login
 def upload_and_restore_backup(request):
-    """Upload a backup zip file and restore from it"""
+    """Upload a backup zip file and restore from it
+    
+    Note: This operation can take several minutes for large backups.
+    The web server (nginx/gunicorn) timeout may need to be increased
+    to handle long-running restore operations. Client-side timeout is set to 10 minutes.
+    """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
     
@@ -11056,7 +11311,30 @@ def upload_and_restore_backup(request):
         
         # Restore from the uploaded file
         from django.core.management import call_command
-        call_command('restore_backup', str(temp_path), force=True)
+        from io import StringIO
+        import sys
+        
+        # Call restore command with proper error handling
+        # Capture stdout/stderr to prevent HTML error pages
+        try:
+            # Redirect stdout/stderr to capture any output
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = StringIO()
+            
+            try:
+                call_command('restore_backup', str(temp_path), force=True)
+            finally:
+                # Restore stdout/stderr
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+        except SystemExit:
+            # call_command can raise SystemExit, catch it
+            raise Exception('Restore command failed')
+        except Exception as restore_error:
+            # Re-raise as a regular exception so it's caught by outer try/except
+            raise Exception(f'Restore command error: {str(restore_error)}')
         
         # Clean up temp file (with retry for Windows file locking)
         import time
@@ -11084,7 +11362,7 @@ def upload_and_restore_backup(request):
         
         return JsonResponse({
             'success': True,
-            'message': 'System restored successfully from uploaded backup. Please restart the server.'
+            'message': 'System restored successfully from uploaded backup. Please refresh.'
         })
         
     except Exception as e:

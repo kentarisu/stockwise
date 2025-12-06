@@ -22,7 +22,7 @@
         @media (max-width: 768px) {
             .main-content { margin-left: 0 !important; padding-top: calc(var(--header-height) + 1rem); }
             .content-area { padding: 0.75rem; }
-            .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+            .stats-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
             .action-buttons { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
             .action-buttons .btn-modern, .action-buttons .btn-filter-action { flex: 1 1 0; min-width: 0; padding: 0.5rem; font-size: 0.85rem; }
             .filters-row { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; }
@@ -462,7 +462,7 @@
         /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: var(--space-md);
             margin-bottom: var(--space-lg);
         }
@@ -470,13 +470,15 @@
         .stat-card {
             background: white;
             border-radius: var(--radius-md);
-            padding: var(--space-sm) var(--space-md);
+            padding: 0.625rem 0.75rem;
             box-shadow: var(--shadow);
             border: 1px solid var(--gray-100);
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 0.5rem;
+            min-width: 0;
+            overflow: hidden;
         }
 
         .stat-card:hover {
@@ -500,13 +502,14 @@
         }
 
         .stat-icon {
-            width: 2rem;
-            height: 2rem;
+            width: 1.75rem;
+            height: 1.75rem;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.1rem;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
 
         .stat-icon.primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
@@ -523,16 +526,17 @@
         }
 
         .stat-value {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--gray-900);
             line-height: 1.2;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.2rem;
+            word-break: break-word;
         }
 
         .stat-label {
             color: var(--gray-500);
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1140,7 +1144,7 @@
                 border-radius: 12px;
             }
 
-            .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+            .stats-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
 
             .stat-card { padding: 1rem 0.75rem; min-height: auto; min-width: 0; }
 
@@ -1234,7 +1238,7 @@
                 padding: 0.75rem;
             }
 
-            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+            .stats-grid { grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
 
             .stat-card {
                 padding: 0.875rem;
@@ -1714,7 +1718,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: var(--space-md);
             margin-bottom: var(--space-lg);
         }
@@ -1968,18 +1972,38 @@
                         </div>
                         <div class="stat-content">
                             <div class="stat-value">
-                                {% if restock_alerts_boxes_formatted != '0' and restock_alerts_kilos_formatted != '0' %}
-                                    {{ restock_alerts_boxes_formatted }} boxes • {{ restock_alerts_kilos_formatted }} kg
-                                {% elif restock_alerts_boxes_formatted != '0' %}
-                                    {{ restock_alerts_boxes_formatted }} boxes
-                                {% elif restock_alerts_kilos_formatted != '0' %}
-                                    {{ restock_alerts_kilos_formatted }} kg
+                                {% if restock_alerts_boxes != 0 and restock_alerts_kilos != 0 %}
+                                    {{ restock_alerts_boxes }} {% if restock_alerts_boxes == 1 %}product{% else %}products{% endif %} (boxes) • {{ restock_alerts_kilos }} {% if restock_alerts_kilos == 1 %}product{% else %}products{% endif %} (kg)
+                                {% elif restock_alerts_boxes != 0 %}
+                                    {{ restock_alerts_boxes }} {% if restock_alerts_boxes == 1 %}product{% else %}products{% endif %}
+                                {% elif restock_alerts_kilos != 0 %}
+                                    {{ restock_alerts_kilos }} {% if restock_alerts_kilos == 1 %}product{% else %}products{% endif %}
                                 {% else %}
                                     0
                                 {% endif %}
                             </div>
                             <div class="stat-label">Low Stock Alerts</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with stock ≤10 units</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of products with stock ≤10 units</div>
+                        </div>
+                    </a>
+                    <a href="?tab=out-of-stock" class="stat-card clickable">
+                        <div class="stat-icon danger">
+                            <i class="bi bi-x-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value">
+                                {% if out_of_stock_boxes != 0 and out_of_stock_kilos != 0 %}
+                                    {{ out_of_stock_boxes }} {% if out_of_stock_boxes == 1 %}product{% else %}products{% endif %} (boxes) • {{ out_of_stock_kilos }} {% if out_of_stock_kilos == 1 %}product{% else %}products{% endif %} (kg)
+                                {% elif out_of_stock_boxes != 0 %}
+                                    {{ out_of_stock_boxes }} {% if out_of_stock_boxes == 1 %}product{% else %}products{% endif %}
+                                {% elif out_of_stock_kilos != 0 %}
+                                    {{ out_of_stock_kilos }} {% if out_of_stock_kilos == 1 %}product{% else %}products{% endif %}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </div>
+                            <div class="stat-label">Out of Stock</div>
+                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Products with 0 stock</div>
                         </div>
                     </a>
                 </div>
@@ -2343,7 +2367,7 @@
                             <div class="col-md-6">
                                 <label for="productSizeDisplay" class="form-label">Quantity</label>
                                 <div class="input-group quantity-unit-group">
-                                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="0.01" min="0" list="quantitySuggestions">
+                                    <input type="number" class="form-control" id="productSizeDisplay" name="quantity_unit" placeholder="Enter quantity" autocomplete="off" step="1" min="0" list="quantitySuggestions">
                                     <select class="form-select" id="quantityUnitSelect" name="quantity_unit" aria-label="Quantity unit">
                                         <option value="box" selected>Box</option>
                                         <option value="kg">kg</option>
@@ -2365,14 +2389,14 @@
                                 <label for="costInput" class="form-label">Cost</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="0.01">
+                                    <input type="number" class="form-control" id="costInput" name="cost" min="0" step="1">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="priceInput" class="form-label">Price</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required>
+                                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="1" required>
                                 </div>
                                 {% if app_role == 'admin' %}
                                 <div id="minPriceHelp" class="form-text">Enter cost to see minimum price</div>
@@ -3829,17 +3853,19 @@
         }
 
         async function updateInventoryCards(){
-            const search = $('#searchInput').val() || '';
-            const unitFilter = $('#unitFilter').val() || 'all';
-            const fruitFilter = $('#productFilter').val() || 'all';
+            // Always fetch ALL products for accurate card statistics (ignore filters)
             const q = new URLSearchParams({
-                search: search,
+                search: '',
                 filter: 'All Products',
-                unit: unitFilter,
-                product: fruitFilter
+                unit: 'all',
+                product: 'all'
             });
             try {
                 const res = await fetch("{% url 'fetch_products' %}?" + q.toString());
+                if (!res.ok) {
+                    console.warn('Failed to fetch products for card stats:', res.status);
+                    return; // Keep server-rendered values if fetch fails
+                }
                 const json = await res.json();
                 const rows = (json && json.success && Array.isArray(json.data)) ? json.data : [];
                 const baseName = function(n){
@@ -3851,14 +3877,41 @@
                 const activeProducts = rows.filter(r => String(r.status||'').toLowerCase() === 'active').length;
                 const isBox = u => String(u||'').toLowerCase().includes('box');
                 const isKilo = u => { const t=String(u||'').toLowerCase(); return t==='kg'; };
-                const totalStockKilos = rows.filter(r => isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseFloat(r.stock)||0), 0);
-                const totalStockBoxes = rows.filter(r => !isKilo(r.quantity_unit)).reduce((s,r)=> s + (parseFloat(r.stock)||0), 0);
-                // Sum actual stock quantities for low stock alerts (not product count)
-                const restockKilos = rows.filter(r => isKilo(r.quantity_unit) && ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10))
-                    .reduce((s, r) => s + (parseFloat(r.stock) || 0), 0);
-                const restockBoxes = rows.filter(r => !isKilo(r.quantity_unit) && ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10))
-                    .reduce((s, r) => s + (parseFloat(r.stock) || 0), 0);
-                const restockAlerts = rows.filter(r => ((parseFloat(r.stock)||0) > 0) && ((parseFloat(r.stock)||0) <= 10)).length;  // Keep count for reference
+                
+                // Safely parse stock values - handle Decimal strings, null, undefined
+                const parseStock = (stock) => {
+                    if (stock === null || stock === undefined || stock === '') return 0;
+                    const parsed = parseFloat(stock);
+                    return isNaN(parsed) ? 0 : parsed;
+                };
+                
+                const totalStockKilos = rows.filter(r => isKilo(r.quantity_unit)).reduce((s,r)=> s + parseStock(r.stock), 0);
+                const totalStockBoxes = rows.filter(r => !isKilo(r.quantity_unit)).reduce((s,r)=> s + parseStock(r.stock), 0);
+                
+                // Count products for low stock alerts (not sum stock quantities)
+                const restockKilos = rows.filter(r => {
+                    const stock = parseStock(r.stock);
+                    return isKilo(r.quantity_unit) && stock > 0 && stock <= 10;
+                }).length;
+                
+                const restockBoxes = rows.filter(r => {
+                    const stock = parseStock(r.stock);
+                    return !isKilo(r.quantity_unit) && stock > 0 && stock <= 10;
+                }).length;
+                const restockAlerts = restockBoxes + restockKilos;  // Total count
+                
+                // Count products for out of stock
+                const outOfStockKilos = rows.filter(r => {
+                    const stock = parseStock(r.stock);
+                    return isKilo(r.quantity_unit) && stock === 0;
+                }).length;
+                
+                const outOfStockBoxes = rows.filter(r => {
+                    const stock = parseStock(r.stock);
+                    return !isKilo(r.quantity_unit) && stock === 0;
+                }).length;
+                const outOfStock = outOfStockBoxes + outOfStockKilos;  // Total count
+                
                 const primaryCard = document.querySelector('.stats-grid .stat-icon.primary')?.closest('.stat-card');
                 const successCard = document.querySelector('.stats-grid .stat-icon.success')?.closest('.stat-card');
                 const warningCard = document.querySelector('.stats-grid .stat-icon.warning')?.closest('.stat-card');
@@ -3890,19 +3943,22 @@
                     if (sub) sub.textContent = 'All units in inventory';
                 }
                 if (dangerCard) {
-                    // Format boxes and kg separately
-                    const formatCount = (val) => String(parseInt(val) || 0);
-                    const boxesFormatted = formatCount(restockBoxes);
-                    const kilosFormatted = formatCount(restockKilos);
+                    // Format product counts (not stock quantities) with singular/plural
+                    const formatCount = (val) => {
+                        const count = parseInt(val) || 0;
+                        return { count, text: count === 1 ? 'product' : 'products' };
+                    };
+                    const boxes = formatCount(restockBoxes);
+                    const kilos = formatCount(restockKilos);
                     const valueEl = dangerCard.querySelector('.stat-value');
                     
                     if (valueEl) {
                         if (restockBoxes > 0 && restockKilos > 0) {
-                            valueEl.textContent = `${boxesFormatted} boxes • ${kilosFormatted} kg`;
+                            valueEl.textContent = `${boxes.count} ${boxes.text} (boxes) • ${kilos.count} ${kilos.text} (kg)`;
                         } else if (restockBoxes > 0) {
-                            valueEl.textContent = `${boxesFormatted} boxes`;
+                            valueEl.textContent = `${boxes.count} ${boxes.text}`;
                         } else if (restockKilos > 0) {
-                            valueEl.textContent = `${kilosFormatted} kg`;
+                            valueEl.textContent = `${kilos.count} ${kilos.text}`;
                         } else {
                             valueEl.textContent = '0';
                         }
@@ -3912,8 +3968,45 @@
                     const sub = dangerCard.querySelector('.stat-subtitle');
                     if (sub) sub.textContent = 'Products with stock ≤10 units';
                 }
-            } catch (e) {
-                console.warn('Failed to update inventory cards', e);
+                
+                // Update Out of Stock card if it exists
+                const outOfStockCards = document.querySelectorAll('.stats-grid .stat-card');
+                let outOfStockCard = null;
+                outOfStockCards.forEach(card => {
+                    const label = card.querySelector('.stat-label');
+                    if (label && label.textContent.trim() === 'Out of Stock') {
+                        outOfStockCard = card;
+                    }
+                });
+                
+                if (outOfStockCard) {
+                    const formatCount = (val) => {
+                        const count = parseInt(val) || 0;
+                        return { count, text: count === 1 ? 'product' : 'products' };
+                    };
+                    const boxes = formatCount(outOfStockBoxes);
+                    const kilos = formatCount(outOfStockKilos);
+                    const valueEl = outOfStockCard.querySelector('.stat-value');
+                    
+                    if (valueEl) {
+                        if (outOfStockBoxes > 0 && outOfStockKilos > 0) {
+                            valueEl.textContent = `${boxes.count} ${boxes.text} (boxes) • ${kilos.count} ${kilos.text} (kg)`;
+                        } else if (outOfStockBoxes > 0) {
+                            valueEl.textContent = `${boxes.count} ${boxes.text}`;
+                        } else if (outOfStockKilos > 0) {
+                            valueEl.textContent = `${kilos.count} ${kilos.text}`;
+                        } else {
+                            valueEl.textContent = '0';
+                        }
+                    }
+                    const labelEl = outOfStockCard.querySelector('.stat-label');
+                    if (labelEl) labelEl.textContent = 'Out of Stock';
+                    const sub = outOfStockCard.querySelector('.stat-subtitle');
+                    if (sub) sub.textContent = 'Products with 0 stock';
+                }
+            } catch (error) {
+                console.error('Error updating inventory cards:', error);
+                // Keep server-rendered values if update fails
             }
         }
 

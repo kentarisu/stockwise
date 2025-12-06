@@ -404,10 +404,35 @@ $.ajaxSetup({headers:{'X-CSRFToken':csrftoken}});
 let products=[];
 
 function loadProducts(){
-  return fetch("{% url 'get_active_products' %}").then(r=>r.json()).then(resp=>{ if(!resp.success) return []; products=resp.data.map(p=>{p.price=parseFloat(p.price)||0; return p;}); updateStockProductSelects(); return products;});
+  return fetch("{% url 'get_active_products' %}")
+    .then(r=>r.json())
+    .then(resp=>{ 
+      if(!resp.success) {
+        console.error('Failed to load products:', resp.error || 'Unknown error');
+        return []; 
+      }
+      products=resp.data.map(p=>{p.price=parseFloat(p.price)||0; return p;}); 
+      console.log('Loaded', products.length, 'products');
+      updateStockProductSelects(); 
+      return products;
+    })
+    .catch(err=>{
+      console.error('Error loading products:', err);
+      return [];
+    });
 }
 
 function updateStockProductSelects(){
+  console.log('updateStockProductSelects called, products.length:', products.length);
+  if (!products || products.length === 0) {
+    console.warn('No products available to populate dropdown');
+    $('.stock-product-select').each(function(){
+      const $this=$(this);
+      $this.html('<option value="">No products available</option>');
+    });
+    return;
+  }
+  
   const groupedProducts = {};
   products.forEach(p => {
     const baseName = p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : 'Other';
@@ -421,7 +446,10 @@ function updateStockProductSelects(){
   const selectedProductIds = $('.stock-product-select').map(function(){ return ($(this).val()||'').toString(); }).get().filter(id=>id);
   const selectedBases = $('.stock-product-select').map(function(){ const pid=$(this).val(); if(!pid) return null; const p=products.find(pp=>pp.product_id==pid); if(!p) return null; return (p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''); }).get().filter(Boolean);
   
-  $('.stock-product-select').each(function(){
+  const $selects = $('.stock-product-select');
+  console.log('Found', $selects.length, 'select elements to populate');
+  
+  $selects.each(function(){
     const $this=$(this);
     const baseFilter = $this.data('baseFilter') || '';
     const currentValue = $this.val(); // Store current selection
@@ -429,29 +457,29 @@ function updateStockProductSelects(){
     let currentBase = '';
     if(currentValue){ const cp = products.find(pp=>pp.product_id==currentValue); if(cp){ currentBase = cp.name ? (cp.name.split('(')[0].trim() || cp.name.trim()) : ''; } }
     
-  sortedFruits.forEach(fruitName => {
-    if(baseFilter && fruitName !== baseFilter) return;
-    if(!baseFilter && selectedBases.includes(fruitName) && fruitName !== currentBase) return;
-    options += `<optgroup label="${fruitName}">`;
-    groupedProducts[fruitName].forEach(p => {
-      const stock = p.stock || 0;
-      const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
-      const variant = (p.variant || '').trim();
-      const hasVariantInName = variant && (p.name || '').toLowerCase().includes(`(${variant.toLowerCase()})`);
-      const nameWithVariant = variant && !hasVariantInName ? `${p.name} (${variant})` : (p.name || '');
-      let displayName = nameWithVariant;
-      
-      const size = p.quantity_unit ? ` (Qty: ${p.quantity_unit})` : '';
-      
-      const pidStr=(p.product_id||'').toString();
-      const isSelectedElsewhere = selectedProductIds.includes(pidStr) && pidStr !== (currentValue||'').toString();
-      const selectedLabel = isSelectedElsewhere ? ' [Already Selected]' : '';
-      displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}${selectedLabel}`;
-      const disabledAttr = isSelectedElsewhere ? 'disabled' : '';
-      options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${nameWithVariant}" data-variant="${p.variant||''}" data-quantity_unit="${p.quantity_unit||''}" data-stock="${stock}" ${disabledAttr}>${displayName}</option>`;
+    sortedFruits.forEach(fruitName => {
+      if(baseFilter && fruitName !== baseFilter) return;
+      if(!baseFilter && selectedBases.includes(fruitName) && fruitName !== currentBase) return;
+      options += `<optgroup label="${fruitName}">`;
+      groupedProducts[fruitName].forEach(p => {
+        const stock = p.stock || 0;
+        const stockText = stock > 0 ? `[Stock: ${stock}]` : '[Out of Stock]';
+        const variant = (p.variant || '').trim();
+        const hasVariantInName = variant && (p.name || '').toLowerCase().includes(`(${variant.toLowerCase()})`);
+        const nameWithVariant = variant && !hasVariantInName ? `${p.name} (${variant})` : (p.name || '');
+        let displayName = nameWithVariant;
+        
+        const size = p.quantity_unit ? ` (Qty: ${p.quantity_unit})` : '';
+        
+        const pidStr=(p.product_id||'').toString();
+        const isSelectedElsewhere = selectedProductIds.includes(pidStr) && pidStr !== (currentValue||'').toString();
+        const selectedLabel = isSelectedElsewhere ? ' [Already Selected]' : '';
+        displayName = `${displayName}${size} - ₱${p.price.toFixed(2)} ${stockText}${selectedLabel}`;
+        const disabledAttr = isSelectedElsewhere ? 'disabled' : '';
+        options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${nameWithVariant}" data-variant="${p.variant||''}" data-quantity_unit="${p.quantity_unit||''}" data-stock="${stock}" ${disabledAttr}>${displayName}</option>`;
+      });
+      options += '</optgroup>';
     });
-    options += '</optgroup>';
-  });
     
     $this.html(options);
     if(currentValue) {
@@ -459,8 +487,11 @@ function updateStockProductSelects(){
     }
     if(!$this.hasClass('select2-hidden-accessible')){
       $this.select2({placeholder:'Search and select a product...',allowClear:true,width:'100%',dropdownParent:$this.closest('.card-modern')});
-    } else { $this.trigger('change.select2'); }
+    } else { 
+      $this.trigger('change.select2'); 
+    }
   });
+  console.log('Finished populating selects');
 }
 
 // Input sanitizers for Add Stock page
@@ -541,13 +572,55 @@ function populateProductSelect(sel){
   }
   console.log('Product select populated with', products.length, 'products');
 }
-function validateStockItems(){ let ok=true; $('.stock-item').each(function(){ const p=$(this).find('.stock-product-select').val(); const q=$(this).find('.stock-quantity').val(); if(!p||!q||q<1){ ok=false; return false; } }); $('#saveStockBtn').prop('disabled', !ok); return ok; }
-function updateCurrentStock(selectEl){ const pid=$(selectEl).val(); const $item=$(selectEl).closest('.stock-item'); const $disp=$item.find('.stock-indicator'); if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const st=product.stock||0; const unit=(product.quantity_unit||'').toLowerCase(); const unitLabel=(unit==='kg')?'kg':'boxes'; $disp.text(`Current Stock: ${st} ${unitLabel}`); $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); if(st<=0){ $disp.addClass('stock-indicator-red'); } else if(st<=10){ $disp.addClass('stock-indicator-yellow'); } else { $disp.addClass('stock-indicator-green'); } } } else { $disp.text(''); $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); } }
+function validateStockItems(){ 
+  let ok=true; 
+  $('.stock-item').each(function(){ 
+    const p=$(this).find('.stock-product-select').val(); 
+    const q=$(this).find('.stock-quantity').val(); 
+    if(!p||!q){ ok=false; return false; }
+    // Get product to check minimum value
+    const productId = parseInt(p);
+    const product = products.find(pp=>pp.product_id==productId);
+    const isKg = product && (product.quantity_unit||'').toLowerCase() === 'kg';
+    const minValue = isKg ? 0.01 : 1;
+    if(parseFloat(q) < minValue){ ok=false; return false; }
+  }); 
+  $('#saveStockBtn').prop('disabled', !ok); 
+  return ok; 
+}
+function updateCurrentStock(selectEl){ 
+  const pid=$(selectEl).val(); 
+  const $item=$(selectEl).closest('.stock-item'); 
+  const $disp=$item.find('.stock-indicator'); 
+  if(pid){ 
+    const currentProduct=products.find(p=>p.product_id==pid); 
+    if(currentProduct){ 
+      const st=currentProduct.stock||0; 
+      const unit=(currentProduct.quantity_unit||'').toLowerCase(); 
+      const unitLabel=(unit==='kg')?'kg':'boxes'; 
+      $disp.text(`Current Stock: ${st} ${unitLabel}`); 
+      $disp.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red'); 
+      if(st<=0){ 
+        $disp.addClass('stock-indicator-red'); 
+      } else if(st<=10){ 
+        $disp.addClass('stock-indicator-yellow'); 
+      } else { 
+        $disp.addClass('stock-indicator-green'); 
+      } 
+    } 
+  } else { 
+    $disp.text(''); 
+    $disp.removeClass('stock-indicator-green stock-indicator-yellow stock-indicator-red').addClass('text-muted'); 
+  } 
+}
 
 async function updateBatchIdPreview(stockItem) {
   const $item = $(stockItem);
   const productId = $item.find('.stock-product-select').val();
-  const quantity = parseInt($item.find('.stock-quantity').val()) || 0;
+  const product = products.find(p=>p.product_id==productId);
+  const isKg = product && (product.quantity_unit||'').toLowerCase() === 'kg';
+  // Use parseFloat for kg products (allows decimals), parseInt for boxes (integers only)
+  const quantity = isKg ? (parseFloat($item.find('.stock-quantity').val()) || 0) : (parseInt($item.find('.stock-quantity').val()) || 0);
   const $batchDisplay = $item.find('.batch-id-display');
   const $previewBox = $item.find('.batch-id-preview');
   const $previewLabel = $previewBox.prev('label');
@@ -558,7 +631,6 @@ async function updateBatchIdPreview(stockItem) {
     $batchDisplay.removeClass('text-success fw-bold').addClass('text-muted');
     return;
   }
-  const product = products.find(p=>p.product_id==productId);
   const unit = (product?.quantity_unit||'').toLowerCase();
   const isKilo = unit==='kg';
   if (isKilo) {
@@ -614,7 +686,14 @@ async function updateBatchIdPreview(stockItem) {
 $(document).ready(function(){
   $('#stockDateDisplay').val(new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   $('#stockDate').val(new Date().toISOString().split('T')[0]);
-  loadProducts();
+  
+  // Load products and wait for them to be ready
+  loadProducts().then(() => {
+    console.log('Products loaded, updating selects...');
+    updateStockProductSelects();
+  }).catch(err => {
+    console.error('Failed to load products:', err);
+  });
 
   (function(){
     try {
@@ -645,9 +724,61 @@ $(document).ready(function(){
     const pid=$this.val();
     const $item=$this.closest('.stock-item');
     const $qtyLabel=$item.find('.quantity-label');
-    if(pid){ let duplicate=false; $('.stock-product-select').not($this).each(function(){ if($(this).val()==pid){ duplicate=true; }}); if(duplicate){ $('#addStockFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">This product is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } const sp=products.find(pp=>pp.product_id==pid); const selBase=sp && sp.name ? (sp.name.split('(')[0].trim() || sp.name.trim()) : ''; const hasSameBaseElsewhere=$('.stock-product-select').not($this).toArray().some(el=>{ const v=$(el).val(); if(!v) return false; const p=products.find(pp=>pp.product_id==v); const b=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; return b===selBase; }); const isVariantFiltered=!!$this.data('baseFilter'); if(!isVariantFiltered && hasSameBaseElsewhere){ $('#addStockFormAlert').html('<div class=\"alert alert-info alert-dismissible fade show\" role=\"alert\">This base is already selected in another row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); $this.val(''); if($this.hasClass('select2-hidden-accessible')){ $this.trigger('change.select2'); } updateStockProductSelects(); return; } }
+    if(pid){ 
+      let duplicate=false; 
+      $('.stock-product-select').not($this).each(function(){ 
+        if($(this).val()==pid){ duplicate=true; }
+      }); 
+      if(duplicate){ 
+        $('#addStockFormAlert').html('<div class="alert alert-warning alert-dismissible fade show" role="alert">This product is already selected in another row.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); 
+        $this.val(''); 
+        if($this.hasClass('select2-hidden-accessible')){ 
+          $this.trigger('change.select2'); 
+        } 
+        updateStockProductSelects(); 
+        return; 
+      } 
+      const sp=products.find(pp=>pp.product_id==pid); 
+      const selBase=sp && sp.name ? (sp.name.split('(')[0].trim() || sp.name.trim()) : ''; 
+      const hasSameBaseElsewhere=$('.stock-product-select').not($this).toArray().some(el=>{ 
+        const v=$(el).val(); 
+        if(!v) return false; 
+        const p=products.find(pp=>pp.product_id==v); 
+        const b=p && p.name ? (p.name.split('(')[0].trim() || p.name.trim()) : ''; 
+        return b===selBase; 
+      }); 
+      const isVariantFiltered=!!$this.data('baseFilter'); 
+      if(!isVariantFiltered && hasSameBaseElsewhere){ 
+        $('#addStockFormAlert').html('<div class="alert alert-info alert-dismissible fade show" role="alert">This base is already selected in another row.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); 
+        $this.val(''); 
+        if($this.hasClass('select2-hidden-accessible')){ 
+          $this.trigger('change.select2'); 
+        } 
+        updateStockProductSelects(); 
+        return; 
+      } 
+    }
     updateCurrentStock(this); 
-    if(pid){ const product=products.find(p=>p.product_id==pid); if(product){ const unit=(product.quantity_unit||'').toLowerCase(); if(unit==='kg'){ $qtyLabel.text('kg to Add'); } else { $qtyLabel.text('Boxes to Add'); } } }
+    if(pid){ 
+      const selectedProduct=products.find(p=>p.product_id==pid); 
+      if(selectedProduct){ 
+        const unit=(selectedProduct.quantity_unit||'').toLowerCase(); 
+        const $qtyInput = $item.find('.stock-quantity');
+        if(unit==='kg'){ 
+          $qtyLabel.text('kg to Add'); 
+          // Allow decimal values for kg products
+          $qtyInput.attr('step', '0.01');
+          $qtyInput.attr('min', '0.01');
+          $qtyInput.attr('placeholder', 'e.g., 14.50');
+        } else { 
+          $qtyLabel.text('Boxes to Add'); 
+          // Only integers for box products
+          $qtyInput.attr('step', '1');
+          $qtyInput.attr('min', '1');
+          $qtyInput.removeAttr('placeholder');
+        } 
+      } 
+    }
     validateStockItems(); 
     updateBatchIdPreview($item);
     updateStockProductSelects();
@@ -707,7 +838,13 @@ $(document).ready(function(){
       if(p.val()&&q.val()){
         const supplierValue = s.val().trim()||'';
         console.log('DEBUG: Frontend supplier value:', supplierValue, 'Length:', supplierValue.length);
-        items.push({product_id:p.val(), quantity:parseInt(q.val()), supplier:supplierValue});
+        // Get product to determine if it uses kg (allows decimals) or boxes (integers only)
+        const productId = parseInt(p.val());
+        const product = products.find(pp=>pp.product_id==productId);
+        const isKg = product && (product.quantity_unit||'').toLowerCase() === 'kg';
+        // Use parseFloat for kg products (allows decimals), parseInt for boxes (integers only)
+        const quantity = isKg ? parseFloat(q.val()) : parseInt(q.val());
+        items.push({product_id:productId, quantity:quantity, supplier:supplierValue});
       }
     });
     const data={ action:'add_stock', items: JSON.stringify(items), date_added: $('#stockDate').val(), csrfmiddlewaretoken: csrftoken };

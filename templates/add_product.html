@@ -370,7 +370,7 @@
           <div class="row g-3 mt-0">
             <div class="col-md-6">
                 <label class="form-label" id="stockLabel" for="stockInput">Initial Stock (Box)</label>
-                <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
+                <input type="number" class="form-control" id="stockInput" name="stock" min="0" step="1" value="0" required autocomplete="off">
             </div>
             <div class="col-md-6 d-flex align-items-end">
                 <div class="mb-0">
@@ -599,7 +599,9 @@ $(document).ready(function(){
         }
         const price = parseFloat(formData.get('price'));
         const cost = parseFloat(formData.get('cost'));
-        const stock = parseInt(formData.get('stock'));
+        // Use parseFloat for kg products (allows decimals), parseInt for boxes (integers only)
+        const stockValue = formData.get('stock');
+        const stock = (unitSel === 'kg') ? parseFloat(stockValue) : parseInt(stockValue);
         if (!name) { showPageAlert('Product name is required.', 'danger'); return; }
         // Enforce clean product name (letters, spaces, hyphen only)
         if (!/^[A-Za-z][A-Za-z\s\-]*$/.test(name)) {
@@ -689,15 +691,24 @@ $(document).ready(function(){
             const $unit = $('#quantityUnitSelect');
             const applyUnitBehavior = () => {
                 const unit = ($unit.val() || 'box').toLowerCase();
+                const $stockInput = $('#stockInput');
                 if (unit === 'kg') {
                     $qty.val('');
                     $qty.prop('disabled', true);
                     $qty.attr('placeholder', 'kg');
                     $('#stockLabel').text('Initial Stock (kg)');
+                    // Allow decimal values for kg products
+                    $stockInput.attr('step', '0.01');
+                    $stockInput.attr('min', '0.01');
+                    $stockInput.attr('placeholder', 'e.g., 21.87');
                 } else {
                     $qty.prop('disabled', false);
                     $qty.attr('placeholder', 'Enter quantity');
                     $('#stockLabel').text('Initial Stock (Box)');
+                    // Only integers for box products
+                    $stockInput.attr('step', '1');
+                    $stockInput.attr('min', '0');
+                    $stockInput.removeAttr('placeholder');
                 }
             };
         $unit.on('change', applyUnitBehavior);

@@ -2138,7 +2138,7 @@ def add_stock(request):
             if single_product and single_qty:
                 items = [{
                     'product_id': int(single_product),
-                    'quantity': int(single_qty),
+                    'quantity': single_qty,  # Keep as string/float - will convert based on product unit
                     'supplier': request.POST.get('supplier', ''),
                     'batch_id': request.POST.get('batch_id') or '',
                     'cost': request.POST.get('cost') or None,
@@ -2162,6 +2162,15 @@ def add_stock(request):
                 
                 try:
                     product = Product.objects.get(product_id=product_id)
+                    # Determine if product uses kg (allows decimals) or boxes (integers only)
+                    is_kg = (product.quantity_unit or '').strip().lower() == 'kg'
+                    
+                    # Convert quantity based on product type
+                    if is_kg:
+                        quantity_decimal = Decimal(str(quantity))
+                    else:
+                        quantity_decimal = Decimal(str(int(float(quantity))))  # Ensure integer for boxes
+                    
                     # Build batch id similar to PHP/QR helpers (acronyms + date)
                     base_name = product.name or ''
                     variant = ''
@@ -2182,16 +2191,16 @@ def add_stock(request):
                     
                     StockAddition.objects.create(
                         product=product,
-                        quantity=int(quantity),
+                        quantity=quantity_decimal,
                         date_added=timezone.now(),  # Use full datetime instead of just date
-                        remaining_quantity=int(quantity),
+                        remaining_quantity=quantity_decimal,
                         batch_id=batch_id,
                         supplier=supplier_to_save,
                         cost=Decimal(str(item.get('cost') or 0)),
                     )
                     
-                    # Update product stock directly
-                    product.stock = models.F('stock') + int(quantity)
+                    # Update product stock directly - use Decimal for kg, ensure Decimal for boxes
+                    product.stock = models.F('stock') + quantity_decimal
                     product.save()
                     # Refresh to get updated stock value for low stock check
                     product.refresh_from_db(fields=['stock'])
@@ -2208,7 +2217,7 @@ def add_stock(request):
                     
                     added_items.append({
                         'product_name': product.name,
-                        'quantity': int(quantity),
+                        'quantity': float(quantity_decimal) if is_kg else int(quantity_decimal),  # Preserve decimals for kg
                         'supplier': supplier
                     })
                     
@@ -2282,6 +2291,15 @@ def stock_qr_apply(request):
                     continue
                 try:
                     product = Product.objects.get(product_id=product_id)
+                    # Determine if product uses kg (allows decimals) or boxes (integers only)
+                    is_kg = (product.quantity_unit or '').strip().lower() == 'kg'
+                    
+                    # Convert quantity based on product type
+                    if is_kg:
+                        quantity_decimal = Decimal(str(quantity))
+                    else:
+                        quantity_decimal = Decimal(str(int(float(quantity))))  # Ensure integer for boxes
+                    
                     base_name = product.name or ''
                     variant = ''
                     if '(' in base_name and base_name.endswith(')'):
@@ -2295,13 +2313,13 @@ def stock_qr_apply(request):
                         dt = timezone.now()
                     StockAddition.objects.create(
                         product=product,
-                        quantity=quantity,
+                        quantity=quantity_decimal,
                         date_added=dt,
-                        remaining_quantity=quantity,
+                        remaining_quantity=quantity_decimal,
                         batch_id=batch_id,
                         supplier=supplier
                     )
-                    product.stock = models.F('stock') + quantity
+                    product.stock = models.F('stock') + quantity_decimal
                     product.save()
                     # Refresh to get updated stock value for low stock check
                     product.refresh_from_db(fields=['stock'])
@@ -2362,7 +2380,8 @@ def qr_next_batch_sequence(request, product_id):
             last_seq = int((last.batch_id or '')[-2:]) if last else 0
         except Exception:
             last_seq = 0
-        last_qty = int(getattr(last, 'quantity', 0) or 0)
+        # Use int() for sequence calculation (quantity can be decimal for kg products, but sequence is integer)
+        last_qty = int(float(getattr(last, 'quantity', 0) or 0))
         next_sequence = ((max(0, last_seq) - 1 + last_qty) % 99) + 1 if last else 1
         return JsonResponse({'success': True, 'next_sequence': next_sequence, 'base_batch_id': base_batch_id})
         
@@ -2420,21 +2439,30 @@ def stock_add(request, product_id):
         with transaction.atomic():
             product = Product.objects.get(product_id=product_id)
             
+            # Determine if product uses kg (allows decimals) or boxes (integers only)
+            is_kg = (product.quantity_unit or '').strip().lower() == 'kg'
+            
+            # Convert quantity based on product type
+            if is_kg:
+                quantity_decimal = Decimal(str(data['quantity']))
+            else:
+                quantity_decimal = Decimal(str(int(float(data['quantity']))))  # Ensure integer for boxes
+            
             # Create one stock addition record with total quantity
             batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
             supplier_value = data.get('supplier', '')
             supplier_to_save = supplier_value.strip() if supplier_value and supplier_value.strip() else None
             StockAddition.objects.create(
                 product=product,
-                quantity=int(data['quantity']),
+                quantity=quantity_decimal,
                 date_added=timezone.now().date(),
-                remaining_quantity=int(data['quantity']),
+                remaining_quantity=quantity_decimal,
                 batch_id=batch_id,
                 supplier=supplier_to_save
             )
 
             # Update product stock directly
-            product.stock = models.F('stock') + int(data['quantity'])
+            product.stock = models.F('stock') + quantity_decimal
             product.save()
             product.refresh_from_db(fields=['stock'])
             
@@ -2446,7 +2474,7 @@ def stock_add(request, product_id):
             log_action(
                 request,
                 'Stock added',
-                f'Added {data["quantity"]} units to product {product_id}.'
+                f'Added {quantity_decimal} units to product {product_id}.'
             )
 
             return JsonResponse({
@@ -6455,14 +6483,14 @@ def fetch_stock_details(request, product_id):
     all_batches = (StockAddition.objects
                .filter(product_id=product_id)
                .defer('spoiled')
-               .order_by('-date_added', '-addition_id'))
+                   .order_by('-date_added', '-addition_id'))
 
     # Order by oldest first (ascending) for FIFO expansion
     # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
     fifo_batches = (StockAddition.objects
                .filter(product_id=product_id)
                .defer('spoiled')
-               .order_by('date_added', 'addition_id'))
+                   .order_by('date_added', 'addition_id'))
     
     # Meta totals from all batches (not just current page)
     added_total = all_batches.aggregate(total=Sum('quantity'))['total'] or 0
@@ -7180,13 +7208,17 @@ def add_product(request):
             status = request.POST.get('status', 'active')
             
             # Get stock - prefer 'stock' field, then 'initialStock', then calculate from boxes
+            # For kg products, stock can be decimal; for boxes, it's integer
             stock_input = request.POST.get('stock') or request.POST.get('initialStock')
             if stock_input:
-                stock = int(stock_input)
+                if quantity_unit == 'kg':
+                    stock = Decimal(str(stock_input))
+                else:
+                    stock = Decimal(str(int(float(stock_input))))  # Ensure integer for boxes
             else:
                 boxes = int(request.POST.get('boxes', 0))
                 units_per_box = int(request.POST.get('units_per_box', 1))
-                stock = boxes * units_per_box
+                stock = Decimal(str(boxes * units_per_box))
             # Force today's date for new products (ignore client-provided value)
             product_date_added = timezone.now().date()
             supplier = request.POST.get('supplier', '').strip()

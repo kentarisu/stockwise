@@ -2382,7 +2382,7 @@
                         <div class="row g-3 mb-3" id="initialStockRow">
                             <div class="col-md-6">
                                 <label for="stockInput" id="stockLabel" class="form-label">Initial Stock (Per Box)</label>
-                                <input type="number" class="form-control" id="stockInput" name="stock" min="0" value="0" required autocomplete="off">
+                                <input type="number" class="form-control" id="stockInput" name="stock" min="0" step="1" value="0" required autocomplete="off">
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="mb-0">
@@ -2909,12 +2909,21 @@
                     $('#productDate').val(new Date().toISOString().split('T')[0]).prop('readOnly', true).prop('disabled', true);
                     $('#priceInput').trigger('input');
                     const unit = ($('#quantityUnitSelect').val() || 'box').toLowerCase();
+                    const $stockInput = $('#stockInput');
                     if (unit === 'kg') {
                         $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'kg');
                         $('#stockLabel').text('Initial Stock (Per kg)');
+                        // Allow decimal values for kg products
+                        $stockInput.attr('step', '0.01');
+                        $stockInput.attr('min', '0.01');
+                        $stockInput.attr('placeholder', 'e.g., 21.87');
                     } else {
                         $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
                         $('#stockLabel').text('Initial Stock (Per Box)');
+                        // Only integers for box products
+                        $stockInput.attr('step', '1');
+                        $stockInput.attr('min', '0');
+                        $stockInput.removeAttr('placeholder');
                     }
                 }
             });
@@ -2964,6 +2973,20 @@
                         $('#productDate').val(product.date_added || new Date().toISOString().split('T')[0]).prop('readOnly', true).prop('disabled', true);
                         $('#stockInput').val(product.stock || 0);
                         $('#priceInput').trigger('input');
+                        // Update stock input step/min based on quantity unit when editing
+                        const unit = (product.quantity_unit || '').toLowerCase();
+                        const $stockInput = $('#stockInput');
+                        if (unit === 'kg') {
+                            $('#stockLabel').text('Initial Stock (Per kg)');
+                            $stockInput.attr('step', '0.01');
+                            $stockInput.attr('min', '0.01');
+                            $stockInput.attr('placeholder', 'e.g., 21.87');
+                        } else {
+                            $('#stockLabel').text('Initial Stock (Per Box)');
+                            $stockInput.attr('step', '1');
+                            $stockInput.attr('min', '0');
+                            $stockInput.removeAttr('placeholder');
+                        }
                         $('#initialStockRow').hide();
 
                         (function(){
@@ -3127,7 +3150,9 @@
                 let size = $('#productSizeDisplay').val();
                 const price = parseFloat($('#priceInput').val()) || 0;
                 const cost = parseFloat($('#costInput').val()) || 0;
-                const stock = parseInt($('#stockInput').val()) || 0;
+                // Use parseFloat for kg products (allows decimals), parseInt for boxes (integers only)
+                const stockValue = $('#stockInput').val();
+                const stock = (unitSel === 'kg') ? parseFloat(stockValue) : parseInt(stockValue) || 0;
                 if (!name){ showFormAlert('Product name is required.', 'danger'); return; }
                 if (!/^[A-Za-z][A-Za-z\s\-]*$/.test(name)){ showFormAlert('Product name can contain letters, spaces, and hyphens only.', 'danger'); return; }
                 if (unitSel === 'kg'){ size = 'kg'; $('#productSizeDisplay').val(''); }

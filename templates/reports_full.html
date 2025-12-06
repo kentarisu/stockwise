@@ -4693,11 +4693,27 @@
                     body: formData,
                     headers: {
                         'X-CSRFToken': window.getCookie('csrftoken')
+                        // Note: We don't suppress errors here because printReport shows its own user-friendly notifications
                     }
                 });
                 
-                if (!response.ok) {
-                    throw new Error('Failed to generate PDF');
+                // Check if response is JSON (error) or PDF (success)
+                const contentType = response.headers.get('content-type') || '';
+                if (!response.ok || contentType.includes('application/json')) {
+                    // Try to parse as JSON for error message
+                    let errorMessage = 'Failed to generate print report. Please try again.';
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.message) {
+                            errorMessage = errorData.message;
+                        } else if (errorData.error) {
+                            errorMessage = errorData.error;
+                        }
+                    } catch (e) {
+                        // If not JSON, use status text
+                        errorMessage = response.statusText || 'Failed to generate print report. Please try again.';
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 // Get the PDF blob
@@ -4718,7 +4734,13 @@
             };
                 
             } catch (error) {
-                if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Failed to generate print report. Please try again.', 'error', 6000); } else { showNotification('Failed to generate print report. Please try again.', 'danger', String(error && error.message || '')); }
+                // For print report, show error notification since it doesn't use modal
+                const errorMessage = error.message || 'Failed to generate print report. Please try again.';
+                if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                    window.modernInventorySystem.showNotification(errorMessage, 'error', 8000);
+                } else {
+                    showNotification(errorMessage, 'danger', '');
+                }
                 const printBtn = $('#printReportBtn');
                 printBtn.prop('disabled', false).html('<i class="bi bi-printer"></i> Print Report');
             }
@@ -4904,7 +4926,7 @@
                 this.value = this.value.replace(/[^0-9\/]/g, '');
             });
 
-            $('#generateReport').on('click', function() {
+            $('#generateReport').on('click', async function() {
                 saveReportsFilters();
                 const filterType = $('#dateRange').val() || 'today';
                 const userFilter = $('#userFilter').val() || 'all';
@@ -4925,9 +4947,74 @@
                     acceptedPrices[input.dataset.productId] = input.value;
                 });
                 const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, inline:'1', accepted_prices: JSON.stringify(acceptedPrices) });
+                const errorDiv = document.getElementById('reportPreviewError');
+                const errorMessage = document.getElementById('reportPreviewErrorMessage');
+                const exportBtn = document.getElementById('exportPdfBtn');
                 const frame = document.getElementById('reportPreviewFrame');
-                frame.src = '/api/reports/export/?' + q.toString();
-                new bootstrap.Modal(document.getElementById('reportPreviewModal')).show();
+                const loadingDiv = document.getElementById('reportPreviewLoading');
+                
+                // Hide error and iframe, show loading
+                errorDiv.classList.add('d-none');
+                frame.style.display = 'none';
+                loadingDiv.style.display = 'block';
+                exportBtn.style.display = 'none';
+                frame.src = 'about:blank'; // Clear iframe first
+                
+                // Show modal first
+                const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
+                modal.show();
+                
+                // Check response before loading in iframe
+                try {
+                    const response = await fetch('/api/reports/export/?' + q.toString(), {
+                        method: 'GET',
+                        headers: {
+                            'X-CSRFToken': window.getCookie('csrftoken'),
+                            'X-Suppress-Error': '1'  // Suppress global error notification
+                        },
+                        suppressGlobalError: true  // Additional flag for fetch wrapper
+                    });
+                    
+                    const contentType = response.headers.get('content-type') || '';
+                    
+                    // Check if response is JSON (error) or PDF (success)
+                    if (!response.ok || contentType.includes('application/json')) {
+                        // It's an error response
+                        let errorMsg = 'No data available for the selected filters. Please adjust your date range, user, or product filters and try again.';
+                        try {
+                            const errorData = await response.json();
+                            errorMsg = errorData.message || errorData.error || errorMsg;
+                        } catch (e) {
+                            // If not JSON, use status text
+                            if (response.status === 400) {
+                                errorMsg = 'No data available for the selected filters. Please adjust your date range, user, or product filters and try again.';
+                            } else {
+                                errorMsg = response.statusText || errorMsg;
+                            }
+                        }
+                        
+                        // Show error message
+                        errorMessage.textContent = errorMsg;
+                        loadingDiv.style.display = 'none';
+                        errorDiv.classList.remove('d-none');
+                        frame.style.display = 'none';
+                        exportBtn.style.display = 'none';
+                    } else {
+                        // It's a PDF - load it in the iframe
+                        loadingDiv.style.display = 'none';
+                        errorDiv.classList.add('d-none');
+                        frame.style.display = 'block';
+                        exportBtn.style.display = 'inline-block';
+                        frame.src = '/api/reports/export/?' + q.toString();
+                    }
+                } catch (error) {
+                    // Network or other error
+                    errorMessage.textContent = 'Failed to load report. Please check your connection and try again.';
+                    loadingDiv.style.display = 'none';
+                    errorDiv.classList.remove('d-none');
+                    frame.style.display = 'none';
+                    exportBtn.style.display = 'none';
+                }
                 document.getElementById('exportPdfBtn').onclick = function(){
                     const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
                     if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Exporting PDF...', 'info', 4000); }
@@ -5733,8 +5820,26 @@
         <h5 class="modal-title">Report Preview</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body" style="height:70vh;">
-        <iframe id="reportPreviewFrame" src="" style="width:100%;height:100%;border:0;" title="Report Preview"></iframe>
+      <div class="modal-body" style="height:70vh; position: relative;">
+        <div id="reportPreviewLoading" class="text-center py-5" style="display: none;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-3 text-muted">Generating report preview...</p>
+        </div>
+        <div id="reportPreviewError" class="alert alert-warning d-none" role="alert" style="margin-bottom: 1rem;">
+          <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Unable to Generate Report</h6>
+          <p id="reportPreviewErrorMessage" class="mb-2"></p>
+          <hr>
+          <p class="mb-0 small text-muted"><strong>What you can do:</strong></p>
+          <ul class="mb-0 small text-muted">
+            <li>Try adjusting your date range to include dates with sales data</li>
+            <li>Change the user filter to "All Users"</li>
+            <li>Change the product filter to "All Products"</li>
+            <li>Check if there are any completed sales in the selected period</li>
+          </ul>
+        </div>
+        <iframe id="reportPreviewFrame" src="" style="width:100%;height:100%;border:0; display: none;" title="Report Preview"></iframe>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="exportPdfBtn"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>

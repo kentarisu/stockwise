@@ -4693,6 +4693,15 @@ def export_report(request):
         elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
         elems.append(Spacer(1, 8))
     
+        # Check if there's any data to generate a report
+        if not sales_queryset.exists():
+            return JsonResponse({
+                'success': False,
+                'message': 'No sales data found for the selected filters. Please adjust your date range, user, or product filters and try again.',
+                'error': 'No data available',
+                'error_id': timezone.now().strftime('%Y%m%d%H%M%S')
+            }, status=400)
+        
         # Calculate comprehensive sales summary data - separate boxes and kg
         summary = list(
         sales_queryset.values(
@@ -4949,10 +4958,12 @@ def export_report(request):
         elems.append(Spacer(1, 8))
     
         # Get top products with comprehensive metrics - use total quantity (boxes + kg)
-        top_summary_sorted = sorted(summary, key=lambda x: (Decimal(str(x.get('boxes_sold') or 0)) + Decimal(str(x.get('kg_sold') or 0))), reverse=True)[:10]
-        product_map = Product.objects.filter(
-            product_id__in=[s['product__product_id'] for s in top_summary_sorted]
-        ).in_bulk(field_name='product_id')
+        top_summary_sorted = sorted(summary, key=lambda x: (Decimal(str(x.get('boxes_sold') or 0)) + Decimal(str(x.get('kg_sold') or 0))), reverse=True)[:10] if summary else []
+        product_map = {}
+        if top_summary_sorted:
+            product_map = Product.objects.filter(
+                product_id__in=[s['product__product_id'] for s in top_summary_sorted]
+            ).in_bulk(field_name='product_id')
         
         if top_summary_sorted:
             top_rows = [[
@@ -5361,34 +5372,34 @@ def export_report(request):
         slow_movers_data = []
         if summary:
             sorted_by_boxes = sorted(summary, key=lambda x: x.get('boxes_sold') or 0)[:10]
-        for entry in sorted_by_boxes:
-            boxes = entry.get('boxes_sold') or 0
-            revenue = Decimal(entry.get('revenue') or 0)
-            # Calculate period days for average daily sales
-            if date_range and current_start and current_end:
-                period_days_calc = max(1, (current_end.date() - current_start.date()).days + 1)
-            else:
-                # Fallback to filter_type-based calculation
-                ft_lookup = (filter_type or '').lower()
-                if ft_lookup in ('weekly', 'week'):
-                    period_days_calc = 7
-                elif ft_lookup in ('monthly', 'month'):
-                    period_days_calc = 30
-                elif ft_lookup in ('quarter',):
-                    period_days_calc = 90
-                elif ft_lookup in ('year',):
-                    period_days_calc = 365
+            for entry in sorted_by_boxes:
+                boxes = entry.get('boxes_sold') or 0
+                revenue = Decimal(entry.get('revenue') or 0)
+                # Calculate period days for average daily sales
+                if date_range and current_start and current_end:
+                    period_days_calc = max(1, (current_end.date() - current_start.date()).days + 1)
                 else:
-                    period_days_calc = 1
-            avg_daily_sales = round(float(boxes) / float(period_days_calc), 2) if period_days_calc else 0.0
-            slow_movers_data.append({
-                'product_name': entry.get('product__name') or 'N/A',
-                'variant': entry.get('product__variant'),
-                'unit': entry.get('product__quantity_unit'),
-                'boxes_sold': boxes,
-                'revenue': float(revenue),
-                'avg_daily_sales': avg_daily_sales
-            })
+                    # Fallback to filter_type-based calculation
+                    ft_lookup = (filter_type or '').lower()
+                    if ft_lookup in ('weekly', 'week'):
+                        period_days_calc = 7
+                    elif ft_lookup in ('monthly', 'month'):
+                        period_days_calc = 30
+                    elif ft_lookup in ('quarter',):
+                        period_days_calc = 90
+                    elif ft_lookup in ('year',):
+                        period_days_calc = 365
+                    else:
+                        period_days_calc = 1
+                avg_daily_sales = round(float(boxes) / float(period_days_calc), 2) if period_days_calc else 0.0
+                slow_movers_data.append({
+                    'product_name': entry.get('product__name') or 'N/A',
+                    'variant': entry.get('product__variant'),
+                    'unit': entry.get('product__quantity_unit'),
+                    'boxes_sold': boxes,
+                    'revenue': float(revenue),
+                    'avg_daily_sales': avg_daily_sales
+                })
     
         if slow_movers_data:
             slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
@@ -5710,10 +5721,19 @@ def export_report(request):
         error_trace = traceback.format_exc()
         print(f"ERROR in export_report: {str(e)}")
         print(error_trace)
+        
+        # Provide more user-friendly error messages based on error type
+        error_message = 'Something went wrong. Please try again or refresh the page.'
+        error_str = str(e)
+        if 'not associated with a value' in error_str or 'not defined' in error_str:
+            error_message = 'No data available for the selected filters. Please adjust your date range, user, or product filters and try again.'
+        elif 'No data' in error_str or 'empty' in error_str.lower():
+            error_message = 'No sales data found for the selected filters. Please adjust your date range, user, or product filters and try again.'
+        
         return JsonResponse({
             'success': False, 
-            'message': f'Something went wrong. Please try again or refresh the page.',
-            'error': str(e),
+            'message': error_message,
+            'error': error_str,
             'error_id': timezone.now().strftime('%Y%m%d%H%M%S')
         }, status=500)
 

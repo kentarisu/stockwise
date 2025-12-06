@@ -4627,18 +4627,29 @@
                 const fruitFilter = $('#productFilter').val() || 'all';
                 
                 // Determine start and end dates based on filter
-                let startDate = '';
-                let endDate = '';
+                let reportStartDate = '';
+                let reportEndDate = '';
                 const today = new Date();
+                const localISO = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const d = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
                 
                 if (filterType === 'custom') {
-                    // Use customStart/customEnd if available, otherwise fall back to startDate/endDate
-                    if (customStart && customEnd) {
-                        startDate = customStart;
-                        endDate = customEnd;
-                    } else if (startDate && endDate) {
-                        // Fallback to startDate/endDate if customStart/customEnd not set
-                        // startDate and endDate are already set, no need to reassign
+                    // For custom range, use startDate/endDate which are updated by updateRangeLabels()
+                    // These should be set from customStart/customEnd when custom range is applied
+                    console.log('Print Report - Custom range selected. customStart:', customStart, 'customEnd:', customEnd, 'startDate:', typeof startDate !== 'undefined' ? startDate : 'undefined', 'endDate:', typeof endDate !== 'undefined' ? endDate : 'undefined');
+                    if (typeof startDate !== 'undefined' && typeof endDate !== 'undefined' && startDate && endDate) {
+                        reportStartDate = startDate;
+                        reportEndDate = endDate;
+                        console.log('Using startDate/endDate for custom range:', reportStartDate, reportEndDate);
+                    } else if (customStart && customEnd) {
+                        // Fallback to customStart/customEnd if startDate/endDate not set
+                        reportStartDate = customStart;
+                        reportEndDate = customEnd;
+                        console.log('Using fallback customStart/customEnd:', reportStartDate, reportEndDate);
                     } else {
                         // Custom range selected but dates not set - show error
                         const printBtn = $('#printReportBtn');
@@ -4651,43 +4662,25 @@
                         return;
                     }
                 } else if (filterType === 'today') {
-                    const localISO = (dt) => {
-                        const y = dt.getFullYear();
-                        const m = String(dt.getMonth() + 1).padStart(2, '0');
-                        const d = String(dt.getDate()).padStart(2, '0');
-                        return `${y}-${m}-${d}`;
-                    };
-                    startDate = endDate = localISO(today);
+                    reportStartDate = reportEndDate = localISO(today);
                 } else if (filterType === 'week') {
                     const weekStart = new Date(today);
                     weekStart.setDate(today.getDate() - 6);
-                    const localISO = (dt) => {
-                        const y = dt.getFullYear();
-                        const m = String(dt.getMonth() + 1).padStart(2, '0');
-                        const d = String(dt.getDate()).padStart(2, '0');
-                        return `${y}-${m}-${d}`;
-                    };
-                    startDate = localISO(weekStart);
-                    endDate = localISO(today);
+                    reportStartDate = localISO(weekStart);
+                    reportEndDate = localISO(today);
                 } else if (filterType === 'month') {
                     const monthStart = new Date(today);
                     monthStart.setDate(today.getDate() - 29);
-                    const localISO = (dt) => {
-                        const y = dt.getFullYear();
-                        const m = String(dt.getMonth() + 1).padStart(2, '0');
-                        const d = String(dt.getDate()).padStart(2, '0');
-                        return `${y}-${m}-${d}`;
-                    };
-                    startDate = localISO(monthStart);
-                    endDate = localISO(today);
+                    reportStartDate = localISO(monthStart);
+                    reportEndDate = localISO(today);
                 }
                 
                 // Create form data
                 const formData = new FormData();
                 formData.append('report_type', 'comprehensive');
                 formData.append('filter', filterType);
-                formData.append('start_date', startDate);
-                formData.append('end_date', endDate);
+                formData.append('start_date', reportStartDate);
+                formData.append('end_date', reportEndDate);
                 formData.append('search', '');
                 formData.append('user', userFilter);
                 formData.append('product', fruitFilter);
@@ -4877,11 +4870,13 @@
                 saveReportsFilters();
                 
                 if (selectedValue === 'custom') {
+                    // Update labels first to ensure startDate/endDate are set from customStart/customEnd if available
+                    updateRangeLabels();
                     // Open modal when custom is selected
                     openCustomRangeModal();
-                    // Don't call updateRangeLabels or loadReports here - wait for modal apply
+                    // Don't call loadReports here - wait for modal apply
                 } else {
-                updateRangeLabels();
+                    updateRangeLabels();
                     loadReports();
                 }
             });
@@ -4954,14 +4949,18 @@
                 let s = '', e = '';
                 const now = new Date();
                 if (filterType === 'custom') {
-                    // Use customStart/customEnd if available, otherwise fall back to startDate/endDate
-                    if (customStart && customEnd) {
-                        s = customStart;
-                        e = customEnd;
-                    } else if (startDate && endDate) {
-                        // Fallback to startDate/endDate if customStart/customEnd not set
+                    // For custom range, use startDate/endDate which are updated by updateRangeLabels()
+                    // These should be set from customStart/customEnd when custom range is applied
+                    console.log('Custom range selected. customStart:', customStart, 'customEnd:', customEnd, 'startDate:', startDate, 'endDate:', endDate);
+                    if (typeof startDate !== 'undefined' && typeof endDate !== 'undefined' && startDate && endDate) {
                         s = startDate;
                         e = endDate;
+                        console.log('Using startDate/endDate for custom range:', s, e);
+                    } else if (customStart && customEnd) {
+                        // Fallback to customStart/customEnd if startDate/endDate not set
+                        s = customStart;
+                        e = customEnd;
+                        console.log('Using fallback customStart/customEnd:', s, e);
                     } else {
                         // Custom range selected but dates not set - show error
                         errorMessage.textContent = 'Please select a custom date range first. Click on "Custom Range" in the date filter dropdown to set your dates.';
@@ -4974,16 +4973,72 @@
                         return;
                     }
                 } else if (filterType === 'today') {
-                    s = now.toISOString().slice(0,10); e = s;
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    s = localISO(now);
+                    e = localISO(now);
                 } else if (filterType === 'week') {
-                    const w = new Date(now); w.setDate(now.getDate()-6); s = w.toISOString().slice(0,10); e = now.toISOString().slice(0,10);
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    const w = new Date(now);
+                    w.setDate(now.getDate() - 6);
+                    s = localISO(w);
+                    e = localISO(now);
                 } else if (filterType === 'month') {
-                    const m = new Date(now); m.setDate(now.getDate()-29); s = m.toISOString().slice(0,10); e = now.toISOString().slice(0,10);
+                    const localISO = (dt) => {
+                        const y = dt.getFullYear();
+                        const m = String(dt.getMonth() + 1).padStart(2, '0');
+                        const d = String(dt.getDate()).padStart(2, '0');
+                        return `${y}-${m}-${d}`;
+                    };
+                    const m = new Date(now);
+                    m.setDate(now.getDate() - 29);
+                    s = localISO(m);
+                    e = localISO(now);
                 }
                 const acceptedPrices = {};
                 document.querySelectorAll('.accepted-price-input').forEach(input => {
                     acceptedPrices[input.dataset.productId] = input.value;
                 });
+                // Validate dates are not empty
+                if (!s || !e) {
+                    errorMessage.textContent = 'Please select a valid date range. If using Custom Range, make sure to set your dates first.';
+                    loadingDiv.style.display = 'none';
+                    errorDiv.classList.remove('d-none');
+                    frame.style.display = 'none';
+                    exportBtn.style.display = 'none';
+                    const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
+                    modal.show();
+                    return;
+                }
+                
+                console.log('Generate Report - Final dates:', { filterType, s, e, customStart, customEnd, startDate, endDate });
+                // Validate dates are not empty before proceeding
+                if (!s || !e) {
+                    const errorDiv = document.getElementById('reportPreviewError');
+                    const errorMessage = document.getElementById('reportPreviewErrorMessage');
+                    const exportBtn = document.getElementById('exportPdfBtn');
+                    const frame = document.getElementById('reportPreviewFrame');
+                    const loadingDiv = document.getElementById('reportPreviewLoading');
+                    errorMessage.textContent = 'Please select a valid date range. If using Custom Range, make sure to set your dates first by clicking "Custom Range" in the date filter dropdown.';
+                    loadingDiv.style.display = 'none';
+                    errorDiv.classList.remove('d-none');
+                    frame.style.display = 'none';
+                    exportBtn.style.display = 'none';
+                    const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
+                    modal.show();
+                    return;
+                }
+                
+                console.log('Generate Report - Final dates:', { filterType, s, e, customStart, customEnd, startDate, endDate });
                 const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, inline:'1', accepted_prices: JSON.stringify(acceptedPrices) });
                 const errorDiv = document.getElementById('reportPreviewError');
                 const errorMessage = document.getElementById('reportPreviewErrorMessage');

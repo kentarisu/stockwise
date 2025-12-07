@@ -26,8 +26,13 @@ This guide will help you deploy StockWise to Render hosting.
 1. Connect your Git repository to Render
 2. Render will automatically detect the `render.yaml` file
 3. The web service and worker will be created automatically
-4. **IMPORTANT**: If Render shows an error about "No module named 'app'", go to the service settings and manually set:
-   - **Start Command**: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
+4. **CRITICAL**: After the service is created, you MUST manually set the Start Command:
+   - Go to your web service → **Settings** → **Start Command**
+   - Change it to: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
+   - Click **Save Changes**
+   - Redeploy the service
+
+**Note**: Render sometimes ignores the `render.yaml` start command, so manual configuration is required.
 
 ### Option B: Manual Setup
 

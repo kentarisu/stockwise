@@ -175,37 +175,9 @@ class Command(BaseCommand):
         )
 
     def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products, kilos_sold, date_label="Yesterday"):
-        """Format the sales summary message"""
-        date_str = date.strftime('%B %d, %Y')
-        message = "STOCKWISE Daily Sales Report\n\n"
-        message += f"Date: {date_str}\n\n"
-        message += "== OVERALL SUMMARY ==\n\n"
-        message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
-        message += f"Total Boxes Sold: {int(total_boxes)}\n"
-        message += f"Total kg Sold: {int(kilos_sold or 0)}\n"
-        message += f"Total Transactions: {int(total_sales)}\n\n"
-        if top_products:
-            message += "== TOP PRODUCTS TODAY ==\n"
-            for i, product in enumerate(top_products, 1):
-                name = product.get('product__name') or ''
-                variant = (product.get('product__variant') or '').strip()
-                unit = (product.get('product__quantity_unit') or '').strip().lower()
-                remaining = int(product.get('product__stock') or 0)
-                sold_qty = int(product.get('quantity') or 0)
-                revenue = float(product.get('revenue') or 0)
-                unit_label = 'kg' if unit == 'kg' else 'boxes'
-                rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
-                label = f"{name}"
-                if variant:
-                    label += f" ({variant})"
-                label += f" ({product.get('product__quantity_unit')})"
-                message += f"{i}. {label}\n"
-                message += f"Sold: {sold_qty} {unit_label}\n"
-                message += f"Revenue: PHP {revenue:,.2f}\n"
-                message += f"Remaining: {remaining} {rem_label}\n\n"
-        else:
-            message += "No sales recorded today.\n"
-        return message
+        """Format the sales summary message using unified formatter"""
+        from core.sms_formatter import format_daily_sales_summary
+        return format_daily_sales_summary(date, total_sales, total_revenue, total_boxes, top_products, kilos_sold)
 
     def send_sms(self, phone_number, message):
         """Send SMS using iProg SMS API"""

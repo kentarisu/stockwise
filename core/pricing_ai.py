@@ -37,7 +37,7 @@ def days_between(a: Optional[dt.date], b: Optional[dt.date]) -> Optional[int]:
 class PolicyConfig:
     min_margin_pct: float = 0.10      # 10% margin above cost
     grid_steps: List[float] = None    # price grid multipliers around current price
-    max_move_pct: float = 0.20        # limit suggestion to +/-20%
+    max_move_pct: float = 0.10        # limit suggestion to +/-10%
     cooldown_days: int = 3            # minimum days between applied changes
     planning_horizon_days: int = 7    # optimize for the next 7 days
     restock_days: int = 7             # typical days until next restock
@@ -423,7 +423,7 @@ def _friendly_reason(action: str, sales_count: int) -> str:
         if a == 'INCREASE':
             return 'Good sales trend in the past 3 days'
         elif a == 'DECREASE':
-            return 'Low sales activity'
+            return 'Low sales activity in the past 3 days'
     return 'Price optimization'
 
 def _normalize_offcanvas_reason(text: str) -> str:
@@ -447,27 +447,9 @@ def _normalize_offcanvas_reason(text: str) -> str:
     return raw
 
 def format_pricing_sms_from_queryset(qs) -> str:
-    lines = ["STOCKWISE Pricing Recommendation", ""]
-    idx = 1
-    for rec in qs:
-        p = getattr(rec, 'product', None)
-        name = getattr(p, 'name', '') if p else ''
-        variant = getattr(p, 'variant', '') if p else ''
-        unit = getattr(p, 'quantity_unit', '') if p else ''
-        label = _label(name or getattr(rec, 'name', ''), variant, unit)
-        act = (getattr(rec, 'action', '') or '').upper()
-        cur = float(getattr(p, 'price', getattr(rec, 'current_price', 0)))
-        sug = float(getattr(rec, 'suggested_price', 0))
-        pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
-        sign = '+' if pct > 0 else ('-' if pct < 0 else '')
-        reason_raw = getattr(rec, 'reason', '')
-        reason = _normalize_offcanvas_reason(reason_raw) or _friendly_reason(act, getattr(rec, 'sales_count', 0))
-        lines.append(f"{idx}. {label}")
-        lines.append(f"PHP {cur:.2f} -> {sug:.2f} ({sign}{abs(pct):.0f}%)")
-        lines.append(f"Reason: {reason}")
-        lines.append("")
-        idx += 1
-    return "\n".join(lines)
+    """Format pricing SMS from queryset using unified formatter"""
+    from core.sms_formatter import format_pricing_recommendation
+    return format_pricing_recommendation(qs)
 
 def validate_pricing_sms_parity(qs, message: str) -> bool:
     # Ensure each rec’s label and pricing line appear in the message

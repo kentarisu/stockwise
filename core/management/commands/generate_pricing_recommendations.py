@@ -71,7 +71,7 @@ class Command(BaseCommand):
             # Configure pricing AI
             cfg = PolicyConfig(
                 min_margin_pct=0.10,         # 10% margin above cost
-                max_move_pct=0.20,           # don't move more than 20% at once
+                max_move_pct=0.10,           # don't move more than 10% at once
                 cooldown_days=3,             # respect 3-day cool-down
                 planning_horizon_days=7,     # optimize for next 7 days
                 min_obs_per_product=15,

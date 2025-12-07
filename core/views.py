@@ -8658,34 +8658,12 @@ def test_notification_type(request):
                 boxes_sold=Sum('quantity'),
                 revenue=Sum('total')
             ).order_by('-boxes_sold')[:5]
-            message = "STOCKWISE Daily Sales Report\n\n"
-            message += f"Date: {today.strftime('%B %d, %Y')}\n\n"
-            message += "== OVERALL SUMMARY ==\n\n"
-            message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
-            message += f"Total Boxes Sold: {int(total_boxes)}\n"
-            message += f"Total kg Sold: {int(kilos_sold)}\n"
-            message += f"Total Transactions: {int(total_transactions)}\n\n"
-            if product_sales:
-                message += "== TOP PRODUCTS TODAY ==\n"
-                for i, prod in enumerate(product_sales, 1):
-                    name = prod['product__name']
-                    variant = (prod.get('product__variant') or '').strip()
-                    unit = (prod['product__quantity_unit'] or '').strip().lower()
-                    remaining = int(prod['product__stock'] or 0)
-                    sold_qty = int(prod['boxes_sold'] or 0)
-                    revenue = float(prod['revenue'] or 0)
-                    unit_label = 'kg' if unit == 'kg' else 'boxes'
-                    rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
-                    label = f"{name}"
-                    if variant:
-                        label += f" ({variant})"
-                    label += f" ({prod['product__quantity_unit']})"
-                    message += f"{i}. {label}\n"
-                    message += f"Sold: {sold_qty} {unit_label}\n"
-                    message += f"Revenue: PHP {revenue:,.2f}\n"
-                    message += f"Remaining: {remaining} {rem_label}\n\n"
-            else:
-                message += "No sales recorded today.\n"
+            # Use unified formatter for daily sales summary
+            from core.sms_formatter import format_daily_sales_summary
+            message = format_daily_sales_summary(
+                today, total_transactions, total_revenue, total_boxes, 
+                list(product_sales), kilos_sold
+            )
             
         elif notification_type == 'stock':
             # Get real low stock data
@@ -8700,37 +8678,9 @@ def test_notification_type(request):
                 status='active'
             ).order_by('name')[:3]
             
-            message = "STOCKWISE Stock Alert\n\n"
-            if out_of_stock_products.exists():
-                message += "CRITICAL - OUT OF STOCK:\n"
-                for i, product in enumerate(out_of_stock_products, 1):
-                    n = product.name or ""
-                    v = (getattr(product, 'variant', None) or '').strip()
-                    u = (getattr(product, 'quantity_unit', None) or '').strip()
-                    lbl = n
-                    if v and f"({v.lower()})" not in n.lower():
-                        lbl += f" ({v})"
-                    if u and f"({u.lower()})" not in n.lower():
-                        lbl += f" ({u})"
-                    message += f"{i}. {lbl}\n"
-                message += "\n"
-            if low_stock_products.exists():
-                message += "WARNING - LOW STOCK:\n"
-                for i, product in enumerate(low_stock_products, 1):
-                    unit = (product.quantity_unit or '').strip().lower()
-                    unit_label = 'kg' if unit == 'kg' else 'boxes'
-                    n = product.name or ""
-                    v = (getattr(product, 'variant', None) or '').strip()
-                    u = (getattr(product, 'quantity_unit', None) or '').strip()
-                    lbl = n
-                    if v and f"({v.lower()})" not in n.lower():
-                        lbl += f" ({v})"
-                    if u and f"({u.lower()})" not in n.lower():
-                        lbl += f" ({u})"
-                    message += f"{i}. {lbl}: {int(product.stock)} {unit_label} left\n"
-                message += "\n"
-            if not low_stock_products.exists() and not out_of_stock_products.exists():
-                message += "All products have sufficient stock.\n"
+            # Use unified formatter for stock alerts
+            from core.sms_formatter import format_stock_alert
+            message = format_stock_alert(list(out_of_stock_products), list(low_stock_products))
             
         elif notification_type == 'pricing':
             try:
@@ -8748,9 +8698,10 @@ def test_notification_type(request):
                     except Exception:
                         pass
                 if actionable:
-                    message = format_pricing_sms_from_queryset(actionable)
+                    from core.sms_formatter import format_pricing_recommendation
+                    message = format_pricing_recommendation(actionable)
                 else:
-                    message = 'STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today.'
+                    message = 'STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today.\n'
             except Exception as e:
                 message = f"Error generating pricing recommendations: {str(e)}"
         else:
@@ -8778,7 +8729,9 @@ def test_notification_type(request):
                 _svc.sms_provider = _prov
             except Exception:
                 pass
-            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            # Only use multipart if message is too long (>160 chars)
+            message_length = len(message)
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=(message_length > 160))
             ok = isinstance(send_result, dict) and send_result.get('success') or bool(send_result)
             if ok:
                 try:
@@ -9138,7 +9091,7 @@ def generate_and_store_pricing_recommendations():
     # Configure pricing AI
     cfg = PolicyConfig(
         min_margin_pct=0.10,
-        max_move_pct=0.12,
+        max_move_pct=0.10,
         cooldown_days=3,
         planning_horizon_days=7,
         min_obs_per_product=5,
@@ -9153,6 +9106,11 @@ def generate_and_store_pricing_recommendations():
     recommendations = []
     for _, row in proposals.iterrows():
         try:
+            # Enforce maximum 10% change - skip if exceeds
+            change_pct_val = abs(float(row.get('change_pct', 0) or 0))
+            if change_pct_val > 10.0:
+                continue  # Skip recommendations that exceed 10% change
+            
             product = Product.objects.get(product_id=row['product_id'])
             recommendations.append({
                 'recommendation_id': None,
@@ -9183,6 +9141,12 @@ def generate_and_store_pricing_recommendations():
             action_str = str(r.get('action') or '').strip().upper()
             if action_str == 'HOLD':
                 continue
+            
+            # Enforce maximum 10% change - skip if exceeds
+            change_pct_val = abs(float(r.get('change_pct', 0) or 0))
+            if change_pct_val > 10.0:
+                continue  # Skip recommendations that exceed 10% change
+            
             p = Product.objects.get(product_id=r['product_id'])
             to_create.append(PricingRecommendation(
                 product=p,
@@ -9244,6 +9208,11 @@ def get_pricing_recommendations(request):
                 sug = float(rec.suggested_price)
                 delta = abs(cur - sug)
                 chg_pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
+                
+                # Enforce maximum 10% change - skip if exceeds
+                if abs(chg_pct) > 10.0:
+                    continue  # Skip recommendations that exceed 10% change
+                
                 action = rec.action if delta >= 0.01 else 'HOLD'
                 # Double-check: skip if action is HOLD
                 action_str = str(action or '').strip().upper()
@@ -10311,7 +10280,7 @@ def send_pricing_notification(request):
                     catalog_df = pd.DataFrame(list(catalog))
                     catalog_df.columns = ['product_id', 'name', 'price', 'cost']
                     catalog_df['last_change_date'] = None
-                    cfg = PolicyConfig(min_margin_pct=0.10, max_move_pct=0.20, cooldown_days=3, planning_horizon_days=7, min_obs_per_product=3, default_elasticity=-1.0, hold_band_pct=0.02)
+                    cfg = PolicyConfig(min_margin_pct=0.10, max_move_pct=0.10, cooldown_days=3, planning_horizon_days=7, min_obs_per_product=3, default_elasticity=-1.0, hold_band_pct=0.02)
                     engine = DemandPricingAI(cfg)
                     proposals = engine.propose_prices(sales_df=sales_df, catalog_df=catalog_df)
                     try:
@@ -10334,7 +10303,7 @@ def send_pricing_notification(request):
                                 if rec.get('action') == 'INCREASE':
                                     friendly = 'Good sales trend in the past 3 days'
                                 elif rec.get('action') == 'DECREASE':
-                                    friendly = 'Low sales activity'
+                                    friendly = 'Low sales activity in the past 3 days'
                                 else:
                                     friendly = 'Price optimization'
                             else:
@@ -10396,7 +10365,9 @@ def send_pricing_notification(request):
                 _svc.sms_provider = _prov
             except Exception:
                 pass
-            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=True)
+            # Only use multipart if message is too long (>160 chars)
+            message_length = len(message)
+            send_result = _svc.send_sms(user_obj.phone_number, message, allow_multipart=(message_length > 160))
             if isinstance(send_result, dict) and send_result.get('success'):
                 try:
                     code = send_result.get('message_code')

@@ -139,40 +139,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f'Failed to log to audit: {e}'))
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products, threshold):
-        message = "STOCKWISE Stock Alert\n\n"
-
-        def _label(name, variant, quantity_unit):
-            n = (name or "")
-            v = (variant or "").strip()
-            u = (quantity_unit or "").strip()
-            ln = n.lower()
-            def has(t):
-                return t and f"({t.lower()})" in ln
-            parts = [n]
-            if v and not has(v) and v != u:
-                parts.append(f" ({v})")
-            if u and not has(u) and u != v:
-                parts.append(f" ({u})")
-            return "".join(parts)
-
-        if out_of_stock_products.exists():
-            message += "CRITICAL - OUT OF STOCK:\n"
-            for product in out_of_stock_products:
-                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
-                message += f"- {label}\n"
-            message += "\n"
-
-        if low_stock_products.exists():
-            message += "WARNING - LOW STOCK:\n"
-            for product in low_stock_products:
-                box_text = "box" if product.stock == 1 else "boxes"
-                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
-                message += f"- {label}: {product.stock} {box_text} left\n"
-            message += "\n"
-
-        if not out_of_stock_products.exists() and not low_stock_products.exists():
-            message += "All products have sufficient stock.\n\n"
-        return message
+        """Format the low stock alert message using unified formatter"""
+        from core.sms_formatter import format_stock_alert
+        return format_stock_alert(out_of_stock_products, low_stock_products)
 
     def send_sms(self, phone_number, message):
         """Send SMS using iProg SMS API"""

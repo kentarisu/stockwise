@@ -111,7 +111,7 @@ class Command(BaseCommand):
             # Configure pricing AI
             cfg = PolicyConfig(
                 min_margin_pct=0.10,         # 10% margin above cost
-                max_move_pct=0.20,           # don't move more than 20% at once
+                max_move_pct=0.10,           # don't move more than 10% at once
                 cooldown_days=3,             # respect 3-day cool-down
                 planning_horizon_days=7,     # optimize for next 7 days
                 min_obs_per_product=5,       # Lower threshold for smaller datasets
@@ -152,23 +152,9 @@ class Command(BaseCommand):
             )
 
     def format_pricing_recommendation(self, actionable_recommendations, days):
-        message = "STOCKWISE Pricing Recommendation\n\n"
-        
-        top_recommendations = actionable_recommendations.head(3)
-        for _, rec in top_recommendations.iterrows():
-            action_symbol = "+" if rec['action'] == 'INCREASE' else "-"
-            change_pct = abs(rec['change_pct'])
-            
-            # Clean reason (remove technical bracketed data)
-            reason = str(rec.get('reason', '') or '')
-            if '[Data:' in reason:
-                reason = reason.split('[Data:')[0].strip()
-            
-            message += f"{rec['name']}\n"
-            message += f"PHP {rec['current_price']:.0f} -> PHP {rec['suggested_price']:.0f} ({action_symbol}{change_pct:.0f}%)\n"
-            message += f"Reason: {reason}\n\n"
-
-        return message
+        """Format the pricing recommendation message using unified formatter"""
+        from core.sms_formatter import format_pricing_recommendation
+        return format_pricing_recommendation(actionable_recommendations)
 
     def send_sms(self, phone_number, message):
         """Send SMS using iProg SMS API"""

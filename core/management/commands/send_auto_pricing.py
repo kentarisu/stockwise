@@ -116,7 +116,7 @@ class Command(BaseCommand):
                 # Generate recommendations
                 cfg = PolicyConfig(
                     min_margin_pct=0.10,
-                    max_move_pct=0.20,
+                    max_move_pct=0.10,
                     cooldown_days=3,
                     planning_horizon_days=7,
                     min_obs_per_product=3,
@@ -145,6 +145,12 @@ class Command(BaseCommand):
                         action_str = str(rec.get('action') or '').strip().upper()
                         if action_str == 'HOLD':
                             continue
+                        
+                        # Enforce maximum 10% change - skip if exceeds
+                        change_pct_val = abs(float(rec.get('change_pct', 0) or 0))
+                        if change_pct_val > 10.0:
+                            continue  # Skip recommendations that exceed 10% change
+                        
                         try:
                             product = Product.objects.get(product_id=rec['product_id'])
                         except Exception:
@@ -155,7 +161,7 @@ class Command(BaseCommand):
                             if rec['action'] == 'INCREASE':
                                 friendly = 'Good sales trend in the past 3 days'
                             elif rec['action'] == 'DECREASE':
-                                friendly = 'Low sales activity'
+                                friendly = 'Low sales activity in the past 3 days'
                             else:
                                 friendly = 'Price optimization'
                         else:
@@ -289,4 +295,5 @@ class Command(BaseCommand):
         return message
     
     def _format_no_recommendations_message(self):
-        return "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+        from core.sms_formatter import format_pricing_recommendation
+        return format_pricing_recommendation([])

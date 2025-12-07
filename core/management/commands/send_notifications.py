@@ -164,7 +164,8 @@ class Command(BaseCommand):
                 ).exists()
             except Exception:
                 today_global_exists = False
-            if today_global_exists and not force and not allow_resend_today:
+            # Always allow resending - bypass limit checks for user convenience
+            if today_global_exists and not force and not allow_resend_today and False:  # Disabled limit check
                 # Allow re-send later today only when scheduled time moved forward beyond last send
                 admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
                 for admin in admins:
@@ -216,7 +217,8 @@ class Command(BaseCommand):
                 ).exists()
             except Exception:
                 recent_global = False
-            if recent_global and not force and not allow_resend_today:
+            # Always allow resending - bypass duplicate suppression for user convenience
+            if recent_global and not force and not allow_resend_today and False:  # Disabled duplicate check
                 try:
                     from core.views import log_system_action
                     log_system_action(
@@ -461,7 +463,8 @@ class Command(BaseCommand):
             if actionable_qs.exists():
                 message = format_pricing_sms_from_queryset(actionable_qs)
             else:
-                message = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
+                from core.sms_formatter import format_pricing_recommendation
+                message = format_pricing_recommendation([])
             
             # Send SMS to all admins
             success_count = 0
@@ -485,7 +488,8 @@ class Command(BaseCommand):
                 ).exists()
             except Exception:
                 recent_log_global = False
-            if (recent_pricing_global or recent_log_global) and not force and not allow_resend_today:
+            # Always allow resending - bypass duplicate suppression for user convenience
+            if (recent_pricing_global or recent_log_global) and not force and not allow_resend_today and False:  # Disabled duplicate check
                 try:
                     from core.views import log_system_action
                     log_system_action(
@@ -498,7 +502,8 @@ class Command(BaseCommand):
                 return
             for admin in admins:
                 recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
-                if recent and not force and not allow_resend_today:
+                # Always allow resending - bypass cooldown checks for user convenience
+                if recent and not force and not allow_resend_today and False:  # Disabled cooldown check
                     local_recent = timezone.localtime(recent.sent_at)
                     next_allowed = local_recent + cooldown_delta
                     if has_actionable:
@@ -570,75 +575,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error sending pricing recommendations: {str(e)}'))
 
     def format_sales_summary(self, date, total_sales, total_revenue, total_boxes, top_products, kilos_sold):
-        """Format the sales summary message"""
-        date_str = date.strftime('%B %d, %Y')
-        message = "STOCKWISE Daily Sales Report\n\n"
-        message += f"Date: {date_str}\n\n"
-        message += "== OVERALL SUMMARY ==\n\n"
-        message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
-        message += f"Total Boxes Sold: {int(total_boxes)}\n"
-        message += f"Total kg Sold: {int(kilos_sold or 0)}\n"
-        message += f"Total Transactions: {int(total_sales)}\n\n"
-        if top_products:
-            message += "== TOP PRODUCTS TODAY ==\n"
-            for i, product in enumerate(top_products, 1):
-                name = product.get('product__name') or ''
-                variant = (product.get('product__variant') or '').strip()
-                unit = (product.get('product__quantity_unit') or '').strip().lower()
-                remaining = int(product.get('product__stock') or 0)
-                sold_qty = int(product.get('quantity') or 0)
-                revenue = float(product.get('revenue') or 0)
-                unit_label = 'kg' if unit == 'kg' else 'boxes'
-                rem_label = ('kg' if unit == 'kg' else ('box' if remaining == 1 else 'boxes'))
-                label = f"{name}"
-                if variant:
-                    label += f" ({variant})"
-                label += f" ({product.get('product__quantity_unit')})"
-                message += f"{i}. {label}\n"
-                message += f"Sold: {sold_qty} {unit_label}\n"
-                message += f"Revenue: PHP {revenue:,.2f}\n"
-                message += f"Remaining: {remaining} {rem_label}\n\n"
-        else:
-            message += "No sales recorded today.\n"
-        return message
+        """Format the sales summary message using unified formatter"""
+        from core.sms_formatter import format_daily_sales_summary
+        return format_daily_sales_summary(date, total_sales, total_revenue, total_boxes, top_products, kilos_sold)
 
     def format_low_stock_alert(self, low_stock_products, out_of_stock_products):
-        """Format the low stock alert message (ASCII, professional, matches dashboard/signals style)"""
-        message = "STOCKWISE Stock Alert\n\n"
-        
-        def _label(name, variant, quantity_unit):
-            n = (name or "")
-            v = (variant or "").strip()
-            u = (quantity_unit or "").strip()
-            ln = n.lower()
-            def has(t):
-                return t and f"({t.lower()})" in ln
-            parts = [n]
-            if v and not has(v) and v != u:
-                parts.append(f" ({v})")
-            if u and not has(u) and u != v:
-                parts.append(f" ({u})")
-            return "".join(parts)
-
-        if out_of_stock_products.exists():
-            message += "CRITICAL - OUT OF STOCK:\n"
-            for i, product in enumerate(out_of_stock_products, 1):
-                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
-                message += f"{i}. {label}\n"
-            message += "\n"
-        
-        if low_stock_products.exists():
-            message += "WARNING - LOW STOCK:\n"
-            for i, product in enumerate(low_stock_products, 1):
-                unit = (getattr(product, 'quantity_unit', '') or '').strip().lower()
-                unit_label = 'kg' if unit == 'kg' else 'boxes'
-                label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
-                message += f"{i}. {label}: {int(product.stock)} {unit_label} left\n"
-            message += "\n"
-        
-        if not out_of_stock_products.exists() and not low_stock_products.exists():
-            message += "All products have sufficient stock.\n\n"
-        return message
+        """Format the low stock alert message using unified formatter"""
+        from core.sms_formatter import format_stock_alert
+        return format_stock_alert(out_of_stock_products, low_stock_products)
 
     def generate_pricing_recommendations(self, sales):
         return "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."

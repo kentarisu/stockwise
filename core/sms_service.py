@@ -148,8 +148,8 @@ class IPROGSMSService:
     def send_sms(self, phone_number, message, allow_multipart: bool = False, max_retries: int = 3, retry_delay: float = 2.0):
         """
         Send SMS using iProg SMS API.
-        Implements manual concatenation when ``allow_multipart`` is True by splitting
-        the cleaned GSM-7 text into 153-character segments (concatenation header safe).
+        Automatically splits into multipart with 1/2, 2/2 prefixes if message is too long (>160 chars).
+        If allow_multipart is True, allows splitting. Otherwise, only splits if message exceeds single SMS limit.
         """
         if not message:
             return {'success': False, 'message': 'Empty message'}
@@ -162,19 +162,24 @@ class IPROGSMSService:
         if (not normalized_phone) or (not normalized_phone.startswith('63')) or (len(normalized_phone) not in (11, 12)):
             return {'success': False, 'message': f'Invalid phone number: {phone_number}'}
 
-        # Clean & optionally segment message
+        # Clean message first
         clean_text = self._to_gsm_plaintext(message, max_len=None)
-        if allow_multipart:
-            segment_len = 153  # 153 for UDH concatenation header space
-            segments = [clean_text[i:i+segment_len] for i in range(0, len(clean_text), segment_len)]
+        
+        # Determine if we need multipart (only if message is TOO LONG)
+        SINGLE_SMS_LIMIT = 160  # Standard SMS character limit
+        
+        # Check if message is too long and needs multipart
+        if len(clean_text) > SINGLE_SMS_LIMIT and allow_multipart:
+            # Use the unified formatter's split function for consistent formatting with 1/2, 2/2 prefixes
+            from core.sms_formatter import split_long_message
+            segments = split_long_message(clean_text, max_length=SINGLE_SMS_LIMIT)
         else:
-            # Do not split; send as a single payload
+            # Send as single message (even if slightly over limit if allow_multipart is False)
             segments = [clean_text]
 
         results = []
         part_count = len(segments)
         for idx, seg in enumerate(segments, start=1):
-            # Optional prefix only when multipart
             seg_payload = seg
 
             last_error = None

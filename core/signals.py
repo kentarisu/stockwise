@@ -93,21 +93,12 @@ def send_low_stock_alert(product):
                 parts.append(f" ({u})")
             return "".join(parts)
 
-        label = _label(product.name, getattr(product, 'variant', None), getattr(product, 'quantity_unit', None))
-        unit = (getattr(product, 'quantity_unit', None) or '').strip().lower()
-        unit_label = 'kg' if unit == 'kg' else 'boxes'
+        # Use unified formatter for stock alerts
+        from core.sms_formatter import format_stock_alert
         if product.stock == 0:
-            message = (
-                "STOCKWISE Stock Alert\n\n"
-                "CRITICAL - OUT OF STOCK:\n"
-                f"- {label}\n\n"
-            )
+            message = format_stock_alert([product], [])
         else:
-            message = (
-                "STOCKWISE Stock Alert\n\n"
-                "WARNING - LOW STOCK:\n"
-                f"- {label}: {int(product.stock)} {unit_label} left\n\n"
-            )
+            message = format_stock_alert([], [product])
         
         # Send SMS to all admins IMMEDIATELY (REAL-TIME)
         recipients = []

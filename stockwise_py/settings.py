@@ -38,11 +38,12 @@ ssl._create_default_https_context = ssl.create_default_context(cafile=certifi.wh
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*'
+# Use environment variable if available (for production), otherwise use default (for development)
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-p6rl(ixvtifc+3f3m^%%!#3%k8pk$=jacsu8oygugbf0x+fxw*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
-MAINTENANCE_MODE = True
+MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'false').lower() == 'true'
 
 # Allowed hosts for ngrok and local development
 ALLOWED_HOSTS = [
@@ -62,6 +63,9 @@ ALLOWED_HOSTS = [
     '.ngrok.io',        # Legacy ngrok domains
     '.ondigitalocean.app',
     '.digitaloceansites.com',
+    # Render hosting
+    '.onrender.com',
+    '.render.com',
 ]
 
 # Tell Django to trust reverse proxy headers from ngrok so scheme/host are correct
@@ -95,6 +99,9 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.ngrok.io',         # Legacy ngrok domains
     'https://*.ondigitalocean.app',
     'https://*.digitaloceansites.com',
+    # Render hosting
+    'https://*.onrender.com',
+    'https://*.render.com',
 ]
 
 # Temporary workaround for ngrok CSRF issues

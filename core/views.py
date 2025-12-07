@@ -164,10 +164,41 @@ def log_action(request, action: str, details: str = '', user: AppUser = None):
             user_agent=user_agent,
         )
     except Exception as e:
-        # Log error to console for debugging, but don't break user flow
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to create audit log entry: {action} - {str(e)}", exc_info=True)
+        # Check if it's a duplicate key error (sequence out of sync)
+        error_str = str(e)
+        if 'duplicate key' in error_str.lower() or 'action_logs_pkey' in error_str.lower():
+            # Try to fix the sequence automatically
+            try:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    # Get max action_id
+                    cursor.execute('SELECT COALESCE(MAX(action_id), 0) FROM action_logs;')
+                    max_id = cursor.fetchone()[0] or 0
+                    # Reset sequence to max_id + 1
+                    cursor.execute("SELECT setval('action_logs_action_id_seq', %s, false);", [max_id + 1])
+                    # Retry the insert
+                    ActionLog.objects.create(
+                        user=user,
+                        role=role or '',
+                        action=action_safe,
+                        details=details_safe,
+                        ip_address=ip_address[:45],
+                        user_agent=user_agent,
+                    )
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Fixed action_logs sequence and retried log entry: {action}")
+                    return
+            except Exception as fix_error:
+                # If auto-fix fails, just log the error
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to create audit log entry and auto-fix sequence: {action} - {str(e)} (fix error: {str(fix_error)})", exc_info=True)
+        else:
+            # Log error to console for debugging, but don't break user flow
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create audit log entry: {action} - {str(e)}", exc_info=True)
 
 
 def log_system_action(action: str, details: str = ''):
@@ -195,9 +226,40 @@ def log_system_action(action: str, details: str = ''):
             user_agent='StockWise Automated System',
         )
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to create system audit log: {action} - {str(e)}", exc_info=True)
+        # Check if it's a duplicate key error (sequence out of sync)
+        error_str = str(e)
+        if 'duplicate key' in error_str.lower() or 'action_logs_pkey' in error_str.lower():
+            # Try to fix the sequence automatically
+            try:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    # Get max action_id
+                    cursor.execute('SELECT COALESCE(MAX(action_id), 0) FROM action_logs;')
+                    max_id = cursor.fetchone()[0] or 0
+                    # Reset sequence to max_id + 1
+                    cursor.execute("SELECT setval('action_logs_action_id_seq', %s, false);", [max_id + 1])
+                    # Retry the insert
+                    ActionLog.objects.create(
+                        user=None,
+                        role='System',
+                        action=action_safe,
+                        details=details_safe,
+                        ip_address=ip_val[:45],
+                        user_agent='StockWise Automated System',
+                    )
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Fixed action_logs sequence and retried system log entry: {action}")
+                    return
+            except Exception as fix_error:
+                # If auto-fix fails, just log the error
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to create system audit log and auto-fix sequence: {action} - {str(e)} (fix error: {str(fix_error)})", exc_info=True)
+        else:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create system audit log: {action} - {str(e)}", exc_info=True)
 
 
 def _mask_email(email: str) -> str:

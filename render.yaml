@@ -1,0 +1,49 @@
+services:
+  # Web service (Django app)
+  - type: web
+    name: stockwise-web
+    env: python
+    plan: starter  # You can change to standard or pro based on your needs
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn stockwise_py.wsgi --bind 0.0.0.0:$PORT --workers 3
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stockwise-db
+          property: connectionString
+      - key: MAINTENANCE_MODE
+        value: false
+      - key: DISABLE_CSRF
+        value: false
+    healthCheckPath: /
+    autoDeploy: true
+
+  # Background worker (SMS scheduler)
+  - type: worker
+    name: stockwise-worker
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python sms_scheduler.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stockwise-db
+          property: connectionString
+      - key: SECRET_KEY
+        sync: true
+
+databases:
+  - name: stockwise-db
+    plan: starter  # You can upgrade to standard or pro for better performance
+    databaseName: stockwise
+    user: stockwise_user
+

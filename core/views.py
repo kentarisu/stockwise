@@ -555,6 +555,22 @@ def clamp_decimal(value_str: str, min_value: str = '0', precision: str = '0.01')
         d = Decimal(min_value)
     return d.quantize(Decimal(precision))
 
+def _reset_pg_sequence(table_name: str, pk_column: str) -> bool:
+    try:
+        from django.db import connection
+        if getattr(connection, 'vendor', '') != 'postgresql':
+            return False
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_get_serial_sequence(%s, %s)", [table_name, pk_column])
+            row = cursor.fetchone()
+            seq = (row[0] if row and row[0] else f"{table_name}_{pk_column}_seq")
+            cursor.execute(f"SELECT COALESCE(MAX({pk_column}), 0) FROM {table_name}")
+            max_id = cursor.fetchone()[0] or 0
+            cursor.execute("SELECT setval(%s, %s, false);", [seq, int(max_id) + 1])
+            return True
+    except Exception:
+        return False
+
 def redirect_to_login(request):
     return redirect('login')
 
@@ -1987,17 +2003,30 @@ def product_add(request):
             product.stock = stock
             product.save()
 
-            # If stock is provided, create a stock addition record
             if stock > 0:
                 batch_id = generate_batch_id(product, name, variant)
-                StockAddition.objects.create(
-                    product=product,
-                    quantity=stock,
-                    date_added=date_added,
-                    remaining_quantity=stock,
-                    batch_id=batch_id,
-                    cost=cost
-                )
+                try:
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=stock,
+                        date_added=date_added,
+                        remaining_quantity=stock,
+                        batch_id=batch_id,
+                        cost=cost
+                    )
+                except Exception as e:
+                    if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                        _reset_pg_sequence('stock_additions', 'addition_id')
+                        StockAddition.objects.create(
+                            product=product,
+                            quantity=stock,
+                            date_added=date_added,
+                            remaining_quantity=stock,
+                            batch_id=batch_id,
+                            cost=cost
+                        )
+                    else:
+                        raise
 
         # Build user-friendly product description
         variant_part = f" ({variant})" if variant else ""
@@ -7332,24 +7361,48 @@ def record_sale(request):
                     contact_int = int(contact_digits or '0')
                 except Exception:
                     contact_int = 0
-                sale_row = Sale.objects.create(
-                    product=product,
-                    quantity=quantity,
-                    price=unit_price,
-                    transaction_number=transaction_number,
-                    or_number=or_number,
-                    customer_name=customer_name,
-                    address=address,
-                    contact_number=contact_int,
-                    recorded_at=timezone.localtime(),
-                    total=line_total_after,
-                    amount_paid=amount_paid,
-                    change_given=change_value,
-                    discount_pct=discount_pct,
-                    discount_amount=discount_amount,
-                    status='completed',
-                    user=user,
-                )
+                try:
+                    sale_row = Sale.objects.create(
+                        product=product,
+                        quantity=quantity,
+                        price=unit_price,
+                        transaction_number=transaction_number,
+                        or_number=or_number,
+                        customer_name=customer_name,
+                        address=address,
+                        contact_number=contact_int,
+                        recorded_at=timezone.localtime(),
+                        total=line_total_after,
+                        amount_paid=amount_paid,
+                        change_given=change_value,
+                        discount_pct=discount_pct,
+                        discount_amount=discount_amount,
+                        status='completed',
+                        user=user,
+                    )
+                except Exception as e:
+                    if 'duplicate key' in str(e).lower() or 'sales_pkey' in str(e).lower():
+                        _reset_pg_sequence('sales', 'sale_id')
+                        sale_row = Sale.objects.create(
+                            product=product,
+                            quantity=quantity,
+                            price=unit_price,
+                            transaction_number=transaction_number,
+                            or_number=or_number,
+                            customer_name=customer_name,
+                            address=address,
+                            contact_number=contact_int,
+                            recorded_at=timezone.localtime(),
+                            total=line_total_after,
+                            amount_paid=amount_paid,
+                            change_given=change_value,
+                            discount_pct=discount_pct,
+                            discount_amount=discount_amount,
+                            status='completed',
+                            user=user,
+                        )
+                    else:
+                        raise
                 try:
                     deduct_stock_fifo(product.product_id, quantity)
                     product.refresh_from_db(fields=['stock'])

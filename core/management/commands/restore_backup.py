@@ -1,6 +1,6 @@
 """
 Django management command to restore from a backup.
-Restores database and media files from a backup zip file.
+Restores database from a backup JSON file.
 """
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -10,27 +10,23 @@ import zipfile
 import shutil
 import os
 import sys
+import json
 from core.models import AppUser
 
 
 class Command(BaseCommand):
-    help = 'Restore system from a backup zip file'
+    help = 'Restore system from a backup JSON file'
 
     def add_arguments(self, parser):
         parser.add_argument(
             'backup_file',
             type=str,
-            help='Path to the backup zip file to restore from',
+            help='Path to the backup JSON file to restore from',
         )
         parser.add_argument(
             '--no-database',
             action='store_true',
             help='Skip database restoration',
-        )
-        parser.add_argument(
-            '--no-media',
-            action='store_true',
-            help='Skip media files restoration',
         )
         parser.add_argument(
             '--force',
@@ -45,14 +41,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Backup file not found: {backup_file}'))
             sys.exit(1)
         
-        if not backup_file.suffix == '.zip':
-            self.stdout.write(self.style.ERROR('Backup file must be a .zip file'))
+        # Accept both .json and .zip files for backward compatibility
+        if backup_file.suffix not in ['.json', '.zip']:
+            self.stdout.write(self.style.ERROR('Backup file must be a .json or .zip file'))
             sys.exit(1)
         
         # Confirmation prompt
         if not options['force']:
             self.stdout.write(self.style.WARNING(
-                '\n⚠️  WARNING: This will overwrite your current database and media files!\n'
+                '\n⚠️  WARNING: This will overwrite your current database!\n'
                 'All current data will be replaced with data from the backup.\n'
             ))
             confirm = input('Are you sure you want to continue? (yes/no): ')
@@ -63,6 +60,95 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Starting restore from: {backup_file}'))
         
         try:
+            # Handle JSON files directly
+            if backup_file.suffix == '.json':
+                self._restore_from_json(backup_file, options)
+            else:
+                # Handle ZIP files for backward compatibility
+                self._restore_from_zip(backup_file, options)
+            
+            # Log the restore operation to audit logs
+            try:
+                from core.views import log_system_action
+                backup_filename = backup_file.name
+                backup_size = backup_file.stat().st_size / (1024 * 1024)  # Convert to MB
+                log_system_action(
+                    action='System Restore from Backup',
+                    details=f'Backup File: {backup_filename}\nSize: {backup_size:.2f} MB\nDatabase Restored: {"Yes" if not options["no_database"] else "No"}\nStatus: Success'
+                )
+            except Exception:
+                # If logging fails, don't break the restore process
+                pass
+            
+            self.stdout.write(self.style.SUCCESS(
+                '\n✓ Restore completed successfully!\n'
+                'Please restart your Django server to ensure all changes take effect.'
+            ))
+            
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'Error during restore: {str(e)}'))
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    
+    def _restore_from_json(self, backup_file, options):
+        """Restore from a JSON backup file"""
+        if not options['no_database']:
+            # Validate JSON file
+            try:
+                with open(backup_file, 'r', encoding='utf-8') as f:
+                    json.load(f)  # Validate JSON structure
+            except json.JSONDecodeError as e:
+                self.stdout.write(self.style.ERROR(f'Invalid JSON file: {e}'))
+                sys.exit(1)
+            
+            # Preserve current users
+            preserved_users = list(AppUser.objects.values('username','password','role','phone_number','email','is_active','full_name'))
+            
+            self.stdout.write('Restoring database from JSON...')
+            
+            # Load data from JSON file
+            try:
+                call_command('loaddata', str(backup_file), verbosity=1)
+                self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
+                
+                # Run migrations to ensure schema is up to date
+                self.stdout.write('  - Running migrations...')
+                call_command('migrate', verbosity=0)
+                self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'  ✗ Failed to load JSON data: {e}'))
+                raise
+            
+            # Ensure accounts are preserved
+            def _ensure_accounts():
+                try:
+                    created = 0
+                    for u in preserved_users:
+                        if not AppUser.objects.filter(username=u['username']).exists():
+                            AppUser.objects.create(
+                                username=u.get('username') or '',
+                                password=u.get('password') or '',
+                                role=u.get('role') or 'Secretary',
+                                phone_number=u.get('phone_number') or '',
+                                email=u.get('email'),
+                                is_active=bool(u.get('is_active')),
+                                full_name=u.get('full_name') or ''
+                            )
+                            created += 1
+                    if not AppUser.objects.exists():
+                        call_command('create_users')
+                    if created:
+                        self.stdout.write(self.style.SUCCESS(f'  ✓ Restored {created} account(s)'))
+                    else:
+                        self.stdout.write('  - Accounts verified')
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'  ⚠ Account preservation warning: {e}'))
+            
+            _ensure_accounts()
+    
+    def _restore_from_zip(self, backup_file, options):
+        """Restore from a ZIP backup file (backward compatibility)"""
             with zipfile.ZipFile(backup_file, 'r') as backup_zip:
                 # List contents
                 file_list = backup_zip.namelist()
@@ -70,8 +156,29 @@ class Command(BaseCommand):
                 
                 # 1. Restore database
                 if not options['no_database']:
+                # Check for JSON file in root of ZIP (new format)
+                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('database/') and not f.startswith('media/')]
                     db_files = [f for f in file_list if f.startswith('database/') and not f.endswith('/')]
-                    if db_files:
+                
+                if json_files:
+                    # New format: JSON file in root of ZIP
+                    json_file = json_files[0]
+                    self.stdout.write('Restoring database from JSON file in ZIP...')
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w+b', suffix='.json', delete=False) as temp_json:
+                        with backup_zip.open(json_file) as source:
+                            temp_json.write(source.read())
+                        json_path = temp_json.name
+                    try:
+                        call_command('loaddata', json_path, verbosity=1)
+                        self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
+                        call_command('migrate', verbosity=0)
+                        self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+                    finally:
+                        if os.path.exists(json_path):
+                            os.unlink(json_path)
+                elif db_files:
+                    # Old format: database folder in ZIP
                         self.stdout.write('Restoring database...')
                         db_engine = settings.DATABASES['default']['ENGINE']
                         db_name = settings.DATABASES['default']['NAME']
@@ -235,8 +342,8 @@ class Command(BaseCommand):
 
                 _ensure_accounts()
                 
-                # 2. Restore media files
-                if not options['no_media']:
+            # 2. Restore media files (if present in old format)
+            if not options.get('no_media', False):
                     media_files = [f for f in file_list if f.startswith('media/')]
                     if media_files:
                         self.stdout.write('Restoring media files...')
@@ -275,7 +382,7 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(
                         '\n⚠️  Backup contains .env file. Restoring it will overwrite current configuration.'
                     ))
-                    if options['force'] or input('Restore .env file? (yes/no): ').lower() == 'yes':
+                if options.get('force', False) or input('Restore .env file? (yes/no): ').lower() == 'yes':
                         env_path = Path(settings.BASE_DIR.parent) / '.env'
                         if env_path.exists():
                             backup_env = f'{env_path}.backup_{Path(backup_file).stem}'
@@ -286,27 +393,3 @@ class Command(BaseCommand):
                             with open(env_path, 'wb') as target:
                                 target.write(source.read())
                         self.stdout.write(self.style.SUCCESS('  ✓ .env file restored'))
-            
-            # Log the restore operation to audit logs
-            try:
-                from core.views import log_system_action
-                backup_filename = backup_file.name
-                backup_size = backup_file.stat().st_size / (1024 * 1024)  # Convert to MB
-                log_system_action(
-                    action='System Restore from Backup',
-                    details=f'Backup File: {backup_filename}\nSize: {backup_size:.2f} MB\nDatabase Restored: {"Yes" if not options["no_database"] else "No"}\nMedia Restored: {"Yes" if not options["no_media"] else "No"}\nStatus: Success'
-                )
-            except Exception:
-                # If logging fails, don't break the restore process
-                pass
-            
-            self.stdout.write(self.style.SUCCESS(
-                '\n✓ Restore completed successfully!\n'
-                'Please restart your Django server to ensure all changes take effect.'
-            ))
-            
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error during restore: {str(e)}'))
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)

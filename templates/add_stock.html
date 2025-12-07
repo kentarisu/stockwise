@@ -240,20 +240,20 @@
     <div class="p-3">
       <div id="addStockFormAlert"></div>
       {% if minutes_remaining is not None and not qr_session_expired %}
-      <div class="alert alert-info" id="qrCountdownAlert" role="alert" style="padding: 0.75rem 1rem;">
+      <div class="alert alert-info sw-alert-compact" id="qrCountdownAlert" role="alert">
         <i class="bi bi-clock me-2"></i>
         <span id="qrCountdownText">QR session expires in {{ minutes_remaining|default:30 }}m 00s</span>
       </div>
       {% endif %}
       {% if qr_session_expired %}
-      <div class="alert alert-danger text-center" role="alert" style="padding: 2rem 1.5rem;">
-        <i class="bi bi-clock-history" style="font-size: 3.5rem; color: #dc3545; opacity: 0.8;"></i>
+      <div class="alert alert-danger text-center sw-alert-large" role="alert">
+        <i class="bi bi-clock-history sw-icon-danger-xl"></i>
         <h5 class="alert-heading mt-3 mb-3 fw-bold">
           <i class="bi bi-exclamation-triangle me-2"></i>QR Session Expired
         </h5>
         <p class="mb-3">Your QR code scan session has expired after 30 minutes of inactivity for security reasons.</p>
-        <div class="p-3 mb-3" style="background: #fff3cd; border-radius: 8px; border: 2px solid #ffc107;">
-          <p class="mb-0 fw-bold" style="color: #856404;">
+        <div class="p-3 mb-3 sw-warning-box">
+          <p class="mb-0 fw-bold sw-warning-text">
             <i class="bi bi-qr-code-scan me-2"></i>Please scan the QR code again to continue
           </p>
         </div>
@@ -282,26 +282,26 @@
             <div class="col-md-3">
               <label class="form-label quantity-label" for="stockQuantity">Boxes to Add</label>
               <input type="number" class="form-control stock-quantity" id="stockQuantity" min="1" required title="Quantity to add" placeholder="Enter quantity">
-                <div style="height: 18px; visibility: hidden;">&nbsp;</div>
+                <div class="sw-line-spacer">&nbsp;</div>
             </div>
             <div class="col-md-3">
               <label class="form-label">Supplier (optional)</label>
               <input type="text" class="form-control stock-supplier" placeholder="Enter supplier name">
-                <div style="height: 18px; visibility: hidden;">&nbsp;</div>
+                <div class="sw-line-spacer">&nbsp;</div>
             </div>
             <div class="col-md-2">
-              <label class="form-label" style="visibility:hidden;height:0;margin:0;padding:0;">&nbsp;</label>
+              <label class="form-label sw-hidden-label">&nbsp;</label>
             </div>
           </div>
           <div class="row mt-2">
             <div class="col-12">
                 <label class="form-label small fw-semibold">Batch ID Preview</label>
-                <div class="batch-id-preview p-2" style="font-size: 0.8rem;">
+                <div class="batch-id-preview p-2 sw-batch-text-sm">
                 <span class="batch-id-display text-muted">Select a product and enter quantity to see batch ID</span>
                 </div>
                 {% if not preselected_product_id %}
                 <div class="mt-2">
-                  <button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn" style="display:none;">
+                  <button type="button" class="btn btn-outline-secondary btn-sm add-stock-variant-btn d-none">
                     <i class="bi bi-plus-circle me-1"></i> Add Another Variant
                   </button>
                 </div>
@@ -320,7 +320,7 @@
       <div class="form-section date-recorded-section">
         <div class="d-flex align-items-center gap-2">
         <label class="form-label mb-0" for="stockDateDisplay">Date Added:</label>
-          <input type="text" class="form-control form-control-sm" style="width: auto; max-width: 250px;" id="stockDateDisplay" readonly title="Date added">
+          <input type="text" class="form-control form-control-sm sw-inline-input" id="stockDateDisplay" readonly title="Date added">
         <input type="hidden" id="stockDate" value="{{ today|date:'Y-m-d' }}">
           <small class="text-muted">Set to today and cannot be changed.</small>
       </div>

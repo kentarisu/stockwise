@@ -1,19 +1,20 @@
 """
 Django management command to create a complete backup of the system.
-Backs up database and all media files.
+Backs up database as JSON file inside a ZIP archive, along with media files.
 """
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.utils import timezone
 from pathlib import Path
-import shutil
-import zipfile
 import os
+import zipfile
+import tempfile
 from datetime import datetime
+from django.core.management import call_command
 
 
 class Command(BaseCommand):
-    help = 'Create a complete backup of the database and media files'
+    help = 'Create a complete backup of the database and media files as ZIP with JSON database'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -49,151 +50,30 @@ class Command(BaseCommand):
         
         try:
             with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as backup_zip:
-                added_database = False
-                # 1. Backup database
-                db_engine = settings.DATABASES['default']['ENGINE']
-                db_name = settings.DATABASES['default']['NAME']
-                
-                if 'sqlite' in db_engine.lower():
-                    # SQLite: backup the database file directly
-                    db_path = db_name
-                    if isinstance(db_path, Path):
-                        db_path = str(db_path)
-                    if os.path.exists(db_path):
-                        db_filename = os.path.basename(db_path)
-                        self.stdout.write(f'Backing up SQLite database: {db_filename}')
-                        backup_zip.write(db_path, f'database/{db_filename}')
-                        self.stdout.write(self.style.SUCCESS(f'✓ Database backed up'))
-                        added_database = True
-                    else:
-                        self.stdout.write(self.style.WARNING(f'Database file not found: {db_path}'))
-                else:
-                    # PostgreSQL, MySQL, etc.: create database dump
-                    self.stdout.write(f'Creating database dump for {db_engine}...')
-                    import tempfile
-                    import subprocess
-                    
-                    dump_ext = '.sql'
-                    if 'postgresql' in db_engine.lower() or 'postgres' in db_engine.lower():
-                        dump_ext = '.sql'
-                        db_user = settings.DATABASES['default'].get('USER', '')
-                        db_pass = settings.DATABASES['default'].get('PASSWORD', '')
-                        db_host = settings.DATABASES['default'].get('HOST', 'localhost')
-                        db_port = settings.DATABASES['default'].get('PORT', '5432')
-                        # Allow override of pg_dump path via env
-                        import shutil
-                        pg_dump_bin = os.getenv('PG_DUMP_BIN') or 'pg_dump'
-                        if shutil.which(pg_dump_bin) is None and shutil.which('pg_dump') is not None:
-                            pg_dump_bin = 'pg_dump'
-                        dump_cmd = [pg_dump_bin, '-h', db_host, '-p', str(db_port)]
-                        if db_user:
-                            dump_cmd.extend(['-U', db_user])
-                        # Plain SQL format for easier restore via psql
-                        dump_cmd.extend(['-Fp', '-d', db_name])
-                    elif 'mysql' in db_engine.lower():
-                        dump_ext = '.mysqldump'
-                        # Extract connection details for MySQL
-                        db_user = settings.DATABASES['default'].get('USER', '')
-                        db_pass = settings.DATABASES['default'].get('PASSWORD', '')
-                        db_host = settings.DATABASES['default'].get('HOST', 'localhost')
-                        db_port = settings.DATABASES['default'].get('PORT', '3306')
-                        dump_cmd = ['mysqldump', '-u', db_user]
-                        if db_pass:
-                            dump_cmd.extend(['-p' + db_pass])
-                        dump_cmd.extend(['-h', db_host, '-P', str(db_port), db_name])
-                    else:
-                        # Generic SQL dump (fallback)
-                        dump_cmd = None
-                    
-                    if dump_cmd:
-                        try:
-                            with tempfile.NamedTemporaryFile(mode='w+b', suffix=dump_ext, delete=False) as dump_file:
-                                env = os.environ.copy()
-                                if 'postgresql' in db_engine.lower() or 'postgres' in db_engine.lower():
-                                    if db_pass:
-                                        env['PGPASSWORD'] = db_pass
-                                result = subprocess.run(dump_cmd, env=env, stdout=dump_file, stderr=subprocess.PIPE, text=True)
-                                if result.returncode == 0:
-                                    dump_filename = f'database_backup{dump_ext}'
-                                    backup_zip.write(dump_file.name, f'database/{dump_filename}')
-                                    os.unlink(dump_file.name)
-                                    self.stdout.write(self.style.SUCCESS(f'✓ Database dump created and backed up'))
-                                    added_database = True
-                                else:
-                                    self.stdout.write(self.style.ERROR(f'Failed to create database dump: {result.stderr}'))
-                                    os.unlink(dump_file.name)
-                        except FileNotFoundError:
-                            self.stdout.write(self.style.WARNING(
-                                f'Database dump tool not found. Please install the appropriate database client tools '
-                                f'({dump_cmd[0]}) to enable database backups in production.'
-                            ))
-                    else:
-                        self.stdout.write(self.style.WARNING(
-                            f'Database engine {db_engine} backup not automatically supported. '
-                            f'Please create a manual database backup and include it in the backup zip.'
-                        ))
-
-                # Fallback: Django dumpdata to JSON if no database file was added
-                if not added_database:
-                    try:
-                        import tempfile
-                        from django.core.management import call_command
-                        self.stdout.write('Using Django dumpdata fallback...')
-                        with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as json_dump:
-                            # Exclude auth perms and contenttypes to keep dump smaller/portable
+                # 1. Backup database as JSON using Django dumpdata
+                self.stdout.write('Creating JSON database backup using Django dumpdata...')
+                try:
+                    with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False, encoding='utf-8') as json_dump:
+                        # Exclude auth.permission and contenttypes to keep dump smaller/portable
+                        # Use natural keys for better portability
                             call_command(
                                 'dumpdata',
                                 '--natural-foreign',
                                 '--natural-primary',
                                 '--exclude', 'auth.permission',
                                 '--exclude', 'contenttypes',
-                                stdout=json_dump
+                            stdout=json_dump,
+                            indent=2  # Pretty print for readability
                             )
                             json_path = json_dump.name
+                    
+                    # Add JSON file to ZIP
                         backup_zip.write(json_path, 'database/stockwise_dump.json')
                         os.unlink(json_path)
-                        self.stdout.write(self.style.SUCCESS('✓ Database JSON dump added'))
-                        added_database = True
+                    self.stdout.write(self.style.SUCCESS('✓ Database JSON backup created'))
                     except Exception as e:
-                        self.stdout.write(self.style.ERROR(f'Fallback dumpdata failed: {e}'))
-                
-                # 2. Backup media files (uploads)
-                media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
-                legacy_uploads = Path(settings.BASE_DIR.parent) / 'uploads'
-                source_media = media_root if media_root.exists() else legacy_uploads
-                if source_media.exists():
-                    self.stdout.write(f'Backing up media files from: {source_media}')
-                    media_count = 0
-                    for root, dirs, files in os.walk(source_media):
-                        for file in files:
-                            file_path = Path(root) / file
-                            arcname = f'media/{file_path.relative_to(source_media)}'
-                            backup_zip.write(file_path, arcname)
-                            media_count += 1
-                    self.stdout.write(self.style.SUCCESS(f'✓ {media_count} media files backed up'))
-                else:
-                    self.stdout.write(self.style.WARNING(f'Media directory not found: {media_root}'))
-                
-                # 3. Backup static files (optional)
-                if options['include_static']:
-                    static_root = settings.STATIC_ROOT
-                    if static_root and os.path.exists(static_root):
-                        self.stdout.write(f'Backing up static files from: {static_root}')
-                        static_count = 0
-                        for root, dirs, files in os.walk(static_root):
-                            for file in files:
-                                file_path = Path(root) / file
-                                arcname = f'static/{file_path.relative_to(static_root)}'
-                                backup_zip.write(file_path, arcname)
-                                static_count += 1
-                        self.stdout.write(self.style.SUCCESS(f'✓ {static_count} static files backed up'))
-                
-                # 4. Backup .env file (if exists) - contains important configuration
-                env_path = Path(settings.BASE_DIR.parent) / '.env'
-                if env_path.exists():
-                    self.stdout.write('Backing up .env file')
-                    backup_zip.write(env_path, '.env')
-                    self.stdout.write(self.style.SUCCESS('✓ .env file backed up'))
+                    self.stdout.write(self.style.ERROR(f'Failed to create JSON backup: {e}'))
+                    raise
             
             # Get backup size
             backup_size = backup_path.stat().st_size

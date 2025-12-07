@@ -275,7 +275,7 @@
 
 @media (max-width: 768px) {
             .sales-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
-            .stat-card { padding: 1rem 0.75rem !important; min-height: auto !important; min-width: 0 !important; }
+            .stat-card { padding: 1rem 0.75rem !important; min-height: 0 !important; min-width: 0 !important; }
             .stat-icon { width: 2rem !important; height: 2rem !important; font-size: 1rem !important; }
             .stat-value { font-size: 1.25rem !important; }
             .stat-label { font-size: 0.75rem !important; }
@@ -1054,7 +1054,7 @@
 
             .stat-card {
                 padding: 1rem 0.75rem;
-                min-height: auto;
+                min-height: 0;
             }
 
             .action-buttons {
@@ -1086,7 +1086,6 @@
                 margin: 0 -1rem;
                 padding: 0 1rem;
                 overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
             }
 
             .table {
@@ -1534,10 +1533,10 @@
         <!-- Unified Header -->
         <header class="header" id="salesHeader">
             <div class="header-left">
-                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button" style="width:0.875rem;height:0.875rem;margin-right:1rem">
-                    <span style="height:1px"></span>
-                    <span style="height:1px"></span>
-                    <span style="height:1px"></span>
+                <button class="burger-menu-btn sw-burger" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span class="sw-burger-line"></span>
+                    <span class="sw-burger-line"></span>
+                    <span class="sw-burger-line"></span>
                 </button>
                 <a href="{% url 'dashboard' %}" class="header-brand">
                     <i class="bi bi-basket-fill"></i>
@@ -1551,11 +1550,7 @@
             <div class="header-right">
                 <div class="dropdown">
                     <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                    </ul>
+                    <div class="dropdown-menu dropdown-menu-end"><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a><hr class="dropdown-divider"><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></div>
                 </div>
             </div>
         </header>
@@ -1663,7 +1658,7 @@
                         <div class="stat-content">
                             <div class="stat-value">₱{{ total_revenue_formatted|default:"0.00" }}</div>
                             <div class="stat-label">Total Sales</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned from all sales</div>
+                            <div class="stat-subtitle sw-stat-subtitle">Total money earned from all sales</div>
                         </div>
                     </a>
                     <a href="?tab=all" class="stat-card clickable">
@@ -1673,7 +1668,7 @@
                         <div class="stat-content">
                             <div class="stat-value">{{ total_sales|default:0 }}</div>
                             <div class="stat-label">Total Transactions</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of completed sales</div>
+                            <div class="stat-subtitle sw-stat-subtitle">Number of completed sales</div>
                         </div>
                     </a>
                     <a href="?tab=all" class="stat-card clickable">
@@ -1693,13 +1688,13 @@
                                 {% endif %}
                             </div>
                             <div class="stat-label">Total Quantity Unit Sold</div>
-                            <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total units sold across all transactions</div>
+                            <div class="stat-subtitle sw-stat-subtitle">Total units sold across all transactions</div>
                         </div>
                     </a>
                 </div>
 
                 <div class="action-buttons justify-content-end align-items-center">
-                    <button type="button" class="btn-filter-action" id="salesRefreshBtn" aria-label="Refresh sales" style="width: 150px; justify-content: center;">
+                    <button type="button" class="btn-filter-action justify-content-center sw-width-150" id="salesRefreshBtn" aria-label="Refresh sales">
                         <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="salesRefreshSpinner"></span>
                         <span class="refresh-text">Refresh</span>
                     </button>
@@ -1710,7 +1705,7 @@
                         <div class="flex-grow-1">
                             <label class="form-label small fw-semibold">Search</label>
                             <div class="filter-search-wrapper">
-                                <input type="text" class="form-control filter-search-input" id="searchFilter" placeholder="Search products..." value="{{ search }}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                                <input type="text" class="form-control filter-search-input" id="searchFilter" placeholder="Search products..." value="{{ search }}" autocomplete="off" spellcheck="false">
                                 <button type="button" id="searchIconBtnSales" class="filter-search-icon-btn" aria-label="Search products" title="Search" aria-controls="searchFilter">
                                     <i class="bi bi-search" aria-hidden="true"></i>
                                 </button>
@@ -1718,7 +1713,8 @@
                         </div>
                         <div>
                             <label class="form-label small fw-semibold" for="rangeFilter">Date Range</label>
-                            <select class="form-select" id="rangeFilter" title="Date range">
+                            <div class="date-range-wrapper d-flex align-items-center justify-content-center gap-2">
+                                <select class="form-select flex-grow-1" id="rangeFilter" title="Date range">
                                 <option value="today" selected>Today</option>
                                 <option value="week">This Week</option>
                                 {% if app_role == 'admin' %}
@@ -1726,6 +1722,10 @@
                                 <option value="custom">Custom Range</option>
                                 {% endif %}
                             </select>
+                                <button type="button" class="btn btn-outline-primary calendar-btn-custom d-none sw-cal-btn" id="customRangeCalendarBtnSales" title="Select Custom Date Range">
+                                    <i class="bi bi-calendar3 sw-icon-md"></i>
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label class="form-label small fw-semibold" for="userFilter">User</label>
@@ -1830,21 +1830,7 @@
                                                         <i class="bi bi-three-dots-vertical"></i>
                                                         <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
-                                                                <i class="bi bi-eye me-2"></i> View Details
-                                                            </button>
-                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
-                                                            <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
-                                                                <i class="bi bi-printer me-2"></i> Print Receipt
-                                                            </button>
-                                                        </li>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<li>
-                                                            <button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale">
-                                                                <i class="bi bi-x-circle me-2"></i> Void Sale
-                                                            </button>
-                                                        </li>{% endif %}
-                                                    </ul>
+                                                    <div class="dropdown-menu dropdown-menu-end"><button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details"><i class="bi bi-eye me-2"></i> View Details</button>{% if app_role|default:'user'|lower != 'secretary' %}<button class="dropdown-item role-hide-secretary print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt"><i class="bi bi-printer me-2"></i> Print Receipt</button>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale"><i class="bi bi-x-circle me-2"></i> Void Sale</button>{% endif %}</div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1958,21 +1944,7 @@
                                                         <i class="bi bi-three-dots-vertical"></i>
                                                         <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
-                                                                <i class="bi bi-eye me-2"></i> View Details
-                                                            </button>
-                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
-                                                            <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
-                                                                <i class="bi bi-printer me-2"></i> Print Receipt
-                                                            </button>
-                                                        </li>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<li>
-                                                            <button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale">
-                                                                <i class="bi bi-x-circle me-2"></i> Void Sale
-                                                            </button>
-                                                        </li>{% endif %}
-                                                    </ul>
+                                                    <div class="dropdown-menu dropdown-menu-end"><button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details"><i class="bi bi-eye me-2"></i> View Details</button>{% if app_role|default:'user'|lower != 'secretary' %}<button class="dropdown-item role-hide-secretary print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt"><i class="bi bi-printer me-2"></i> Print Receipt</button>{% endif %}{% if app_role == 'admin' and sale.status|lower == 'completed' %}<button class="dropdown-item void-sale-btn" data-sale-id="{{ sale.sale_id }}" title="Void Sale"><i class="bi bi-x-circle me-2"></i> Void Sale</button>{% endif %}</div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -2042,17 +2014,7 @@
                                                         <i class="bi bi-three-dots-vertical"></i>
                                                         <span class="visually-hidden">More options for transaction {{ sale.transaction_number }}</span>
                                                     </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details">
-                                                                <i class="bi bi-eye me-2"></i> View Details
-                                                            </button>
-                                                        </li>{% if app_role|default:'user'|lower != 'secretary' %}<li class="role-hide-secretary">
-                                                            <button class="dropdown-item print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt">
-                                                                <i class="bi bi-printer me-2"></i> Print Receipt
-                                                            </button>
-                                                        </li>{% endif %}
-                                                    </ul>
+                                                    <div class="dropdown-menu dropdown-menu-end"><button class="dropdown-item view-details-btn" data-sale-id="{{ sale.sale_id }}" title="View Details"><i class="bi bi-eye me-2"></i> View Details</button>{% if app_role|default:'user'|lower != 'secretary' %}<button class="dropdown-item role-hide-secretary print-receipt-btn" data-sale-id="{{ sale.sale_id }}" title="Print Receipt"><i class="bi bi-printer me-2"></i> Print Receipt</button>{% endif %}</div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -2091,9 +2053,9 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Reason for Voiding <span class="text-danger">*</span></label>
                         <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason1" value="Customer Request" required>
+                            <input class="form-check-input" type="radio" name="voidReason" id="voidReason1" value="Customer Changed Mind" required>
                             <label class="form-check-label" for="voidReason1">
-                                Customer Request
+                                Customer Changed Mind
                             </label>
                         </div>
                         <div class="form-check mb-2">
@@ -2120,9 +2082,9 @@
                                 Other
                             </label>
                         </div>
-                        <div id="voidReasonOtherContainer" class="mt-2" style="display: none;">
+                        <div id="voidReasonOtherContainer" class="mt-2 d-none">
                             <label for="voidReasonOther" class="form-label">Please specify:</label>
-                            <textarea class="form-control" id="voidReasonOther" placeholder="Enter reason..." maxlength="200" rows="3" style="width: 100%; resize: vertical;"></textarea>
+                            <textarea class="form-control sw-resize-vertical" id="voidReasonOther" placeholder="Enter reason..." maxlength="200" rows="3"></textarea>
                         </div>
                     </div>
                 </div>
@@ -2136,22 +2098,32 @@
 
     <!-- Custom Date Range Modal -->
     <div class="modal fade" id="customRangeModal" tabindex="-1" aria-labelledby="customRangeModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog sw-modal-500">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="customRangeModalLabel">Select Custom Date Range</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label for="customStart" class="form-label">Start Date</label>
-                        <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
-                        <div class="form-text" id="customStartHint"></div>
+                        <label for="customStart" class="form-label">START DATE</label>
+                        <div class="input-group w-100">
+                            <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
+                            <button class="btn btn-outline-secondary" type="button" id="customStartCalendarBtn" title="Select date">
+                                <i class="bi bi-calendar"></i>
+                            </button>
+                        </div>
+                        <div class="form-text" id="customStartHint">Format: MM/DD/YYYY</div>
                     </div>
                     <div class="mb-3">
-                        <label for="customEnd" class="form-label">End Date</label>
-                        <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
-                        <div class="form-text" id="customEndHint"></div>
+                        <label for="customEnd" class="form-label">END DATE</label>
+                        <div class="input-group w-100">
+                            <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
+                            <button class="btn btn-outline-secondary" type="button" id="customEndCalendarBtn" title="Select date">
+                                <i class="bi bi-calendar"></i>
+                            </button>
+                        </div>
+                        <div class="form-text" id="customEndHint">Format: MM/DD/YYYY</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -2211,6 +2183,10 @@
                             <div class="meta-item">
                                 <span class="meta-label">Address</span>
                                 <span class="meta-value" id="detailCustAddress">N/A</span>
+                            </div>
+                            <div class="meta-item d-none" id="detailVoidReasonContainer">
+                                <span class="meta-label">Void Reason</span>
+                                <span class="meta-value" id="detailVoidReason">N/A</span>
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">Processed By</span>
@@ -2272,12 +2248,12 @@
                         </div>
                         
                         <!-- Legend Section -->
-                        <div class="report-description mt-4" style="background: #f8fafc; border-radius: 8px; padding: 1rem; border: 1px solid #e5e7eb;">
-                            <h6 style="font-size: 0.9rem; color: #4f46e5; margin-bottom: 0.75rem;">Understanding This Sale</h6>
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div class="report-description mt-4 bg-light rounded p-3 border">
+                            <h6 class="sw-h6-blue mb-2">Understanding This Sale</h6>
+                            <div class="sw-grid-2">
                                 <div>
-                                    <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Transaction Information</h6>
-                                    <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0;">
+                                    <h6 class="fw-semibold mb-2">Transaction Information</h6>
+                                    <ul class="sw-ul-sm text-muted mb-0">
                                         <li><strong>Sale ID:</strong> Internal database identifier for this sale.</li>
                                         <li><strong>Transaction No.:</strong> Unique transaction number for tracking and grouping related sales.</li>
                                         <li><strong>OR No.:</strong> Official Receipt number for this transaction.</li>
@@ -2285,8 +2261,8 @@
                                     </ul>
                                 </div>
                                 <div>
-                                    <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Financial Breakdown</h6>
-                                    <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0;">
+                                    <h6 class="fw-semibold mb-2">Financial Breakdown</h6>
+                                    <ul class="sw-ul-sm text-muted mb-0">
                                         <li><strong>Subtotal:</strong> Total cost of all items before tax.</li>
                                         <li><strong>Plus 12% VAT:</strong> Value-Added Tax collected for BIR remittance.</li>
                                         <li><strong>Total Amount:</strong> Final amount customer needs to pay (Subtotal + VAT).</li>
@@ -2295,9 +2271,9 @@
                                     </ul>
                                 </div>
                             </div>
-                            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #d1d5db;">
-                                <h6 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Itemized Details</h6>
-                                <ul style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                            <div class="mt-3 pt-3 border-top">
+                                <h6 class="fw-semibold mb-2">Itemized Details</h6>
+                                <ul class="sw-ul-sm text-muted mb-0 sw-grid-2">
                                     <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and quantity/unit (e.g., 125-138 or kg) in parentheses.</li>
                                     <li><strong>Qty:</strong> Number of units sold (boxes or kg).</li>
                                     <li><strong>Batch ID(s):</strong> Inventory batch identifiers for stock tracking and traceability.</li>
@@ -2316,8 +2292,8 @@
     </div>
 
     <!-- Printable Receipt Area -->
-    <div id="printArea" style="display:none">
-        <div class="receipt-container border p-3" style="width:58mm;margin:0 auto;">
+    <div id="printArea" class="d-none">
+        <div class="receipt-container border p-3 sw-w-58mm mx-auto">
             <div class="receipt-header text-center mb-2">
                 <div class="company-name fw-bold">FruitMaster Marketing</div>
                 <div class="company-details small">Mabini Street - Libertad, Bacolod City, Negros Occidental</div>
@@ -2326,7 +2302,7 @@
             </div>
             <div class="receipt-title text-center fw-bold">SALES RECEIPT</div>
             <hr class="receipt-divider"/>
-            <div id="rProcessedByRow" class="receipt-info" style="display:none;">Processed by: <span id="rProcessedBy"></span></div>
+            <div id="rProcessedByRow" class="receipt-info d-none">Processed by: <span id="rProcessedBy"></span></div>
             <div class="receipt-info">Transaction no.: <span id="rTxn"></span></div>
             <div class="receipt-info">OR no.: <span id="rOr"></span></div>
             <div class="receipt-info">Date: <span id="rDate"></span></div>
@@ -2427,6 +2403,100 @@
 
         document.querySelectorAll('#customStart,#customEnd').forEach(el => {
             el.addEventListener('input', function(){ this.value = this.value.replace(/[^0-9\/]/g, ''); });
+        });
+
+        // Calendar button handlers
+        function openDatePicker(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            
+            const inputGroup = input.closest('.input-group');
+            if (!inputGroup) return;
+            
+            // Create a wrapper div that will be inserted into the DOM flow
+            // Position it absolutely relative to the input group's parent
+            const parentContainer = inputGroup.parentElement;
+            if (!parentContainer) return;
+            
+            // Ensure parent has relative positioning
+            const originalPosition = parentContainer.style.position;
+            if (!parentContainer.style.position || parentContainer.style.position === 'static') {
+                parentContainer.style.position = 'relative';
+            }
+            
+            // Create wrapper positioned at center of input group, below it
+            const wrapper = document.createElement('div');
+            wrapper.id = 'temp-date-picker-wrapper';
+            wrapper.style.position = 'absolute';
+            wrapper.style.left = '50%';
+            wrapper.style.transform = 'translateX(-50%)';
+            wrapper.style.top = '100%';
+            wrapper.style.marginTop = '8px';
+            wrapper.style.zIndex = '10000';
+            wrapper.style.visibility = 'hidden';
+            wrapper.style.pointerEvents = 'none';
+            wrapper.style.width = '200px';
+            
+            // Create a temporary date input
+            const tempDateInput = document.createElement('input');
+            tempDateInput.type = 'date';
+            tempDateInput.style.width = '100%';
+            tempDateInput.style.height = '40px';
+            
+            // Parse current value if exists
+            const currentValue = input.value.trim();
+            if (currentValue) {
+                const parsed = parseUSDateToISO(currentValue);
+                if (parsed) {
+                    tempDateInput.value = parsed;
+                }
+            }
+            
+            wrapper.appendChild(tempDateInput);
+            
+            // Insert wrapper right after the input group
+            inputGroup.parentNode.insertBefore(wrapper, inputGroup.nextSibling);
+            
+            // Use requestAnimationFrame to ensure DOM is updated before showing picker
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+            tempDateInput.showPicker();
+                });
+            });
+            
+            tempDateInput.addEventListener('change', function() {
+                if (this.value) {
+                    const date = new Date(this.value + 'T00:00:00');
+                    const formatted = formatUSDateStr(date);
+                    input.value = formatted;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                cleanup();
+            });
+            
+            tempDateInput.addEventListener('cancel', function() {
+                cleanup();
+            });
+            
+            function cleanup() {
+                if (wrapper.parentNode) {
+                    wrapper.parentNode.removeChild(wrapper);
+                }
+                // Restore original position if we changed it
+                if (originalPosition !== parentContainer.style.position) {
+                    parentContainer.style.position = originalPosition || '';
+                }
+            }
+        }
+
+        document.getElementById('customStartCalendarBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            openDatePicker('customStart');
+        });
+
+        document.getElementById('customEndCalendarBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            openDatePicker('customEnd');
         });
 
         // Pagination state
@@ -2560,12 +2630,7 @@
             // Render paginated rows
             paginatedRows.forEach(row => {
                 const tr = document.createElement('tr');
-                const printOption = canPrint ? `
-                                <li class="role-hide-secretary">
-                                    <button class="dropdown-item print-receipt-btn" data-sale-id="${row.sale_id}" title="Print Receipt">
-                                        <i class="bi bi-printer me-2"></i> Print Receipt
-                                    </button>
-                                </li>` : '';
+                const printOption = canPrint ? `<button class="dropdown-item role-hide-secretary print-receipt-btn" data-sale-id="${row.sale_id}" title="Print Receipt"><i class="bi bi-printer me-2"></i> Print Receipt</button>` : '';
 
                 const isVoidedTable = tableId === 'voidedSalesTable';
                 const voidReasonCell = isVoidedTable ? `<td><span class="text-muted small">${safeText(row.void_reason, 'N/A')}</span></td>` : '';
@@ -2587,15 +2652,7 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                                 <span class="visually-hidden">More options for transaction ${safeText(String(row.transaction_number || ('SID'+row.sale_id)).toUpperCase(),'N/A')}</span>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <button class="dropdown-item view-details-btn" data-sale-id="${row.sale_id}" title="View Details">
-                                        <i class="bi bi-eye me-2"></i> View Details
-                                    </button>
-                                </li>
-                                ${printOption}
-                                ${getActionButtons(row)}
-                            </ul>
+                            <div class="dropdown-menu dropdown-menu-end"><button class="dropdown-item view-details-btn" data-sale-id="${row.sale_id}" title="View Details"><i class="bi bi-eye me-2"></i> View Details</button>${printOption}${getActionButtons(row)}</div>
                         </div>
                     </td>`;
                 tbody.appendChild(tr);
@@ -2617,12 +2674,7 @@
         function getActionButtons(row) {
             const statusLower = safeText(row.status,'').toLowerCase();
             if (statusLower === 'completed' && canVoid) {
-                return `
-                            <li>
-                                <button class="dropdown-item void-sale-btn" data-sale-id="${row.sale_id}" title="Void Sale">
-                                    <i class="bi bi-x-circle me-2"></i> Void Sale
-                                </button>
-                            </li>`;
+                return `<button class="dropdown-item void-sale-btn" data-sale-id="${row.sale_id}" title="Void Sale"><i class="bi bi-x-circle me-2"></i> Void Sale</button>`;
             }
             return '';
         }
@@ -2890,7 +2942,7 @@
                 filter: 'today',
                 start_date: day,
                 end_date: day,
-                status: 'all',
+                status: 'completed',
                 search: searchTerm,
                 user: userFilter,
                 product: fruitFilter
@@ -2909,15 +2961,20 @@
         }
 
         async function loadRecentSales(){
-            const r = computeRange();
+            // Always use weekly filter for recent transactions, regardless of date range filter
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - 7);
+            const iso = (dt) => dt.toISOString().slice(0, 10);
+            
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
             
             const q = new URLSearchParams({
-                filter: r.filter,
-                start_date: r.start,
-                end_date: r.end,
+                filter: 'weekly',
+                start_date: iso(weekStart),
+                end_date: iso(today),
                 status: 'completed',
                 search: searchTerm,
                 user: userFilter,
@@ -3044,10 +3101,29 @@
                 modal.show();
         }
 
+        // Toggle calendar button visibility
+        function toggleCalendarButtonSales() {
+            const selectedValue = rangeInput?.value || 'today';
+            const calendarBtn = document.getElementById('customRangeCalendarBtnSales');
+            if (calendarBtn) {
+                const show = selectedValue === 'custom';
+                calendarBtn.classList.toggle('d-none', !show);
+            }
+        }
+        
+        // Calendar button click handler
+        const calendarBtnSales = document.getElementById('customRangeCalendarBtnSales');
+        if (calendarBtnSales) {
+            calendarBtnSales.addEventListener('click', function() {
+                openCustomRangeModal();
+            });
+        }
+
         rangeInput?.addEventListener('change', ()=>{
             console.log('Date filter changed');
             const sel = (rangeInput.value||'today').toLowerCase();
             const isCustom = sel==='custom';
+            toggleCalendarButtonSales();
             if (isCustom) {
                 // Open modal when custom is selected
                 openCustomRangeModal();
@@ -3063,6 +3139,9 @@
                 loadCurrentTab();
             }
         });
+        
+        // Initialize calendar button visibility
+        toggleCalendarButtonSales();
         
         // Allow reselection: when clicking on select while custom is selected,
         // temporarily change value to 'today' so clicking 'custom' will trigger change event
@@ -3153,7 +3232,7 @@
         // Tab event listeners - save on change
         document.getElementById('all-tab')?.addEventListener('shown.bs.tab', function() {
             saveSalesFilters();
-            loadSales('all', 'allSalesTable');
+            loadSales('completed', 'allSalesTable');
         });
         document.getElementById('today-tab')?.addEventListener('shown.bs.tab', function() {
             saveSalesFilters();
@@ -3175,7 +3254,7 @@
             const tabId = activeTab.id;
             switch(tabId) {
                 case 'all-tab': 
-                    loadSales('all', 'allSalesTable'); 
+                    loadSales('completed', 'allSalesTable'); 
                     break;
                 case 'today-tab': 
                     loadTodaySales(); 
@@ -3187,7 +3266,7 @@
                     loadVoidedSales(); 
                     break;
                 default: 
-                    loadSales('all', 'allSalesTable');
+                    loadSales('completed', 'allSalesTable');
             }
         }
         
@@ -3335,7 +3414,7 @@
                 const tabId = activeTab?.id || 'all-tab';
                 switch(tabId) {
                     case 'all-tab': 
-                        loadSales('all', 'allSalesTable'); 
+                        loadSales('completed', 'allSalesTable'); 
                         break;
                     case 'today-tab': 
                         loadTodaySales(); 
@@ -3347,7 +3426,7 @@
                         loadVoidedSales(); 
                         break;
                     default: 
-                        loadSales('all', 'allSalesTable');
+                        loadSales('completed', 'allSalesTable');
                 }
                 
                 // Scroll to top after everything is loaded
@@ -3441,10 +3520,32 @@
                     const flat = data.data || data.sale || data;
                     const itemsResp = data.items || flat.items || data.data?.items || [];
                     const s = flat;
+                    // Store original data for void_reason access
+                    const originalData = data;
                     
-                    // Banner fields
+                    // Banner fields - format date like "Dec 06, 2025 11:48 PM"
+                    function formatLocalDate(ts) {
+                        if (!ts) return 'N/A';
+                        try {
+                            const d = new Date(ts);
+                            if (isNaN(d.getTime())) return String(ts);
+                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            const month = months[d.getMonth()];
+                            const day = String(d.getDate()).padStart(2, '0');
+                            const year = d.getFullYear();
+                            let hours = d.getHours();
+                            const minutes = String(d.getMinutes()).padStart(2, '0');
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            hours = hours % 12;
+                            hours = hours ? hours : 12;
+                            const hoursStr = String(hours).padStart(2, '0');
+                            return `${month} ${day}, ${year} ${hoursStr}:${minutes} ${ampm}`;
+                        } catch (e) {
+                            return String(ts);
+                        }
+                    }
                     const dt = s.recorded_at ? new Date(s.recorded_at) : null;
-                    const dtStr = dt && !isNaN(dt) ? dt.toLocaleString() : safeText(s.recorded_at,'N/A');
+                    const dtStr = dt && !isNaN(dt) ? formatLocalDate(s.recorded_at) : safeText(s.recorded_at,'N/A');
                     document.getElementById('saleDetailBannerTitle').textContent = s.sale_id ? `Sale Report · #${s.sale_id}` : 'Sale Report';
                     document.getElementById('saleDetailBannerDate').textContent = `Generated on ${dtStr}`;
                     
@@ -3463,13 +3564,28 @@
                     
                     // Meta fields
                     document.getElementById('detailSaleId').textContent = safeText(s.sale_id,'N/A');
-                    document.getElementById('detailTransactionNumber').textContent = safeText(s.transaction_number,'N/A');
-                    document.getElementById('detailOrNumber').textContent = safeText(s.or_number || '', 'N/A');
-                    document.getElementById('detailDate').textContent = dtStr;
+                    // Ensure TXN and OR are uppercase
+                    const transactionNo = safeText(s.transaction_number,'N/A');
+                    document.getElementById('detailTransactionNumber').textContent = transactionNo !== 'N/A' ? transactionNo.toUpperCase() : 'N/A';
+                    const orNo = safeText(s.or_number || '', 'N/A');
+                    document.getElementById('detailOrNumber').textContent = orNo !== 'N/A' ? orNo.toUpperCase() : 'N/A';
+                    document.getElementById('detailDate').textContent = dt && !isNaN(dt) ? formatLocalDate(s.recorded_at) : safeText(s.recorded_at,'N/A');
                     document.getElementById('detailProcessedBy').textContent = safeText(s.username,'N/A');
-                    document.getElementById('detailCustomer').textContent = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || 'N/A');
+                    const customerName = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || 'N/A');
+                    document.getElementById('detailCustomer').textContent = customerName;
                     document.getElementById('detailCustContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || 'N/A');
                     document.getElementById('detailCustAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || 'N/A');
+                    
+                    const voidReasonContainer = document.getElementById('detailVoidReasonContainer');
+                    const voidReasonEl = document.getElementById('detailVoidReason');
+                    let voidReason = 'N/A';
+                    const vr = (s && s.void_reason) || (data && data.data && data.data.void_reason) || (data && data.void_reason) || '';
+                    if (vr && String(vr).trim() !== '') {
+                        voidReason = String(vr).trim();
+                    }
+                    const isVoided = (status === 'voided' || status === 'cancelled');
+                    voidReasonEl.textContent = voidReason;
+                    voidReasonContainer.classList.toggle('d-none', !isVoided);
 
                     const tbody = document.getElementById('detailItems');
                     tbody.innerHTML = '';
@@ -3881,12 +3997,10 @@ function printReceipt(saleId) {
             radio.addEventListener('change', function() {
                 const otherContainer = document.getElementById('voidReasonOtherContainer');
                 const otherInput = document.getElementById('voidReasonOther');
-                if (this.value === 'Other') {
-                    otherContainer.style.display = 'block';
-                    otherInput.required = true;
-                } else {
-                    otherContainer.style.display = 'none';
-                    otherInput.required = false;
+                const isOther = this.value === 'Other';
+                otherContainer.classList.toggle('d-none', !isOther);
+                otherInput.required = isOther;
+                if (!isOther) {
                     otherInput.value = '';
                 }
             });
@@ -3991,7 +4105,7 @@ function printReceipt(saleId) {
             });
             const otherContainer = document.getElementById('voidReasonOtherContainer');
             const otherInput = document.getElementById('voidReasonOther');
-            if (otherContainer) otherContainer.style.display = 'none';
+            if (otherContainer) otherContainer.classList.add('d-none');
             if (otherInput) {
                 otherInput.value = '';
                 otherInput.required = false;

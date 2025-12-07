@@ -13,7 +13,7 @@ from django.db.models import Sum, Count, F, Q, Case, When, CharField, Value, Max
 from django.db.models.functions import Coalesce, Substr, TruncDate
 from .models import AppUser, Product, Sale, StockAddition, SMS, ReportProductSummary, ActionLog, Backup
 import json
-from django.db import transaction
+from django.db import transaction, connection
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 import secrets
@@ -741,7 +741,7 @@ def password_reset_verify(request):
             # Update password
             user.password = bcrypt.hash(new_pw)
             user.save(update_fields=['password'])
-            log_action(request, 'Password reset', f'User reset password via recovery code', user=user)
+            log_action(request, 'Forgot password', f'User reset password via recovery code', user=user)
             # Clear pending email session after successful reset
             request.session.pop('pending_reset_email', None)
             request.session.pop('pending_reset_sent_at', None)
@@ -824,7 +824,7 @@ def login_view(request):
                     request.session.set_expiry(60*60*24)
                 except Exception:
                     pass
-                log_action(request, 'Login success', f'User logged in with username/password ({user.username})', user=user)
+                log_action(request, 'Login', f'User logged in with username/password ({user.username})', user=user)
                 qr_redirect_url = request.session.pop('qr_redirect_url', None)
                 if qr_redirect_url:
                     return redirect(qr_redirect_url)
@@ -1095,7 +1095,7 @@ def logout_view(request):
     """Handle user logout - clear session and redirect to login"""
     try:
         # Log the logout action before clearing session (so we have user info)
-        log_action(request, 'Logout', 'User logged out of the system')
+        log_action(request, 'Logout', 'User logged out of the system.')
     except Exception:
         # Don't fail logout if logging fails
         pass
@@ -1944,8 +1944,8 @@ def product_add(request):
 
         log_action(
             request,
-            'Product added',
-            f'Added new product: {product_desc}. Price: ₱{price:.2f}, Cost: ₱{cost:.2f}, Initial Stock: {stock} units'
+            'Product registration',
+            f'Registered new product: {product_desc}. Price: ₱{price:.2f}, Cost: ₱{cost:.2f}, Initial Stock: {stock} units'
         )
         try:
             csv_path = getattr(settings, 'FRUIT_MASTER_PATH', os.path.join(settings.BASE_DIR, 'fruit_master_full.csv'))
@@ -2286,7 +2286,7 @@ def add_stock(request):
             items_summary = ', '.join([f"{item['product_name']} (+{item['quantity']})" for item in added_items[:5]])
             if len(added_items) > 5:
                 items_summary += f" and {len(added_items) - 5} more"
-            action_type = 'Stock added (bulk)' if len(added_items) > 1 else 'Stock added'
+            action_type = 'Add stock (bulk)' if len(added_items) > 1 else 'Add stock'
             log_action(
                 request,
                 action_type,
@@ -3183,45 +3183,63 @@ def void_sale(request, sale_id):
                     'message': 'Sale is already voided.'
                 })
 
-            # Restore stock for each item
-            if not sale.stock_restored:
-                # Since we're using single-table sales, restore stock to the product
-                product = sale.product
-                if product:
-                    # Add back to the most recent batch (LIFO for restoration)
-                    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
-                    latest_batch = StockAddition.objects.filter(
-                        product=product
-                    ).defer('spoiled').order_by('-date_added', '-addition_id').first()
-                    
-                    if latest_batch:
-                        latest_batch.remaining_quantity += sale.quantity
-                        latest_batch.save()
-                    else:
-                        # Create a new batch for restored stock
-                        batch_id = generate_batch_id(product, product.name, product.variant)
-                        StockAddition.objects.create(
-                            product=product,
-                            quantity=sale.quantity,
-                            date_added=timezone.now().date(),
-                            remaining_quantity=sale.quantity,
-                            batch_id=batch_id
-                        )
-                    
-                    # Update product stock total
-                    product.stock = models.F('stock') + sale.quantity
-                    product.save()
+            # Get all sales in the transaction to restore stock for all
+            txn_number = sale.transaction_number
+            if txn_number:
+                all_transaction_sales = Sale.objects.filter(transaction_number=txn_number, stock_restored=False)
+            else:
+                all_transaction_sales = Sale.objects.filter(sale_id=sale_id, stock_restored=False)
+            
+            # Restore stock for each item in the transaction
+            for trans_sale in all_transaction_sales:
+                if not trans_sale.stock_restored:
+                    # Since we're using single-table sales, restore stock to the product
+                    product = trans_sale.product
+                    if product:
+                        # Add back to the most recent batch (LIFO for restoration)
+                        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+                        latest_batch = StockAddition.objects.filter(
+                            product=product
+                        ).defer('spoiled').order_by('-date_added', '-addition_id').first()
+                        
+                        if latest_batch:
+                            latest_batch.remaining_quantity += trans_sale.quantity
+                            latest_batch.save()
+                        else:
+                            # Create a new batch for restored stock
+                            batch_id = generate_batch_id(product, product.name, product.variant)
+                            StockAddition.objects.create(
+                                product=product,
+                                quantity=trans_sale.quantity,
+                                date_added=timezone.now().date(),
+                                remaining_quantity=trans_sale.quantity,
+                                batch_id=batch_id
+                            )
+                        
+                        # Update product stock total
+                        product.stock = models.F('stock') + trans_sale.quantity
+                        product.save()
 
-            # Mark sale as voided
-            sale.status = 'voided'
-            sale.voided_at = timezone.now()
-            sale.void_reason = void_reason
-            sale.stock_restored = True
-            sale.save()
+            # Mark all sales in transaction as voided
+            if txn_number:
+                # Update all sales with the same transaction_number
+                Sale.objects.filter(transaction_number=txn_number).update(
+                    status='voided',
+                    voided_at=timezone.now(),
+                    void_reason=void_reason,
+                    stock_restored=True
+                )
+            else:
+                # If no transaction_number, just update this sale
+                sale.status = 'voided'
+                sale.voided_at = timezone.now()
+                sale.void_reason = void_reason
+                sale.stock_restored = True
+                sale.save()
 
             log_action(
                 request,
-                'Sale voided',
+                'Void sale',
                 f'Voided sale {sale_id} (OR {sale.or_number}). Reason: {void_reason}'
             )
 
@@ -3312,6 +3330,12 @@ def get_sale_details(request, sale_id):
             related_sales = Sale.objects.select_related('product', 'user').filter(sale_id=sale_id)
         
         items_data = []
+        # Get void_reason the same way reports page does it - directly from main_sale
+        # Refresh main_sale to ensure we have the latest void_reason from database
+        main_sale.refresh_from_db()
+        void_reason = getattr(main_sale, 'void_reason', '') or ''
+        
+        # Process all related sales to build items_data
         for sale in related_sales:
             product_name = sale.product.name if sale.product else 'Unknown'
             variant = ''
@@ -3340,20 +3364,24 @@ def get_sale_details(request, sale_id):
                 'price': float(sale.product.price) if sale.product else 0.0,
                 'subtotal': float(sale.total) if sale.total else 0.0
             })
-
+        
         return JsonResponse({
             'success': True,
             'data': {
                 'sale_id': main_sale.sale_id,
                 'transaction_number': main_sale.transaction_number,
                 'or_number': main_sale.or_number,
-                'recorded_at': main_sale.recorded_at.strftime('%b %d, %Y %I:%M %p'),
+                'recorded_at': format_local_datetime(main_sale.recorded_at),
                 'status': main_sale.status,
                 'total': str(main_sale.total),
                 'amount_paid': str(main_sale.amount_paid),
                 'change_given': str(main_sale.change_given),
                 'username': main_sale.user.username if main_sale.user else 'Unknown',
                 'customer_name': getattr(main_sale, 'customer_name', '') or '',
+                'customer_address': getattr(main_sale, 'address', '') or '',
+                'customer_contact': getattr(main_sale, 'contact_number', '') or '',
+                # Return void_reason the same way reports page does it
+                'void_reason': void_reason or '',
                 'items': items_data
             }
         })
@@ -4082,10 +4110,11 @@ def fetch_reports(request):
                 
                 grouped[key] = {
                     'sale_id': row.sale_id,
-                    'transaction_no': row.transaction_number if row.transaction_number else key,
+                    'transaction_number': (row.transaction_number or key).upper(),
+                    'transaction_no': (row.transaction_number or key).upper(),
                     'or_no': row.or_number or 'N/A',
                     'receipt_number': row.or_number or 'N/A',
-                    'date_time': format_local_datetime(row.recorded_at, '%Y-%m-%d %H:%M:%S'),
+                    'date_time': format_local_datetime(row.recorded_at),
                     'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
                     'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
                     'address': row.address.strip() if row.address and row.address.strip() else 'N/A',
@@ -4173,9 +4202,10 @@ def fetch_reports(request):
                 
                 voided_grouped[key] = {
                     'sale_id': row.sale_id,
-                    'transaction_no': row.transaction_number if row.transaction_number else key,
-                    'voided_at': row.voided_at.strftime('%Y-%m-%d %H:%M:%S') if row.voided_at else row.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
-                    'date_time': row.recorded_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'transaction_number': (row.transaction_number or key).upper(),
+                    'transaction_no': (row.transaction_number or key).upper(),
+                    'voided_at': format_local_datetime(row.voided_at) if row.voided_at else format_local_datetime(row.recorded_at),
+                    'date_time': format_local_datetime(row.recorded_at),
                     'receipt_number': row.or_number or 'N/A',
                     'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
                     'processed_by': row.user.username if row.user else 'admin',
@@ -4188,6 +4218,7 @@ def fetch_reports(request):
                     'total_amount': float((row.total or 0) * Decimal('1.12')),
                     'status': row.status,
                     'sale_ids': [row.sale_id],
+                    'void_reason': getattr(row, 'void_reason', None) or 'N/A',
                 }
             else:
                 # Add to appropriate unit
@@ -5123,11 +5154,26 @@ def export_report(request):
                 status_text = 'Critical' if inv.stock <= reorder_point else 'Low'
                 action_required = 'Reorder' if inv.stock <= reorder_point else 'Monitor'
             
+                # Format stock with boxes/kg specification
+                unit = (inv.quantity_unit or '').strip().lower()
+                stock_value_num = float(inv.stock or 0)
+                if unit == 'kg':
+                    if stock_value_num == int(stock_value_num):
+                        stock_display = f"{int(stock_value_num)} kg"
+                    else:
+                        stock_display = f"{stock_value_num:.2f} kg"
+                else:
+                    if stock_value_num == int(stock_value_num):
+                        stock_display = f"{int(stock_value_num)} box{'es' if stock_value_num != 1 else ''}"
+                    else:
+                        stock_display = f"{stock_value_num:.2f} boxes"
+            
                 low_stock_data.append({
                     'product_name': inv.name,
-                    'variant': inv.variant or 'N/A',
-                    'quantity_unit': inv.quantity_unit,
+                    'variant': inv.variant or '',
+                    'quantity_unit': inv.quantity_unit or '',
                     'current_stock': inv.stock,
+                    'stock_display': stock_display,
                     'stock_value': stock_value,
                     'average_daily_sales': avg_daily_sales,
                     'days_of_supply': days_of_supply,
@@ -5158,7 +5204,7 @@ def export_report(request):
                 label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
                 low_rows.append([
                     Paragraph(label[:30], cell_style),
-                Paragraph(str(int(item['current_stock'])), cell_small_style),
+                Paragraph(item['stock_display'], cell_small_style),
                 Paragraph(f"PHP {item['stock_value']:,.0f}", cell_small_style),
                 Paragraph(f"{item['average_daily_sales']:.1f}", cell_small_style),
                 Paragraph(days_supply_str, cell_small_style),
@@ -5211,18 +5257,33 @@ def export_report(request):
             if row.product:
                 product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
             
+            # Determine if product uses kg (allows decimals) or boxes (integers only)
+            unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+            is_kg = unit == 'kg'
+            qty_value = float(row.quantity or 0)
+            
             if not g:
+                # Initialize with separate tracking for boxes and kg
+                total_boxes = 0.0
+                total_kg = 0.0
+                if is_kg:
+                    total_kg = qty_value
+                else:
+                    total_boxes = qty_value
+                
                 grouped[key] = {
                     'sale_id': row.sale_id,
-                    'transaction_number': row.transaction_number if row.transaction_number else key,
-                    'or_number': row.or_number or 'N/A',
-                    'recorded_at': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
+                    'transaction_number': (row.transaction_number or key).upper(),
+                    'or_number': (row.or_number or 'N/A').upper() if row.or_number and row.or_number != 'N/A' else 'N/A',
+                    'recorded_at': format_local_datetime(row.recorded_at),
+                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else 'N/A',
                     'contact_number': str(row.contact_number) if row.contact_number and row.contact_number != 0 else 'N/A',
                     'address': row.address or 'N/A',
                     'processed_by': row.user.username if row.user else 'admin',
                     'products': [product_display_name] if product_display_name else [],
-                    'total_boxes': int(row.quantity or 0),
+                    'total_boxes': total_boxes,
+                    'total_kg': total_kg,
+                    'quantity_display': _format_quantity_display(total_boxes, total_kg),
                     'subtotal': float(row.total or 0),
                     'vat': float((row.total or 0) * Decimal('0.12')),
                     'total': float(row.total or 0),
@@ -5231,7 +5292,13 @@ def export_report(request):
                 }
             else:
                 # Add to existing transaction
-                g['total_boxes'] += int(row.quantity or 0)
+                # Add to appropriate unit
+                if is_kg:
+                    g['total_kg'] = g.get('total_kg', 0.0) + qty_value
+                else:
+                    g['total_boxes'] = g.get('total_boxes', 0.0) + qty_value
+                # Update formatted display
+                g['quantity_display'] = _format_quantity_display(g.get('total_boxes', 0.0), g.get('total_kg', 0.0))
                 g['subtotal'] += float(row.total or 0)
                 g['vat'] += float((row.total or 0) * Decimal('0.12'))
                 g['total'] += float(row.total or 0)
@@ -5243,34 +5310,36 @@ def export_report(request):
 
         # Simplified transactions table with better spacing (portrait)
         rows = [[
-            Paragraph('OR No.', table_header_style),
-            Paragraph('Date', table_header_style),
+            Paragraph('Transaction No.', table_header_style),
+            Paragraph('Date & Time', table_header_style),
             Paragraph('Customer', table_header_style),
             Paragraph('Products', table_header_style),
-            Paragraph('Boxes Sold', table_header_style),
+            Paragraph('Quantity Sold', table_header_style),
             Paragraph('Total', table_header_style)
         ]]
         for tx in tx_data:
             products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
+            quantity_display = tx.get('quantity_display', '0')
+            customer_name = tx.get('customer_name', 'N/A') or 'N/A'
             
             rows.append([
-            Paragraph(str(tx['or_number'])[:15] if tx['or_number'] != 'N/A' else 'N/A', cell_small_style),
-            Paragraph(tx['recorded_at'][:10], cell_small_style),
-            Paragraph(str(tx['customer_name'])[:20], cell_small_style),
+            Paragraph(str(tx['transaction_number'])[:20], cell_small_style),
+            Paragraph(tx['recorded_at'], cell_small_style),
+            Paragraph(str(customer_name)[:20], cell_small_style),
             Paragraph(products_html, cell_style),
-            Paragraph(str(tx['total_boxes']), cell_small_style),
+            Paragraph(quantity_display, cell_small_style),
             Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
         ])
     
         # Column widths optimized for portrait letter - 6 columns with better spacing
-        table = Table(rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
+        table = Table(rows, repeatRows=1, colWidths=[80, 80, 85, 180, 60, 55])
         table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE', (0,0), (-1,0), 8),
         ('FONTSIZE', (0,1), (-1,-1), 7),
-        ('ALIGN', (4,1), (5,-1), 'RIGHT'),  # Right align numbers
+        ('ALIGN', (5,1), (5,-1), 'RIGHT'),  # Right align Total column
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -5284,9 +5353,10 @@ def export_report(request):
     
         # Add summary footer - simplified
         elems.append(Spacer(1, 10))
-        total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
+        total_boxes_all = sum(float(tx.get('total_boxes', 0) or 0) for tx in tx_data)
+        total_kg_all = sum(float(tx.get('total_kg', 0) or 0) for tx in tx_data)
+        total_quantity_display = _format_quantity_display(total_boxes_all, total_kg_all)
         total_all = sum(float(tx['total']) for tx in tx_data)
-        total_boxes_all = sum(int(tx['total_boxes']) for tx in tx_data)
     
         # Create footer with proper Paragraph formatting
         footer_style = ParagraphStyle('Footer', fontSize=9, textColor=colors.HexColor('#1f2937'), fontName='Helvetica-Bold', alignment=TA_RIGHT)
@@ -5295,7 +5365,7 @@ def export_report(request):
         [
             '', '', '',
             Paragraph('<b>Total:</b>', footer_style),
-            Paragraph(f'<b>{total_boxes_all}</b>', footer_style),
+            Paragraph(f'<b>{total_quantity_display}</b>', footer_style),
             Paragraph(f'<b>PHP {total_all:,.2f}</b>', footer_style)
         ]
         ]
@@ -5393,9 +5463,11 @@ def export_report(request):
         # Calculate slow movers
         slow_movers_data = []
         if summary:
-            sorted_by_boxes = sorted(summary, key=lambda x: x.get('boxes_sold') or 0)[:10]
-            for entry in sorted_by_boxes:
-                boxes = entry.get('boxes_sold') or 0
+            sorted_by_quantity = sorted(summary, key=lambda x: (x.get('boxes_sold') or 0) + (x.get('kg_sold') or 0))[:10]
+            for entry in sorted_by_quantity:
+                boxes = Decimal(str(entry.get('boxes_sold') or 0))
+                kg = Decimal(str(entry.get('kg_sold') or 0))
+                quantity_display = _format_quantity_display(float(boxes), float(kg))
                 revenue = Decimal(entry.get('revenue') or 0)
                 # Calculate period days for average daily sales
                 if date_range and current_start and current_end:
@@ -5413,22 +5485,23 @@ def export_report(request):
                         period_days_calc = 365
                     else:
                         period_days_calc = 1
-                avg_daily_sales = round(float(boxes) / float(period_days_calc), 2) if period_days_calc else 0.0
+                total_quantity = float(boxes) + float(kg)
+                avg_daily_sales = round(total_quantity / float(period_days_calc), 2) if period_days_calc else 0.0
                 slow_movers_data.append({
                     'product_name': entry.get('product__name') or 'N/A',
                     'variant': entry.get('product__variant'),
                     'unit': entry.get('product__quantity_unit'),
-                    'boxes_sold': boxes,
+                    'quantity_display': quantity_display,
                     'revenue': float(revenue),
                     'avg_daily_sales': avg_daily_sales
                 })
     
         if slow_movers_data:
-            slow_rows = [['Product', 'Boxes Sold', 'Revenue', 'Avg Daily Sales']]
+            slow_rows = [['Product', 'Quantity Sold', 'Revenue', 'Avg Daily Sales']]
             for item in slow_movers_data:
                 slow_rows.append([
                     _fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit'))[:30],
-                    str(item['boxes_sold']),
+                    item['quantity_display'],
                     f"PHP {item['revenue']:,.2f}",
                     f"{item['avg_daily_sales']:.2f}"
                 ])
@@ -5475,9 +5548,26 @@ def export_report(request):
                 else:
                     idle_days = None
                     last_sale_label = 'No recorded sale'
+                
+                # Format stock with boxes/kg specification
+                unit = (prod.quantity_unit or '').strip().lower()
+                stock_value = float(prod.stock or 0)
+                if unit == 'kg':
+                    if stock_value == int(stock_value):
+                        stock_display = f"{int(stock_value)} kg"
+                    else:
+                        stock_display = f"{stock_value:.2f} kg"
+                else:
+                    if stock_value == int(stock_value):
+                        stock_display = f"{int(stock_value)} box{'es' if stock_value != 1 else ''}"
+                    else:
+                        stock_display = f"{stock_value:.2f} boxes"
+                
                 dead_stock_data.append({
                     'product_name': prod.name,
-                    'stock': prod.stock,
+                    'variant': prod.variant or '',
+                    'quantity_unit': prod.quantity_unit or '',
+                    'stock_display': stock_display,
                     'stock_value': float(Decimal(prod.stock or 0) * Decimal(prod.cost or 0)),
                     'last_sale': last_sale_label,
                     'days_idle': idle_days if idle_days is not None else '∞'
@@ -5487,8 +5577,8 @@ def export_report(request):
             dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
             for item in dead_stock_data:
                 dead_rows.append([
-                    _fmt_prod(item.get('product_name'), None, None)[:30],
-                    str(item['stock']),
+                    _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))[:30],
+                    item['stock_display'],
                     f"PHP {item['stock_value']:,.2f}",
                     item['last_sale'],
                     str(item['days_idle'])
@@ -5545,22 +5635,45 @@ def export_report(request):
             if row.product:
                 product_display_name = _fmt_prod(row.product.name, row.product.variant, row.product.quantity_unit)
             
+            # Determine if product uses kg (allows decimals) or boxes (integers only)
+            unit = (row.product.quantity_unit or '').strip().lower() if row.product else ''
+            is_kg = unit == 'kg'
+            qty_value = float(row.quantity or 0)
+            
             if not vg:
+                # Initialize with separate tracking for boxes and kg
+                total_boxes = 0.0
+                total_kg = 0.0
+                if is_kg:
+                    total_kg = qty_value
+                else:
+                    total_boxes = qty_value
+                
                 voided_grouped_pdf[key] = {
                     'sale_no': row.sale_id,
-                    'or_no': row.or_number or 'N/A',
-                    'transaction_no': row.transaction_number if row.transaction_number else key,
-                    'voided_at': format_local_datetime(row.voided_at, '%m/%d/%Y %I:%M %p') if row.voided_at else format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                    'original_date': format_local_datetime(row.recorded_at, '%m/%d/%Y %I:%M %p'),
-                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else '',
+                    'or_no': (row.or_number or 'N/A').upper() if row.or_number and row.or_number != 'N/A' else 'N/A',
+                    'transaction_no': (row.transaction_number or key).upper(),
+                    'voided_at': format_local_datetime(row.voided_at) if row.voided_at else format_local_datetime(row.recorded_at),
+                    'original_date': format_local_datetime(row.recorded_at),
+                    'customer_name': row.customer_name.strip() if (row.customer_name and row.customer_name.strip()) else 'N/A',
                     'processed_by': row.user.username if row.user else 'admin',
                     'products': [product_display_name] if product_display_name else [],
-                    'boxes_sold': int(row.quantity or 0),
+                    'total_boxes': total_boxes,
+                    'total_kg': total_kg,
+                    'quantity_display': _format_quantity_display(total_boxes, total_kg),
                     'total': float(row.total or 0),
+                    'void_reason': getattr(row, 'void_reason', None) or 'N/A',
                 }
                 vg = voided_grouped_pdf[key]
             else:
-                vg['boxes_sold'] += int(row.quantity or 0)
+                # Add to existing transaction
+                # Add to appropriate unit
+                if is_kg:
+                    vg['total_kg'] = vg.get('total_kg', 0.0) + qty_value
+                else:
+                    vg['total_boxes'] = vg.get('total_boxes', 0.0) + qty_value
+                # Update formatted display
+                vg['quantity_display'] = _format_quantity_display(vg.get('total_boxes', 0.0), vg.get('total_kg', 0.0))
                 vg['total'] += float(row.total or 0)
                 if product_display_name and product_display_name not in vg['products']:
                     vg['products'].append(product_display_name)
@@ -5569,32 +5682,41 @@ def export_report(request):
     
         if voided_data_pdf:
             voided_rows = [[
+                Paragraph('Transaction No.', table_header_style),
                 Paragraph('OR No.', table_header_style),
                 Paragraph('Voided Date', table_header_style),
                 Paragraph('Customer', table_header_style),
                 Paragraph('Products', table_header_style),
-                Paragraph('Boxes Sold', table_header_style),
+                Paragraph('Quantity Sold', table_header_style),
+                Paragraph('Reason', table_header_style),
                 Paragraph('Total', table_header_style)
             ]]
             for tx in voided_data_pdf:
                 products_html = '<br/>'.join(tx['products']) if tx['products'] else 'N/A'
+                void_reason = str(tx.get('void_reason', 'N/A') or 'N/A')
+                transaction_no = tx.get('transaction_no', f"TXN{tx.get('sale_no', 'N/A')}")
+                quantity_display = tx.get('quantity_display', '0')
+                customer_name = tx.get('customer_name', 'N/A') or 'N/A'
+                or_no = tx.get('or_no', 'N/A') or 'N/A'
                 voided_rows.append([
-                    Paragraph(str(tx['or_no'])[:15] if tx['or_no'] != 'N/A' else 'N/A', cell_small_style),
-                    Paragraph(tx['voided_at'][:10], cell_small_style),
-                    Paragraph(str(tx['customer_name'])[:20], cell_small_style),
+                    Paragraph(str(transaction_no)[:20], cell_small_style),
+                    Paragraph(str(or_no)[:15], cell_small_style),
+                    Paragraph(tx['voided_at'], cell_small_style),
+                    Paragraph(str(customer_name)[:20], cell_small_style),
                     Paragraph(products_html, cell_style),
-                    Paragraph(str(tx['boxes_sold']), cell_small_style),
+                    Paragraph(quantity_display, cell_small_style),
+                    Paragraph(void_reason[:30], cell_small_style),
                     Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
                 ])
             
-            voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 90, 220, 45, 55])
+            voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 55, 75, 160, 50, 80, 50])
             voided_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
                 ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0,0), (-1,0), 8),
                 ('FONTSIZE', (0,1), (-1,-1), 7),
-                ('ALIGN', (4,1), (5,-1), 'RIGHT'),
+                ('ALIGN', (7,1), (7,-1), 'RIGHT'),
                 ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
                 ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF2F2')]),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -5608,10 +5730,12 @@ def export_report(request):
             
             # Add voided summary
             total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
-            total_voided_boxes = sum(int(tx['boxes_sold']) for tx in voided_data_pdf)
+            total_voided_boxes = sum(float(tx.get('total_boxes', 0) or 0) for tx in voided_data_pdf)
+            total_voided_kg = sum(float(tx.get('total_kg', 0) or 0) for tx in voided_data_pdf)
+            voided_quantity_display = _format_quantity_display(total_voided_boxes, total_voided_kg)
             elems.append(Spacer(1, 8))
             voided_summary = Paragraph(
-                f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {total_voided_boxes} boxes, PHP {total_voided_amount:,.2f}",
+                f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {voided_quantity_display}, PHP {total_voided_amount:,.2f}",
                 ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
             )
             elems.append(voided_summary)
@@ -5672,8 +5796,13 @@ def export_report(request):
                 for pr in prs:
                     name = _fmt_prod(pr.product.name if pr.product else 'Unknown', getattr(pr.product, 'variant', None) if pr.product else None, getattr(pr.product, 'quantity_unit', None) if pr.product else None)
                     change_label = f"{float(pr.change_pct):.1f}%" if pr.change_pct is not None else '—'
+                    # Format datetime to match requested format
+                    date_str = 'N/A'
+                    if pr.created_at:
+                        date_str = format_local_datetime(pr.created_at)
+                    
                     rows.append([
-                        Paragraph(pr.created_at.strftime('%Y-%m-%d') if pr.created_at else 'N/A', cell_small_style),
+                        Paragraph(date_str, cell_small_style),
                         Paragraph(name[:30], cell_style),
                         Paragraph(f"PHP {float(pr.current_price or 0):,.2f}", cell_small_style),
                         Paragraph(f"PHP {float(pr.suggested_price or 0):,.2f}", cell_small_style),
@@ -5725,9 +5854,9 @@ def export_report(request):
             filter_details.append(f"fruit: {fruit_filter}")
         period_text = f"{start_date} to {end_date}" if (start_date and end_date) else filter_type.replace('_', ' ').title()
         log_action(
-        request,
-        'Report exported',
-        f'Exported PDF report: {period_text}' + (f' ({", ".join(filter_details)})' if filter_details else '.')
+            request,
+            'Reports generation',
+            f'Generated and exported PDF report: {period_text}' + (f' ({", ".join(filter_details)})' if filter_details else '.')
         )
     
         response = HttpResponse(content_type='application/pdf')
@@ -5884,12 +6013,29 @@ def profile_view(request):
                 user_obj.profile_picture = fs.url(path)
             user_obj.save()
             
-            # Log profile update
-            log_action(
-                request,
-                'Profile updated',
-                f'Updated profile: {", ".join(changes) if changes else "information"}.'
-            )
+            # Log profile update with specific details
+            if 'password' in changes:
+                log_action(
+                    request,
+                    'Change password',
+                    'User changed their password.'
+                )
+            if 'email' in changes:
+                old_email_display = _mask_email(old_email) if old_email else 'None'
+                new_email_display = _mask_email(email) if email else 'None'
+                log_action(
+                    request,
+                    'Change email',
+                    f'User changed email from {old_email_display} to {new_email_display}.'
+                )
+            # Log other profile changes
+            other_changes = [c for c in changes if c not in ['password', 'email']]
+            if other_changes:
+                log_action(
+                    request,
+                    'Profile updated',
+                    f'Updated profile: {", ".join(other_changes)}.'
+                )
             
             success_msg = 'Profile updated successfully.'
             messages.success(request, success_msg)
@@ -6166,7 +6312,7 @@ def admin_verify_secretary_email_change(request):
     target.save(update_fields=['email'])
     for k in ['admin_sec_email_change_user_id','admin_sec_email_change_new_email','admin_sec_email_change_code','admin_sec_email_change_expiry','admin_sec_email_change_attempts','admin_sec_email_change_sent_at']:
         request.session.pop(k, None)
-    log_action(request, 'Secretary email changed', f'Email updated from {old_email} to {target.email}.', user=target)
+    log_action(request, 'Edit secretary profile', f'Updated secretary email from {old_email} to {target.email}.', user=target)
     subject = 'Welcome to StockWise'
     display_name = (getattr(target, 'full_name', '') or target.username or 'Secretary').strip()
     ctx = {
@@ -6497,7 +6643,7 @@ def update_secretary_account(request):
         user.save()
         log_action(
             request,
-            'Secretary account updated',
+            'Edit secretary profile',
             f'Updated secretary {user.username} (ID {user.user_id}).'
         )
         return JsonResponse({
@@ -7177,8 +7323,8 @@ def record_sale(request):
 
             log_action(
                 request,
-                'Sale recorded',
-                f'Recorded sale transaction {transaction_number}: {items_desc}. Total: ₱{total_amount:.2f}{discount_info}{customer_info}'
+                'Record transaction',
+                f'Recorded transaction {transaction_number}: {items_desc}. Total: ₱{total_amount:.2f}{discount_info}{customer_info}'
             )
             return JsonResponse({
                 'success': True,
@@ -7210,6 +7356,10 @@ def get_sale_details(request, sale_id):
     """Return sale details for receipt"""
     try:
         sale = Sale.objects.select_related('user').get(sale_id=sale_id)
+        try:
+            sale.refresh_from_db()
+        except Exception:
+            pass
 
         # Collect all rows that belong to the same transaction
         txn_key = getattr(sale, 'transaction_number', '') or ''
@@ -7282,7 +7432,8 @@ def get_sale_details(request, sale_id):
                 'amount_paid': float(getattr(first_row, 'amount_paid', total_amount) or 0),
                 'change_given': float(getattr(first_row, 'change_given', Decimal('0')) or 0),
                 'discount': float(discount_amount),
-                'discount_pct': float(discount_pct)
+                'discount_pct': float(discount_pct),
+                'void_reason': (getattr(sale, 'void_reason', '') or '')
             },
             'items': items_data
         })
@@ -7662,20 +7813,21 @@ def edit_product(request):
                 raise ValueError("Cost and price must be non-negative.")
 
             # Normalize and validate quantity - be flexible for editing (allow existing values)
-            try:
-                size_norm = str(Decimal(size))
-                if Decimal(size_norm) < 0:
-                    raise ValueError("Quantity must be a non-negative number.")
-                size = size_norm
-                # Only validate against STANDARD_SIZE_OPTIONS if size changed (for new products)
-                # For editing, allow existing size values even if not in standard options
-                if size != product.quantity_unit and size not in STANDARD_SIZE_OPTIONS:
-                    raise ValueError(f"Quantity must be one of: {', '.join(STANDARD_SIZE_OPTIONS)}")
-            except ValueError as ve:
-                # Re-raise validation errors
-                raise ve
-            except Exception:
-                raise ValueError("Quantity must be numeric (e.g., 10 or 10.5).")
+            # Check if quantity_unit is 'kg' first (case-insensitive)
+            if (size or '').strip().lower() == 'kg':
+                size = 'kg'
+            else:
+                try:
+                    size_norm = str(Decimal(size))
+                    if Decimal(size_norm) < 0:
+                        raise ValueError("Quantity must be a non-negative number.")
+                    size = size_norm
+                    # Allow any numeric value for quantity (no restriction to STANDARD_SIZE_OPTIONS)
+                except ValueError as ve:
+                    # Re-raise validation errors
+                    raise ve
+                except Exception:
+                    raise ValueError("Quantity must be numeric (e.g., 10 or 10.5).")
             
             if status not in ['active', 'discontinued']:
                 raise ValueError("Invalid status.")
@@ -7756,8 +7908,8 @@ def edit_product(request):
                 changes.append(f"stock {current_stock} → {stock}")
             log_action(
                 request,
-                'Product updated',
-                f'Updated product {product_id} ({name}{(" ("+variant+")") if variant else ""})' + (f': {", ".join(changes)}' if changes else '.')
+                'Edit product',
+                f'Edited product {product_id} ({name}{(" ("+variant+")") if variant else ""})' + (f': {", ".join(changes)}' if changes else '.')
             )
             
             return JsonResponse({'success': True, 'message': 'Product updated successfully.'})
@@ -7792,10 +7944,21 @@ def update_product_status(request):
         
         # Log the action with proper action type
         action_type = 'Product continued' if status == 'active' and old_status == 'discontinued' else 'Product discontinued' if status == 'discontinued' else 'Product status changed'
+        # Use user-friendly action names
+        if status == 'active' and old_status == 'discontinued':
+            action_name = 'Continue product'
+            details = f'Continued product {product_id} ({product.name}).'
+        elif status == 'discontinued':
+            action_name = 'Discontinue product'
+            details = f'Discontinued product {product_id} ({product.name}).'
+        else:
+            action_name = 'Product status changed'
+            details = f'Changed product {product_id} ({product.name}) status from {old_status} to {status}.'
+        
         log_action(
             request,
-            action_type,
-            f'Changed product {product_id} ({product.name}) status from {old_status} to {status}.'
+            action_name,
+            details
         )
         
         return JsonResponse({'success': True, 'message': 'Status updated successfully.'})
@@ -8005,7 +8168,7 @@ def sms_settings_view(request):
                 user_obj.save(update_fields=['phone_number'])
                 log_action(
                     request,
-                    'SMS phone updated',
+                    'Modify SMS settings',
                     f'Updated SMS phone number to {phone_number}.'
                 )
                 messages.success(request, f'SMS settings saved! Number: {phone_number}')
@@ -8192,7 +8355,7 @@ def send_test_sms(request):
         if 'SMS sent successfully' in output or 'Daily summary sent to' in output or 'Test SMS sent to' in output:
             log_action(
                 request,
-                'Test SMS sent',
+                'Manual SMS send',
                 f'Sent test SMS to {user_obj.phone_number}.'
             )
             return JsonResponse({'success': True, 'message': 'Test SMS sent successfully!'})
@@ -9792,8 +9955,8 @@ def apply_pricing_recommendation(request):
         
         log_action(
             request,
-            'Product price updated',
-            f'Applied pricing recommendation for product {product.product_id} ({product.name}): {old_price} -> {new_price}.'
+            'Pricing recommendations (accept)',
+            f'Accepted pricing recommendation for product {product.product_id} ({product.name}): {old_price} -> {new_price}.'
         )
         
         return JsonResponse({
@@ -9835,7 +9998,7 @@ def reject_pricing_recommendation(request):
         
         log_action(
             request,
-            'Pricing recommendation rejected',
+            'Pricing recommendations (reject)',
             f'Rejected pricing recommendation for product {product.product_id} ({product.name}).'
         )
         
@@ -10733,7 +10896,7 @@ def print_thermal_receipt(request, sale_id):
             # Log receipt print
             log_action(
                 request,
-                'Receipt printed',
+                'Print receipt',
                 f'Printed receipt for sale {sale_id} (OR {sale.or_number or "N/A"}, TXN {txn_key or sale.transaction_number or "N/A"}).'
             )
             return JsonResponse({
@@ -10987,7 +11150,7 @@ def create_backup(request):
         # Log the action
         log_action(
             request,
-            'Backup created',
+            'Create backup',
             f'Created system backup: {backup_file_path.name} ({backup_record.get_file_size_mb()} MB)'
         )
         
@@ -11044,7 +11207,7 @@ def download_backup(request, backup_id):
         # Log the action
         log_action(
             request,
-            'Backup downloaded',
+            'Download backup',
             f'Downloaded backup: {backup.filename}'
         )
         
@@ -11121,7 +11284,7 @@ def restore_backup(request, backup_id):
         # Log the action
         log_action(
             request,
-            'System restored',
+            'Restore backup',
             f'Restored system from backup: {filename_removed}'
         )
         
@@ -11164,7 +11327,7 @@ def delete_backup(request, backup_id):
         # Log the action
         log_action(
             request,
-            'Backup deleted',
+            'Delete backup',
             f'Deleted backup: {filename}'
         )
         
@@ -11181,7 +11344,7 @@ def delete_backup(request, backup_id):
 
 @require_app_login
 def upload_and_restore_backup(request):
-    """Upload a backup zip file and restore from it
+    """Upload a backup JSON file and restore from it
     
     Note: This operation can take several minutes for large backups.
     The web server (nginx/gunicorn) timeout may need to be increased
@@ -11199,9 +11362,9 @@ def upload_and_restore_backup(request):
         
         uploaded_file = request.FILES['backup_file']
         
-        # Validate file extension
-        if not uploaded_file.name.endswith('.zip'):
-            return JsonResponse({'success': False, 'message': 'Backup file must be a .zip file'}, status=400)
+        # Validate file extension - accept both .json and .zip for backward compatibility
+        if not (uploaded_file.name.endswith('.json') or uploaded_file.name.endswith('.zip')):
+            return JsonResponse({'success': False, 'message': 'Backup file must be a .json or .zip file'}, status=400)
         
         # Save uploaded file temporarily
         from pathlib import Path
@@ -11238,118 +11401,149 @@ def upload_and_restore_backup(request):
                 pass  # Ignore deletion errors
             return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
         
-        # Validate it's a valid zip file and contains StockWise backup structure
+        # Validate file based on extension
+        import json
         import zipfile
-        test_zip = None
-        try:
-            test_zip = zipfile.ZipFile(temp_path, 'r')
-            # Test zip integrity
-            test_zip.testzip()
-            
-            file_list = test_zip.namelist()
-            from pathlib import PurePosixPath
-            has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
-            has_media = any(('media' in PurePosixPath(f).parts) for f in file_list)
-            has_env = any(PurePosixPath(f).name == '.env' for f in file_list)
-            
-            # At minimum, must have database folder (required for StockWise backup)
-            if not has_database:
-                if test_zip:
-                    test_zip.close()
+        
+        if uploaded_file.name.endswith('.json'):
+            # Validate JSON file
+            try:
+                with open(temp_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Basic validation - should be a list or dict
+                    if not isinstance(data, (list, dict)):
+                        raise ValueError('Invalid JSON structure')
+            except json.JSONDecodeError as e:
                 try:
                     temp_path.unlink()
                 except Exception:
                     pass
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing database folder.'
-                }, status=400)
-            
-            database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
-            if not database_files:
-                if test_zip:
-                    test_zip.close()
+                return JsonResponse({'success': False, 'message': f'Invalid JSON file: {str(e)}'}, status=400)
+            except Exception as e:
                 try:
                     temp_path.unlink()
                 except Exception:
                     pass
-                return JsonResponse({
-                    'success': False, 
-                    'message': 'Invalid backup file. Database folder is empty or does not contain a database file.'
-                }, status=400)
-            
-            # Validate database file extension
-            # Accept SQLite files (development) or database dumps (production: PostgreSQL, MySQL, etc.)
-            db_file = database_files[0]
-            valid_sqlite_extensions = ('.sqlite3', '.db', '.sqlite')
-            valid_dump_extensions = ('.sql', '.dump', '.pgdump', '.mysqldump', '.backup', '.json')
-            db_file_lower = db_file.lower()
-            
-            is_valid = (
-                any(db_file_lower.endswith(ext) for ext in valid_sqlite_extensions) or
-                any(db_file_lower.endswith(ext) for ext in valid_dump_extensions)
-            )
-            
-            if not is_valid:
-                if test_zip:
-                    test_zip.close()
-                try:
-                    temp_path.unlink()
-                except Exception:
-                    pass
-                return JsonResponse({
-                    'success': False, 
-                    'message': f'Invalid backup file. Database file must have a valid extension. '
-                               f'SQLite: {", ".join(valid_sqlite_extensions)} or '
-                               f'Database dumps: {", ".join(valid_dump_extensions)}. '
-                               f'Found: {os.path.splitext(db_file)[1]}'
-                }, status=400)
-            
-            # Close zip file before proceeding
-            if test_zip:
-                test_zip.close()
-                test_zip = None
+                return JsonResponse({'success': False, 'message': f'Error validating JSON file: {str(e)}'}, status=400)
+        else:
+            # Validate ZIP file - check for JSON file inside (new format) or database folder (old format)
+            test_zip = None
+            try:
+                test_zip = zipfile.ZipFile(temp_path, 'r')
+                # Test zip integrity
+                test_zip.testzip()
                 
-        except zipfile.BadZipFile:
-            if test_zip:
-                try:
+                file_list = test_zip.namelist()
+                from pathlib import PurePosixPath
+                
+                # Check for JSON file in root (new format)
+                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('database/') and not f.startswith('media/')]
+                
+                # Check for database folder (old format)
+                has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
+                database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
+                
+                # Must have either JSON file in root OR database folder
+                if not json_files and not has_database:
+                    if test_zip:
+                        test_zip.close()
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+                    return JsonResponse({
+                        'success': False, 
+                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file or database folder.'
+                    }, status=400)
+                
+                # If old format, validate database files exist
+                if not json_files and has_database and not database_files:
+                    if test_zip:
+                        test_zip.close()
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+                    return JsonResponse({
+                        'success': False, 
+                        'message': 'Invalid backup file. Database folder is empty or does not contain a database file.'
+                    }, status=400)
+                
+                # Validate JSON file if present
+                if json_files:
+                    json_file = json_files[0]
+                    try:
+                        json_data = test_zip.read(json_file)
+                        import json
+                        json.loads(json_data.decode('utf-8'))  # Validate JSON structure
+                    except json.JSONDecodeError as e:
+                        if test_zip:
+                            test_zip.close()
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass
+                        return JsonResponse({
+                            'success': False, 
+                            'message': f'Invalid JSON file in backup: {str(e)}'
+                        }, status=400)
+                    except UnicodeDecodeError as e:
+                        if test_zip:
+                            test_zip.close()
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Invalid encoding in JSON file: {str(e)}'
+                        }, status=400)
+                
+                # Close zip file before proceeding
+                if test_zip:
                     test_zip.close()
+                    test_zip = None
+                    
+            except zipfile.BadZipFile:
+                if test_zip:
+                    try:
+                        test_zip.close()
+                    except Exception:
+                        pass
+                try:
+                    temp_path.unlink()
                 except Exception:
                     pass
-            try:
-                temp_path.unlink()
-            except Exception:
-                pass
-            return JsonResponse({'success': False, 'message': 'Invalid zip file. The file is corrupted or not a valid zip archive.'}, status=400)
-        except zipfile.LargeZipFile:
-            if test_zip:
+                return JsonResponse({'success': False, 'message': 'Invalid zip file. The file is corrupted or not a valid zip archive.'}, status=400)
+            except zipfile.LargeZipFile:
+                if test_zip:
+                    try:
+                        test_zip.close()
+                    except Exception:
+                        pass
                 try:
-                    test_zip.close()
+                    temp_path.unlink()
                 except Exception:
                     pass
-            try:
-                temp_path.unlink()
-            except Exception:
-                pass
-            return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
-        except Exception as e:
-            if test_zip:
+                return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
+            except Exception as e:
+                if test_zip:
+                    try:
+                        test_zip.close()
+                    except Exception:
+                        pass
                 try:
-                    test_zip.close()
+                    temp_path.unlink()
                 except Exception:
                     pass
-            try:
-                temp_path.unlink()
-            except Exception:
-                pass
-            return JsonResponse({'success': False, 'message': f'Error validating backup file: {str(e)}'}, status=400)
-        finally:
-            # Ensure zip file is closed
-            if test_zip:
-                try:
-                    test_zip.close()
-                except Exception:
-                    pass
+                return JsonResponse({'success': False, 'message': f'Error validating backup file: {str(e)}'}, status=400)
+            finally:
+                # Ensure zip file is closed
+                if test_zip:
+                    try:
+                        test_zip.close()
+                    except Exception:
+                        pass
         
         # Restore from the uploaded file
         from django.core.management import call_command
@@ -11398,8 +11592,8 @@ def upload_and_restore_backup(request):
         # Log the action
         log_action(
             request,
-            'System restored',
-            f'Restored system from uploaded backup: {uploaded_file.name}'
+            'Upload and restore backup',
+            f'Uploaded and restored system from backup: {uploaded_file.name}'
         )
         
         return JsonResponse({

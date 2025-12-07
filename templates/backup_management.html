@@ -1001,15 +1001,15 @@
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         <strong>Warning:</strong> This will replace all current saved data and images/files.
                     </div>
-                    <p class="mb-3">Upload a backup zip file (.zip) to restore your system from a previous backup.</p>
+                    <p class="mb-3">Upload a backup ZIP file (.zip) containing a JSON file to restore your system from a previous backup.</p>
                     <form id="uploadRestoreForm" enctype="multipart/form-data">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="backupFile" class="form-label">Backup File (.zip)</label>
-                            <input type="file" class="form-control" id="backupFile" name="backup_file" accept=".zip,application/zip,application/x-zip-compressed" required>
+                            <input type="file" class="form-control" id="backupFile" name="backup_file" accept=".zip,application/zip,.json,application/json" required>
                             <div class="form-text">
                                 <strong>Select a StockWise backup file (.zip)</strong><br>
-                                <small class="text-muted">The file must be a valid StockWise backup containing saved data and images/files. Maximum size: 500MB.</small>
+                                <small class="text-muted">The file must be a valid StockWise backup ZIP file containing a JSON file with saved data. Maximum size: 500MB.</small>
                             </div>
                         </div>
                         <!-- Upload Progress Bar -->
@@ -1294,9 +1294,9 @@
                     return;
                 }
                 
-                // Validate file extension
-                if (!file.name.endsWith('.zip')) {
-                    showMessage('error', 'Error', 'Please select a valid .zip backup file.');
+                // Validate file extension - accept both .json and .zip
+                if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
+                    showMessage('error', 'Error', 'Please select a valid .zip or .json backup file.');
                     return;
                 }
                 
@@ -1314,7 +1314,7 @@
                 }
                 
                 // Validate file type (MIME type check)
-                if (file.type && !file.type.includes('zip') && !file.type.includes('application/x-zip-compressed') && !file.type.includes('application/zip')) {
+                if (file.type && !file.type.includes('json') && !file.type.includes('application/json') && !file.type.includes('zip') && !file.type.includes('application/x-zip-compressed') && !file.type.includes('application/zip')) {
                     // Some browsers may not set MIME type correctly, so we'll still allow it
                     // but warn the user
                     console.warn('File MIME type may not be correct, but proceeding with validation');

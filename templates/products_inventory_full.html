@@ -2983,7 +2983,12 @@
                     .then(response => response.json())
                     .then(result => {
                         if (!result.success) {
-                            alert('Error loading product: ' + (result.message || 'Unknown error'));
+                            const errorMsg = result.message || 'Unable to load product details. Please check your connection and try again.';
+                            if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                                window.modernInventorySystem.showNotification(errorMsg, 'error', 6000);
+                            } else {
+                                showFormAlert(errorMsg, 'danger');
+                            }
                             $('#productId').val('');
                             $('#formAction').val('add');
                             return;
@@ -3067,7 +3072,12 @@
                     })
                     .catch(error => {
                         console.error('Error fetching product details:', error);
-                        alert('Error loading product details. Please try again.');
+                        const errorMsg = 'Unable to load product details. Please check your connection and try again.';
+                        if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') {
+                            window.modernInventorySystem.showNotification(errorMsg, 'error', 6000);
+                        } else {
+                            showFormAlert(errorMsg, 'danger');
+                        }
                         $('#productId').val('');
                         $('#formAction').val('add');
                     });
@@ -3135,13 +3145,18 @@
                                   if (!response.data || !response.data.length){ $dropdown.hide(); return; }
                                   response.data.forEach(p => {
                                       const option = $(`<div class="dropdown-item" data-name="${p.name}"><strong>${p.name}</strong></div>`);
-                                      option.on('click', function(){ $name.val(p.name); $dropdown.hide(); });
+                                      option.on('click', function(){ $name.val(p.name); $dropdown.hide(); }); 
                                       $dropdown.append(option);
                                   });
                                   $dropdown.show();
                               }
                           });
                     }, 200);
+                }).on('blur', function(){
+                    const val = this.value;
+                    if (!val) return;
+                    // Capitalize first letter of each word
+                    this.value = val.toLowerCase().replace(/\s+/g, ' ').replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
                 });
                 $(document).on('click', function(e){ if (!$(e.target).closest('#productNameDisplay, #nameSuggestions').length) { $dropdown.hide(); } });
                 $('#productVariantDisplay').on('focus', function(){
@@ -3160,6 +3175,11 @@
                     const cleaned = this.value.replace(/[^A-Za-z\s\-]/g, '');
                     if (cleaned !== this.value) this.value = cleaned;
                     $('#variantSuggestions').hide();
+                }).on('blur', function(){
+                    const val = this.value;
+                    if (!val) return;
+                    // Capitalize first letter of each word
+                    this.value = val.toLowerCase().replace(/\s+/g, ' ').replace(/\b[a-z]/g, ch => ch.toUpperCase()).trim();
                 });
             }
             setupAutocomplete();

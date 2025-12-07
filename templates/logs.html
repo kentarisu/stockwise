@@ -503,6 +503,41 @@
             flex-direction: column;
         }
 
+        .date-range-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .calendar-btn-custom {
+            min-width: 45px;
+            height: 38px;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        
+        .calendar-btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        
+        .calendar-btn-custom:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .calendar-btn-custom i {
+            font-size: 1.1rem;
+        }
+        
         .filter-group .filter-compact {
             flex: 0 0 260px;
             min-width: 220px;
@@ -960,12 +995,17 @@
                         <div class="filter-group">
                             <div class="filter-compact">
                                 <label for="dateRange" class="form-label">Date Range</label>
-                                <select name="date_range" id="dateRange" class="form-select">
+                                <div class="date-range-wrapper" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                    <select name="date_range" id="dateRange" class="form-select" style="flex: 1;">
                                     <option value="today" {% if current_date_range == 'today' %}selected{% endif %}>Today</option>
                                     <option value="week" {% if current_date_range == 'week' %}selected{% endif %}>This Week</option>
                                     <option value="month" {% if current_date_range == 'month' %}selected{% endif %}>This Month</option>
                                     <option value="custom" {% if current_date_range == 'custom' %}selected{% endif %}>Custom Range</option>
                                 </select>
+                                    <button type="button" class="btn btn-outline-primary calendar-btn-custom" id="customRangeCalendarBtnLogs" title="Select Custom Date Range" style="display: none; min-width: 45px; height: 38px; border-radius: 0.375rem; padding: 0.375rem 0.75rem; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                        <i class="bi bi-calendar3" style="font-size: 1.1rem;"></i>
+                                    </button>
+                                </div>
                                 <input type="hidden" name="date_start" id="dateStart" value="{{ current_date_start }}">
                                 <input type="hidden" name="date_end" id="dateEnd" value="{{ current_date_end }}">
                             </div>
@@ -1114,21 +1154,31 @@
 
     <!-- Custom Date Range Modal -->
     <div class="modal fade" id="customRangeModal" tabindex="-1" aria-labelledby="customRangeModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog" style="width: 500px; max-width: 500px;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="customRangeModalLabel">Select Custom Date Range</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="padding: 1.5rem;">
                     <div class="mb-3">
-                        <label for="customStart" class="form-label">Start Date</label>
-                        <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
+                        <label for="customStart" class="form-label">START DATE</label>
+                        <div class="input-group" style="width: 100%;">
+                            <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric" style="flex: 1;">
+                            <button class="btn btn-outline-secondary" type="button" id="customStartCalendarBtn" title="Select date">
+                                <i class="bi bi-calendar"></i>
+                            </button>
+                        </div>
                         <div class="form-text" id="customStartHint">Format: MM/DD/YYYY</div>
                     </div>
                     <div class="mb-3">
-                        <label for="customEnd" class="form-label">End Date</label>
-                        <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
+                        <label for="customEnd" class="form-label">END DATE</label>
+                        <div class="input-group" style="width: 100%;">
+                            <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric" style="flex: 1;">
+                            <button class="btn btn-outline-secondary" type="button" id="customEndCalendarBtn" title="Select date">
+                                <i class="bi bi-calendar"></i>
+                            </button>
+                        </div>
                         <div class="form-text" id="customEndHint">Format: MM/DD/YYYY</div>
                     </div>
                 </div>
@@ -1366,6 +1416,100 @@
                 });
             });
 
+            // Calendar button handlers
+            function openDatePicker(inputId) {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+                
+                const inputGroup = input.closest('.input-group');
+                if (!inputGroup) return;
+                
+                // Create a wrapper div that will be inserted into the DOM flow
+                // Position it absolutely relative to the input group's parent
+                const parentContainer = inputGroup.parentElement;
+                if (!parentContainer) return;
+                
+                // Ensure parent has relative positioning
+                const originalPosition = parentContainer.style.position;
+                if (!parentContainer.style.position || parentContainer.style.position === 'static') {
+                    parentContainer.style.position = 'relative';
+                }
+                
+                // Create wrapper positioned at center of input group, below it
+                const wrapper = document.createElement('div');
+                wrapper.id = 'temp-date-picker-wrapper';
+                wrapper.style.position = 'absolute';
+                wrapper.style.left = '50%';
+                wrapper.style.transform = 'translateX(-50%)';
+                wrapper.style.top = '100%';
+                wrapper.style.marginTop = '8px';
+                wrapper.style.zIndex = '10000';
+                wrapper.style.visibility = 'hidden';
+                wrapper.style.pointerEvents = 'none';
+                wrapper.style.width = '200px';
+                
+                // Create a temporary date input
+                const tempDateInput = document.createElement('input');
+                tempDateInput.type = 'date';
+                tempDateInput.style.width = '100%';
+                tempDateInput.style.height = '40px';
+                
+                // Parse current value if exists
+                const currentValue = input.value.trim();
+                if (currentValue) {
+                    const parsed = parseUSDateToISO(currentValue);
+                    if (parsed) {
+                        tempDateInput.value = parsed;
+                    }
+                }
+                
+                wrapper.appendChild(tempDateInput);
+                
+                // Insert wrapper right after the input group
+                inputGroup.parentNode.insertBefore(wrapper, inputGroup.nextSibling);
+                
+                // Use requestAnimationFrame to ensure DOM is updated before showing picker
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                tempDateInput.showPicker();
+                    });
+                });
+                
+                tempDateInput.addEventListener('change', function() {
+                    if (this.value) {
+                        const date = new Date(this.value + 'T00:00:00');
+                        const formatted = formatUSDateStr(date);
+                        input.value = formatted;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    cleanup();
+                });
+                
+                tempDateInput.addEventListener('cancel', function() {
+                    cleanup();
+                });
+                
+                function cleanup() {
+                    if (wrapper.parentNode) {
+                        wrapper.parentNode.removeChild(wrapper);
+                    }
+                    // Restore original position if we changed it
+                    if (originalPosition !== parentContainer.style.position) {
+                        parentContainer.style.position = originalPosition || '';
+                    }
+                }
+            }
+
+            document.getElementById('customStartCalendarBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                openDatePicker('customStart');
+            });
+
+            document.getElementById('customEndCalendarBtn')?.addEventListener('click', function(e) {
+                e.preventDefault();
+                openDatePicker('customEnd');
+            });
+
             // Function to open custom range modal
             function openCustomRangeModal() {
                 const modal = new bootstrap.Modal(document.getElementById('customRangeModal'));
@@ -1396,10 +1540,35 @@
                 modal.show();
             }
             
+            // Toggle calendar button visibility
+            function toggleCalendarButtonLogs() {
+                const selectedValue = dateRangeSelect?.value || 'today';
+                const calendarBtn = document.getElementById('customRangeCalendarBtnLogs');
+                if (calendarBtn) {
+                    if (selectedValue === 'custom') {
+                        calendarBtn.style.display = 'block';
+                    } else {
+                        calendarBtn.style.display = 'none';
+                    }
+                }
+            }
+            
+            // Calendar button click handler
+            const calendarBtnLogs = document.getElementById('customRangeCalendarBtnLogs');
+            if (calendarBtnLogs) {
+                calendarBtnLogs.addEventListener('click', function() {
+                    openCustomRangeModal();
+                });
+            }
+            
+            // Initialize calendar button visibility
+            toggleCalendarButtonLogs();
+            
             // Date range change handler
             if (dateRangeSelect) {
                 dateRangeSelect.addEventListener('change', function() {
                     const selected = this.value;
+                    toggleCalendarButtonLogs();
                     if (selected === 'custom') {
                         openCustomRangeModal();
                     } else {

@@ -503,13 +503,11 @@
             border: 1px solid var(--gray-100);
             padding: 0.75rem;
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
         }
 
         .table-responsive-wrapper {
             width: 100%;
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
             max-width: 100%;
         }
 
@@ -518,9 +516,20 @@
             min-width: max-content;
         }
 
-        .cashbook-table thead th,
-        .cashbook-table tbody td {
+        .cashbook-table thead th {
             white-space: nowrap;
+        }
+        
+        .cashbook-table tbody td {
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        
+        /* Quantity column should wrap */
+        .cashbook-table tbody td:nth-child(6),
+        .cashbook-table thead th:nth-child(6) {
+            white-space: normal;
+            word-wrap: break-word;
         }
 
         .cashbook-table tbody td:first-child,
@@ -1318,15 +1327,10 @@
 
         .cashbook-table th,
         .cashbook-table td {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 150px;
-        }
-
-        .cashbook-table th:first-child,
-        .cashbook-table td:first-child {
-            max-width: 200px;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow: visible;
+            text-overflow: clip;
         }
 
         .cashbook-table thead th {
@@ -1676,6 +1680,20 @@
             font-size: 0.85rem;
             white-space: nowrap;
         }
+        
+        /* Ensure quantity columns can wrap to fit content - Transactions table (6th column) */
+        #transactions .cashbook-table td:nth-child(6),
+        #transactions .cashbook-table th:nth-child(6),
+        /* Voided transactions table (6th column) */
+        #voided-reports .cashbook-table td:nth-child(6),
+        #voided-reports .cashbook-table th:nth-child(6),
+        /* Sales Summary table (3rd column - Quantity Sold) */
+        #sales .cashbook-table td:nth-child(3),
+        #sales .cashbook-table th:nth-child(3) {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            min-width: 100px;
+        }
 
         /* Compact table styling */
         .cashbook-table {
@@ -1696,7 +1714,6 @@
         /* Enable horizontal scroll for wide tables */
         .cashbook-table-container {
             overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
         }
 
         /* Make tables fit container with responsive width */
@@ -1708,7 +1725,8 @@
         /* Optimize column widths for better fit */
         .cashbook-table th,
         .cashbook-table td {
-            white-space: nowrap;
+            white-space: normal;
+            word-wrap: break-word;
             padding: 0.35rem 0.4rem;
         }
 
@@ -1717,7 +1735,14 @@
         .cashbook-table .customer-info {
             white-space: normal;
             word-break: break-word;
-            max-width: 100px;
+        }
+        
+        /* Quantity column should wrap to fit content */
+        .cashbook-table td:nth-child(6),
+        .cashbook-table th:nth-child(6) {
+            white-space: normal;
+            word-wrap: break-word;
+            min-width: 80px;
         }
 
         /* Compact numeric columns */
@@ -1757,7 +1782,7 @@
             padding: 0.25rem 0.5rem !important;
             font-size: 0.75rem !important;
             line-height: 1.2 !important;
-            min-height: auto !important;
+            min-height: 0 !important;
         }
 
         /* Responsive adjustments */
@@ -2408,7 +2433,7 @@
 
             .stat-card {
                 padding: 1rem 0.75rem;
-                min-height: auto;
+                min-height: 0;
             }
 
             .charts-grid {
@@ -2440,7 +2465,6 @@
                 margin: 0 -1rem;
                 padding: 0 1rem;
                 overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
             }
 
             .table {
@@ -2658,33 +2682,89 @@
             table.table-mobile-card td:last-child { border-bottom: none !important; }
             table.table-mobile-card td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.03em; }
         }
-        .tab-pane#transactions .cashbook-table { min-width: 100% !important; table-layout: fixed; }
+        .tab-pane#transactions .cashbook-table { 
+            min-width: 100% !important; 
+            table-layout: auto !important; 
+        }
         .tab-pane#transactions .cashbook-table thead th,
-        .tab-pane#transactions .cashbook-table tbody td { max-width: none; }
+        .tab-pane#transactions .cashbook-table tbody td { 
+            max-width: none;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        /* Set minimum widths instead of fixed percentages to prevent overlap */
         .tab-pane#transactions .cashbook-table th:nth-child(1),
-        .tab-pane#transactions .cashbook-table td:nth-child(1) { width: 6%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(1) { 
+            min-width: 100px;
+            max-width: 120px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(2),
-        .tab-pane#transactions .cashbook-table td:nth-child(2) { width: 12%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(2) { 
+            min-width: 50px;
+            white-space: nowrap;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(3),
-        .tab-pane#transactions .cashbook-table td:nth-child(3) { width: 9%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(3) { 
+            min-width: 80px;
+            max-width: 80px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(4),
-        .tab-pane#transactions .cashbook-table td:nth-child(4) { width: 22%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(4) { 
+            min-width: 150px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(5),
-        .tab-pane#transactions .cashbook-table td:nth-child(5) { width: 6%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(5) { 
+            min-width: 80px;
+            max-width: 80px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(6),
-        .tab-pane#transactions .cashbook-table td:nth-child(6) { width: 6%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(6) { 
+            min-width: 80px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(7),
-        .tab-pane#transactions .cashbook-table td:nth-child(7) { width: 9%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(7) { 
+            min-width: 50px;
+            min-width: 50px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(8),
-        .tab-pane#transactions .cashbook-table td:nth-child(8) { width: 9%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(8) { 
+            min-width: 80px;
+            max-width: 80px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(9),
-        .tab-pane#transactions .cashbook-table td:nth-child(9) { width: 8%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(9) { 
+            min-width: 90px;
+            max-width: 110px;
+        }
         .tab-pane#transactions .cashbook-table th:nth-child(10),
-        .tab-pane#transactions .cashbook-table td:nth-child(10) { width: 6%; }
+        .tab-pane#transactions .cashbook-table td:nth-child(10) { 
+            min-width: 80px;
+            max-width: 80px;
+        }
         .tab-pane#transactions .cashbook-table .product-name { white-space: normal; word-break: break-word; }
         .tab-pane#transactions .cashbook-table .amount-col,
         .tab-pane#transactions .cashbook-table .date-col,
-        .tab-pane#transactions .cashbook-table .reference-col { white-space: nowrap; font-size: 0.75rem; }
+        .tab-pane#transactions .cashbook-table .reference-col { 
+            white-space: nowrap; 
+            font-size: 0.75rem; 
+        }
+        /* Ensure transaction no, date, and customer columns don't overlap */
+        .tab-pane#transactions .cashbook-table th:nth-child(1),
+        .tab-pane#transactions .cashbook-table td:nth-child(1),
+        .tab-pane#transactions .cashbook-table th:nth-child(2),
+        .tab-pane#transactions .cashbook-table td:nth-child(2),
+        .tab-pane#transactions .cashbook-table th:nth-child(3),
+        .tab-pane#transactions .cashbook-table td:nth-child(3) {
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        /* Quantity column should wrap to fit content */
+        .tab-pane#transactions .cashbook-table td:nth-child(6),
+        .tab-pane#transactions .cashbook-table th:nth-child(6) {
+            white-space: normal;
+            word-wrap: break-word;
+            min-width: 100px;
+        }
 
         .report-error-banner { display: none; margin: 0.5rem 0 0.5rem; padding: 0.5rem 0.75rem; }
         .report-error-banner.active { display: block; }
@@ -2696,6 +2776,56 @@
         .tab-pane#transactions .cashbook-table .customer-info,
         .tab-pane#transactions .cashbook-table .product-name { white-space: normal; word-break: break-word; }
         .tab-pane#transactions .cashbook-table-container { overflow-x: auto; }
+        
+        /* Accepted Pricing table styling - ensure all columns fit */
+        .tab-pane#pricing .cashbook-table {
+            table-layout: auto !important;
+            width: 100%;
+        }
+        .tab-pane#pricing .cashbook-table th,
+        .tab-pane#pricing .cashbook-table td {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow: visible;
+            text-overflow: clip;
+        }
+        /* Reason column should wrap to fit content */
+        .tab-pane#pricing .cashbook-table th:nth-child(7),
+        .tab-pane#pricing .cashbook-table td:nth-child(7) {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            min-width: 200px;
+            max-width: 200px;
+        }
+        /* Date column should not wrap */
+        .tab-pane#pricing .cashbook-table th:nth-child(1),
+        .tab-pane#pricing .cashbook-table td:nth-child(1) {
+            white-space: nowrap;
+            min-width: 140px;
+        }
+        /* Product column should wrap */
+        .tab-pane#pricing .cashbook-table th:nth-child(2),
+        .tab-pane#pricing .cashbook-table td:nth-child(2) {
+            white-space: normal;
+            word-wrap: break-word;
+            min-width: 150px;
+        }
+        /* Price columns should not wrap */
+        .tab-pane#pricing .cashbook-table th:nth-child(3),
+        .tab-pane#pricing .cashbook-table td:nth-child(3),
+        .tab-pane#pricing .cashbook-table th:nth-child(4),
+        .tab-pane#pricing .cashbook-table td:nth-child(4) {
+            white-space: nowrap;
+            min-width: 100px;
+        }
+        /* Change % and Action columns */
+        .tab-pane#pricing .cashbook-table th:nth-child(5),
+        .tab-pane#pricing .cashbook-table td:nth-child(5),
+        .tab-pane#pricing .cashbook-table th:nth-child(6),
+        .tab-pane#pricing .cashbook-table td:nth-child(6) {
+            white-space: nowrap;
+            min-width: 80px;
+        }
     </style>
 </head>
 <body>
@@ -2855,21 +2985,31 @@
 
                 <!-- Custom Date Range Modal -->
                 <div class="modal fade" id="customRangeModal" tabindex="-1" aria-labelledby="customRangeModalLabel" aria-hidden="true">
-                    <div class="modal-dialog">
+                    <div class="modal-dialog sw-modal-500">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="customRangeModalLabel">Select Custom Date Range</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body sw-modal-body-pad">
                                 <div class="mb-3">
-<label for="customStart" class="form-label">Start Date</label>
-                                    <input type="text" class="form-control" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
+                                    <label for="customStart" class="form-label">START DATE</label>
+                                    <div class="input-group w-100">
+                                        <input type="text" class="form-control flex-grow-1" id="customStart" placeholder="MM/DD/YYYY" inputmode="numeric">
+                                        <button class="btn btn-outline-secondary" type="button" id="customStartCalendarBtn" title="Select date">
+                                            <i class="bi bi-calendar"></i>
+                                        </button>
+                                    </div>
                                     <div class="form-text" id="customStartHint">Format: MM/DD/YYYY</div>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="customEnd" class="form-label">End Date</label>
-                                    <input type="text" class="form-control" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
+                                    <label for="customEnd" class="form-label">END DATE</label>
+                                    <div class="input-group w-100">
+                                        <input type="text" class="form-control flex-grow-1" id="customEnd" placeholder="MM/DD/YYYY" inputmode="numeric">
+                                        <button class="btn btn-outline-secondary" type="button" id="customEndCalendarBtn" title="Select date">
+                                            <i class="bi bi-calendar"></i>
+                                        </button>
+                                    </div>
                                     <div class="form-text" id="customEndHint">Format: MM/DD/YYYY</div>
                                 </div>
                             </div>
@@ -3027,7 +3167,7 @@
                             <div class="stat-content">
                                 <div class="stat-value" id="statTotalRevenue">₱0.00</div>
                                 <div class="stat-label">Total Revenue</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Total money earned from sales</div>
+                                <div class="stat-subtitle sw-stat-subtitle">Total money earned from sales</div>
                             </div>
                         </a>
                         <a href="#transactions" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('transactions-tab').click();">
@@ -3037,7 +3177,7 @@
                             <div class="stat-content">
                                 <div class="stat-value" id="statTransactions">0</div>
                                 <div class="stat-label">Total Transactions</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Number of completed sales</div>
+                                <div class="stat-subtitle sw-stat-subtitle">Number of completed sales</div>
                             </div>
                         </a>
                         <a href="#transactions" class="stat-card clickable" onclick="event.preventDefault(); document.getElementById('transactions-tab').click();">
@@ -3047,7 +3187,7 @@
                             <div class="stat-content">
                                 <div class="stat-value" id="statItemsSold">0</div>
                                 <div class="stat-label">Total Quantity Unit Sold</div>
-                        <div id="statItemsSubtitle" class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Boxes: 0 • kg: 0</div>
+                        <div id="statItemsSubtitle" class="stat-subtitle sw-stat-subtitle">Boxes: 0 • kg: 0</div>
                             </div>
                         </a>
                         <a href="#sales-summary" class="stat-card clickable" onclick="event.preventDefault(); var el=document.getElementById('sales-tab'); if(el) el.click();">
@@ -3057,7 +3197,7 @@
                             <div class="stat-content">
                                 <div class="stat-value" id="statAvgOrder">₱0.00</div>
                                 <div class="stat-label">Average Sale</div>
-                                <div class="stat-subtitle" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.125rem;">Average money per transaction</div>
+                                <div class="stat-subtitle sw-stat-subtitle">Average money per transaction</div>
                             </div>
                         </a>
                     </div>
@@ -3074,7 +3214,7 @@
                             <i class="bi bi-graph-up-arrow"></i> View All Metrics
                         </button>
                     </div>
-                    <button type="button" class="btn-filter-action" id="reportsRefreshBtn" aria-label="Refresh reports" style="width: 150px; justify-content: center;">
+                    <button type="button" class="btn-filter-action justify-content-center sw-width-150" id="reportsRefreshBtn" aria-label="Refresh reports">
                         <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="reportsRefreshSpinner"></span>
                         <span class="refresh-text">Refresh</span>
                     </button>
@@ -3084,12 +3224,17 @@
                         <div class="filters-grid">
                             <div class="form-group">
                                 <label class="form-label" for="dateRange">Date Range</label>
-                                <select class="form-select" id="dateRange" title="Date range">
+                                <div class="date-range-wrapper d-flex align-items-center justify-content-center gap-2">
+                                    <select class="form-select flex-grow-1" id="dateRange" title="Date range">
                                     <option value="today">Today</option>
                                     <option value="week">This Week</option>
                                     <option value="month">This Month</option>
                                     <option value="custom">Custom Range</option>
                                 </select>
+                                    <button type="button" class="btn btn-outline-primary calendar-btn-custom d-none sw-cal-btn" id="customRangeCalendarBtn" title="Select Custom Date Range">
+                                        <i class="bi bi-calendar3 sw-icon-md"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="userFilter">User</label>
@@ -3157,7 +3302,7 @@
                             </ul>
                         </div>
                         <!-- Error Banner -->
-                        <div id="reportErrorBanner" class="alert alert-danger report-error-banner" role="alert" style="display:none;">
+                        <div id="reportErrorBanner" class="alert alert-danger report-error-banner d-none" role="alert">
                             <div>
                                 <strong>Unable to load reports.</strong>
                                 <span id="reportErrorMsg">Please try again.</span>
@@ -3292,7 +3437,7 @@
                                             <li><strong>Change %:</strong> Percentage difference between previous and new price.</li>
                                             <li><strong>Action:</strong> Whether you increased, decreased, or held price.</li>
                                         </ul>
-                                        <p style="font-size: 0.875rem; color: var(--gray-600); margin-top: 0.5rem;">
+                                        <p class="sw-muted-md">
                                             The tab shows generated pricing recommendations with actions and reasons. If you want a true accepted changes history (i.e., confirmed price updates with previous/new price), we can add a small price-change history model and record updates when prices are changed.
                                         </p>
                                     </div>
@@ -3382,7 +3527,7 @@
                                             <table class="cashbook-table table-mobile-card">
                                             <thead>
                                                 <tr>
-                                                    <th>Sale No.</th>
+                                                    <th>Transaction No.</th>
                                                     <th>Date & Time</th>
                                                     <th>Customer</th>
                                                     <th>Products</th>
@@ -3403,7 +3548,7 @@
                                         <h6>What does this show?</h6>
                                         <p>View a complete list of all sales made during the selected dates—just like the receipts your customers received.</p>
                                         <ul>
-                                            <li><strong>Sale No.:</strong> Unique number for this sale in your system.</li>
+                                            <li><strong>Transaction No.:</strong> Unique transaction number for this sale.</li>
                                             <li><strong>Date & Time:</strong> When the sale was recorded.</li>
                                             <li><strong>Products:</strong> List of items included in the sale, shown as "Product Name (Variant) (Unit)".</li>
                                             <li><strong>Items:</strong> Count of line items in the sale.</li>
@@ -3424,15 +3569,14 @@
                                             <table class="cashbook-table table-mobile-card">
                                                 <thead>
                                                     <tr>
-                                                        <th>Sale No.</th>
+                                                        <th>Transaction No.</th>
                                                         <th>OR No.</th>
                                                         <th>Date & Time</th>
                                                         <th>Customer</th>
                                                         <th>Products</th>
                                                         <th>Quantity Sold</th>
-                                                        <th>Subtotal</th>
-                                                        <th>VAT</th>
                                                         <th>Total</th>
+                                                        <th>Reason</th>
                                                         <th>Status</th>
                                                         <th></th>
                                                     </tr>
@@ -3446,15 +3590,14 @@
                                         <h6>What does this show?</h6>
                                         <p>List of all transactions that were cancelled so you can track every change made.</p>
                                         <ul>
-                                            <li><strong>Sale No.:</strong> Unique number for this sale in your system.</li>
+                                            <li><strong>Transaction No.:</strong> Unique transaction number for this sale.</li>
                                             <li><strong>OR No.:</strong> Official receipt number given to the customer.</li>
                                             <li><strong>Products:</strong> List of all items included in this sale, shown as "Product Name (Variant) (Size)" (e.g., "Apple (Fuji) (125-138)").</li>
                                             <li><strong>Quantity Sold:</strong> Total units sold in this transaction.</li>
-                                            <li><strong>Subtotal:</strong> Total before adding tax.</li>
-                                            <li><strong>VAT:</strong> 12% tax added to the sale.</li>
-                                            <li><strong>Total:</strong> Final amount the customer paid (Subtotal + VAT).</li>
+                                            <li><strong>Total:</strong> Final amount the customer paid (including VAT).</li>
+                                            <li><strong>Reason:</strong> The reason why this transaction was voided.</li>
                                             <li><strong>Status:</strong> Shows "Voided" for cancelled transactions.</li>
-                                            <li>Click "Details" to see void reason, who cancelled it, and timestamps.</li>
+                                            <li>Click "Details" to see full void details, who cancelled it, and timestamps.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -3469,11 +3612,11 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th style="width: 10%;">Class</th>
-                                                            <th style="width: 50%;">Product</th>
-                                                            <th style="width: 20%;">Share %</th>
-                                                            <th style="width: 20%;">Cumulative</th>
-                                                        </tr>
+                                                            <th class="sw-w-10">Class</th>
+                                                            <th class="sw-w-50">Product</th>
+                                                            <th class="sw-w-20">Share %</th>
+                                                            <th class="sw-w-20">Cumulative</th>
+                                                    </tr>
                                                     </thead>
                                                     <tbody id="abcAnalysisBody">
                                                         <tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>
@@ -3487,11 +3630,11 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th style="width: 40%;">Product</th>
-                                                            <th style="width: 20%;">Quantity Sold</th>
-                                                            <th style="width: 25%;">Revenue</th>
-                                                            <th style="width: 15%;">Avg / Day</th>
-                                                        </tr>
+                                                            <th class="sw-w-40">Product</th>
+                                                            <th class="sw-w-20">Quantity Sold</th>
+                                                            <th class="sw-w-25">Revenue</th>
+                                                            <th class="sw-w-15">Avg / Day</th>
+                                                    </tr>
                                                     </thead>
                                                     <tbody id="slowMoversBody">
                                                         <tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>
@@ -3505,11 +3648,11 @@
                                                 <table class="table table-sm mb-0">
                                                     <thead>
                                                         <tr>
-                                                            <th style="width: 40%;">Product</th>
-                                                            <th style="width: 15%;">Stock</th>
-                                                            <th style="width: 25%;">Last Sale</th>
-                                                            <th style="width: 20%;">Days Idle</th>
-                                                        </tr>
+                                                            <th class="sw-w-40">Product</th>
+                                                            <th class="sw-w-15">Stock</th>
+                                                            <th class="sw-w-25">Last Sale</th>
+                                                            <th class="sw-w-20">Days Idle</th>
+                                                    </tr>
                                                     </thead>
                                                     <tbody id="deadStockBody">
                                                         <tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>
@@ -3522,7 +3665,7 @@
                                         <h6>What does this show?</h6>
                                         <p>Get smart insights about your products without needing complicated calculations or extra software.</p>
                                         
-                                        <h6 style="margin-top: 1rem;">ABC Analysis - Understanding Your Top Revenue Drivers</h6>
+                                        <h6 class="mt-3">ABC Analysis - Understanding Your Top Revenue Drivers</h6>
                                         <ul>
                                             <li><strong>Class:</strong> Category A = highest revenue contributors (usually top 70% of revenue), B = medium contributors (next 20%), C = lowest contributors (remaining 10%).</li>
                                             <li><strong>Product:</strong> Product name with variant and quantity/unit in parentheses.</li>
@@ -3530,7 +3673,7 @@
                                             <li><strong>Cumulative:</strong> Running total percentage when you add up all products from top to this one. Example: 94.9% means this product plus all above it make up 94.9% of your total revenue.</li>
                                         </ul>
                                         
-                                        <h6 style="margin-top: 1rem;">Slow Movers - Products Selling Very Slowly</h6>
+                                        <h6 class="mt-3">Slow Movers - Products Selling Very Slowly</h6>
                                         <ul>
                                             <li><strong>Product:</strong> Items that are still selling but at a very slow pace—good candidates for discounts or promotions.</li>
                                             <li><strong>Quantity Sold:</strong> Total units sold during the selected period.</li>
@@ -3538,7 +3681,7 @@
                                             <li><strong>Avg / Day:</strong> Average number of units sold per day. Low numbers mean it's moving very slowly.</li>
                                         </ul>
                                         
-                                        <h6 style="margin-top: 1rem;">Dead Stock / Aging - Items Not Selling</h6>
+                                        <h6 class="mt-3">Dead Stock / Aging - Items Not Selling</h6>
                                         <ul>
                                             <li><strong>Product:</strong> Items that haven't sold in a long time—consider returning them, marking them down, or using them for promotions.</li>
                                             <li><strong>Stock:</strong> Number of units currently sitting in your inventory unsold.</li>
@@ -3559,8 +3702,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <div class="position-fixed top-0 start-50 translate-middle-x w-100 p-3" style="z-index:1200;">
-        <div id="reportToastContainer" class="toast-container d-flex flex-column align-items-center" style="gap:.5rem; width:100%; pointer-events:auto;"></div>
+    <div class="position-fixed top-0 start-50 translate-middle-x w-100 p-3 sw-z-1200">
+        <div id="reportToastContainer" class="toast-container d-flex flex-column align-items-center gap-2 w-100 sw-pointer-auto"></div>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
@@ -3987,7 +4130,18 @@
                     const s = String(ts).replace(' ', 'T');
                     const d = new Date(s);
                     if (isNaN(d.getTime())) return String(ts);
-                    return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    // Format like "Dec 06, 2025 11:48 PM" to match sales page
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const month = months[d.getMonth()];
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const year = d.getFullYear();
+                    let hours = d.getHours();
+                    const minutes = String(d.getMinutes()).padStart(2, '0');
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12; // the hour '0' should be '12'
+                    const hoursStr = String(hours).padStart(2, '0');
+                    return `${month} ${day}, ${year} ${hoursStr}:${minutes} ${ampm}`;
                 } catch (e) {
                     return String(ts);
                 }
@@ -4072,6 +4226,22 @@
             return unique.length ? base + ' ('+unique.join(') (')+')' : base;
         }
 
+        function formatDateOnly(dateStr) {
+            if (!dateStr) return 'N/A';
+            try {
+                const d = new Date(dateStr + 'T00:00:00');
+                if (isNaN(d.getTime())) return String(dateStr);
+                // Format like "Dec 07, 2025" to match sales page style
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[d.getMonth()];
+                const day = String(d.getDate()).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${month} ${day}, ${year}`;
+            } catch (e) {
+                return String(dateStr);
+            }
+        }
+
         function renderSalesSummaryPage(){
             const tbody = $('#summaryBody');
             tbody.empty();
@@ -4079,9 +4249,10 @@
             if(!rows.length){ tbody.append('<tr><td colspan="6" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx) => {
                 const quantityDisplay = item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString();
+                const formattedDate = formatDateOnly(item.date);
                 const row = `
                     <tr>
-                        <td class="date-col">${item.date || 'N/A'}</td>
+                        <td class="date-col">${formattedDate}</td>
                         <td>${formatProductName(item.product_name)}</td>
                         <td>${quantityDisplay}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
@@ -4156,7 +4327,7 @@
                                    'badge bg-success text-white';
                 const row = `
                     <tr>
-                        <td style="white-space: normal;">${formatProductName(item.product_name)}</td>
+                        <td class="text-wrap">${formatProductName(item.product_name)}</td>
                         <td class="amount-col">${(item.current_stock ?? 0).toLocaleString()}</td>
                         <td class="amount-col">${daysSupply}</td>
                         <td class="amount-col">${item.reorder_point ?? 0}</td>
@@ -4197,10 +4368,12 @@
                     const productsText = Array.isArray(item.fruits) && item.fruits.length
                         ? item.fruits.map(n=>formatProductName(n)).join(', ')
                         : formatProductName(item.product_name || 'N/A');
+                    const transactionNo = (item.transaction_number || item.transaction_no || (item.sale_id ? `TXN${item.sale_id}` : 'N/A')).toUpperCase();
+                    const formattedDate = item.date_time ? formatLocal(item.date_time) : 'N/A';
                     const row = `
                         <tr class="clickable" data-sale-id="${item.sale_id || ''}">
-                            <td>${item.sale_id || 'N/A'}</td>
-                            <td class="date-col">${item.date_time || 'N/A'}</td>
+                            <td>${transactionNo}</td>
+                            <td class="date-col">${formattedDate}</td>
                             <td class="customer-info">${item.customer_name || 'N/A'}</td>
                             <td class="product-name">${productsText}</td>
                             <td>${item.items_count ?? 'N/A'}</td>
@@ -4242,7 +4415,7 @@
             if(!tbody) return;
             const rows = repSlice(repData.voidedReports, reportsPagination.currentPage.voidedReports || 1);
             if(!rows.length){
-                tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4">No voided transactions found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No voided transactions found.</td></tr>`;
                 updateRepControls('voidedReports', 0);
                 return;
             }
@@ -4250,17 +4423,19 @@
                 const productsText = Array.isArray(row.products) && row.products.length
                     ? row.products.join(', ')
                     : 'N/A';
+                const voidReason = row.void_reason || 'N/A';
+                const transactionNo = (row.transaction_no || row.transaction_number || (row.sale_id !== undefined ? `TXN${row.sale_id}` : 'N/A')).toUpperCase();
+                const formattedDate = (row.voided_at || row.date_time) ? formatLocal(row.voided_at || row.date_time) : 'N/A';
                 return `
                 <tr>
-                    <td>#${row.sale_id !== undefined ? row.sale_id : ''}</td>
+                    <td>${transactionNo}</td>
                     <td>${row.receipt_number || 'N/A'}</td>
-                    <td>${row.voided_at || row.date_time || ''}</td>
+                    <td>${formattedDate}</td>
                     <td>${row.customer_name || 'N/A'}</td>
                     <td>${productsText}</td>
                     <td>${row.quantity_display || (row.boxes_count ?? 'N/A')}</td>
-                    <td class="amount-col currency">${formatCurrency(row.subtotal || 0)}</td>
-                    <td class="amount-col currency">${formatCurrency(row.vat_amount || 0)}</td>
                     <td class="amount-col currency">${formatCurrency(row.total_amount || 0)}</td>
+                    <td>${voidReason}</td>
                     <td><span class="badge bg-danger">Voided</span></td>
                     <td class="text-end">
                         <button class="btn btn-sm btn-outline-primary view-voided-details" data-sale-id="${row.sale_id ?? ''}" type="button">
@@ -4363,10 +4538,10 @@
                 const voidReasonItem = $('#voidReasonMetaItem');
                 const voidReasonValue = $('#reportDetailVoidReason');
                 if (status === 'voided' || status === 'cancelled') {
-                    voidReasonItem.show();
+                    voidReasonItem.removeClass('d-none');
                     voidReasonValue.text(transaction.void_reason || 'N/A');
                 } else {
-                    voidReasonItem.hide();
+                    voidReasonItem.addClass('d-none');
                 }
 
                 const itemsBody = $('#reportDetailItems');
@@ -4863,11 +5038,28 @@
                 customRangeModal.show();
             }
             
+            // Toggle calendar button visibility based on date range selection
+            function toggleCalendarButton() {
+                const selectedValue = $('#dateRange').val();
+                const calendarBtn = $('#customRangeCalendarBtn');
+                if (selectedValue === 'custom') {
+                    calendarBtn.fadeIn(200);
+                } else {
+                    calendarBtn.fadeOut(200);
+                }
+            }
+            
+            // Calendar button click handler
+            $('#customRangeCalendarBtn').on('click', function() {
+                openCustomRangeModal();
+            });
+            
             // Handle date range change - open modal when custom is selected
             $('#dateRange').on('change', function() {
                 console.log('dateRange changed to:', $(this).val());
                 const selectedValue = $(this).val();
                 saveReportsFilters();
+                toggleCalendarButton();
                 
                 if (selectedValue === 'custom') {
                     // Update labels first to ensure startDate/endDate are set from customStart/customEnd if available
@@ -4941,6 +5133,100 @@
                 this.value = this.value.replace(/[^0-9\/]/g, '');
             });
 
+            // Calendar button handlers
+            function openDatePicker(inputId) {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+                
+                const inputGroup = input.closest('.input-group');
+                if (!inputGroup) return;
+                
+                // Create a wrapper div that will be inserted into the DOM flow
+                // Position it absolutely relative to the input group's parent
+                const parentContainer = inputGroup.parentElement;
+                if (!parentContainer) return;
+                
+                // Ensure parent has relative positioning
+                const originalPosition = parentContainer.style.position;
+                if (!parentContainer.style.position || parentContainer.style.position === 'static') {
+                    parentContainer.style.position = 'relative';
+                }
+                
+                // Create wrapper positioned at center of input group, below it
+                const wrapper = document.createElement('div');
+                wrapper.id = 'temp-date-picker-wrapper';
+                wrapper.style.position = 'absolute';
+                wrapper.style.left = '50%';
+                wrapper.style.transform = 'translateX(-50%)';
+                wrapper.style.top = '100%';
+                wrapper.style.marginTop = '8px';
+                wrapper.style.zIndex = '10000';
+                wrapper.style.visibility = 'hidden';
+                wrapper.style.pointerEvents = 'none';
+                wrapper.style.width = '200px';
+                
+                // Create a temporary date input
+                const tempDateInput = document.createElement('input');
+                tempDateInput.type = 'date';
+                tempDateInput.style.width = '100%';
+                tempDateInput.style.height = '40px';
+                
+                // Parse current value if exists
+                const currentValue = input.value.trim();
+                if (currentValue) {
+                    const parsed = parseUSDateToISO(currentValue);
+                    if (parsed) {
+                        tempDateInput.value = parsed;
+                    }
+                }
+                
+                wrapper.appendChild(tempDateInput);
+                
+                // Insert wrapper right after the input group
+                inputGroup.parentNode.insertBefore(wrapper, inputGroup.nextSibling);
+                
+                // Use requestAnimationFrame to ensure DOM is updated before showing picker
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        tempDateInput.showPicker();
+                    });
+                });
+                
+                tempDateInput.addEventListener('change', function() {
+                    if (this.value) {
+                        const date = new Date(this.value + 'T00:00:00');
+                        const formatted = formatUSDateStr(date);
+                        input.value = formatted;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    cleanup();
+                });
+                
+                tempDateInput.addEventListener('cancel', function() {
+                    cleanup();
+                });
+                
+                function cleanup() {
+                    if (wrapper.parentNode) {
+                        wrapper.parentNode.removeChild(wrapper);
+                    }
+                    // Restore original position if we changed it
+                    if (originalPosition !== parentContainer.style.position) {
+                        parentContainer.style.position = originalPosition || '';
+                    }
+                }
+            }
+
+            $('#customStartCalendarBtn').on('click', function(e) {
+                e.preventDefault();
+                openDatePicker('customStart');
+            });
+
+            $('#customEndCalendarBtn').on('click', function(e) {
+                e.preventDefault();
+                openDatePicker('customEnd');
+            });
+
             $('#generateReport').on('click', async function() {
                 saveReportsFilters();
                 const filterType = $('#dateRange').val() || 'today';
@@ -4964,10 +5250,10 @@
                     } else {
                         // Custom range selected but dates not set - show error
                         errorMessage.textContent = 'Please select a custom date range first. Click on "Custom Range" in the date filter dropdown to set your dates.';
-                        loadingDiv.style.display = 'none';
+                        loadingDiv.classList.add('d-none');
                         errorDiv.classList.remove('d-none');
-                        frame.style.display = 'none';
-                        exportBtn.style.display = 'none';
+                        frame.classList.add('d-none');
+                        exportBtn.classList.add('d-none');
                         const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
                         modal.show();
                         return;
@@ -5011,10 +5297,10 @@
                 // Validate dates are not empty
                 if (!s || !e) {
                     errorMessage.textContent = 'Please select a valid date range. If using Custom Range, make sure to set your dates first.';
-                    loadingDiv.style.display = 'none';
+                    loadingDiv.classList.add('d-none');
                     errorDiv.classList.remove('d-none');
-                    frame.style.display = 'none';
-                    exportBtn.style.display = 'none';
+                    frame.classList.add('d-none');
+                    exportBtn.classList.add('d-none');
                     const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
                     modal.show();
                     return;
@@ -5029,10 +5315,10 @@
                     const frame = document.getElementById('reportPreviewFrame');
                     const loadingDiv = document.getElementById('reportPreviewLoading');
                     errorMessage.textContent = 'Please select a valid date range. If using Custom Range, make sure to set your dates first by clicking "Custom Range" in the date filter dropdown.';
-                    loadingDiv.style.display = 'none';
+                    loadingDiv.classList.add('d-none');
                     errorDiv.classList.remove('d-none');
-                    frame.style.display = 'none';
-                    exportBtn.style.display = 'none';
+                    frame.classList.add('d-none');
+                    exportBtn.classList.add('d-none');
                     const modal = new bootstrap.Modal(document.getElementById('reportPreviewModal'));
                     modal.show();
                     return;
@@ -5048,9 +5334,9 @@
                 
                 // Hide error and iframe, show loading
                 errorDiv.classList.add('d-none');
-                frame.style.display = 'none';
-                loadingDiv.style.display = 'block';
-                exportBtn.style.display = 'none';
+                frame.classList.add('d-none');
+                loadingDiv.classList.remove('d-none');
+                exportBtn.classList.add('d-none');
                 frame.src = 'about:blank'; // Clear iframe first
                 
                 // Show modal first
@@ -5088,25 +5374,25 @@
                         
                         // Show error message
                         errorMessage.textContent = errorMsg;
-                        loadingDiv.style.display = 'none';
+                        loadingDiv.classList.add('d-none');
                         errorDiv.classList.remove('d-none');
-                        frame.style.display = 'none';
-                        exportBtn.style.display = 'none';
+                        frame.classList.add('d-none');
+                        exportBtn.classList.add('d-none');
                     } else {
                         // It's a PDF - load it in the iframe
-                        loadingDiv.style.display = 'none';
+                        loadingDiv.classList.add('d-none');
                         errorDiv.classList.add('d-none');
-                        frame.style.display = 'block';
-                        exportBtn.style.display = 'inline-block';
+                        frame.classList.remove('d-none');
+                        exportBtn.classList.remove('d-none');
                         frame.src = '/api/reports/export/?' + q.toString();
                     }
                 } catch (error) {
                     // Network or other error
                     errorMessage.textContent = 'Failed to load report. Please check your connection and try again.';
-                    loadingDiv.style.display = 'none';
+                    loadingDiv.classList.add('d-none');
                     errorDiv.classList.remove('d-none');
-                    frame.style.display = 'none';
-                    exportBtn.style.display = 'none';
+                    frame.classList.add('d-none');
+                    exportBtn.classList.add('d-none');
                 }
                 document.getElementById('exportPdfBtn').onclick = function(){
                     const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
@@ -5207,7 +5493,7 @@
                                 <span class="meta-label">Processed By</span>
                                 <span class="meta-value" id="reportDetailProcessedBy">N/A</span>
                             </div>
-                            <div class="meta-item" id="voidReasonMetaItem" style="display: none;">
+                            <div class="meta-item d-none" id="voidReasonMetaItem">
                                 <span class="meta-label">Void Reason</span>
                                 <span class="meta-value" id="reportDetailVoidReason">N/A</span>
                             </div>
@@ -5281,9 +5567,9 @@
                             <table class="table table-sm align-middle">
                                 <thead>
                                     <tr>
-                                        <th style="width: 30%;">User</th>
-                                        <th style="width: 40%;">Action</th>
-                                        <th class="text-end" style="width: 30%;">Timestamp</th>
+                                        <th class="sw-w-30">User</th>
+                                        <th class="sw-w-40">Action</th>
+                                        <th class="text-end sw-w-30">Timestamp</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportDetailTrail">
@@ -5297,7 +5583,7 @@
                         <!-- Legend for Transaction Details -->
                         <div class="report-description mt-3">
                             <h6>Understanding These Numbers:</h6>
-                            <ul style="margin-bottom: 0;">
+                            <ul class="mb-0">
                                 <li><strong>Sale ID:</strong> Internal system number for this sale.</li>
                                 <li><strong>Transaction No.:</strong> Transaction reference number.</li>
                                 <li><strong>OR No. (Official Receipt):</strong> Official receipt number given to the customer for tax purposes.</li>
@@ -5347,7 +5633,18 @@
                     d = new Date(raw.replace(' ', 'T') + 'Z');
                 }
                 if (isNaN(d.getTime())) return String(ts);
-                return new Intl.DateTimeFormat('en-PH', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' }).format(d);
+                // Format like "Dec 06, 2025 11:48 PM" to match sales page
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[d.getMonth()];
+                const day = String(d.getDate()).padStart(2, '0');
+                const year = d.getFullYear();
+                let hours = d.getHours();
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12;
+                hours = hours ? hours : 12; // the hour '0' should be '12'
+                const hoursStr = String(hours).padStart(2, '0');
+                return `${month} ${day}, ${year} ${hoursStr}:${minutes} ${ampm}`;
             } catch (e) {
                 return String(ts);
             }
@@ -5529,10 +5826,10 @@
                     <!-- Legend Section -->
                     <div class="report-description mt-4">
                         <h6>Understanding These Metrics:</h6>
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div class="sw-grid-2">
                             <div>
-                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Financial Metrics</h6>
-                                <ul style="font-size: 0.85rem; margin-bottom: 1rem;">
+                                <h6 class="sw-h6-blue">Financial Metrics</h6>
+                                <ul class="sw-ul-sm mb-3">
                                     <li><strong>Total COGS:</strong> Cost of Goods Sold - how much you paid to buy all the products you sold. Lower is better for profit.</li>
                                     <li><strong>Gross Profit:</strong> Money earned minus product costs (Revenue - COGS). This is your profit before expenses.</li>
                                     <li><strong>Net Profit:</strong> Actual money you keep after all costs. Currently same as Gross Profit (expenses tracking coming soon).</li>
@@ -5540,25 +5837,25 @@
                                 </ul>
                             </div>
                             <div>
-                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Growth Metrics</h6>
-                                <ul style="font-size: 0.85rem; margin-bottom: 1rem;">
+                                <h6 class="sw-h6-blue">Growth Metrics</h6>
+                                <ul class="sw-ul-sm mb-3">
                                     <li><strong>Revenue Growth:</strong> How much your sales increased (or decreased) compared to the previous period. Positive % = growing, negative % = declining.</li>
                                     <li><strong>Txn Growth:</strong> Transaction Growth - how many more (or fewer) sales you made compared to before. Shows if you're getting more customers.</li>
                                     <li><strong>Sales Velocity:</strong> Average number of boxes sold per day. Higher numbers = faster inventory movement.</li>
                                 </ul>
                             </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                        <div class="sw-grid-2">
                             <div>
-                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Operational Metrics</h6>
-                                <ul style="font-size: 0.85rem; margin-bottom: 0;">
+                                <h6 class="sw-h6-blue">Operational Metrics</h6>
+                                <ul class="sw-ul-sm mb-0">
                                     <li><strong>Void Rate:</strong> Percentage of transactions that were cancelled. Lower is better - high void rate may indicate pricing issues or customer dissatisfaction.</li>
                                     <li><strong>Peak Sales Day:</strong> The date with the highest number of sales. Use this to understand your busiest days and plan inventory accordingly.</li>
                                 </ul>
                             </div>
                             <div>
-                                <h6 style="font-size: 0.9rem; margin-top: 0.5rem; color: #4f46e5;">Formula Reference</h6>
-                                <ul style="font-size: 0.85rem; margin-bottom: 0;">
+                                <h6 class="sw-h6-blue">Formula Reference</h6>
+                                <ul class="sw-ul-sm mb-0">
                                     <li><strong>Gross Profit:</strong> Revenue - COGS</li>
                                     <li><strong>Gross Margin:</strong> (Gross Profit ÷ Revenue) × 100</li>
                                     <li><strong>Growth %:</strong> ((Current - Previous) ÷ Previous) × 100</li>
@@ -5657,7 +5954,7 @@
                         <!-- Legend for Sales Summary Details -->
                         <div class="report-description mt-3">
                             <h6>Understanding These Numbers:</h6>
-                            <ul style="margin-bottom: 0;">
+                            <ul class="mb-0">
                                 <li><strong>Unit Price:</strong> How much you sell one box for.</li>
                                 <li><strong>Unit Cost:</strong> How much it costs you to buy one box.</li>
                                 <li><strong>Revenue:</strong> Total money earned (Unit Price × Boxes Sold).</li>
@@ -5747,7 +6044,7 @@
                         <!-- Legend for Top Products Details -->
                         <div class="report-description mt-3">
                             <h6>Understanding These Numbers:</h6>
-                            <ul style="margin-bottom: 0;">
+                            <ul class="mb-0">
                                 <li><strong>Rank:</strong> Where this product stands—#1 is your best seller.</li>
                                 <li><strong>Boxes Sold:</strong> Total boxes sold during the period.</li>
                                 <li><strong>Growth %:</strong> Sales increase (positive) or decrease (negative) compared to before.</li>
@@ -5841,7 +6138,7 @@
                         <!-- Legend for Low Stock Details -->
                         <div class="report-description mt-3">
                             <h6>Understanding These Numbers:</h6>
-                            <ul style="margin-bottom: 0;">
+                            <ul class="mb-0">
                                 <li><strong>Current Stock:</strong> How many boxes you have in stock right now.</li>
                                 <li><strong>Stock Value:</strong> Total worth of your current stock (Current Stock × Unit Cost).</li>
                                 <li><strong>Avg. Daily Sales:</strong> How many boxes you typically sell per day.</li>
@@ -5924,14 +6221,14 @@
         <h5 class="modal-title">Report Preview</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body" style="height:70vh; position: relative;">
-        <div id="reportPreviewLoading" class="text-center py-5" style="display: none;">
+      <div class="modal-body position-relative sw-h-70vh">
+        <div id="reportPreviewLoading" class="text-center py-5 d-none">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p class="mt-3 text-muted">Generating report preview...</p>
         </div>
-        <div id="reportPreviewError" class="alert alert-warning d-none" role="alert" style="margin-bottom: 1rem;">
+        <div id="reportPreviewError" class="alert alert-warning d-none mb-3" role="alert">
           <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Unable to Generate Report</h6>
           <p id="reportPreviewErrorMessage" class="mb-2"></p>
           <hr>
@@ -5943,7 +6240,7 @@
             <li>Check if there are any completed sales in the selected period</li>
           </ul>
         </div>
-        <iframe id="reportPreviewFrame" src="" style="width:100%;height:100%;border:0; display: none;" title="Report Preview"></iframe>
+        <iframe id="reportPreviewFrame" src="" class="w-100 h-100 border-0 d-none" title="Report Preview"></iframe>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" id="exportPdfBtn"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>

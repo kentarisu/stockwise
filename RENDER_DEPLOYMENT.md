@@ -41,7 +41,7 @@ This guide will help you deploy StockWise to Render hosting.
 3. Configure:
    - **Name**: `stockwise-web`
    - **Environment**: `Python 3`
-   - **Python Version**: `3.11.0` (or ensure `runtime.txt` is in your repo)
+   - **Python Version**: `3.11` (specified in `.python-version` file)
    - **Build Command**: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
    - **Start Command**: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
 4. Add Environment Variables (see Step 4 below)

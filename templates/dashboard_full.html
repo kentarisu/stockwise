@@ -2133,10 +2133,14 @@
                 });
             }
 
-            // Close sidebar when clicking on navigation links
+            // Close sidebar when clicking on navigation links (except logout)
             if (sidebar) {
                 const navLinks = sidebar.querySelectorAll('.nav-link');
                 navLinks.forEach(link => {
+                    // Skip logout links - they have their own handler
+                    if (link.classList.contains('logout-link') || (link.href && link.href.includes('logout')) || link.getAttribute('data-bs-target') === '#logoutConfirmModal') {
+                        return;
+                    }
                     link.addEventListener('click', function() {
                         closeSidebar();
                     });
@@ -3138,6 +3142,30 @@
                     readPage = 1;
                     loadReadRecommendations();
                 });
+            }
+        });
+        
+        // Handle logout modal cleanup for data-bs-toggle links
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutModalEl = document.getElementById('logoutConfirmModal');
+            if (logoutModalEl) {
+                // Clean up backdrop when modal is hidden
+                function cleanupBackdrop() {
+                    setTimeout(function() {
+                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                            backdrop.remove();
+                        });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.paddingRight = '';
+                        document.body.style.overflow = '';
+                    }, 100);
+                }
+                
+                logoutModalEl.addEventListener('hidden.bs.modal', cleanupBackdrop, { once: false });
+                logoutModalEl.addEventListener('hide.bs.modal', function() {
+                    // Ensure cleanup happens even if modal is closed unexpectedly
+                    setTimeout(cleanupBackdrop, 200);
+                }, { once: false });
             }
         });
     </script>

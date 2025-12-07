@@ -5810,10 +5810,14 @@
             });
         }
 
-        // Close sidebar when clicking on navigation links
+        // Close sidebar when clicking on navigation links (except logout)
         if (sidebar) {
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
+                // Skip logout links - they have their own handler
+                if (link.classList.contains('logout-link') || link.href && link.href.includes('logout')) {
+                    return;
+                }
                 link.addEventListener('click', function() {
                     closeSidebar();
                 });
@@ -5845,14 +5849,62 @@
             }
         });
 
-        // Handle logout confirmation
+        // Handle logout confirmation - prevent sidebar close and show modal
         document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            // Skip if this is the confirm button inside the modal
+            if (link.id === 'confirmLogoutBtn' || link.closest('#logoutConfirmModal')) {
+                return;
+            }
+            
             link.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent sidebar close handler from running
+                
                 // Check if Bootstrap modal is available
                 if (typeof bootstrap !== 'undefined') {
-                    e.preventDefault();
-                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
-                    logoutModal.show();
+                    const logoutModalEl = document.getElementById('logoutConfirmModal');
+                    if (logoutModalEl) {
+                        // Clean up any existing modal backdrops first
+                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                            backdrop.remove();
+                        });
+                        document.body.classList.remove('modal-open');
+                        document.body.style.paddingRight = '';
+                        document.body.style.overflow = '';
+                        
+                        // Dispose any existing modal instances
+                        const existingModal = bootstrap.Modal.getInstance(logoutModalEl);
+                        if (existingModal) {
+                            existingModal.dispose();
+                        }
+                        
+                        // Create and show new modal
+                        const logoutModal = new bootstrap.Modal(logoutModalEl, {
+                            backdrop: true,
+                            keyboard: true,
+                            focus: true
+                        });
+                        
+                        // Clean up backdrop when modal is hidden (multiple handlers to be safe)
+                        function cleanupBackdrop() {
+                            setTimeout(function() {
+                                document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                                    backdrop.remove();
+                                });
+                                document.body.classList.remove('modal-open');
+                                document.body.style.paddingRight = '';
+                                document.body.style.overflow = '';
+                            }, 100);
+                        }
+                        
+                        logoutModalEl.addEventListener('hidden.bs.modal', cleanupBackdrop, { once: true });
+                        logoutModalEl.addEventListener('hide.bs.modal', function() {
+                            // Ensure cleanup happens even if modal is closed unexpectedly
+                            setTimeout(cleanupBackdrop, 200);
+                        }, { once: true });
+                        
+                        logoutModal.show();
+                    }
                 }
             });
         });

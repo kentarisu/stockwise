@@ -1987,18 +1987,36 @@ def product_add(request):
 
         with transaction.atomic():
             # Create inventory product (not built-in)
-            product = Product.objects.create(
-                name=name,
-                variant=variant or None,
-                quantity_unit=size,
-                status=status,
-                date_added=date_added,
-                price=price,
-                cost=cost,
-                supplier=(supplier or '') or None,
-                image=image_url or '',
-                is_built_in=False,
-            )
+            try:
+                product = Product.objects.create(
+                    name=name,
+                    variant=variant or None,
+                    quantity_unit=size,
+                    status=status,
+                    date_added=date_added,
+                    price=price,
+                    cost=cost,
+                    supplier=(supplier or '') or None,
+                    image=image_url or '',
+                    is_built_in=False,
+                )
+            except Exception as e:
+                if 'duplicate key' in str(e).lower() or 'products_pkey' in str(e).lower():
+                    _reset_pg_sequence('products', 'product_id')
+                    product = Product.objects.create(
+                        name=name,
+                        variant=variant or None,
+                        quantity_unit=size,
+                        status=status,
+                        date_added=date_added,
+                        price=price,
+                        cost=cost,
+                        supplier=(supplier or '') or None,
+                        image=image_url or '',
+                        is_built_in=False,
+                    )
+                else:
+                    raise
             # Stock is now stored directly on the Product model
             product.stock = stock
             product.save()
@@ -2335,15 +2353,30 @@ def add_stock(request):
                     # Convert empty string to None and sanitize supplier
                     supplier_to_save = sanitize_text(supplier, 60) if supplier and supplier.strip() else None
                     
-                    StockAddition.objects.create(
-                        product=product,
-                        quantity=quantity_decimal,
-                        date_added=timezone.now(),  # Use full datetime instead of just date
-                        remaining_quantity=quantity_decimal,
-                        batch_id=batch_id,
-                        supplier=supplier_to_save,
-                        cost=Decimal(str(item.get('cost') or 0)),
-                    )
+                    try:
+                        StockAddition.objects.create(
+                            product=product,
+                            quantity=quantity_decimal,
+                            date_added=timezone.now(),  # Use full datetime instead of just date
+                            remaining_quantity=quantity_decimal,
+                            batch_id=batch_id,
+                            supplier=supplier_to_save,
+                            cost=Decimal(str(item.get('cost') or 0)),
+                        )
+                    except Exception as e:
+                        if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                            _reset_pg_sequence('stock_additions', 'addition_id')
+                            StockAddition.objects.create(
+                                product=product,
+                                quantity=quantity_decimal,
+                                date_added=timezone.now(),
+                                remaining_quantity=quantity_decimal,
+                                batch_id=batch_id,
+                                supplier=supplier_to_save,
+                                cost=Decimal(str(item.get('cost') or 0)),
+                            )
+                        else:
+                            raise
                     
                     # Update product stock directly - use Decimal for kg, ensure Decimal for boxes
                     product.stock = models.F('stock') + quantity_decimal
@@ -2457,14 +2490,28 @@ def stock_qr_apply(request):
                     dt = parse_datetime(date_added) if date_added else None
                     if dt is None:
                         dt = timezone.now()
-                    StockAddition.objects.create(
-                        product=product,
-                        quantity=quantity_decimal,
-                        date_added=dt,
-                        remaining_quantity=quantity_decimal,
-                        batch_id=batch_id,
-                        supplier=supplier
-                    )
+                    try:
+                        StockAddition.objects.create(
+                            product=product,
+                            quantity=quantity_decimal,
+                            date_added=dt,
+                            remaining_quantity=quantity_decimal,
+                            batch_id=batch_id,
+                            supplier=supplier
+                        )
+                    except Exception as e:
+                        if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                            _reset_pg_sequence('stock_additions', 'addition_id')
+                            StockAddition.objects.create(
+                                product=product,
+                                quantity=quantity_decimal,
+                                date_added=dt,
+                                remaining_quantity=quantity_decimal,
+                                batch_id=batch_id,
+                                supplier=supplier
+                            )
+                        else:
+                            raise
                     product.stock = models.F('stock') + quantity_decimal
                     product.save()
                     # Refresh to get updated stock value for low stock check
@@ -2598,14 +2645,28 @@ def stock_add(request, product_id):
             batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
             supplier_value = data.get('supplier', '')
             supplier_to_save = supplier_value.strip() if supplier_value and supplier_value.strip() else None
-            StockAddition.objects.create(
-                product=product,
-                quantity=quantity_decimal,
-                date_added=timezone.now().date(),
-                remaining_quantity=quantity_decimal,
-                batch_id=batch_id,
-                supplier=supplier_to_save
-            )
+            try:
+                StockAddition.objects.create(
+                    product=product,
+                    quantity=quantity_decimal,
+                    date_added=timezone.now().date(),
+                    remaining_quantity=quantity_decimal,
+                    batch_id=batch_id,
+                    supplier=supplier_to_save
+                )
+            except Exception as e:
+                if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                    _reset_pg_sequence('stock_additions', 'addition_id')
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=quantity_decimal,
+                        date_added=timezone.now().date(),
+                        remaining_quantity=quantity_decimal,
+                        batch_id=batch_id,
+                        supplier=supplier_to_save
+                    )
+                else:
+                    raise
 
             # Update product stock directly
             product.stock = models.F('stock') + quantity_decimal
@@ -3299,13 +3360,26 @@ def void_sale(request, sale_id):
                         else:
                             # Create a new batch for restored stock
                             batch_id = generate_batch_id(product, product.name, product.variant)
-                            StockAddition.objects.create(
-                                product=product,
-                                quantity=trans_sale.quantity,
-                                date_added=timezone.now().date(),
-                                remaining_quantity=trans_sale.quantity,
-                                batch_id=batch_id
-                            )
+                            try:
+                                StockAddition.objects.create(
+                                    product=product,
+                                    quantity=trans_sale.quantity,
+                                    date_added=timezone.now().date(),
+                                    remaining_quantity=trans_sale.quantity,
+                                    batch_id=batch_id
+                                )
+                            except Exception as e:
+                                if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                                    _reset_pg_sequence('stock_additions', 'addition_id')
+                                    StockAddition.objects.create(
+                                        product=product,
+                                        quantity=trans_sale.quantity,
+                                        date_added=timezone.now().date(),
+                                        remaining_quantity=trans_sale.quantity,
+                                        batch_id=batch_id
+                                    )
+                                else:
+                                    raise
                         
                         # Update product stock total
                         product.stock = models.F('stock') + trans_sale.quantity
@@ -7791,28 +7865,58 @@ def add_product(request):
                 default_storage.save(image_path, uploaded_file)
             
             # Create product with name stored without variant (normalized)
-            product = Product.objects.create(
-                name=name,
-                variant=variant,
-                quantity_unit=size,
-                cost=cost,
-                price=price,
-                status=status,
-                date_added=product_date_added,
-                image=image_path,
-                supplier=supplier
-            )
+            try:
+                product = Product.objects.create(
+                    name=name,
+                    variant=variant,
+                    quantity_unit=size,
+                    cost=cost,
+                    price=price,
+                    status=status,
+                    date_added=product_date_added,
+                    image=image_path,
+                    supplier=supplier
+                )
+            except Exception as e:
+                if 'duplicate key' in str(e).lower() or 'products_pkey' in str(e).lower():
+                    _reset_pg_sequence('products', 'product_id')
+                    product = Product.objects.create(
+                        name=name,
+                        variant=variant,
+                        quantity_unit=size,
+                        cost=cost,
+                        price=price,
+                        status=status,
+                        date_added=product_date_added,
+                        image=image_path,
+                        supplier=supplier
+                    )
+                else:
+                    raise
             
             # Add initial stock if provided
             if stock > 0:
                 batch_id = generate_batch_id(product, name, variant)
-                StockAddition.objects.create(
-                    product=product,
-                    quantity=stock,
-                    date_added=timezone.now(),
-                    remaining_quantity=stock,
-                    batch_id=batch_id
-                )
+                try:
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=stock,
+                        date_added=timezone.now(),
+                        remaining_quantity=stock,
+                        batch_id=batch_id
+                    )
+                except Exception as e:
+                    if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                        _reset_pg_sequence('stock_additions', 'addition_id')
+                        StockAddition.objects.create(
+                            product=product,
+                            quantity=stock,
+                            date_added=timezone.now(),
+                            remaining_quantity=stock,
+                            batch_id=batch_id
+                        )
+                    else:
+                        raise
                 
                 # Update product stock
                 product.stock = stock
@@ -7995,13 +8099,26 @@ def edit_product(request):
             if stock_difference > 0:
                 # Add stock
                 batch_id = generate_batch_id(product, name, variant)
-                StockAddition.objects.create(
-                    product=product,
-                    quantity=stock_difference,
-                    date_added=addition_dt,
-                    remaining_quantity=stock_difference,
-                    batch_id=batch_id
-                )
+                try:
+                    StockAddition.objects.create(
+                        product=product,
+                        quantity=stock_difference,
+                        date_added=addition_dt,
+                        remaining_quantity=stock_difference,
+                        batch_id=batch_id
+                    )
+                except Exception as e:
+                    if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                        _reset_pg_sequence('stock_additions', 'addition_id')
+                        StockAddition.objects.create(
+                            product=product,
+                            quantity=stock_difference,
+                            date_added=addition_dt,
+                            remaining_quantity=stock_difference,
+                            batch_id=batch_id
+                        )
+                    else:
+                        raise
                 
                 # Update product stock
                 product.stock += stock_difference

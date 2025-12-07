@@ -47,7 +47,7 @@ class Command(BaseCommand):
                     SELECT tablename 
                     FROM pg_tables 
                     WHERE schemaname = 'public' 
-                    AND tablename LIKE 'core_%' OR tablename LIKE 'products' OR tablename LIKE 'sales' OR tablename LIKE 'stock_additions'
+                    AND (tablename LIKE 'core_%' OR tablename IN ('products', 'sales', 'stock_additions', 'action_logs', 'sms', 'backups', 'pricing_recommendations', 'report_product_summary'))
                     ORDER BY tablename;
                 """)
                 core_tables = [row[0] for row in cursor.fetchall()]
@@ -64,6 +64,13 @@ class Command(BaseCommand):
                 """)
                 direct_tables = [row[0] for row in cursor.fetchall()]
                 tables_to_fix.extend([t for t in direct_tables if t not in tables_to_fix])
+                
+                # Prioritize fixing the most common problematic tables first
+                priority_tables = ['products', 'sales', 'stock_additions', 'action_logs']
+                for priority_table in priority_tables:
+                    if priority_table in tables_to_fix:
+                        tables_to_fix.remove(priority_table)
+                        tables_to_fix.insert(0, priority_table)
                 
                 for table in tables_to_fix:
                     self.fix_sequence(cursor, table)
@@ -92,34 +99,36 @@ class Command(BaseCommand):
                 return
             
             pk_column = pk_result[0]
-            sequence_name = f"{table_name}_{pk_column}_seq"
             
-            # Check if sequence exists
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM pg_class WHERE relname = %s
-                );
-            """, [sequence_name])
+            # Try multiple possible sequence names
+            possible_sequence_names = [
+                f"{table_name}_{pk_column}_seq",
+                f"{table_name}_id_seq",
+                f"{pk_column}_seq"
+            ]
             
-            if not cursor.fetchone()[0]:
-                # Try alternative sequence name (some Django tables use different naming)
-                sequence_name = f"{table_name}_id_seq"
+            sequence_name = None
+            for seq_name in possible_sequence_names:
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT 1 FROM pg_class WHERE relname = %s
                     );
-                """, [sequence_name])
-                
-                if not cursor.fetchone()[0]:
-                    self.stdout.write(self.style.WARNING(f'  ⚠ Sequence not found for {table_name}, skipping...'))
-                    return
+                """, [seq_name])
+                if cursor.fetchone()[0]:
+                    sequence_name = seq_name
+                    break
+            
+            if not sequence_name:
+                self.stdout.write(self.style.WARNING(f'  ⚠ Sequence not found for {table_name}, skipping...'))
+                return
             
             # Get current max ID
             cursor.execute(f'SELECT COALESCE(MAX({pk_column}), 0) FROM {table_name};')
             max_id = cursor.fetchone()[0] or 0
             
-            # Reset sequence to max_id + 1
-            cursor.execute(f"SELECT setval(%s, %s, false);", [sequence_name, max_id + 1])
+            # Reset sequence to max_id + 1 (use false to set it to the exact value)
+            # We use max_id + 1 so the next insert will use max_id + 1
+            cursor.execute("SELECT setval(%s, %s, false);", [sequence_name, max_id + 1])
             
             # Verify
             cursor.execute(f"SELECT last_value FROM {sequence_name};")
@@ -127,7 +136,7 @@ class Command(BaseCommand):
             
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'  ✓ Fixed {table_name}: sequence set to {last_value} (max ID was {max_id})'
+                    f'  ✓ Fixed {table_name}.{pk_column}: sequence "{sequence_name}" set to {last_value} (max ID was {max_id})'
                 )
             )
             

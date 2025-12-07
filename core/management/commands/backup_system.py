@@ -56,22 +56,22 @@ class Command(BaseCommand):
                     with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False, encoding='utf-8') as json_dump:
                         # Exclude auth.permission and contenttypes to keep dump smaller/portable
                         # Use natural keys for better portability
-                            call_command(
-                                'dumpdata',
-                                '--natural-foreign',
-                                '--natural-primary',
-                                '--exclude', 'auth.permission',
-                                '--exclude', 'contenttypes',
+                        call_command(
+                            'dumpdata',
+                            '--natural-foreign',
+                            '--natural-primary',
+                            '--exclude', 'auth.permission',
+                            '--exclude', 'contenttypes',
                             stdout=json_dump,
                             indent=2  # Pretty print for readability
-                            )
-                            json_path = json_dump.name
+                        )
+                        json_path = json_dump.name
                     
                     # Add JSON file to ZIP
-                        backup_zip.write(json_path, 'database/stockwise_dump.json')
-                        os.unlink(json_path)
+                    backup_zip.write(json_path, 'database/stockwise_dump.json')
+                    os.unlink(json_path)
                     self.stdout.write(self.style.SUCCESS('✓ Database JSON backup created'))
-                    except Exception as e:
+                except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Failed to create JSON backup: {e}'))
                     raise
             

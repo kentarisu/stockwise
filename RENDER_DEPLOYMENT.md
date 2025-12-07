@@ -26,6 +26,8 @@ This guide will help you deploy StockWise to Render hosting.
 1. Connect your Git repository to Render
 2. Render will automatically detect the `render.yaml` file
 3. The web service and worker will be created automatically
+4. **IMPORTANT**: If Render shows an error about "No module named 'app'", go to the service settings and manually set:
+   - **Start Command**: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
 
 ### Option B: Manual Setup
 
@@ -34,8 +36,9 @@ This guide will help you deploy StockWise to Render hosting.
 3. Configure:
    - **Name**: `stockwise-web`
    - **Environment**: `Python 3`
+   - **Python Version**: `3.11.0` (or ensure `runtime.txt` is in your repo)
    - **Build Command**: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
-   - **Start Command**: `gunicorn stockwise_py.wsgi --bind 0.0.0.0:$PORT --workers 3`
+   - **Start Command**: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
 4. Add Environment Variables (see Step 4 below)
 
 ## Step 3: Create Background Worker
@@ -130,6 +133,18 @@ python manage.py fix_sequences --table action_logs
 
 ## Troubleshooting
 
+### "No module named 'app'" Error
+
+If you see `ModuleNotFoundError: No module named 'app'`:
+
+1. Go to your web service in Render Dashboard
+2. Click on "Settings"
+3. Scroll to "Start Command"
+4. Change it to: `gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120`
+5. Save and redeploy
+
+**Note**: The `:application` part is important - it tells gunicorn to use the `application` variable from the `stockwise_py.wsgi` module.
+
 ### Database Connection Issues
 
 - Ensure `DATABASE_URL` is set correctly
@@ -153,6 +168,12 @@ python manage.py fix_sequences --table action_logs
 - Ensure your Render domain is in `CSRF_TRUSTED_ORIGINS`
 - Check that `USE_X_FORWARDED_HOST` is enabled
 - Verify `SECURE_PROXY_SSL_HEADER` is configured
+
+### Build Failures
+
+- Check that `requirements.txt` is in the root directory
+- Verify Python version matches `runtime.txt` (3.11.0)
+- Ensure all dependencies are listed in `requirements.txt`
 
 ## Notes
 

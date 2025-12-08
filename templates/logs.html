@@ -75,10 +75,9 @@
             min-height: 100vh;
         }
 
-        /* Sidebar - Same as sales page */
+        /* Sidebar - Same as dashboard page */
         .sidebar {
-            width: 212px;
-            max-width: 212px;
+            width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
             -webkit-backdrop-filter: blur(16px);
             backdrop-filter: blur(16px);
@@ -89,7 +88,7 @@
             z-index: 1000;
             transition: none;
             overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
@@ -229,12 +228,12 @@
         @media (min-width: 769px) {
             .sidebar {
                 transform: translateX(0);
-                width: 212px !important;
-                max-width: 212px !important;
+                width: var(--sidebar-width); /* Start expanded by default */
             }
 
             .sidebar:not(.active) {
-                width: 64px;
+                width: 64px !important;
+                max-width: 64px !important;
             }
 
             .sidebar:not(.active) .nav-section-title {
@@ -258,6 +257,16 @@
 
             .sidebar:not(.active) .sidebar-nav {
                 padding: 0.5rem 0;
+            }
+
+            .sidebar:not(.active) .sidebar-brand > span:not(i),
+            .sidebar:not(.active) .sidebar-brand > :not(i):not(span) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-header {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
             }
 
             .main-content {
@@ -1025,10 +1034,20 @@
     <style>
         /* Unified sizing overrides */
         .sidebar {
-            width: 212px !important;
-            max-width: 212px !important;
-            min-width: 212px !important;
             transition: none;
+        }
+        
+        @media (min-width: 769px) {
+            .sidebar.active {
+                width: var(--sidebar-width) !important;
+                max-width: var(--sidebar-width) !important;
+            }
+            
+            .sidebar:not(.active) {
+                width: 64px !important;
+                max-width: 64px !important;
+                min-width: 64px !important;
+            }
         }
         
         /* Ensure backdrop and shadow are preserved */
@@ -1144,7 +1163,7 @@
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            <span>SMS Settings</span>
+                            <span>SMS Notification</span>
                         </a>
                     </div>
                     <div class="nav-item">

@@ -82,8 +82,7 @@
 
         /* Sidebar - Same as other pages */
         .sidebar {
-            width: 212px;
-            max-width: 212px;
+            width: var(--sidebar-width);
             background: rgba(255, 255, 255, 0.95);
             -webkit-backdrop-filter: blur(16px);
             backdrop-filter: blur(16px);
@@ -94,7 +93,7 @@
             z-index: 1000;
             transition: none;
             overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-xl);
         }
 
         .sidebar-header {
@@ -238,8 +237,7 @@
         @media (min-width: 769px) {
             .sidebar {
                 transform: translateX(0);
-                width: 212px !important;
-                max-width: 212px !important;
+                width: var(--sidebar-width); /* Start expanded by default */
             }
 
             /* Ensure desktop styles are preserved */
@@ -289,7 +287,8 @@
             }
 
             .sidebar:not(.active) {
-                width: 64px;
+                width: 64px !important;
+                max-width: 64px !important;
             }
 
             .sidebar:not(.active) .nav-section-title {
@@ -313,6 +312,16 @@
 
             .sidebar:not(.active) .sidebar-nav {
                 padding: 0.5rem 0;
+            }
+
+            .sidebar:not(.active) .sidebar-brand > span:not(i),
+            .sidebar:not(.active) .sidebar-brand > :not(i):not(span) {
+                display: none;
+            }
+
+            .sidebar:not(.active) .sidebar-header {
+                justify-content: center;
+                padding: 0.75rem 0.5rem;
             }
 
             .main-content {
@@ -397,6 +406,19 @@
             font-size: 0.8rem;
             margin-top: var(--space-xs);
             line-height: 1.3;
+        }
+
+        /* Desktop: Ensure header brand and subtitle are visible, match dashboard spacing */
+        @media (min-width: 769px) {
+            .header-brand span {
+                display: inline !important;
+            }
+            .header-subtitle {
+                display: block !important;
+            }
+            .header-title-section {
+                padding-left: 3.8rem !important;
+            }
         }
 
         .header-right {
@@ -3312,10 +3334,20 @@
     <style>
         /* Unified sizing overrides */
         .sidebar {
-            width: 212px !important;
-            max-width: 212px !important;
-            min-width: 212px !important;
             transition: none;
+        }
+        
+        @media (min-width: 769px) {
+            .sidebar.active {
+                width: var(--sidebar-width) !important;
+                max-width: var(--sidebar-width) !important;
+            }
+            
+            .sidebar:not(.active) {
+                width: 64px !important;
+                max-width: 64px !important;
+                min-width: 64px !important;
+            }
         }
         
         /* Ensure backdrop and shadow are preserved */
@@ -3451,7 +3483,7 @@
                                class="nav-link"
                                aria-current="false">
                                 <i class="bi bi-chat-dots" aria-hidden="true"></i>
-                                <span>SMS Settings</span>
+                                <span>SMS Notification</span>
                             </a>
                         </li>
                         <li class="nav-item">
@@ -4708,6 +4740,45 @@
                 body.append('<tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>');
                 return;
             }
+            
+            // Helper function to format dates in user's local timezone (real-time)
+            function formatLocalDate(ts) {
+                if (!ts) return 'N/A';
+                try {
+                    const raw = String(ts).trim();
+                    let d;
+                    
+                    // Try ISO format first (from backend)
+                    if (/^\d{4}-\d{2}-\d{2}[T\s]/.test(raw)) {
+                        // ISO format - parse directly (handles timezone)
+                        d = new Date(raw.replace(' ', 'T'));
+                    } else {
+                        // Fallback: try parsing formatted date string or any other format
+                        d = new Date(raw.replace(' ', 'T'));
+                    }
+                    
+                    if (isNaN(d.getTime())) {
+                        // If parsing failed, return as-is or try formatted string parsing
+                        return String(ts);
+                    }
+                    
+                    // Format in user's local browser timezone (real-time)
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const month = months[d.getMonth()];
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const year = d.getFullYear();
+                    let hours = d.getHours();
+                    const minutes = String(d.getMinutes()).padStart(2, '0');
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12; // the hour '0' should be '12'
+                    const hoursStr = String(hours).padStart(2, '0');
+                    return `${month} ${day}, ${year} ${hoursStr}:${minutes} ${ampm}`;
+                } catch (e) {
+                    return String(ts);
+                }
+            }
+            
             filtered.forEach(entry => {
                 const unit = String(entry.quantity_unit || '').trim().toLowerCase();
                 const boxes = Number(entry.spoiled_boxes || 0);
@@ -4720,12 +4791,15 @@
                 const lossText = lossAmount > 0 
                     ? lossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : '0.00';
+                // Use ISO format if available, otherwise fall back to display format
+                const dateToFormat = entry.deduction_date || entry.deduction_date_display || null;
+                const formattedDate = formatLocalDate(dateToFormat);
                 body.append(`
                     <tr>
                         <td>${entry.product_name || 'N/A'}</td>
                         <td>${qtyText}</td>
                         <td class="currency">${lossText}</td>
-                        <td>${entry.deduction_date || 'N/A'}</td>
+                        <td>${formattedDate}</td>
                     </tr>
                 `);
             });

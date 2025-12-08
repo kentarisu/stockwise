@@ -148,6 +148,19 @@
             line-height: 1.3;
         }
 
+        /* Desktop: Ensure header brand and subtitle are visible, match dashboard spacing */
+        @media (min-width: 769px) {
+            .header-brand span {
+                display: inline !important;
+            }
+            .header-subtitle {
+                display: block !important;
+            }
+            .header-title-section {
+                padding-left: 3.8rem !important;
+            }
+        }
+
         .header-right {
             display: flex;
             align-items: center;
@@ -1609,7 +1622,7 @@
         /* Mobile: collapsed columns to fit on screen (no horizontal scroll) */
         @media (max-width: 768px) {
             /* Keep table column layout and override any external mobile-card CSS */
-            .content-area table.table-mobile-card { table-layout: fixed !important; width: 100% !important; display: table !important; border-collapse: collapse !important; box-sizing: border-box !important; }
+            .content-area table.table-mobile-card { table-layout: auto !important; width: 100% !important; min-width: 650px !important; display: table !important; border-collapse: collapse !important; box-sizing: border-box !important; }
             .content-area table.table-mobile-card thead { display: table-header-group !important; }
             .content-area table.table-mobile-card tbody { display: table-row-group !important; }
             .content-area table.table-mobile-card tr:not(.mobile-details) { display: table-row !important; }
@@ -1631,14 +1644,14 @@
             .content-area table.table-mobile-card th:nth-child(8),
             .content-area table.table-mobile-card td:nth-child(8)
             { display: none !important; }
-            .content-area table.table-mobile-card th:nth-child(3), .content-area table.table-mobile-card td:nth-child(3) { width: 23% !important; }
+            .content-area table.table-mobile-card th:nth-child(3), .content-area table.table-mobile-card td:nth-child(3) { min-width: 120px !important; }
             .content-area table.table-mobile-card td:nth-child(3) { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-            .content-area table.table-mobile-card th:nth-child(4), .content-area table.table-mobile-card td:nth-child(4) { width: 23% !important; }
-            .content-area table.table-mobile-card th:nth-child(5), .content-area table.table-mobile-card td:nth-child(5) { width: 23% !important; }
-            .content-area table.table-mobile-card th:nth-child(6), .content-area table.table-mobile-card td:nth-child(6) { width: 23% !important; }
-            .content-area table.table-mobile-card th:last-child, .content-area table.table-mobile-card td:last-child { width: 8% !important; text-align: center !important; padding-right: 0 !important; }
+            .content-area table.table-mobile-card th:nth-child(4), .content-area table.table-mobile-card td:nth-child(4) { min-width: 100px !important; }
+            .content-area table.table-mobile-card th:nth-child(5), .content-area table.table-mobile-card td:nth-child(5) { min-width: 90px !important; }
+            .content-area table.table-mobile-card th:nth-child(6), .content-area table.table-mobile-card td:nth-child(6) { min-width: 90px !important; }
+            .content-area table.table-mobile-card th:last-child, .content-area table.table-mobile-card td:last-child { min-width: 80px !important; text-align: center !important; padding-right: 0.5rem !important; }
             .content-area table.table-mobile-card td:nth-child(4),
-            .content-area table.table-mobile-card td:nth-child(6) { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 0 !important; }
+            .content-area table.table-mobile-card td:nth-child(6) { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
             .content-area table.table-mobile-card td:nth-child(5),
             .content-area table.table-mobile-card td:nth-child(7) { text-align: center !important; }
             .content-area table.table-mobile-card td:nth-child(6) { text-align: right !important; }
@@ -1655,7 +1668,7 @@
             .content-area table.table-mobile-card tbody tr.mobile-row:hover { background: transparent !important; }
             .table-responsive { min-width: 0 !important; }
             .content-area { padding: 0 !important; }
-            .table-responsive.table-responsive-wrapper { overflow-x: visible !important; width: 100% !important; margin-bottom: 0.25rem !important; }
+            .table-responsive.table-responsive-wrapper { overflow-x: auto !important; width: 100% !important; margin-bottom: 0.25rem !important; -webkit-overflow-scrolling: touch !important; }
             .table-card { margin: 0.25rem 0.15rem !important; }
             .table-header { padding: 0.25rem 0.4rem !important; }
             .nav-tabs .nav-link { padding: 0.28rem 0.4rem !important; font-size: 0.7rem !important; }
@@ -1931,7 +1944,7 @@
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            <span>SMS Settings</span>
+                            <span>SMS Notification</span>
                         </a>
                     </div>
                     <div class="nav-item">

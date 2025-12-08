@@ -2135,8 +2135,8 @@ def stock_decrease(request, product_id):
         return JsonResponse({'success': False, 'message': 'Amount must be greater than zero'})
 
     try:
-        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
-        addition = StockAddition.objects.defer('spoiled').get(addition_id=addition_id, product=product)
+        # Get the stock addition - don't defer 'spoiled' field as we need to update it
+        addition = StockAddition.objects.get(addition_id=addition_id, product=product)
     except StockAddition.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Stock addition not found'})
 
@@ -4624,276 +4624,98 @@ def fetch_reports(request):
             pass
         try:
             spoilage_list = []
-            # Start with base query for ActionLog
-            logs_qs = ActionLog.objects.filter(action__icontains='Stock decreased')
+            # Query StockAddition directly to get all spoiled stock data
+            # This is more reliable than parsing ActionLog entries
+            # Sum, Max, and F are already imported at the top of the file
             
-            # CRITICAL: Use the EXACT same date filtering logic as sales data
-            # Always use current_start/current_end if available (they come from date_range used for sales)
-            # This ensures 100% consistency with sales filtering
-            spoilage_start = None
-            spoilage_end = None
+            # Base query: Get all stock additions with spoiled > 0
+            spoiled_qs = StockAddition.objects.filter(
+                spoiled__gt=0
+            ).select_related('product').order_by('-date_added')
             
-            # Priority 1: Use current_start/current_end (extracted from date_range at line 3804)
-            if current_start and current_end:
-                spoilage_start = current_start
-                spoilage_end = current_end
-            # Priority 2: Use date_range directly
-            elif date_range:
-                spoilage_start, spoilage_end = date_range
-            # Priority 3: Resolve fresh (should not be needed but ensures we always have dates)
-            else:
-                resolved = _resolve_report_range(filter_type, start_date, end_date)
-                if resolved:
-                    spoilage_start, spoilage_end = resolved
-            
-            # Apply the date range filter to ActionLog using created_at field
-            if spoilage_start and spoilage_end:
-                # Use __range to match the same logic as sales filtering
-                logs_qs = logs_qs.filter(created_at__range=(spoilage_start, spoilage_end))
-                # Debug: Log what we're filtering
-                try:
-                    total_logs = ActionLog.objects.filter(action__icontains='Stock decreased').count()
-                    filtered_count = logs_qs.count()
-                    # Sample some log dates to verify
-                    sample_logs = list(logs_qs.order_by('created_at')[:5])
-                    sample_dates = [log.created_at for log in sample_logs]
-                    
-                    print(f"=== SPOILAGE DATE FILTER ===")
-                    print(f"Filter type: {filter_type}")
-                    print(f"Start date param: {start_date}, End date param: {end_date}")
-                    print(f"Date range tuple: {date_range}")
-                    print(f"Current start: {current_start}, Current end: {current_end}")
-                    print(f"Applied filter: {spoilage_start} to {spoilage_end}")
-                    print(f"Total 'Stock decreased' logs in DB: {total_logs}")
-                    print(f"Logs after date filter: {filtered_count}")
-                    if sample_dates:
-                        print(f"Sample log dates (first 5): {sample_dates}")
-                    print(f"============================")
-                except Exception as e:
-                    print(f"SPOILAGE DEBUG ERROR: {e}")
-                    import traceback
-                    traceback.print_exc()
-            else:
-                # ERROR: No date range available
-                try:
-                    print(f"SPOILAGE FILTER ERROR: No date range could be determined!")
-                    print(f"  filter_type={filter_type}, start_date={start_date}, end_date={end_date}")
-                    print(f"  date_range={date_range}, current_start={current_start}, current_end={current_end}")
-                except Exception:
-                    pass
-            
+            # Apply product filter if specified
             if fruit_filter and fruit_filter != 'all':
-                logs_qs = logs_qs.filter(details__icontains=str(fruit_filter))
-            import re as _re
-            agg = {}
+                spoiled_qs = spoiled_qs.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
+            
+            # Apply unit filter if specified
             _uf_sp = (unit_filter or '').strip().lower()
+            if _uf_sp and _uf_sp != 'all':
+                if _uf_sp == 'kg':
+                    spoiled_qs = spoiled_qs.filter(product__quantity_unit__iexact='kg')
+                elif _uf_sp == 'box':
+                    spoiled_qs = spoiled_qs.exclude(product__quantity_unit__iexact='kg')
             
-            # Debug: Check how many logs we have after date filtering
-            try:
-                # Count before processing
-                logs_count = logs_qs.count()
-                sample_logs = list(logs_qs.order_by('-created_at')[:10])
-                print(f"SPOILAGE PARSING: Processing {logs_count} logs after date filter")
-                if sample_logs:
-                    print(f"SPOILAGE PARSING: Sample log dates and details:")
-                    for sl in sample_logs:
-                        print(f"  - {sl.created_at}: {sl.details[:100] if sl.details else 'No details'}")
-                else:
-                    print(f"SPOILAGE PARSING: No logs found after date filter!")
-            except Exception as e:
-                print(f"SPOILAGE PARSING DEBUG ERROR: {e}")
+            # Group by product_id to aggregate spoiled quantities
+            # This ensures each product variant/unit is tracked separately
+            # Case, When, and DecimalField are already imported at the top of the file
+            # Case and When are from django.db.models (line 12)
+            # DecimalField is from django.db.models (imported as models.DecimalField)
+            spoiled_aggregated = spoiled_qs.values('product_id').annotate(
+                total_spoiled=Sum('spoiled'),
+                last_deduction_date=Max('date_added'),
+                product_name=F('product__name'),
+                product_variant=F('product__variant'),
+                quantity_unit=F('product__quantity_unit'),
+                product_cost=F('product__cost')
+            ).order_by('-total_spoiled')
             
-            parsed_count = 0
-            skipped_count = 0
-            for log in logs_qs.order_by('-created_at')[:2000]:
-                details = str(getattr(log, 'details', '') or '')
-                log_date = log.created_at
-                m = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)\.\s*Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
-                prod = None
-                qty = None
-                unit_tag = None
-                if m:
-                    prod = m.group(1).strip()
-                    try:
-                        qty = float(m.group(2))
-                    except Exception:
-                        qty = None
-                    unit_tag = (m.group(3) or '').lower()
-                else:
-                    m1 = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)[\.|\n]", details, flags=_re.IGNORECASE)
-                    m2 = _re.search(r"Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
-                    if m1 and m2:
-                        prod = m1.group(1).strip()
-                        try:
-                            qty = float(m2.group(1))
-                        except Exception:
-                            qty = None
-                        unit_tag = (m2.group(2) or '').lower()
-                if not prod or qty is None or not unit_tag:
-                    skipped_count += 1
-                    # Debug: Log skipped entries
-                    if skipped_count <= 5:
-                        try:
-                            print(f"SPOILAGE PARSING: Skipped log from {log_date}: prod={prod}, qty={qty}, unit={unit_tag}, details={details[:80]}")
-                        except Exception:
-                            pass
-                    continue
-                parsed_count += 1
-                unit_norm = 'kg' if 'kg' in unit_tag else 'box'
-                if _uf_sp and _uf_sp != 'all':
-                    if _uf_sp == 'kg' and unit_norm != 'kg':
-                        continue
-                    if _uf_sp == 'box' and unit_norm != 'box':
-                        continue
-                bucket = agg.get(prod)
-                if not bucket:
-                    bucket = {'product_id': None, 'product_name': prod, 'quantity_unit': '', 'spoiled_boxes': 0.0, 'spoiled_kg': 0.0, 'last_dt': log.created_at, 'product_cost': 0.0}
-                    agg[prod] = bucket
-                    try:
-                        # Try multiple matching strategies to find the product
-                        p = None
-                        
-                        # Strategy 1: Exact match
-                        p = Product.objects.filter(name__iexact=prod).first()
-                        
-                        # Strategy 2: Product name with variant in parentheses
-                        if not p and '(' in prod and ')' in prod:
-                            # Extract base name (e.g., "Avocado (Bacon)" -> "Avocado")
-                            base_name = prod.split('(')[0].strip()
-                            variant_part = prod.split('(')[1].split(')')[0].strip() if '(' in prod and ')' in prod else ''
-                            if base_name:
-                                if variant_part:
-                                    p = Product.objects.filter(name__iexact=base_name, variant__iexact=variant_part).first()
-                                else:
-                                    p = Product.objects.filter(name__iexact=base_name).first()
-                        
-                        # Strategy 3: Starts with product name
-                        if not p:
-                            p = Product.objects.filter(Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
-                        
-                        # Strategy 4: Contains product name
-                        if not p:
-                            p = Product.objects.filter(name__icontains=prod.split('(')[0].strip() if '(' in prod else prod).first()
-                        
-                        if p:
-                            bucket['product_id'] = p.product_id
-                            bucket['quantity_unit'] = (p.quantity_unit or '').strip()
-                            bucket['product_cost'] = float(p.cost or 0)
-                            # Debug: log successful match
-                            try:
-                                print(f"SPOILAGE PRODUCT MATCH: '{prod}' -> product_id={p.product_id}, cost={bucket['product_cost']}")
-                            except:
-                                pass
-                        else:
-                            # Debug: log if product not found
-                            try:
-                                print(f"SPOILAGE PRODUCT NOT FOUND: '{prod}'")
-                            except:
-                                pass
-                    except Exception as e:
-                        try:
-                            print(f"SPOILAGE PRODUCT LOOKUP ERROR: '{prod}', error={e}")
-                        except:
-                            pass
-                if unit_norm == 'kg':
-                    bucket['spoiled_kg'] = float(bucket.get('spoiled_kg') or 0) + float(qty)
-                    if not bucket['quantity_unit']:
-                        bucket['quantity_unit'] = 'kg'
-                else:
-                    bucket['spoiled_boxes'] = float(bucket.get('spoiled_boxes') or 0) + float(qty)
-                    if not bucket['quantity_unit']:
-                        bucket['quantity_unit'] = 'box'
-                try:
-                    if log.created_at and (bucket.get('last_dt') is None or log.created_at > bucket.get('last_dt')):
-                        bucket['last_dt'] = log.created_at
-                except Exception:
-                    pass
             items = []
-            for prod, b in agg.items():
-                label = b['product_name']
-                unit = (b.get('quantity_unit') or '').strip()
-                if unit:
-                    label = f"{label} ({unit})"
+            for item in spoiled_aggregated:
+                product_id = item['product_id']
+                product_name = item['product_name'] or 'Unknown'
+                variant = item['product_variant']
+                quantity_unit = (item['quantity_unit'] or '').strip()
+                cost = float(item['product_cost'] or 0)
+                total_spoiled = float(item['total_spoiled'] or 0)
+                last_deduction = item['last_deduction_date']
                 
-                # Calculate losses: cost per unit × spoiled quantity
-                product_id = b.get('product_id')
-                spoiled_boxes = float(b.get('spoiled_boxes') or 0)
-                spoiled_kg = float(b.get('spoiled_kg') or 0)
+                # Format product label with variant and unit
+                if variant:
+                    label = f"{product_name} ({variant})"
+                else:
+                    label = product_name
+                if quantity_unit:
+                    label = f"{label} ({quantity_unit})"
+                
+                # Separate spoiled quantities by unit type
+                spoiled_boxes = 0.0
+                spoiled_kg = 0.0
+                if quantity_unit.lower() == 'kg':
+                    spoiled_kg = total_spoiled
+                else:
+                    spoiled_boxes = total_spoiled
+                
+                # Calculate loss amount
                 loss_amount = 0.0
-                
-                # Get cost from bucket (stored when product was found)
-                cost = float(b.get('product_cost', 0) or 0)
-                
-                # If cost not in bucket, try to fetch from DB using product_id
-                if cost == 0 and product_id:
-                    try:
-                        product = Product.objects.get(product_id=product_id)
-                        cost = float(product.cost or 0)
-                        # Store it in bucket for future use
-                        b['product_cost'] = cost
-                    except (Product.DoesNotExist, Exception) as e:
-                        cost = 0.0
-                        # Debug: log if product not found
-                        try:
-                            print(f"SPOILAGE LOSS: Product not found for product_id={product_id}, prod_name={prod}")
-                        except:
-                            pass
-                
-                # If still no cost, try to find product by name (fallback)
-                if cost == 0:
-                    try:
-                        p = Product.objects.filter(Q(name__iexact=prod) | Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
-                        if p:
-                            cost = float(p.cost or 0)
-                            b['product_cost'] = cost
-                            if not product_id:
-                                b['product_id'] = p.product_id
-                    except Exception:
-                        pass
-                
-                # Calculate loss: cost × spoiled quantity
-                # For kg products: cost × spoiled_kg
-                # For box products: cost × spoiled_boxes
                 if cost > 0:
-                    unit_lower = (unit or '').strip().lower()
-                    if unit_lower == 'kg':
-                        # For kg products, multiply cost by spoiled kg
-                        if spoiled_kg > 0:
-                            loss_amount = cost * spoiled_kg
-                    else:
-                        # For box products, multiply cost by spoiled boxes
-                        if spoiled_boxes > 0:
-                            loss_amount = cost * spoiled_boxes
-                    
-                    # Debug: log calculation
-                    try:
-                        if loss_amount > 0:
-                            print(f"SPOILAGE LOSS CALC: {prod} | unit={unit_lower} | cost={cost} | spoiled_kg={spoiled_kg} | spoiled_boxes={spoiled_boxes} | loss={loss_amount}")
-                        elif spoiled_kg > 0 or spoiled_boxes > 0:
-                            print(f"SPOILAGE LOSS ZERO: {prod} | unit={unit_lower} | cost={cost} | spoiled_kg={spoiled_kg} | spoiled_boxes={spoiled_boxes} | product_id={product_id}")
-                    except:
-                        pass
+                    loss_amount = cost * total_spoiled
                 
                 items.append({
                     'product_id': product_id,
                     'product_name': label,
-                    'quantity_unit': unit,
+                    'quantity_unit': quantity_unit,
                     'spoiled_boxes': spoiled_boxes,
                     'spoiled_kg': spoiled_kg,
                     'loss_amount': loss_amount,
-                    'deduction_date': format_local_datetime(b.get('last_dt')) if b.get('last_dt') else 'N/A',
+                    'deduction_date': last_deduction.isoformat() if last_deduction else None,
+                    'deduction_date_display': format_local_datetime(last_deduction) if last_deduction else 'N/A',
                 })
+            
             spoilage_list = sorted(items, key=lambda x: (x.get('spoiled_boxes', 0) + x.get('spoiled_kg', 0)), reverse=True)[:50]
             
-            # Final debug output
+            # Debug output
             try:
-                print(f"SPOILAGE PARSING FINAL: Parsed {parsed_count} entries, skipped {skipped_count}, resulting in {len(spoilage_list)} products")
+                print(f"SPOILAGE QUERY: Found {len(spoilage_list)} products with spoiled stock")
                 if spoilage_list:
-                    print(f"SPOILAGE PARSING FINAL: Top items:")
+                    print(f"SPOILAGE QUERY: Top items:")
                     for item in spoilage_list[:5]:
-                        print(f"  - {item['product_name']}: {item.get('spoiled_kg', 0)}kg, {item.get('spoiled_boxes', 0)}boxes, last deduction: {item.get('deduction_date')}")
+                        print(f"  - {item['product_name']}: {item.get('spoiled_kg', 0)}kg, {item.get('spoiled_boxes', 0)}boxes, loss={item.get('loss_amount', 0)}")
             except Exception as e:
-                print(f"SPOILAGE PARSING FINAL DEBUG ERROR: {e}")
+                print(f"SPOILAGE QUERY DEBUG ERROR: {e}")
         except Exception as e:
             spoilage_list = []
             print(f"SPOILAGE ERROR: Exception occurred: {e}")
@@ -6163,175 +5985,78 @@ def export_report(request):
         elems.append(Paragraph("SPOILED STOCK - WASTE TRACKING", section_style))
         elems.append(Spacer(1, 8))
         
-        # Calculate spoiled stock data using the same logic as fetch_reports
+        # Calculate spoiled stock data using direct StockAddition query
         spoilage_list_pdf = []
         try:
-            logs_qs = ActionLog.objects.filter(action__icontains='Stock decreased')
+            # Sum, Max, and F are already imported at the top of the file
             
-            # Use the same date range filtering as sales data
-            spoilage_start = None
-            spoilage_end = None
+            # Query StockAddition directly to get all spoiled stock data
+            spoiled_qs = StockAddition.objects.filter(
+                spoiled__gt=0
+            ).select_related('product').order_by('-date_added')
             
-            if current_start and current_end:
-                spoilage_start = current_start
-                spoilage_end = current_end
-            elif date_range:
-                spoilage_start, spoilage_end = date_range
-            else:
-                resolved = _resolve_report_range(filter_type, start_date, end_date)
-                if resolved:
-                    spoilage_start, spoilage_end = resolved
-            
-            # Apply date range filter
-            if spoilage_start and spoilage_end:
-                logs_qs = logs_qs.filter(created_at__range=(spoilage_start, spoilage_end))
-            
-            # Apply fruit filter if specified
+            # Apply product filter if specified
             if fruit_filter and fruit_filter != 'all':
-                logs_qs = logs_qs.filter(details__icontains=str(fruit_filter))
+                spoiled_qs = spoiled_qs.filter(
+                    Q(product__name__istartswith=fruit_filter + ' ') |
+                    Q(product__name__istartswith=fruit_filter + '(') |
+                    Q(product__name__iexact=fruit_filter)
+                )
             
-            import re as _re
-            agg_spoilage = {}
+            # Apply unit filter if specified
             _uf_sp = (unit_filter or '').strip().lower()
+            if _uf_sp and _uf_sp != 'all':
+                if _uf_sp == 'kg':
+                    spoiled_qs = spoiled_qs.filter(product__quantity_unit__iexact='kg')
+                elif _uf_sp == 'box':
+                    spoiled_qs = spoiled_qs.exclude(product__quantity_unit__iexact='kg')
             
-            for log in logs_qs.order_by('-created_at')[:2000]:
-                details = str(getattr(log, 'details', '') or '')
-                m = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)\.\s*Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
-                prod = None
-                qty = None
-                unit_tag = None
-                if m:
-                    prod = m.group(1).strip()
-                    try:
-                        qty = float(m.group(2))
-                    except Exception:
-                        qty = None
-                    unit_tag = (m.group(3) or '').lower()
-                else:
-                    m1 = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)[\.|\n]", details, flags=_re.IGNORECASE)
-                    m2 = _re.search(r"Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
-                    if m1 and m2:
-                        prod = m1.group(1).strip()
-                        try:
-                            qty = float(m2.group(1))
-                        except Exception:
-                            qty = None
-                        unit_tag = (m2.group(2) or '').lower()
-                
-                if not prod or qty is None or not unit_tag:
-                    continue
-                
-                unit_norm = 'kg' if 'kg' in unit_tag else 'box'
-                if _uf_sp and _uf_sp != 'all':
-                    if _uf_sp == 'kg' and unit_norm != 'kg':
-                        continue
-                    if _uf_sp == 'box' and unit_norm != 'box':
-                        continue
-                
-                bucket = agg_spoilage.get(prod)
-                if not bucket:
-                    bucket = {'product_name': prod, 'quantity_unit': '', 'spoiled_boxes': 0.0, 'spoiled_kg': 0.0, 'last_dt': log.created_at, 'product_cost': 0.0}
-                    agg_spoilage[prod] = bucket
-                    try:
-                        # Try multiple matching strategies to find the product
-                        p = None
-                        
-                        # Strategy 1: Exact match
-                        p = Product.objects.filter(name__iexact=prod).first()
-                        
-                        # Strategy 2: Product name with variant in parentheses
-                        if not p and '(' in prod and ')' in prod:
-                            # Extract base name (e.g., "Avocado (Bacon)" -> "Avocado")
-                            base_name = prod.split('(')[0].strip()
-                            variant_part = prod.split('(')[1].split(')')[0].strip() if '(' in prod and ')' in prod else ''
-                            if base_name:
-                                if variant_part:
-                                    p = Product.objects.filter(name__iexact=base_name, variant__iexact=variant_part).first()
-                                else:
-                                    p = Product.objects.filter(name__iexact=base_name).first()
-                        
-                        # Strategy 3: Starts with product name
-                        if not p:
-                            p = Product.objects.filter(Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
-                        
-                        # Strategy 4: Contains product name
-                        if not p:
-                            p = Product.objects.filter(name__icontains=prod.split('(')[0].strip() if '(' in prod else prod).first()
-                        
-                        if p:
-                            bucket['quantity_unit'] = (p.quantity_unit or '').strip()
-                            bucket['product_cost'] = float(p.cost or 0)
-                    except Exception:
-                        pass
-                
-                if unit_norm == 'kg':
-                    bucket['spoiled_kg'] = float(bucket.get('spoiled_kg') or 0) + float(qty)
-                    if not bucket['quantity_unit']:
-                        bucket['quantity_unit'] = 'kg'
-                else:
-                    bucket['spoiled_boxes'] = float(bucket.get('spoiled_boxes') or 0) + float(qty)
-                    if not bucket['quantity_unit']:
-                        bucket['quantity_unit'] = 'box'
-                
-                try:
-                    if log.created_at and (bucket.get('last_dt') is None or log.created_at > bucket.get('last_dt')):
-                        bucket['last_dt'] = log.created_at
-                except Exception:
-                    pass
+            # Group by product_id to aggregate spoiled quantities
+            spoiled_aggregated = spoiled_qs.values('product_id').annotate(
+                total_spoiled=Sum('spoiled'),
+                last_deduction_date=Max('date_added'),
+                product_name=F('product__name'),
+                product_variant=F('product__variant'),
+                quantity_unit=F('product__quantity_unit'),
+                product_cost=F('product__cost')
+            ).order_by('-total_spoiled')
             
             items_spoilage = []
-            for prod, b in agg_spoilage.items():
-                label = b['product_name']
-                unit = (b.get('quantity_unit') or '').strip()
-                if unit:
-                    label = f"{label} ({unit})"
+            for item in spoiled_aggregated:
+                product_id = item['product_id']
+                product_name = item['product_name'] or 'Unknown'
+                variant = item['product_variant']
+                quantity_unit = (item['quantity_unit'] or '').strip()
+                cost = float(item['product_cost'] or 0)
+                total_spoiled = float(item['total_spoiled'] or 0)
+                last_deduction = item['last_deduction_date']
+                
+                # Format product label with variant and unit
+                if variant:
+                    label = f"{product_name} ({variant})"
+                else:
+                    label = product_name
+                if quantity_unit:
+                    label = f"{label} ({quantity_unit})"
                 
                 # Format spoiled quantity display
-                spoiled_qty = b.get('spoiled_kg', 0) if unit == 'kg' else b.get('spoiled_boxes', 0)
-                qty_display = f"{spoiled_qty:,.2f}kg" if unit == 'kg' else f"{int(spoiled_qty)} {'box' if spoiled_qty == 1 else 'boxes'}"
+                if quantity_unit.lower() == 'kg':
+                    qty_display = f"{total_spoiled:,.2f}kg"
+                else:
+                    qty_display = f"{int(total_spoiled)} {'box' if total_spoiled == 1 else 'boxes'}"
                 
-                # Calculate losses: cost per unit × spoiled quantity
-                product_id = None
+                # Calculate loss amount
                 loss_amount = 0.0
-                
-                # Get cost from bucket (stored when product was found)
-                cost = float(b.get('product_cost', 0) or 0)
-                
-                # If cost not in bucket, try to fetch from DB
-                if cost == 0:
-                    try:
-                        p = Product.objects.filter(Q(name__iexact=prod) | Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
-                        if p:
-                            product_id = p.product_id
-                            cost = float(p.cost or 0)
-                            b['product_cost'] = cost
-                    except Exception:
-                        cost = 0.0
-                
-                # Calculate loss: cost × spoiled quantity
-                # For kg products: cost × spoiled_kg
-                # For box products: cost × spoiled_boxes
                 if cost > 0:
-                    unit_lower = (unit or '').strip().lower()
-                    spoiled_kg = float(b.get('spoiled_kg', 0))
-                    spoiled_boxes = float(b.get('spoiled_boxes', 0))
-                    
-                    if unit_lower == 'kg':
-                        # For kg products, multiply cost by spoiled kg
-                        if spoiled_kg > 0:
-                            loss_amount = cost * spoiled_kg
-                    else:
-                        # For box products, multiply cost by spoiled boxes
-                        if spoiled_boxes > 0:
-                            loss_amount = cost * spoiled_boxes
+                    loss_amount = cost * total_spoiled
                 
                 items_spoilage.append({
                     'product_name': label,
                     'spoiled_quantity': qty_display,
-                    'spoiled_boxes': float(b.get('spoiled_boxes') or 0),
-                    'spoiled_kg': float(b.get('spoiled_kg') or 0),
+                    'spoiled_boxes': 0.0 if quantity_unit.lower() == 'kg' else total_spoiled,
+                    'spoiled_kg': total_spoiled if quantity_unit.lower() == 'kg' else 0.0,
                     'loss_amount': loss_amount,
-                    'deduction_date': format_local_datetime(b.get('last_dt')) if b.get('last_dt') else 'N/A',
+                    'deduction_date': format_local_datetime(last_deduction) if last_deduction else 'N/A',
                 })
             
             spoilage_list_pdf = sorted(items_spoilage, key=lambda x: (x.get('spoiled_boxes', 0) + x.get('spoiled_kg', 0)), reverse=True)[:50]
@@ -7604,6 +7329,10 @@ def fetch_stock_details(request, product_id):
         product = Product.objects.get(product_id=product_id)
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Error loading product: {str(e)}'})
     
     # Get pagination parameters
     try:
@@ -7614,17 +7343,15 @@ def fetch_stock_details(request, product_id):
         page_size = 10
     
     # Order by newest first (descending) for group summaries
-    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+    # Don't defer 'spoiled' field as we need to access it for display
     all_batches = (StockAddition.objects
                .filter(product_id=product_id)
-               .defer('spoiled')
                    .order_by('-date_added', '-addition_id'))
 
     # Order by oldest first (ascending) for FIFO expansion
-    # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
+    # Don't defer 'spoiled' field as we need to access it for display
     fifo_batches = (StockAddition.objects
                .filter(product_id=product_id)
-               .defer('spoiled')
                    .order_by('date_added', 'addition_id'))
     
     # Meta totals from all batches (not just current page)
@@ -7638,7 +7365,7 @@ def fetch_stock_details(request, product_id):
     latest_batch = all_batches.first()
     latest_date = latest_batch.date_added if latest_batch else None
     # Get earliest date (first in ascending order)
-    earliest_batch = StockAddition.objects.filter(product_id=product_id).defer('spoiled').order_by('date_added', 'addition_id').first()
+    earliest_batch = StockAddition.objects.filter(product_id=product_id).order_by('date_added', 'addition_id').first()
     earliest_date = earliest_batch.date_added if earliest_batch else None
     
     # Calculate pagination
@@ -7692,36 +7419,71 @@ def fetch_stock_details(request, product_id):
             if box_remaining <= 0:
                 continue
             group_visible_ids.append(box_id)
+        # Safely get spoiled value - handle case where field might not exist
+        try:
+            spoiled_val = getattr(b, 'spoiled', 0) or 0
+            spoiled_total = int(spoiled_val)
+        except (AttributeError, ValueError, TypeError):
+            spoiled_total = 0
+        
         groups.append({
             'date_added': b.date_added.isoformat() if hasattr(b.date_added, 'isoformat') else str(b.date_added),
             'added_total': total_boxes,
             'available_total': int(b.remaining_quantity or 0),
-            'spoiled_total': int(getattr(b, 'spoiled', 0) or 0),
+            'spoiled_total': spoiled_total,
             'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             'addition_id': b.addition_id,
             'batch_ids': group_visible_ids,
         })
-    return JsonResponse({
-        'success': True, 
-        'data': data, 
-        'groups': groups, 
-        'meta': {
-        'added_total': added_total,
-        'available_total': available_total,
-        'spoiled_total': int(spoiled_total or 0),
-            'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
-            'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
-        'supplier': product.supplier or '-',
-        },
-        'pagination': {
-            'page': page,
-            'page_size': page_size,
-            'total_pages': total_pages,
-            'total_items': total_groups,
-            'has_next': page < total_pages,
-            'has_previous': page > 1,
-        }
-    })
+    try:
+        return JsonResponse({
+            'success': True, 
+            'data': data, 
+            'groups': groups, 
+            'meta': {
+                'added_total': added_total,
+                'available_total': available_total,
+                'spoiled_total': int(spoiled_total or 0),
+                'date_added': latest_date.isoformat() if hasattr(latest_date, 'isoformat') else str(latest_date) if latest_date else '',
+                'earliest_date': earliest_date.isoformat() if hasattr(earliest_date, 'isoformat') else str(earliest_date) if earliest_date else '',
+                'supplier': product.supplier or '-',
+                'quantity_unit': product.quantity_unit or '',
+            },
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages,
+                'total_items': total_groups,
+                'has_next': page < total_pages,
+                'has_previous': page > 1,
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'success': False, 
+            'message': f'Error generating response: {str(e)}',
+            'data': [],
+            'groups': [],
+            'meta': {
+                'added_total': 0,
+                'available_total': 0,
+                'spoiled_total': 0,
+                'date_added': '',
+                'earliest_date': '',
+                'supplier': '-',
+                'quantity_unit': product.quantity_unit or '',
+            },
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_pages': 1,
+                'total_items': 0,
+                'has_next': False,
+                'has_previous': False,
+            }
+        })
 
 
 @require_app_login

@@ -38,13 +38,15 @@ class Command(BaseCommand):
         backup_file = Path(options['backup_file'])
         
         if not backup_file.exists():
-            self.stdout.write(self.style.ERROR(f'Backup file not found: {backup_file}'))
-            sys.exit(1)
+            error_msg = f'Backup file not found: {backup_file}'
+            self.stdout.write(self.style.ERROR(error_msg))
+            raise Exception(error_msg)
         
         # Accept both .json and .zip files for backward compatibility
         if backup_file.suffix not in ['.json', '.zip']:
-            self.stdout.write(self.style.ERROR('Backup file must be a .json or .zip file'))
-            sys.exit(1)
+            error_msg = 'Backup file must be a .json or .zip file'
+            self.stdout.write(self.style.ERROR(error_msg))
+            raise Exception(error_msg)
         
         # Confirmation prompt
         if not options['force']:
@@ -86,10 +88,12 @@ class Command(BaseCommand):
             ))
             
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error during restore: {str(e)}'))
+            error_msg = f'Error during restore: {str(e)}'
+            self.stdout.write(self.style.ERROR(error_msg))
             import traceback
             traceback.print_exc()
-            sys.exit(1)
+            # Re-raise the exception instead of sys.exit so it can be caught by callers
+            raise
     
     def _restore_from_json(self, backup_file, options):
         """Restore from a JSON backup file"""
@@ -99,25 +103,114 @@ class Command(BaseCommand):
                 with open(backup_file, 'r', encoding='utf-8') as f:
                     json.load(f)  # Validate JSON structure
             except json.JSONDecodeError as e:
-                self.stdout.write(self.style.ERROR(f'Invalid JSON file: {e}'))
-                sys.exit(1)
+                error_msg = f'Invalid JSON file: {e}'
+                self.stdout.write(self.style.ERROR(error_msg))
+                raise Exception(error_msg)
             
             # Preserve current users
             preserved_users = list(AppUser.objects.values('username','password','role','phone_number','email','is_active','full_name'))
             
             self.stdout.write('Restoring database from JSON...')
             
+            # Validate JSON file structure and filter problematic entries
+            try:
+                with open(backup_file, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                    if not isinstance(json_data, list) or len(json_data) == 0:
+                        self.stdout.write(self.style.WARNING('  ⚠ JSON file appears to be empty or invalid'))
+                    else:
+                        original_count = len(json_data)
+                        self.stdout.write(f'  - Found {original_count} objects in backup file')
+                        
+                        # Filter out problematic entries before loading
+                        json_data = self._filter_problematic_entries(json_data)
+                        filtered_count = len(json_data)
+                        
+                        if filtered_count < original_count:
+                            self.stdout.write(self.style.WARNING(
+                                f'  ⚠ Filtered out {original_count - filtered_count} problematic entries'
+                            ))
+                            # Write filtered data back to file
+                            with open(backup_file, 'w', encoding='utf-8') as f:
+                                json.dump(json_data, f, ensure_ascii=False, indent=2)
+            except json.JSONDecodeError as e:
+                self.stdout.write(self.style.ERROR(f'Invalid JSON file: {e}'))
+                sys.exit(1)
+            
+            # Close database connections before clearing
+            from django.db import connections
+            connections.close_all()
+            
+            # Clear existing data before loading backup
+            # This is critical - loaddata doesn't clear data, it just inserts
+            self.stdout.write('  - Clearing existing database data...')
+            try:
+                # Use flush to clear all data, but preserve migrations
+                call_command('flush', '--noinput', verbosity=0)
+                self.stdout.write(self.style.SUCCESS('  ✓ Database cleared'))
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'  ⚠ Warning clearing database: {e}'))
+                # If flush fails, try manual truncation as fallback
+                try:
+                    from django.db import connection
+                    with connection.cursor() as cursor:
+                        # Disable foreign key checks temporarily
+                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                            cursor.execute("PRAGMA foreign_keys = OFF")
+                        elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                            cursor.execute("SET session_replication_role = 'replica'")
+                        
+                        # Get all table names
+                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                            tables = [row[0] for row in cursor.fetchall()]
+                            for table in tables:
+                                cursor.execute(f"DELETE FROM {table}")
+                        elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                            cursor.execute("""
+                                SELECT tablename FROM pg_tables 
+                                WHERE schemaname = 'public' 
+                                AND tablename NOT LIKE 'django_%'
+                            """)
+                            tables = [row[0] for row in cursor.fetchall()]
+                            for table in tables:
+                                cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
+                            cursor.execute("SET session_replication_role = 'origin'")
+                        
+                        # Re-enable foreign key checks
+                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                            cursor.execute("PRAGMA foreign_keys = ON")
+                        
+                        self.stdout.write(self.style.SUCCESS('  ✓ Database cleared (manual method)'))
+                except Exception as e2:
+                    self.stdout.write(self.style.ERROR(f'  ✗ Failed to clear database: {e2}'))
+                    raise
+            
+            # Run migrations to ensure schema is up to date before loading data
+            self.stdout.write('  - Running migrations...')
+            call_command('migrate', verbosity=0)
+            self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+            
             # Load data from JSON file
             try:
-                call_command('loaddata', str(backup_file), verbosity=1)
+                self.stdout.write('  - Loading backup data...')
+                # Use verbosity=2 to see more details
+                call_command('loaddata', str(backup_file), verbosity=2)
                 self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
                 
-                # Run migrations to ensure schema is up to date
-                self.stdout.write('  - Running migrations...')
-                call_command('migrate', verbosity=0)
-                self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+                # Verify data was loaded by checking a few key models
+                try:
+                    from core.models import Product, Sale, StockAddition
+                    product_count = Product.objects.count()
+                    sale_count = Sale.objects.count()
+                    stock_count = StockAddition.objects.count()
+                    self.stdout.write(f'  - Verification: {product_count} products, {sale_count} sales, {stock_count} stock additions restored')
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'  ⚠ Could not verify restored data: {e}'))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'  ✗ Failed to load JSON data: {e}'))
+                import traceback
+                traceback.print_exc()
                 raise
             
             # Ensure accounts are preserved
@@ -156,24 +249,132 @@ class Command(BaseCommand):
             
             # 1. Restore database
             if not options['no_database']:
-                # Check for JSON file in root of ZIP (new format)
-                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('database/') and not f.startswith('media/')]
+                # Check for JSON file in database/ folder (new format from backup_system)
                 db_files = [f for f in file_list if f.startswith('database/') and not f.endswith('/')]
+                # Also check for JSON file in root of ZIP (legacy format)
+                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('database/') and not f.startswith('media/')]
                 
-                if json_files:
-                    # New format: JSON file in root of ZIP
+                # Prioritize database/stockwise_dump.json (new format)
+                json_file = None
+                if db_files:
+                    json_in_db = [f for f in db_files if f.endswith('.json')]
+                    if json_in_db:
+                        json_file = json_in_db[0]
+                        self.stdout.write(f'Found JSON backup file in ZIP: {json_file}')
+                elif json_files:
                     json_file = json_files[0]
+                    self.stdout.write(f'Found JSON backup file in ZIP root: {json_file}')
+                
+                if json_file:
+                    # JSON file found in ZIP (either in database/ folder or root)
                     self.stdout.write('Restoring database from JSON file in ZIP...')
+                    
+                    # Close database connections before clearing
+                    from django.db import connections
+                    connections.close_all()
+                    
+                    # Clear existing data before loading backup
+                    self.stdout.write('  - Clearing existing database data...')
+                    try:
+                        call_command('flush', '--noinput', verbosity=0)
+                        self.stdout.write(self.style.SUCCESS('  ✓ Database cleared'))
+                    except Exception as e:
+                        self.stdout.write(self.style.WARNING(f'  ⚠ Warning clearing database: {e}'))
+                        # If flush fails, try manual truncation as fallback
+                        try:
+                            from django.db import connection
+                            with connection.cursor() as cursor:
+                                # Disable foreign key checks temporarily
+                                if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                    cursor.execute("PRAGMA foreign_keys = OFF")
+                                elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                                    cursor.execute("SET session_replication_role = 'replica'")
+                                
+                                # Get all table names
+                                if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                                    tables = [row[0] for row in cursor.fetchall()]
+                                    for table in tables:
+                                        cursor.execute(f"DELETE FROM {table}")
+                                elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                                    cursor.execute("""
+                                        SELECT tablename FROM pg_tables 
+                                        WHERE schemaname = 'public' 
+                                        AND tablename NOT LIKE 'django_%'
+                                    """)
+                                    tables = [row[0] for row in cursor.fetchall()]
+                                    for table in tables:
+                                        cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
+                                    cursor.execute("SET session_replication_role = 'origin'")
+                                
+                                # Re-enable foreign key checks
+                                if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                    cursor.execute("PRAGMA foreign_keys = ON")
+                                
+                                self.stdout.write(self.style.SUCCESS('  ✓ Database cleared (manual method)'))
+                        except Exception as e2:
+                            self.stdout.write(self.style.ERROR(f'  ✗ Failed to clear database: {e2}'))
+                            raise
+                    
+                    # Run migrations before loading data
+                    self.stdout.write('  - Running migrations...')
+                    call_command('migrate', verbosity=0)
+                    self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+                    
+                    # Extract JSON file from ZIP
                     import tempfile
                     with tempfile.NamedTemporaryFile(mode='w+b', suffix='.json', delete=False) as temp_json:
                         with backup_zip.open(json_file) as source:
                             temp_json.write(source.read())
                         json_path = temp_json.name
+                    
+                    # Validate and filter JSON before loading
                     try:
-                        call_command('loaddata', json_path, verbosity=1)
+                        with open(json_path, 'r', encoding='utf-8') as f:
+                            json_data = json.load(f)
+                            if not isinstance(json_data, list) or len(json_data) == 0:
+                                self.stdout.write(self.style.WARNING('  ⚠ JSON file appears to be empty or invalid'))
+                            else:
+                                original_count = len(json_data)
+                                self.stdout.write(f'  - Found {original_count} objects in backup file')
+                                
+                                # Filter out problematic entries before loading
+                                json_data = self._filter_problematic_entries(json_data)
+                                filtered_count = len(json_data)
+                                
+                                if filtered_count < original_count:
+                                    self.stdout.write(self.style.WARNING(
+                                        f'  ⚠ Filtered out {original_count - filtered_count} problematic entries'
+                                    ))
+                                    # Write filtered data back to file
+                                    with open(json_path, 'w', encoding='utf-8') as f:
+                                        json.dump(json_data, f, ensure_ascii=False, indent=2)
+                    except Exception as e:
+                        self.stdout.write(self.style.ERROR(f'  ✗ Invalid JSON file: {e}'))
+                        if os.path.exists(json_path):
+                            os.unlink(json_path)
+                        raise
+                    
+                    try:
+                        self.stdout.write('  - Loading backup data...')
+                        # Use verbosity=2 to see more details
+                        call_command('loaddata', json_path, verbosity=2)
                         self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
-                        call_command('migrate', verbosity=0)
-                        self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+                        
+                        # Verify data was loaded by checking a few key models
+                        try:
+                            from core.models import Product, Sale, StockAddition
+                            product_count = Product.objects.count()
+                            sale_count = Sale.objects.count()
+                            stock_count = StockAddition.objects.count()
+                            self.stdout.write(f'  - Verification: {product_count} products, {sale_count} sales, {stock_count} stock additions restored')
+                        except Exception as e:
+                            self.stdout.write(self.style.WARNING(f'  ⚠ Could not verify restored data: {e}'))
+                    except Exception as e:
+                        self.stdout.write(self.style.ERROR(f'  ✗ Failed to load JSON data: {e}'))
+                        import traceback
+                        traceback.print_exc()
+                        raise
                     finally:
                         if os.path.exists(json_path):
                             os.unlink(json_path)
@@ -295,17 +496,78 @@ class Command(BaseCommand):
                                         os.unlink(dump_path)
                             elif db_file_lower.endswith('.json'):
                                 # Django dumpdata JSON fallback
+                                # Clear existing data before loading backup
+                                self.stdout.write('  - Clearing existing database data...')
+                                try:
+                                    call_command('flush', '--noinput', verbosity=0)
+                                    self.stdout.write(self.style.SUCCESS('  ✓ Database cleared'))
+                                except Exception as e:
+                                    self.stdout.write(self.style.WARNING(f'  ⚠ Warning clearing database: {e}'))
+                                    # If flush fails, try manual truncation as fallback
+                                    try:
+                                        from django.db import connection
+                                        with connection.cursor() as cursor:
+                                            # Disable foreign key checks temporarily
+                                            if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                                cursor.execute("PRAGMA foreign_keys = OFF")
+                                            elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                                                cursor.execute("SET session_replication_role = 'replica'")
+                                            
+                                            # Get all table names
+                                            if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                                                tables = [row[0] for row in cursor.fetchall()]
+                                                for table in tables:
+                                                    cursor.execute(f"DELETE FROM {table}")
+                                            elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                                                cursor.execute("""
+                                                    SELECT tablename FROM pg_tables 
+                                                    WHERE schemaname = 'public' 
+                                                    AND tablename NOT LIKE 'django_%'
+                                                """)
+                                                tables = [row[0] for row in cursor.fetchall()]
+                                                for table in tables:
+                                                    cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
+                                                cursor.execute("SET session_replication_role = 'origin'")
+                                            
+                                            # Re-enable foreign key checks
+                                            if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                                                cursor.execute("PRAGMA foreign_keys = ON")
+                                            
+                                            self.stdout.write(self.style.SUCCESS('  ✓ Database cleared (manual method)'))
+                                    except Exception as e2:
+                                        self.stdout.write(self.style.ERROR(f'  ✗ Failed to clear database: {e2}'))
+                                        raise
+                                
+                                # Run migrations before loading data
+                                self.stdout.write('  - Running migrations...')
+                                call_command('migrate', verbosity=0)
+                                self.stdout.write(self.style.SUCCESS('  ✓ Migrations completed'))
+                                
                                 import tempfile
                                 with tempfile.NamedTemporaryFile(mode='w+b', suffix='.json', delete=False) as json_file:
                                     with backup_zip.open(db_file) as source:
                                         json_file.write(source.read())
                                     json_path = json_file.name
+                                
+                                # Filter problematic entries before loading
+                                try:
+                                    with open(json_path, 'r', encoding='utf-8') as f:
+                                        json_data = json.load(f)
+                                        if isinstance(json_data, list):
+                                            original_count = len(json_data)
+                                            json_data = self._filter_problematic_entries(json_data)
+                                            if len(json_data) < original_count:
+                                                # Write filtered data back
+                                                with open(json_path, 'w', encoding='utf-8') as f:
+                                                    json.dump(json_data, f, ensure_ascii=False, indent=2)
+                                except Exception as e:
+                                    self.stdout.write(self.style.WARNING(f'  ⚠ Could not filter JSON: {e}'))
+                                
                                 try:
                                     self.stdout.write('  - Loading JSON fixture via loaddata...')
                                     call_command('loaddata', json_path, verbosity=0)
                                     self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
-                                    # Run migrations to ensure schema up to date
-                                    call_command('migrate', verbosity=0)
                                 finally:
                                     if os.path.exists(json_path):
                                         os.unlink(json_path)
@@ -393,3 +655,46 @@ class Command(BaseCommand):
                         with open(env_path, 'wb') as target:
                             target.write(source.read())
                     self.stdout.write(self.style.SUCCESS('  ✓ .env file restored'))
+    
+    def _filter_problematic_entries(self, json_data):
+        """
+        Filter out entries that reference missing ContentTypes or apps.
+        This prevents errors when restoring backups from systems with different installed apps.
+        """
+        from django.apps import apps
+        
+        # Get list of installed apps
+        installed_apps = [app.label for app in apps.get_app_configs()]
+        
+        filtered_data = []
+        skipped_count = 0
+        
+        for entry in json_data:
+            model = entry.get('model', '')
+            
+            # Skip ContentType entries for apps that aren't installed
+            if model == 'contenttypes.contenttype':
+                app_label = entry.get('fields', {}).get('app_label', '')
+                if app_label not in installed_apps:
+                    skipped_count += 1
+                    continue
+            
+            # Skip admin.logentry entries that reference missing ContentTypes
+            if model == 'admin.logentry':
+                content_type = entry.get('fields', {}).get('content_type', [])
+                if isinstance(content_type, list) and len(content_type) >= 2:
+                    app_label = content_type[0]
+                    # Skip if the app isn't installed (like 'sites')
+                    if app_label not in installed_apps:
+                        skipped_count += 1
+                        continue
+            
+            # Keep all other entries
+            filtered_data.append(entry)
+        
+        if skipped_count > 0:
+            self.stdout.write(self.style.WARNING(
+                f'  ⚠ Skipped {skipped_count} entries referencing missing apps or ContentTypes'
+            ))
+        
+        return filtered_data

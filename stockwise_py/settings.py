@@ -273,7 +273,7 @@ IPROG_API_TOKEN = os.getenv('IPROG_API_TOKEN', '')
 IPROG_SENDER_ID = os.getenv('IPROG_SENDER_ID', 'STOCKWISE')  # Custom sender name (max 11 characters)
 # Route selector for iProg (0 or 1). We'll switch to 1 for delivery testing.
 IPROG_SMS_PROVIDER = int(os.getenv('IPROG_SMS_PROVIDER', '1'))
-IPROG_SENDER_NAME = os.getenv('IPROG_SENDER_NAME', 'Ka Prets')
+IPROG_SENDER_NAME = os.getenv('IPROG_SENDER_NAME', 'kaprets')
 
 CRONJOBS = [
     ('*/5 * * * *', 'django.core.management.call_command', ['send_notifications', '--type=daily_sales']),
@@ -416,6 +416,45 @@ DEFAULT_FROM_EMAIL = (
 
 TWO_FACTOR_CODE_EXPIRY_MINUTES = int(os.getenv('TWO_FACTOR_CODE_EXPIRY_MINUTES', '2'))
 TWO_FACTOR_MAX_ATTEMPTS = int(os.getenv('TWO_FACTOR_MAX_ATTEMPTS', '5'))
+
+# Logging configuration for SMS debugging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'sms_debug.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'core.sms_service': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'core.management.commands.send_notifications': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+}
 
 # SSL Context for email (production-ready)
 # In production, use proper certificate verification (default)

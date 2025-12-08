@@ -3090,6 +3090,7 @@ def fetch_sales(request):
         status = request.GET.get('status', 'completed')
         user_filter = request.GET.get('user', 'all')
         fruit_filter = request.GET.get('product', request.GET.get('fruit', 'all'))
+        unit_filter = request.GET.get('unit', 'all')
 
         # Base query
         if status and status.lower() != 'all':
@@ -3134,7 +3135,7 @@ def fetch_sales(request):
                 Q(product__name__istartswith=fruit_filter + '(') |
                 Q(product__name__iexact=fruit_filter)
             )
-
+        
         # Apply filters (same logic as sales_view)
         ft = (filter_type or 'Daily').strip().lower()
         if ft in ('daily','today'):
@@ -3208,6 +3209,38 @@ def fetch_sales(request):
                         if p:
                             q = q | Q(product__variant__icontains=p) | Q(product__quantity_unit__icontains=p)
                     sales_query = sales_query.filter(q).distinct()
+
+        # Apply unit filter if specified
+        # For transactions with mixed units, we want to show the full transaction if ANY item matches
+        # So we first identify transaction numbers that have matching items, then fetch all items from those transactions
+        if unit_filter and unit_filter != 'all':
+            # Create a copy of the query to find matching transactions (after all other filters)
+            matching_query = sales_query
+            if unit_filter.lower() == 'kg':
+                matching_query = matching_query.filter(Q(product__quantity_unit__iexact='kg'))
+            elif unit_filter.lower() == 'box':
+                matching_query = matching_query.exclude(Q(product__quantity_unit__iexact='kg'))
+            
+            # Get transaction numbers that have at least one item matching the unit filter
+            matching_transactions = list(matching_query.values_list('transaction_number', flat=True).distinct())
+            # Remove None and empty strings
+            matching_transactions = [t for t in matching_transactions if t]
+            
+            # Get sale_ids for transactions without transaction_number that match
+            matching_sale_ids = list(matching_query.filter(
+                Q(transaction_number__isnull=True) | Q(transaction_number='')
+            ).values_list('sale_id', flat=True).distinct())
+            
+            # Filter to only include transactions that have matching items
+            # Show ALL items from matching transactions (even if some items don't match the unit filter)
+            if matching_transactions or matching_sale_ids:
+                sales_query = sales_query.filter(
+                    Q(transaction_number__in=matching_transactions) |
+                    Q(sale_id__in=matching_sale_ids)
+                )
+            else:
+                # No matching transactions, return empty queryset
+                sales_query = sales_query.none()
 
         # Get sales rows and group by transaction_number
         rows = sales_query.select_related('user','product').order_by('-recorded_at','transaction_number','sale_id')
@@ -3748,6 +3781,7 @@ def fetch_reports(request):
     end_date=request.GET.get('end_date','')
     user_filter=request.GET.get('user', 'all')
     fruit_filter=request.GET.get('product', request.GET.get('fruit', 'all'))
+    unit_filter=request.GET.get('unit', 'all')
 
     # Debug logging - KEEP THESE FOR DEBUGGING
     print(f"=== FETCH_REPORTS DEBUG ===")
@@ -3813,6 +3847,35 @@ def fetch_reports(request):
                     Q(product__name__istartswith=fruit_filter + '(') |
                     Q(product__name__iexact=fruit_filter)
                 )
+
+            # Apply unit filter if specified
+            # For transactions with mixed units, show full transaction if ANY item matches
+            _uf = (unit_filter or '').strip().lower()
+            if _uf and _uf != 'all':
+                # Create a copy to find matching transactions
+                matching_query = qs
+                if _uf == 'kg':
+                    matching_query = matching_query.filter(Q(product__quantity_unit__iexact='kg'))
+                elif _uf == 'box':
+                    matching_query = matching_query.exclude(Q(product__quantity_unit__iexact='kg'))
+                
+                # Get transaction numbers that have at least one item matching
+                matching_transactions = list(matching_query.values_list('transaction_number', flat=True).distinct())
+                matching_transactions = [t for t in matching_transactions if t]
+                
+                # Get sale_ids for transactions without transaction_number
+                matching_sale_ids = list(matching_query.filter(
+                    Q(transaction_number__isnull=True) | Q(transaction_number='')
+                ).values_list('sale_id', flat=True).distinct())
+                
+                # Filter to show all items from matching transactions
+                if matching_transactions or matching_sale_ids:
+                    qs = qs.filter(
+                        Q(transaction_number__in=matching_transactions) |
+                        Q(sale_id__in=matching_sale_ids)
+                    )
+                else:
+                    qs = qs.none()
 
             if search:
                 if search.isdigit():
@@ -4378,9 +4441,9 @@ def fetch_reports(request):
                     'boxes_count': total_boxes,
                     'kg_count': total_kg,
                     'quantity_display': _format_quantity_display(total_boxes, total_kg),
-                    'subtotal': float(row.total or 0),
-                    'vat_amount': float((row.total or 0) * Decimal('0.12')),
-                    'total_amount': float((row.total or 0) * Decimal('1.12')),
+                    'subtotal': float((Decimal(str(row.total or 0)) / Decimal('1.12'))),
+                    'vat_amount': float((Decimal(str(row.total or 0)) - (Decimal(str(row.total or 0)) / Decimal('1.12')))),
+                    'total_amount': float(row.total or 0),
                     'status': row.status,
                     'sale_ids': [row.sale_id],
                     'void_reason': getattr(row, 'void_reason', None) or 'N/A',
@@ -4393,9 +4456,9 @@ def fetch_reports(request):
                     vg['boxes_count'] = vg.get('boxes_count', 0.0) + qty_value
                 # Update formatted display
                 vg['quantity_display'] = _format_quantity_display(vg.get('boxes_count', 0.0), vg.get('kg_count', 0.0))
-                vg['subtotal'] += float(row.total or 0)
-                vg['vat_amount'] += float((row.total or 0) * Decimal('0.12'))
-                vg['total_amount'] += float((row.total or 0) * Decimal('1.12'))
+                vg['subtotal'] += float((Decimal(str(row.total or 0)) / Decimal('1.12')))
+                vg['vat_amount'] += float((Decimal(str(row.total or 0)) - (Decimal(str(row.total or 0)) / Decimal('1.12'))))
+                vg['total_amount'] += float(row.total or 0)
                 if product_display and product_display not in vg['products']:
                     vg['products'].append(product_display)
                 if row.sale_id not in vg.get('sale_ids', []):
@@ -4559,6 +4622,283 @@ def fetch_reports(request):
             print(f"REPORTS COUNTS => sales_summary_rows:{len(sales_summary_data)} top_products:{len(top_fruits)} low_stock:{len(low_stock)} tx:{len(tx_data)} voided:{len(voided_data)} accepted_pricing:{len(accepted_pricing)}")
         except Exception:
             pass
+        try:
+            spoilage_list = []
+            # Start with base query for ActionLog
+            logs_qs = ActionLog.objects.filter(action__icontains='Stock decreased')
+            
+            # CRITICAL: Use the EXACT same date filtering logic as sales data
+            # Always use current_start/current_end if available (they come from date_range used for sales)
+            # This ensures 100% consistency with sales filtering
+            spoilage_start = None
+            spoilage_end = None
+            
+            # Priority 1: Use current_start/current_end (extracted from date_range at line 3804)
+            if current_start and current_end:
+                spoilage_start = current_start
+                spoilage_end = current_end
+            # Priority 2: Use date_range directly
+            elif date_range:
+                spoilage_start, spoilage_end = date_range
+            # Priority 3: Resolve fresh (should not be needed but ensures we always have dates)
+            else:
+                resolved = _resolve_report_range(filter_type, start_date, end_date)
+                if resolved:
+                    spoilage_start, spoilage_end = resolved
+            
+            # Apply the date range filter to ActionLog using created_at field
+            if spoilage_start and spoilage_end:
+                # Use __range to match the same logic as sales filtering
+                logs_qs = logs_qs.filter(created_at__range=(spoilage_start, spoilage_end))
+                # Debug: Log what we're filtering
+                try:
+                    total_logs = ActionLog.objects.filter(action__icontains='Stock decreased').count()
+                    filtered_count = logs_qs.count()
+                    # Sample some log dates to verify
+                    sample_logs = list(logs_qs.order_by('created_at')[:5])
+                    sample_dates = [log.created_at for log in sample_logs]
+                    
+                    print(f"=== SPOILAGE DATE FILTER ===")
+                    print(f"Filter type: {filter_type}")
+                    print(f"Start date param: {start_date}, End date param: {end_date}")
+                    print(f"Date range tuple: {date_range}")
+                    print(f"Current start: {current_start}, Current end: {current_end}")
+                    print(f"Applied filter: {spoilage_start} to {spoilage_end}")
+                    print(f"Total 'Stock decreased' logs in DB: {total_logs}")
+                    print(f"Logs after date filter: {filtered_count}")
+                    if sample_dates:
+                        print(f"Sample log dates (first 5): {sample_dates}")
+                    print(f"============================")
+                except Exception as e:
+                    print(f"SPOILAGE DEBUG ERROR: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                # ERROR: No date range available
+                try:
+                    print(f"SPOILAGE FILTER ERROR: No date range could be determined!")
+                    print(f"  filter_type={filter_type}, start_date={start_date}, end_date={end_date}")
+                    print(f"  date_range={date_range}, current_start={current_start}, current_end={current_end}")
+                except Exception:
+                    pass
+            
+            if fruit_filter and fruit_filter != 'all':
+                logs_qs = logs_qs.filter(details__icontains=str(fruit_filter))
+            import re as _re
+            agg = {}
+            _uf_sp = (unit_filter or '').strip().lower()
+            
+            # Debug: Check how many logs we have after date filtering
+            try:
+                # Count before processing
+                logs_count = logs_qs.count()
+                sample_logs = list(logs_qs.order_by('-created_at')[:10])
+                print(f"SPOILAGE PARSING: Processing {logs_count} logs after date filter")
+                if sample_logs:
+                    print(f"SPOILAGE PARSING: Sample log dates and details:")
+                    for sl in sample_logs:
+                        print(f"  - {sl.created_at}: {sl.details[:100] if sl.details else 'No details'}")
+                else:
+                    print(f"SPOILAGE PARSING: No logs found after date filter!")
+            except Exception as e:
+                print(f"SPOILAGE PARSING DEBUG ERROR: {e}")
+            
+            parsed_count = 0
+            skipped_count = 0
+            for log in logs_qs.order_by('-created_at')[:2000]:
+                details = str(getattr(log, 'details', '') or '')
+                log_date = log.created_at
+                m = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)\.\s*Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
+                prod = None
+                qty = None
+                unit_tag = None
+                if m:
+                    prod = m.group(1).strip()
+                    try:
+                        qty = float(m.group(2))
+                    except Exception:
+                        qty = None
+                    unit_tag = (m.group(3) or '').lower()
+                else:
+                    m1 = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)[\.|\n]", details, flags=_re.IGNORECASE)
+                    m2 = _re.search(r"Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
+                    if m1 and m2:
+                        prod = m1.group(1).strip()
+                        try:
+                            qty = float(m2.group(1))
+                        except Exception:
+                            qty = None
+                        unit_tag = (m2.group(2) or '').lower()
+                if not prod or qty is None or not unit_tag:
+                    skipped_count += 1
+                    # Debug: Log skipped entries
+                    if skipped_count <= 5:
+                        try:
+                            print(f"SPOILAGE PARSING: Skipped log from {log_date}: prod={prod}, qty={qty}, unit={unit_tag}, details={details[:80]}")
+                        except Exception:
+                            pass
+                    continue
+                parsed_count += 1
+                unit_norm = 'kg' if 'kg' in unit_tag else 'box'
+                if _uf_sp and _uf_sp != 'all':
+                    if _uf_sp == 'kg' and unit_norm != 'kg':
+                        continue
+                    if _uf_sp == 'box' and unit_norm != 'box':
+                        continue
+                bucket = agg.get(prod)
+                if not bucket:
+                    bucket = {'product_id': None, 'product_name': prod, 'quantity_unit': '', 'spoiled_boxes': 0.0, 'spoiled_kg': 0.0, 'last_dt': log.created_at, 'product_cost': 0.0}
+                    agg[prod] = bucket
+                    try:
+                        # Try multiple matching strategies to find the product
+                        p = None
+                        
+                        # Strategy 1: Exact match
+                        p = Product.objects.filter(name__iexact=prod).first()
+                        
+                        # Strategy 2: Product name with variant in parentheses
+                        if not p and '(' in prod and ')' in prod:
+                            # Extract base name (e.g., "Avocado (Bacon)" -> "Avocado")
+                            base_name = prod.split('(')[0].strip()
+                            variant_part = prod.split('(')[1].split(')')[0].strip() if '(' in prod and ')' in prod else ''
+                            if base_name:
+                                if variant_part:
+                                    p = Product.objects.filter(name__iexact=base_name, variant__iexact=variant_part).first()
+                                else:
+                                    p = Product.objects.filter(name__iexact=base_name).first()
+                        
+                        # Strategy 3: Starts with product name
+                        if not p:
+                            p = Product.objects.filter(Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
+                        
+                        # Strategy 4: Contains product name
+                        if not p:
+                            p = Product.objects.filter(name__icontains=prod.split('(')[0].strip() if '(' in prod else prod).first()
+                        
+                        if p:
+                            bucket['product_id'] = p.product_id
+                            bucket['quantity_unit'] = (p.quantity_unit or '').strip()
+                            bucket['product_cost'] = float(p.cost or 0)
+                            # Debug: log successful match
+                            try:
+                                print(f"SPOILAGE PRODUCT MATCH: '{prod}' -> product_id={p.product_id}, cost={bucket['product_cost']}")
+                            except:
+                                pass
+                        else:
+                            # Debug: log if product not found
+                            try:
+                                print(f"SPOILAGE PRODUCT NOT FOUND: '{prod}'")
+                            except:
+                                pass
+                    except Exception as e:
+                        try:
+                            print(f"SPOILAGE PRODUCT LOOKUP ERROR: '{prod}', error={e}")
+                        except:
+                            pass
+                if unit_norm == 'kg':
+                    bucket['spoiled_kg'] = float(bucket.get('spoiled_kg') or 0) + float(qty)
+                    if not bucket['quantity_unit']:
+                        bucket['quantity_unit'] = 'kg'
+                else:
+                    bucket['spoiled_boxes'] = float(bucket.get('spoiled_boxes') or 0) + float(qty)
+                    if not bucket['quantity_unit']:
+                        bucket['quantity_unit'] = 'box'
+                try:
+                    if log.created_at and (bucket.get('last_dt') is None or log.created_at > bucket.get('last_dt')):
+                        bucket['last_dt'] = log.created_at
+                except Exception:
+                    pass
+            items = []
+            for prod, b in agg.items():
+                label = b['product_name']
+                unit = (b.get('quantity_unit') or '').strip()
+                if unit:
+                    label = f"{label} ({unit})"
+                
+                # Calculate losses: cost per unit × spoiled quantity
+                product_id = b.get('product_id')
+                spoiled_boxes = float(b.get('spoiled_boxes') or 0)
+                spoiled_kg = float(b.get('spoiled_kg') or 0)
+                loss_amount = 0.0
+                
+                # Get cost from bucket (stored when product was found)
+                cost = float(b.get('product_cost', 0) or 0)
+                
+                # If cost not in bucket, try to fetch from DB using product_id
+                if cost == 0 and product_id:
+                    try:
+                        product = Product.objects.get(product_id=product_id)
+                        cost = float(product.cost or 0)
+                        # Store it in bucket for future use
+                        b['product_cost'] = cost
+                    except (Product.DoesNotExist, Exception) as e:
+                        cost = 0.0
+                        # Debug: log if product not found
+                        try:
+                            print(f"SPOILAGE LOSS: Product not found for product_id={product_id}, prod_name={prod}")
+                        except:
+                            pass
+                
+                # If still no cost, try to find product by name (fallback)
+                if cost == 0:
+                    try:
+                        p = Product.objects.filter(Q(name__iexact=prod) | Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
+                        if p:
+                            cost = float(p.cost or 0)
+                            b['product_cost'] = cost
+                            if not product_id:
+                                b['product_id'] = p.product_id
+                    except Exception:
+                        pass
+                
+                # Calculate loss: cost × spoiled quantity
+                # For kg products: cost × spoiled_kg
+                # For box products: cost × spoiled_boxes
+                if cost > 0:
+                    unit_lower = (unit or '').strip().lower()
+                    if unit_lower == 'kg':
+                        # For kg products, multiply cost by spoiled kg
+                        if spoiled_kg > 0:
+                            loss_amount = cost * spoiled_kg
+                    else:
+                        # For box products, multiply cost by spoiled boxes
+                        if spoiled_boxes > 0:
+                            loss_amount = cost * spoiled_boxes
+                    
+                    # Debug: log calculation
+                    try:
+                        if loss_amount > 0:
+                            print(f"SPOILAGE LOSS CALC: {prod} | unit={unit_lower} | cost={cost} | spoiled_kg={spoiled_kg} | spoiled_boxes={spoiled_boxes} | loss={loss_amount}")
+                        elif spoiled_kg > 0 or spoiled_boxes > 0:
+                            print(f"SPOILAGE LOSS ZERO: {prod} | unit={unit_lower} | cost={cost} | spoiled_kg={spoiled_kg} | spoiled_boxes={spoiled_boxes} | product_id={product_id}")
+                    except:
+                        pass
+                
+                items.append({
+                    'product_id': product_id,
+                    'product_name': label,
+                    'quantity_unit': unit,
+                    'spoiled_boxes': spoiled_boxes,
+                    'spoiled_kg': spoiled_kg,
+                    'loss_amount': loss_amount,
+                    'deduction_date': format_local_datetime(b.get('last_dt')) if b.get('last_dt') else 'N/A',
+                })
+            spoilage_list = sorted(items, key=lambda x: (x.get('spoiled_boxes', 0) + x.get('spoiled_kg', 0)), reverse=True)[:50]
+            
+            # Final debug output
+            try:
+                print(f"SPOILAGE PARSING FINAL: Parsed {parsed_count} entries, skipped {skipped_count}, resulting in {len(spoilage_list)} products")
+                if spoilage_list:
+                    print(f"SPOILAGE PARSING FINAL: Top items:")
+                    for item in spoilage_list[:5]:
+                        print(f"  - {item['product_name']}: {item.get('spoiled_kg', 0)}kg, {item.get('spoiled_boxes', 0)}boxes, last deduction: {item.get('deduction_date')}")
+            except Exception as e:
+                print(f"SPOILAGE PARSING FINAL DEBUG ERROR: {e}")
+        except Exception as e:
+            spoilage_list = []
+            print(f"SPOILAGE ERROR: Exception occurred: {e}")
+            import traceback
+            traceback.print_exc()
         return JsonResponse({
             'success': True,
             'data': {
@@ -4574,6 +4914,7 @@ def fetch_reports(request):
                 'product_performance': summary_reports_data, 
                 'inventory_reports': summary_reports_data, 
                 'accepted_pricing': accepted_pricing,
+                'spoilage': spoilage_list,
             }
         })
     except Exception as e:
@@ -4594,6 +4935,7 @@ def export_report(request):
         search = getp('search', '')
         user_filter = getp('user', 'all')
         fruit_filter = getp('product', getp('fruit', 'all'))
+        unit_filter = getp('unit', 'all')
         accepted_prices_json = getp('accepted_prices', '{}')
         
         try:
@@ -4628,6 +4970,29 @@ def export_report(request):
                 Q(product__name__istartswith=fruit_filter + '(') |
                 Q(product__name__iexact=fruit_filter)
             )
+        
+        # Apply unit filter if specified (for the initial sales_q used in grouping)
+        _uf = (unit_filter or '').strip().lower()
+        if _uf and _uf != 'all':
+            matching_query = sales_q
+            if _uf == 'kg':
+                matching_query = matching_query.filter(Q(product__quantity_unit__iexact='kg'))
+            elif _uf == 'box':
+                matching_query = matching_query.exclude(Q(product__quantity_unit__iexact='kg'))
+            
+            matching_transactions = list(matching_query.values_list('transaction_number', flat=True).distinct())
+            matching_transactions = [t for t in matching_transactions if t]
+            matching_sale_ids = list(matching_query.filter(
+                Q(transaction_number__isnull=True) | Q(transaction_number='')
+            ).values_list('sale_id', flat=True).distinct())
+            
+            if matching_transactions or matching_sale_ids:
+                sales_q = sales_q.filter(
+                    Q(transaction_number__in=matching_transactions) |
+                    Q(sale_id__in=matching_sale_ids)
+                )
+            else:
+                sales_q = sales_q.none()
         
         if search:
             if search.isdigit():
@@ -4711,6 +5076,29 @@ def export_report(request):
                     Q(product__name__istartswith=fruit_filter + '(') |
                     Q(product__name__iexact=fruit_filter)
                 )
+            
+            # Apply unit filter to previous period as well
+            _uf = (unit_filter or '').strip().lower()
+            if _uf and _uf != 'all':
+                matching_query = previous_queryset
+                if _uf == 'kg':
+                    matching_query = matching_query.filter(Q(product__quantity_unit__iexact='kg'))
+                elif _uf == 'box':
+                    matching_query = matching_query.exclude(Q(product__quantity_unit__iexact='kg'))
+                
+                matching_transactions = list(matching_query.values_list('transaction_number', flat=True).distinct())
+                matching_transactions = [t for t in matching_transactions if t]
+                matching_sale_ids = list(matching_query.filter(
+                    Q(transaction_number__isnull=True) | Q(transaction_number='')
+                ).values_list('sale_id', flat=True).distinct())
+                
+                if matching_transactions or matching_sale_ids:
+                    previous_queryset = previous_queryset.filter(
+                        Q(transaction_number__in=matching_transactions) |
+                        Q(sale_id__in=matching_sale_ids)
+                    )
+                else:
+                    previous_queryset = previous_queryset.none()
         
         # Comprehensive sales summary
         agg = sales_queryset.aggregate(
@@ -5771,7 +6159,222 @@ def export_report(request):
     
         elems.append(Spacer(1, 8))
 
-        # ========== SECTION 9: VOIDED TRANSACTIONS ==========
+        # ========== SECTION 9: SPOILED STOCK ==========
+        elems.append(Paragraph("SPOILED STOCK - WASTE TRACKING", section_style))
+        elems.append(Spacer(1, 8))
+        
+        # Calculate spoiled stock data using the same logic as fetch_reports
+        spoilage_list_pdf = []
+        try:
+            logs_qs = ActionLog.objects.filter(action__icontains='Stock decreased')
+            
+            # Use the same date range filtering as sales data
+            spoilage_start = None
+            spoilage_end = None
+            
+            if current_start and current_end:
+                spoilage_start = current_start
+                spoilage_end = current_end
+            elif date_range:
+                spoilage_start, spoilage_end = date_range
+            else:
+                resolved = _resolve_report_range(filter_type, start_date, end_date)
+                if resolved:
+                    spoilage_start, spoilage_end = resolved
+            
+            # Apply date range filter
+            if spoilage_start and spoilage_end:
+                logs_qs = logs_qs.filter(created_at__range=(spoilage_start, spoilage_end))
+            
+            # Apply fruit filter if specified
+            if fruit_filter and fruit_filter != 'all':
+                logs_qs = logs_qs.filter(details__icontains=str(fruit_filter))
+            
+            import re as _re
+            agg_spoilage = {}
+            _uf_sp = (unit_filter or '').strip().lower()
+            
+            for log in logs_qs.order_by('-created_at')[:2000]:
+                details = str(getattr(log, 'details', '') or '')
+                m = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)\.\s*Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
+                prod = None
+                qty = None
+                unit_tag = None
+                if m:
+                    prod = m.group(1).strip()
+                    try:
+                        qty = float(m.group(2))
+                    except Exception:
+                        qty = None
+                    unit_tag = (m.group(3) or '').lower()
+                else:
+                    m1 = _re.search(r"Decreased\s+stock\s+for\s+product:\s*(.+?)[\.|\n]", details, flags=_re.IGNORECASE)
+                    m2 = _re.search(r"Removed\s*([0-9]+(?:\.[0-9]+)?)\s*(kg|boxes?)", details, flags=_re.IGNORECASE)
+                    if m1 and m2:
+                        prod = m1.group(1).strip()
+                        try:
+                            qty = float(m2.group(1))
+                        except Exception:
+                            qty = None
+                        unit_tag = (m2.group(2) or '').lower()
+                
+                if not prod or qty is None or not unit_tag:
+                    continue
+                
+                unit_norm = 'kg' if 'kg' in unit_tag else 'box'
+                if _uf_sp and _uf_sp != 'all':
+                    if _uf_sp == 'kg' and unit_norm != 'kg':
+                        continue
+                    if _uf_sp == 'box' and unit_norm != 'box':
+                        continue
+                
+                bucket = agg_spoilage.get(prod)
+                if not bucket:
+                    bucket = {'product_name': prod, 'quantity_unit': '', 'spoiled_boxes': 0.0, 'spoiled_kg': 0.0, 'last_dt': log.created_at, 'product_cost': 0.0}
+                    agg_spoilage[prod] = bucket
+                    try:
+                        # Try multiple matching strategies to find the product
+                        p = None
+                        
+                        # Strategy 1: Exact match
+                        p = Product.objects.filter(name__iexact=prod).first()
+                        
+                        # Strategy 2: Product name with variant in parentheses
+                        if not p and '(' in prod and ')' in prod:
+                            # Extract base name (e.g., "Avocado (Bacon)" -> "Avocado")
+                            base_name = prod.split('(')[0].strip()
+                            variant_part = prod.split('(')[1].split(')')[0].strip() if '(' in prod and ')' in prod else ''
+                            if base_name:
+                                if variant_part:
+                                    p = Product.objects.filter(name__iexact=base_name, variant__iexact=variant_part).first()
+                                else:
+                                    p = Product.objects.filter(name__iexact=base_name).first()
+                        
+                        # Strategy 3: Starts with product name
+                        if not p:
+                            p = Product.objects.filter(Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
+                        
+                        # Strategy 4: Contains product name
+                        if not p:
+                            p = Product.objects.filter(name__icontains=prod.split('(')[0].strip() if '(' in prod else prod).first()
+                        
+                        if p:
+                            bucket['quantity_unit'] = (p.quantity_unit or '').strip()
+                            bucket['product_cost'] = float(p.cost or 0)
+                    except Exception:
+                        pass
+                
+                if unit_norm == 'kg':
+                    bucket['spoiled_kg'] = float(bucket.get('spoiled_kg') or 0) + float(qty)
+                    if not bucket['quantity_unit']:
+                        bucket['quantity_unit'] = 'kg'
+                else:
+                    bucket['spoiled_boxes'] = float(bucket.get('spoiled_boxes') or 0) + float(qty)
+                    if not bucket['quantity_unit']:
+                        bucket['quantity_unit'] = 'box'
+                
+                try:
+                    if log.created_at and (bucket.get('last_dt') is None or log.created_at > bucket.get('last_dt')):
+                        bucket['last_dt'] = log.created_at
+                except Exception:
+                    pass
+            
+            items_spoilage = []
+            for prod, b in agg_spoilage.items():
+                label = b['product_name']
+                unit = (b.get('quantity_unit') or '').strip()
+                if unit:
+                    label = f"{label} ({unit})"
+                
+                # Format spoiled quantity display
+                spoiled_qty = b.get('spoiled_kg', 0) if unit == 'kg' else b.get('spoiled_boxes', 0)
+                qty_display = f"{spoiled_qty:,.2f}kg" if unit == 'kg' else f"{int(spoiled_qty)} {'box' if spoiled_qty == 1 else 'boxes'}"
+                
+                # Calculate losses: cost per unit × spoiled quantity
+                product_id = None
+                loss_amount = 0.0
+                
+                # Get cost from bucket (stored when product was found)
+                cost = float(b.get('product_cost', 0) or 0)
+                
+                # If cost not in bucket, try to fetch from DB
+                if cost == 0:
+                    try:
+                        p = Product.objects.filter(Q(name__iexact=prod) | Q(name__istartswith=prod + ' ') | Q(name__istartswith=prod + '(')).first()
+                        if p:
+                            product_id = p.product_id
+                            cost = float(p.cost or 0)
+                            b['product_cost'] = cost
+                    except Exception:
+                        cost = 0.0
+                
+                # Calculate loss: cost × spoiled quantity
+                # For kg products: cost × spoiled_kg
+                # For box products: cost × spoiled_boxes
+                if cost > 0:
+                    unit_lower = (unit or '').strip().lower()
+                    spoiled_kg = float(b.get('spoiled_kg', 0))
+                    spoiled_boxes = float(b.get('spoiled_boxes', 0))
+                    
+                    if unit_lower == 'kg':
+                        # For kg products, multiply cost by spoiled kg
+                        if spoiled_kg > 0:
+                            loss_amount = cost * spoiled_kg
+                    else:
+                        # For box products, multiply cost by spoiled boxes
+                        if spoiled_boxes > 0:
+                            loss_amount = cost * spoiled_boxes
+                
+                items_spoilage.append({
+                    'product_name': label,
+                    'spoiled_quantity': qty_display,
+                    'spoiled_boxes': float(b.get('spoiled_boxes') or 0),
+                    'spoiled_kg': float(b.get('spoiled_kg') or 0),
+                    'loss_amount': loss_amount,
+                    'deduction_date': format_local_datetime(b.get('last_dt')) if b.get('last_dt') else 'N/A',
+                })
+            
+            spoilage_list_pdf = sorted(items_spoilage, key=lambda x: (x.get('spoiled_boxes', 0) + x.get('spoiled_kg', 0)), reverse=True)[:50]
+        except Exception as e:
+            spoilage_list_pdf = []
+            print(f"Error calculating spoiled stock for PDF: {e}")
+        
+        if spoilage_list_pdf:
+            spoilage_rows = [['Product', 'Spoiled Stock', 'Loss Amount', 'Deduction Date']]
+            for item in spoilage_list_pdf:
+                loss_amount = item.get('loss_amount', 0)
+                spoilage_rows.append([
+                    item['product_name'][:40],
+                    item['spoiled_quantity'],
+                    f"{loss_amount:,.2f}",
+                    item['deduction_date']
+                ])
+            
+            spoilage_table = Table(spoilage_rows, repeatRows=1, colWidths=[200, 100, 100, 140])
+            spoilage_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0,0), (-1,0), 7),
+                ('FONTSIZE', (0,1), (-1,-1), 6),
+                ('ALIGN', (1,1), (1,-1), 'RIGHT'),
+                ('ALIGN', (2,1), (2,-1), 'RIGHT'),
+                ('ALIGN', (3,1), (3,-1), 'CENTER'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#FEF3C7')]),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('LEFTPADDING', (0,0), (-1,-1), 4),
+                ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                ('TOPPADDING', (0,0), (-1,-1), 4),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ]))
+            elems.append(spoilage_table)
+        else:
+            elems.append(Paragraph("No spoiled stock recorded for this period.", styles['Normal']))
+        
+        elems.append(Spacer(1, 8))
+
+        # ========== SECTION 10: VOIDED TRANSACTIONS ==========
         elems.append(Paragraph("VOIDED TRANSACTIONS", section_style))
         elems.append(Spacer(1, 8))
     

@@ -14,17 +14,45 @@ def send_sms(phone_number, message):
     return sms_service.send_sms(phone_number, message, allow_multipart=False)
 
 def schedule_now(phone_number, message):
+    """
+    Schedule SMS using iProg scheduling API for automated notifications.
+    Always uses scheduling API so messages are sent even if app is not running.
+    """
+    import logging
+    from django.utils import timezone
+    from datetime import timedelta
+    logger = logging.getLogger(__name__)
+    
     try:
-        from django.utils import timezone
-        scheduled_at = timezone.localtime().strftime('%Y-%m-%d %I:%M%p')
-    except Exception:
-        from datetime import datetime
-        scheduled_at = datetime.now().strftime('%Y-%m-%d %I:%M%p')
-    res = sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
-    msg = str(res.get('message','')) if isinstance(res, dict) else ''
-    if (not res.get('success')) and (('403' in msg) or ('approved sender name' in msg.lower())):
-        return sms_service.send_sms(phone_number, message, allow_multipart=False)
-    return res
+        # Get current time and schedule for next minute (to ensure it's in the future)
+        now = timezone.localtime(timezone.now())
+        # Format: "2025-03-08 05:00AM" - ensure proper format
+        scheduled_at = (now + timedelta(minutes=1)).strftime('%Y-%m-%d %I:%M%p')
+        
+        logger.info(f"Scheduling SMS via iProg reminder API to {phone_number} for {scheduled_at}")
+        result = sms_service.schedule_sms_reminder(phone_number, message, scheduled_at)
+        
+        if result.get('success'):
+            logger.info(f"SMS scheduled successfully via iProg API for {scheduled_at}")
+            return result
+        
+        # If scheduling fails, try direct send as fallback
+        logger.warning(f"SMS scheduling failed: {result.get('message', 'Unknown error')}. Falling back to direct send.")
+        logger.info(f"Sending SMS directly to {phone_number} (fallback)")
+        direct_result = sms_service.send_sms(phone_number, message, allow_multipart=True)
+        
+        if direct_result.get('success'):
+            logger.info("SMS sent successfully via direct send (fallback)")
+            return direct_result
+        
+        logger.error(f"Both scheduling and direct send failed: {direct_result.get('message', 'Unknown error')}")
+        return direct_result
+        
+    except Exception as e:
+        logger.error(f"Error in schedule_now: {e}", exc_info=True)
+        # Final fallback: try direct send
+        logger.info(f"Attempting direct send as final fallback to {phone_number}")
+        return sms_service.send_sms(phone_number, message, allow_multipart=True)
 
 def _normalize_text(msg):
     t = str(msg or '')
@@ -156,7 +184,8 @@ class Command(BaseCommand):
             if not force and now < scheduled_dt:
                 self.stdout.write(self.style.WARNING(f'Not yet time for daily sales summary (scheduled at {getattr(settings, "sales_time", "20:00")}).'))
                 return
-            # Guard against cross-process duplicates: if any daily sales SMS exists today, skip unless explicitly allowed
+            # BYPASS duplicate check - always send (user requested bypass)
+            # This allows scheduled messages to send every time the scheduler triggers
             try:
                 today_global_exists = SMS.objects.filter(
                     message_type='sales_summary_daily',
@@ -164,8 +193,8 @@ class Command(BaseCommand):
                 ).exists()
             except Exception:
                 today_global_exists = False
-            # Always allow resending - bypass limit checks for user convenience
-            if today_global_exists and not force and not allow_resend_today and False:  # Disabled limit check
+            # BYPASS: Always allow sending - no duplicate check
+            # Removed duplicate check per user request - scheduled messages should always send
                 # Allow re-send later today only when scheduled time moved forward beyond last send
                 admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
                 for admin in admins:
@@ -186,49 +215,15 @@ class Command(BaseCommand):
                                 override_today = True
                         except Exception:
                             override_today = False
-                        if not override_today:
-                            self.stdout.write(self.style.WARNING('Daily sales summary already sent today; skipping to prevent duplicates.'))
-                            try:
-                                from core.views import log_system_action
-                                details = (
-                                    f"Status: Skipped (already sent today)\n"
-                                    f"Scheduled Time: {getattr(settings, 'sales_time', '20:00')}\n"
-                                    f"Now: {timezone.localtime().strftime('%Y-%m-%d %I:%M %p')}"
-                                )
-                                log_system_action(
-                                    action='Automatic SMS: Daily Sales Summary (Skipped)',
-                                    details=details
-                                )
-                            except Exception:
-                                pass
-                            return
+                        # BYPASS: Removed duplicate check - always send
+                        # Removed skip logic per user request
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 # Still consider as completed for test expectations
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
                 self.stdout.write(self.style.SUCCESS('Low stock alerts sent to 0 admin(s)'))
                 return
-            # Additional duplicate suppression window to prevent concurrent sends
-            try:
-                recent_window = timezone.localtime() - timezone.timedelta(minutes=1)
-                recent_global = SMS.objects.filter(
-                    message_type='sales_summary_daily',
-                    sent_at__gt=recent_window
-                ).exists()
-            except Exception:
-                recent_global = False
-            # Always allow resending - bypass duplicate suppression for user convenience
-            if recent_global and not force and not allow_resend_today and False:  # Disabled duplicate check
-                try:
-                    from core.views import log_system_action
-                    log_system_action(
-                        action='Automatic SMS: Daily Sales Summary (Skipped)',
-                        details='Status: Duplicate suppression (recent send within 3 minutes)'
-                    )
-                except Exception:
-                    pass
-                self.stdout.write(self.style.WARNING('Suppressed duplicate daily sales summary within 1-minute window.'))
-                return
+            # BYPASS: All duplicate checks removed - always send when scheduler triggers
 
             # Get today's sales data (since we're sending at 8:00 PM)
             today = timezone.localtime().date()
@@ -488,33 +483,10 @@ class Command(BaseCommand):
                 ).exists()
             except Exception:
                 recent_log_global = False
-            # Always allow resending - bypass duplicate suppression for user convenience
-            if (recent_pricing_global or recent_log_global) and not force and not allow_resend_today and False:  # Disabled duplicate check
-                try:
-                    from core.views import log_system_action
-                    log_system_action(
-                        action='Automatic SMS: Pricing Recommendations (Skipped)',
-                        details='Status: Duplicate suppression (recent send within 1 minute)'
-                    )
-                except Exception:
-                    pass
-                self.stdout.write(self.style.WARNING('Suppressed duplicate pricing recommendations within 1-minute window.'))
-                return
+            # BYPASS: All duplicate checks removed - always send when scheduler triggers
             for admin in admins:
                 recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
-                # Always allow resending - bypass cooldown checks for user convenience
-                if recent and not force and not allow_resend_today and False:  # Disabled cooldown check
-                    local_recent = timezone.localtime(recent.sent_at)
-                    next_allowed = local_recent + cooldown_delta
-                    if has_actionable:
-                        if now_local < next_allowed:
-                            self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
-                            continue
-                    else:
-                        # No actionable recommendations: allow once per day even during cooldown
-                        if local_recent.date() == now_local.date():
-                            # Already sent today; skip duplicate
-                            continue
+                # BYPASS: All duplicate and cooldown checks removed - always send
                 result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:

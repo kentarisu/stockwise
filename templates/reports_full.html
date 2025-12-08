@@ -242,6 +242,52 @@
                 max-width: 212px !important;
             }
 
+            /* Ensure desktop styles are preserved */
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.75rem;
+                margin-top: 0;
+            }
+
+            .stat-card {
+                padding: 0.75rem;
+            }
+
+            .stat-card .stat-icon {
+                width: 1.75rem;
+                height: 1.75rem;
+                font-size: 0.95rem;
+            }
+
+            .stat-card .stat-value {
+                font-size: 1rem;
+            }
+
+            .stat-card .stat-label {
+                font-size: 0.65rem;
+            }
+
+            .stat-card .stat-subtitle {
+                font-size: 0.6rem;
+            }
+
+            .stat-card .stat-content {
+                min-width: 0;
+            }
+
+            .d-flex.flex-wrap.justify-content-between button {
+                padding: 0.65rem 1.5rem;
+                font-size: 0.875rem;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-filter-action {
+                width: 150px;
+                min-width: 150px;
+                max-width: 150px;
+                padding: 0.65rem 1.5rem;
+                font-size: 0.875rem;
+            }
+
             .sidebar:not(.active) {
                 width: 64px;
             }
@@ -601,7 +647,7 @@
 
         .filters-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 1rem;
             align-items: end;
         }
@@ -969,7 +1015,7 @@
 
         .filters-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 1rem;
             align-items: end;
         }
@@ -1557,6 +1603,26 @@
             letter-spacing: 0.04em;
             margin-bottom: 0.75rem;
         }
+        
+        /* Transaction Details Modal - Match Sale Details Modal width and centering */
+        @media (min-width: 769px) {
+            #reportDetailsModal .modal-dialog {
+                max-width: 700px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            
+            /* Transaction Details Modal footer - align Close button to the right */
+            #reportDetailsModal .modal-footer {
+                flex-direction: row !important;
+                justify-content: flex-end;
+                gap: 0.5rem;
+            }
+            
+            #reportDetailsModal .modal-footer .btn {
+                width: auto !important;
+            }
+        }
 
         /* Financial columns alignment */
         .cashbook-table .amount-col {
@@ -1760,7 +1826,7 @@
         /* Optimize percentage and numeric columns */
         .cashbook-table .amount-col,
         .cashbook-table .currency {
-            min-width: 90px;
+            min-width: 80px;
             text-align: right;
         }
 
@@ -1881,6 +1947,10 @@
                 --header-height: 68px;
             }
             .burger-menu-btn { width: 0.65rem !important; height: 0.65rem !important; }
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+            }
             .content-area { padding: 0.625rem; }
             .modern-card { padding: 0.625rem; margin-bottom: 0.625rem; }
         }
@@ -2179,6 +2249,10 @@
             min-width: 0;
         }
 
+        .analytics-card.span-full {
+            grid-column: 1 / -1;
+        }
+
         .analytics-card h5 {
             font-size: 0.85rem;
             font-weight: 700;
@@ -2414,6 +2488,8 @@
 
             .main-content {
                 margin-left: 0;
+                margin-top: var(--header-height);
+                padding-top: 0.75rem;
             }
 
             .header {
@@ -2496,13 +2572,82 @@
             }
 
             .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+                overflow-x: hidden !important;
+                -webkit-overflow-scrolling: touch;
+                margin-top: 0.5rem;
             }
 
             .stat-card {
-                padding: 1rem 0.75rem;
+                padding: 0.5rem 0.375rem;
                 min-height: 0;
+                min-width: 0;
+                flex-shrink: 0;
+                overflow: hidden;
+                box-sizing: border-box;
+            }
+
+            .stat-card .stat-icon {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+                flex-shrink: 0;
+            }
+
+            .stat-card .stat-content {
+                min-width: 0;
+                overflow: hidden;
+                flex: 1;
+            }
+
+            .stat-card .stat-value {
+                font-size: 0.875rem;
+                line-height: 1.1;
+                margin-bottom: 0.125rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            .stat-card .stat-label {
+                font-size: 0.65rem;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+
+            .stat-card .stat-subtitle {
+                font-size: 0.6rem;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* Fix button sizes on mobile */
+            .d-flex.flex-wrap.justify-content-between button {
+                padding: 0.5rem 0.75rem !important;
+                font-size: 0.75rem !important;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-filter-action {
+                flex-shrink: 0;
+                min-width: 90px !important;
+                max-width: 90px !important;
+                padding: 0.5rem 0.5rem !important;
+                font-size: 0.7rem !important;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-modern {
+                font-size: 0.75rem !important;
+                padding: 0.5rem 0.75rem !important;
             }
 
             .charts-grid {
@@ -2511,23 +2656,58 @@
             }
 
             .filters-grid {
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+                align-items: end;
             }
 
             .filters-grid .form-group {
                 width: 100%;
+                min-width: 0;
             }
 
-            .action-buttons {
-                flex-direction: column;
-                gap: 0.75rem;
+            .filters-grid .form-label {
+                font-size: 0.7rem;
             }
 
-            .action-buttons .btn-modern,
-            .action-buttons .btn {
-                width: 100%;
-                justify-content: center;
+            .filters-grid .form-select {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.5rem;
+            }
+
+            /* Keep buttons in a row */
+            .d-flex.flex-wrap.justify-content-between {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+            }
+
+            .d-flex.flex-wrap.justify-content-between > div {
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .d-flex.flex-wrap.justify-content-between button {
+                flex: 1;
+                min-width: 0;
+                padding: 0.5rem 0.75rem !important;
+                font-size: 0.75rem !important;
+                white-space: nowrap;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-filter-action {
+                flex-shrink: 0;
+                min-width: 90px !important;
+                max-width: 90px !important;
+                padding: 0.5rem 0.5rem !important;
+                font-size: 0.7rem !important;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-modern {
+                font-size: 0.75rem !important;
+                padding: 0.5rem 0.75rem !important;
             }
 
             .table-responsive {
@@ -2566,6 +2746,73 @@
             .modal-dialog {
                 margin: 0.75rem;
                 max-width: calc(100vw - 1.5rem);
+                width: calc(100vw - 1.5rem);
+            }
+            
+            /* Ensure all modal sizes are responsive */
+            .modal-dialog.modal-xl,
+            .modal-dialog.modal-lg,
+            .modal-dialog.modal-md,
+            .modal-dialog.modal-sm,
+            .modal-dialog.sw-modal-500 {
+                max-width: calc(100vw - 1.5rem);
+                width: calc(100vw - 1.5rem);
+                margin: 0.75rem;
+            }
+            
+            /* Prevent horizontal scrolling in modal content */
+            .modal-content {
+                max-width: 100%;
+                overflow-x: hidden;
+                word-wrap: break-word;
+            }
+            
+            .modal-body {
+                overflow-x: hidden;
+                overflow-y: auto;
+                max-width: 100%;
+                word-wrap: break-word;
+                padding: 1rem;
+            }
+            
+            /* Ensure tables in modals are responsive */
+            .modal-body .table,
+            .modal-body table {
+                max-width: 100%;
+                overflow-x: auto;
+                display: block;
+                white-space: nowrap;
+            }
+            
+            .modal-body .table-responsive,
+            .modal-body .table-responsive-wrapper {
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* Prevent content from overflowing */
+            .modal-body * {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            
+            /* Ensure transaction-report and other report containers are responsive */
+            .modal-body .transaction-report,
+            .modal-body .report-banner,
+            .modal-body .itemized-details-section,
+            .modal-body .advanced-metrics-grid {
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+            
+            /* Ensure text doesn't overflow */
+            .modal-body p,
+            .modal-body span,
+            .modal-body div,
+            .modal-body label {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .modal-footer {
@@ -2575,6 +2822,16 @@
 
             .modal-footer .btn {
                 width: 100%;
+            }
+            
+            /* Modal header adjustments */
+            .modal-header {
+                padding: 0.75rem 1rem;
+            }
+            
+            .modal-title {
+                font-size: 1rem;
+                word-wrap: break-word;
             }
         }
 
@@ -2597,8 +2854,92 @@
             }
 
             .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 0.625rem;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 0.25rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-top: 0.5rem;
+            }
+
+            .stat-card {
+                padding: 0.5rem 0.25rem;
+                min-width: 0;
+                overflow: hidden;
+                box-sizing: border-box;
+            }
+
+            .stat-card .stat-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 0.7rem;
+                flex-shrink: 0;
+            }
+
+            .stat-card .stat-content {
+                min-width: 0;
+                overflow: hidden;
+                flex: 1;
+            }
+
+            .stat-card .stat-value {
+                font-size: 0.75rem;
+                line-height: 1.1;
+                margin-bottom: 0.1rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            .stat-card .stat-label {
+                font-size: 0.6rem;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+
+            .stat-card .stat-subtitle {
+                font-size: 0.55rem;
+                line-height: 1.2;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .filters-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.375rem;
+            }
+
+            .filters-grid .form-label {
+                font-size: 0.65rem;
+            }
+
+            .filters-grid .form-select {
+                font-size: 0.7rem;
+                padding: 0.35rem 0.4rem;
+            }
+
+            .d-flex.flex-wrap.justify-content-between button {
+                padding: 0.4rem 0.5rem !important;
+                font-size: 0.7rem !important;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-filter-action {
+                min-width: 75px !important;
+                max-width: 75px !important;
+                padding: 0.4rem 0.4rem !important;
+                font-size: 0.65rem !important;
+            }
+
+            .d-flex.flex-wrap.justify-content-between .btn-modern {
+                font-size: 0.7rem !important;
+                padding: 0.4rem 0.5rem !important;
             }
 
             .stat-card {
@@ -2622,6 +2963,30 @@
             .modal-dialog {
                 margin: 0.5rem;
                 max-width: calc(100vw - 1rem);
+                width: calc(100vw - 1rem);
+            }
+            
+            /* Ensure all modal sizes are responsive on small screens */
+            .modal-dialog.modal-xl,
+            .modal-dialog.modal-lg,
+            .modal-dialog.modal-md,
+            .modal-dialog.modal-sm,
+            .modal-dialog.sw-modal-500 {
+                max-width: calc(100vw - 1rem);
+                width: calc(100vw - 1rem);
+                margin: 0.5rem;
+            }
+            
+            .modal-body {
+                padding: 0.75rem;
+            }
+            
+            .modal-header {
+                padding: 0.625rem 0.75rem;
+            }
+            
+            .modal-title {
+                font-size: 0.95rem;
             }
         }
 
@@ -2660,11 +3025,56 @@
         #reportsTab .nav-link i { font-size: 0.95em; }
         #reportsTab .nav-link .me-2 { margin-right: 0.15rem !important; }
         #reportsTab .nav-link.active { position: relative; z-index: 1; }
+        
+        /* Mobile: Make tabs scrollable horizontally */
         @media (max-width: 768px) {
-            #reportsTab .nav-link { padding: 0.28rem 0.38rem; font-size: 0.8rem; }
+            #reportsTab {
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+                scrollbar-color: var(--primary) transparent;
+                flex-wrap: nowrap;
+            }
+            
+            #reportsTab::-webkit-scrollbar {
+                height: 4px;
+            }
+            
+            #reportsTab::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            
+            #reportsTab::-webkit-scrollbar-thumb {
+                background-color: var(--primary);
+                border-radius: 2px;
+            }
+            
+            #reportsTab::-webkit-scrollbar-thumb:hover {
+                background-color: var(--primary-dark);
+            }
+            
+            #reportsTab .nav-item {
+                flex: 0 0 auto;
+                min-width: auto;
+            }
+            
+            #reportsTab .nav-link {
+                padding: 0.28rem 0.38rem;
+                font-size: 0.8rem;
+                white-space: nowrap;
+                min-width: fit-content;
+                max-width: none;
+                overflow: visible;
+                text-overflow: clip;
+            }
         }
+        
         @media (max-width: 480px) {
-            #reportsTab .nav-link { padding: 0.26rem 0.32rem; font-size: 0.76rem; }
+            #reportsTab .nav-link {
+                padding: 0.26rem 0.32rem;
+                font-size: 0.76rem;
+            }
         }
 
         /* Print Styles */
@@ -2783,8 +3193,11 @@
         }
         .tab-pane#transactions .cashbook-table th:nth-child(5),
         .tab-pane#transactions .cashbook-table td:nth-child(5) { 
-            min-width: 80px;
-            max-width: 80px;
+            min-width: 50px;
+            max-width: 50px;
+            width: 50px;
+            text-align: center;
+            white-space: nowrap;
         }
         .tab-pane#transactions .cashbook-table th:nth-child(6),
         .tab-pane#transactions .cashbook-table td:nth-child(6) { 
@@ -3356,6 +3769,14 @@
                                     {% endfor %}
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label" for="unitFilter">Quantity</label>
+                                <select class="form-select" id="unitFilter" aria-label="Filter by quantity unit">
+                                    <option value="all">All Units</option>
+                                    <option value="box">Boxes</option>
+                                    <option value="kg">kg</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -3672,7 +4093,6 @@
                                                 <thead>
                                                     <tr>
                                                         <th>Transaction No.</th>
-                                                        <th>OR No.</th>
                                                         <th>Date & Time</th>
                                                         <th>Customer</th>
                                                         <th>Products</th>
@@ -3693,7 +4113,6 @@
                                         <p>List of all transactions that were cancelled so you can track every change made.</p>
                                         <ul>
                                             <li><strong>Transaction No.:</strong> Unique transaction number for this sale.</li>
-                                            <li><strong>OR No.:</strong> Official receipt number given to the customer.</li>
                                             <li><strong>Products:</strong> List of all items included in this sale, shown as "Product Name (Variant) (Size)" (e.g., "Apple (Fuji) (125-138)").</li>
                                             <li><strong>Quantity Sold:</strong> Total units sold in this transaction.</li>
                                             <li><strong>Total:</strong> Final amount the customer paid (including VAT).</li>
@@ -3762,6 +4181,24 @@
                                                 </table>
                                             </div>
                                         </div>
+                                        <div class="analytics-card span-full">
+                                            <h5>Spoiled Stock</h5>
+                                            <div class="mini-table">
+                                                <table class="table table-sm mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="sw-w-35">Product</th>
+                                                            <th class="sw-w-15">Spoiled Stock</th>
+                                                            <th class="sw-w-20">Loss Amount</th>
+                                                            <th class="sw-w-30">Deduction Date</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="spoilageBody">
+                                                        <tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="report-description">
                                         <h6>What does this show?</h6>
@@ -3789,6 +4226,12 @@
                                             <li><strong>Stock:</strong> Number of units currently sitting in your inventory unsold.</li>
                                             <li><strong>Last Sale:</strong> The date when this product was last sold. "No recorded sale" means it has never sold.</li>
                                             <li><strong>Days Idle:</strong> Number of days since the last sale. ∞ (infinity) means it has never sold. Higher numbers mean the product is collecting dust.</li>
+                                        </ul>
+                                        <h6 class="mt-3">Spoiled Stock - Waste Tracking</h6>
+                                        <ul>
+                                            <li><strong>Spoiled Stock:</strong> Human-friendly amount (e.g., "20 boxes", "1 box", "2kg", "1kg").</li>
+                                            <li><strong>Loss Amount:</strong> Total financial loss calculated as product cost per unit (box/kg) multiplied by the spoiled quantity.</li>
+                                            <li><strong>Deduction Date:</strong> The most recent time stock was deducted for the product.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -3934,12 +4377,59 @@
             clearReportErrorBanner();
 
             try {
-                // Determine filter_type based on whether custom dates are provided
-                const filterType = (startDate && endDate) ? 'custom' : 'today';
+                // Ensure date range labels are updated before sending request
+                // This ensures startDate and endDate are set correctly based on dropdown selection
+                updateRangeLabels();
+                
+                // Get filter_type from the date range dropdown
+                const dateRangeValue = $('#dateRange').val() || 'today';
+                // Map frontend values to backend filter_type values
+                let filterType = dateRangeValue;
+                if (dateRangeValue === 'week') {
+                    filterType = 'weekly';
+                } else if (dateRangeValue === 'month') {
+                    filterType = 'monthly';
+                } else if (dateRangeValue === 'custom') {
+                    filterType = 'custom';
+                } else if (dateRangeValue === 'today') {
+                    filterType = 'today';
+                }
+                
+                // Re-ensure dates are set after updateRangeLabels
+                const today = new Date();
+                const localISO = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const d = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+                
+                // Calculate dates based on filter type if not already set
+                if (!startDate || !endDate || dateRangeValue !== 'custom') {
+                    if (dateRangeValue === 'today') {
+                        startDate = localISO(today);
+                        endDate = localISO(today);
+                    } else if (dateRangeValue === 'week') {
+                        const weekStart = new Date(today);
+                        weekStart.setDate(today.getDate() - 6);
+                        startDate = localISO(weekStart);
+                        endDate = localISO(today);
+                    } else if (dateRangeValue === 'month') {
+                        const monthStart = new Date(today);
+                        monthStart.setDate(today.getDate() - 29);
+                        startDate = localISO(monthStart);
+                        endDate = localISO(today);
+                    }
+                }
+                
                 const userFilterRaw = $('#userFilter').val() || 'all';
                 const fruitFilterRaw = $('#productFilter').val() || 'all';
+                const unitFilterRaw = $('#unitFilter').val() || 'all';
                 const userFilter = (/^all\b/i.test(String(userFilterRaw)) || /^all users$/i.test(String(userFilterRaw))) ? 'all' : userFilterRaw;
                 const fruitFilter = (/^all\b/i.test(String(fruitFilterRaw)) || /^all products$/i.test(String(fruitFilterRaw))) ? 'all' : fruitFilterRaw;
+                const unitFilter = (/^all\b/i.test(String(unitFilterRaw)) || /^all units$/i.test(String(unitFilterRaw))) ? 'all' : unitFilterRaw;
+                
+                console.log('Sending request with:', { filterType, startDate, endDate });
                 
                 const response = await $.ajax({
                     url: '/api/reports/fetch/', // Corrected URL
@@ -3950,7 +4440,8 @@
                         end_date: endDate,
                         report_type: currentReportType,
                         user: userFilter,
-                        product: fruitFilter
+                        product: fruitFilter,
+                        unit: unitFilter
                     },
                     dataType: 'json'
                 });
@@ -3968,6 +4459,7 @@
                 renderABCAnalysis(response.data.abc_analysis || []);
                 renderSlowMovers(response.data.slow_movers || []);
                 renderDeadStock(response.data.dead_stock || []);
+                renderSpoilage(response.data.spoilage || []);
                 populateAcceptedPricingTable(response.data.accepted_pricing || []);
 
             } catch (error) {
@@ -4204,6 +4696,41 @@
             });
         }
 
+        function renderSpoilage(items = []) {
+            const body = $('#spoilageBody');
+            body.empty();
+            const filtered = (Array.isArray(items) ? items : []).filter(x => {
+                const b = Number(x.spoiled_boxes || 0);
+                const k = Number(x.spoiled_kg || 0);
+                return (b + k) > 0;
+            });
+            if (!filtered.length) {
+                body.append('<tr><td colspan="4" class="text-muted text-center py-3">No data</td></tr>');
+                return;
+            }
+            filtered.forEach(entry => {
+                const unit = String(entry.quantity_unit || '').trim().toLowerCase();
+                const boxes = Number(entry.spoiled_boxes || 0);
+                const kg = Number(entry.spoiled_kg || 0);
+                const qty = unit === 'kg' ? kg : boxes;
+                const qtyText = unit === 'kg'
+                    ? qty.toLocaleString(undefined, { minimumFractionDigits: (qty % 1 ? 2 : 0), maximumFractionDigits: 2 }) + 'kg'
+                    : qty.toLocaleString() + ' ' + (qty === 1 ? 'box' : 'boxes');
+                const lossAmount = Number(entry.loss_amount || 0);
+                const lossText = lossAmount > 0 
+                    ? lossAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '0.00';
+                body.append(`
+                    <tr>
+                        <td>${entry.product_name || 'N/A'}</td>
+                        <td>${qtyText}</td>
+                        <td class="currency">${lossText}</td>
+                        <td>${entry.deduction_date || 'N/A'}</td>
+                    </tr>
+                `);
+            });
+        }
+
         function populateAcceptedPricingTable(items = []) {
             const raw = Array.isArray(items) ? items : [];
             const fruitFilter = $('#productFilter').val() || 'all';
@@ -4434,7 +4961,7 @@
                         <td class="amount-col">${daysSupply}</td>
                         <td class="amount-col">${item.reorder_point ?? 0}</td>
                         <td class="amount-col">${item.reorder_quantity ?? 0}</td>
-                        <td class="date-col">${item.last_sale_date || 'N/A'}</td>
+                        <td class="date-col">${formatDateOnly(item.last_sale_date)}</td>
                         <td><span class="${statusClass}">${item.status}</span></td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary view-low-details" data-index="${idx}" type="button">
@@ -4517,7 +5044,7 @@
             if(!tbody) return;
             const rows = repSlice(repData.voidedReports, reportsPagination.currentPage.voidedReports || 1);
             if(!rows.length){
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No voided transactions found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No voided transactions found.</td></tr>`;
                 updateRepControls('voidedReports', 0);
                 return;
             }
@@ -4531,7 +5058,6 @@
                 return `
                 <tr>
                     <td>${transactionNo}</td>
-                    <td>${row.receipt_number || 'N/A'}</td>
                     <td>${formattedDate}</td>
                     <td>${row.customer_name || 'N/A'}</td>
                     <td>${productsText}</td>
@@ -4614,11 +5140,20 @@
                 $('#reportDetailBannerDate').text(generatedTs ? `Generated on ${formatLocal(generatedTs)}` : 'Generated from current dataset');
 
                 $('#reportDetailSaleId').text(transaction.sale_id ? `#${transaction.sale_id}` : 'N/A');
-                $('#reportDetailTransactionNo').text(transaction.transaction_no || 'N/A');
-                $('#reportDetailOrNo').text(transaction.or_no || 'N/A');
+                // Handle transaction number - treat 0 or "0" as empty
+                const transactionNoRaw = transaction.transaction_no || transaction.transaction_number;
+                const transactionNo = (!transactionNoRaw || transactionNoRaw === 0 || transactionNoRaw === '0' || String(transactionNoRaw).trim() === '') ? 'N/A' : String(transactionNoRaw);
+                $('#reportDetailTransactionNo').text(transactionNo !== 'N/A' ? transactionNo.toUpperCase() : 'N/A');
+                // Handle OR number - treat 0 or "0" as empty
+                const orNumberRaw = transaction.or_number || transaction.or_no;
+                const orNumber = (!orNumberRaw || orNumberRaw === 0 || orNumberRaw === '0' || String(orNumberRaw).trim() === '') ? 'N/A' : String(orNumberRaw);
+                $('#reportDetailOrNumber').text(orNumber !== 'N/A' ? orNumber.toUpperCase() : 'N/A');
                 $('#reportDetailDate').text(transaction.date_time ? formatLocal(transaction.date_time) : 'N/A');
                 $('#reportDetailCustomer').text(transaction.customer_name || 'N/A');
-                $('#reportDetailContact').text(transaction.contact_number || 'N/A');
+                // Handle contact number - treat 0 or "0" as empty
+                const contactRaw = transaction.contact_number;
+                const contact = (!contactRaw || contactRaw === 0 || contactRaw === '0' || String(contactRaw).trim() === '') ? 'N/A' : String(contactRaw);
+                $('#reportDetailContact').text(contact);
                 $('#reportDetailAddress').text(transaction.address || 'N/A');
                 $('#reportDetailProcessedBy').text(transaction.processed_by || 'N/A');
                 $('#reportDetailCreatedBy').text(transaction.created_by || 'System');
@@ -4880,7 +5415,7 @@
                 ? Number(item.days_of_supply).toFixed(1)
                 : '∞';
             $('#lsDaysSupply').text(daysSupply);
-            $('#lsLastSale').text(item.last_sale_date || 'N/A');
+            $('#lsLastSale').text(formatDateOnly(item.last_sale_date));
             $('#lsStatus').text(item.status || 'N/A');
             
             // Report cards
@@ -4902,6 +5437,7 @@
                 const filterType = $('#dateRange').val() || 'today';
                 const userFilter = $('#userFilter').val() || 'all';
                 const fruitFilter = $('#productFilter').val() || 'all';
+                const unitFilter = $('#unitFilter').val() || 'all';
                 
                 // Determine start and end dates based on filter
                 let reportStartDate = '';
@@ -4961,6 +5497,7 @@
                 formData.append('search', '');
                 formData.append('user', userFilter);
                 formData.append('product', fruitFilter);
+                formData.append('unit', unitFilter);
                 const acceptedPrices = {};
                 document.querySelectorAll('.accepted-price-input').forEach(input => {
                     acceptedPrices[input.dataset.productId] = input.value;
@@ -5059,6 +5596,7 @@
                 dateRange: $('#dateRange').val() || 'today',
                 userFilter: $('#userFilter').val() || 'all',
                 fruitFilter: $('#productFilter').val() || 'all',
+                unitFilter: $('#unitFilter').val() || 'all',
                 currentReportType: currentReportType || 'sales',
                 startDate: startDate || '',
                 endDate: endDate || '',
@@ -5098,6 +5636,7 @@
             if (saved.dateRange) $('#dateRange').val(saved.dateRange);
             if (saved.userFilter) $('#userFilter').val(saved.userFilter);
             if (saved.fruitFilter) $('#productFilter').val(saved.fruitFilter);
+            if (saved.unitFilter) $('#unitFilter').val(saved.unitFilter);
             if (saved.currentReportType) {
                 currentReportType = saved.currentReportType;
                 const tabButton = $(`#reportsTab button[data-bs-target="#${saved.currentReportType}"]`);
@@ -5207,6 +5746,12 @@
 
             $('#productFilter').on('change', function() {
                 console.log('fruitFilter changed to:', $(this).val());
+                saveReportsFilters();
+                loadReports();
+            });
+
+            $('#unitFilter').on('change', function() {
+                console.log('unitFilter changed to:', $(this).val());
                 saveReportsFilters();
                 loadReports();
             });
@@ -5427,7 +5972,8 @@
                 }
                 
                 console.log('Generate Report - Final dates:', { filterType, s, e, customStart, customEnd, startDate, endDate });
-                const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, inline:'1', accepted_prices: JSON.stringify(acceptedPrices) });
+                const unitFilter = $('#unitFilter').val() || 'all';
+                const q = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, unit:unitFilter, inline:'1', accepted_prices: JSON.stringify(acceptedPrices) });
                 const errorDiv = document.getElementById('reportPreviewError');
                 const errorMessage = document.getElementById('reportPreviewErrorMessage');
                 const exportBtn = document.getElementById('exportPdfBtn');
@@ -5497,7 +6043,8 @@
                     exportBtn.classList.add('d-none');
                 }
                 document.getElementById('exportPdfBtn').onclick = function(){
-                    const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
+                    const unitFilter = $('#unitFilter').val() || 'all';
+                    const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, unit:unitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
                     if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Exporting PDF...', 'info', 4000); }
                     window.open('/api/reports/export/?'+dl.toString(), '_blank');
                     if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('PDF opened in a new tab.', 'success', 6000); }
@@ -5516,6 +6063,7 @@
                 $('#dateRange').val('today');
                 $('#userFilter').val('all');
                 $('#productFilter').val('all');
+                $('#unitFilter').val('all');
                 startDate = '';
                 endDate = '';
                 customStart = '';
@@ -5545,7 +6093,7 @@
 
     <!-- Report Details Modal -->
     <div class="modal fade" id="reportDetailsModal" tabindex="-1" aria-labelledby="reportDetailsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="reportDetailsModalLabel">Transaction Details</h5>
@@ -5572,12 +6120,12 @@
                                 <span class="meta-value" id="reportDetailSaleId">N/A</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">Transaction No.</span>
+                                <span class="meta-label">TRANSACTION NO.</span>
                                 <span class="meta-value" id="reportDetailTransactionNo">N/A</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">OR No.</span>
-                                <span class="meta-value" id="reportDetailOrNo">N/A</span>
+                                <span class="meta-label">OR NO.</span>
+                                <span class="meta-value" id="reportDetailOrNumber">N/A</span>
                             </div>
                             <div class="meta-item">
                                 <span class="meta-label">Customer</span>
@@ -5688,7 +6236,6 @@
                             <ul class="mb-0">
                                 <li><strong>Sale ID:</strong> Internal system number for this sale.</li>
                                 <li><strong>Transaction No.:</strong> Transaction reference number.</li>
-                                <li><strong>OR No. (Official Receipt):</strong> Official receipt number given to the customer for tax purposes.</li>
                                 <li><strong>Subtotal:</strong> Total cost of all items after any discount.</li>
                                 <li><strong>Plus 12% VAT:</strong> The 12% Value Added Tax charged to the customer.</li>
                                 <li><strong>Discount:</strong> Discount applied to the transaction. Item prices shown already reflect discount.</li>

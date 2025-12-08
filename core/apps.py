@@ -1,6 +1,8 @@
 from django.apps import AppConfig
 from django.conf import settings
+import logging
 
+logger = logging.getLogger(__name__)
 
 _SCHEDULER_STARTED = False
 
@@ -13,6 +15,16 @@ class CoreConfig(AppConfig):
         import os
         import threading
         from django.core.signals import request_started
+        
+        # Verify SMS service configuration on startup
+        try:
+            from core.sms_service import sms_service
+            logger.info(f"SMS Service ready - sender_name='{sms_service.sender_name}', api_token={'CONFIGURED' if sms_service.api_token else 'NOT CONFIGURED'}")
+            if sms_service.sender_name != 'kaprets':
+                logger.error(f"CRITICAL: SMS sender_name is '{sms_service.sender_name}' but should be 'kaprets'!")
+        except Exception as e:
+            logger.error(f"Error verifying SMS service: {e}", exc_info=True)
+        
         try:
             _enabled = os.getenv('ENABLE_INTERNAL_SCHEDULER', 'false').lower() == 'true'
         except Exception:
@@ -27,15 +39,17 @@ class CoreConfig(AppConfig):
                     from sms_scheduler import SMSScheduler
                     def _run():
                         try:
+                            logger.info("Starting SMS scheduler in background thread...")
                             s = SMSScheduler()
                             s.run()
-                        except Exception:
-                            pass
-                    t = threading.Thread(target=_run, daemon=True)
+                        except Exception as e:
+                            logger.error(f"Error in SMS scheduler: {e}", exc_info=True)
+                    t = threading.Thread(target=_run, daemon=True, name="SMS_Scheduler")
                     t.start()
                     _SCHEDULER_STARTED = True
-                except Exception:
-                    pass
+                    logger.info("SMS scheduler started successfully")
+                except Exception as e:
+                    logger.error(f"Failed to start SMS scheduler: {e}", exc_info=True)
                 try:
                     request_started.disconnect(_start_scheduler_once)
                 except Exception:
@@ -44,3 +58,5 @@ class CoreConfig(AppConfig):
                 request_started.connect(_start_scheduler_once)
             except Exception:
                 pass
+        elif not _enabled:
+            logger.info("SMS scheduler disabled. Set ENABLE_INTERNAL_SCHEDULER=true to enable.")

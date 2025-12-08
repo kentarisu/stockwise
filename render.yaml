@@ -22,6 +22,10 @@ services:
         value: false
       - key: DISABLE_CSRF
         value: false
+      - key: IPROG_API_TOKEN
+        sync: false  # Set this manually in Render dashboard (same value as worker)
+      - key: IPROG_SENDER_NAME
+        value: kaprets  # Always use 'kaprets' for all SMS
     healthCheckPath: /
     autoDeploy: true
 
@@ -41,6 +45,12 @@ services:
           property: connectionString
       - key: SECRET_KEY
         sync: true
+      - key: IPROG_API_TOKEN
+        sync: false  # Set this manually in Render dashboard
+      - key: IPROG_SENDER_NAME
+        value: kaprets  # Always use 'kaprets' for all SMS
+      - key: ENABLE_INTERNAL_SCHEDULER
+        value: false  # Worker runs as separate process, so internal scheduler not needed
 
 databases:
   - name: stockwise-db

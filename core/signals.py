@@ -41,14 +41,15 @@ def check_low_stock_after_stock_update(sender, instance, created, **kwargs):
         try:
             logger.info(f"Product updated: {instance.name}, Stock: {instance.stock}, Status: {instance.status}")
             # Check for case-insensitive 'active' status
-            if instance.stock <= 10 and instance.status.lower() == 'active':
-                logger.info(f"Triggering low stock alert for {instance.name}")
-                # Send low stock alert (with 24-hour cooldown to prevent spam)
+            status_lower = str(instance.status or '').strip().lower()
+            if instance.stock <= 10 and status_lower == 'active':
+                logger.info(f"Triggering low stock alert for {instance.name} (stock={instance.stock}, status={instance.status})")
+                # Send low stock alert immediately (real-time)
                 send_low_stock_alert(instance)
             else:
-                logger.info(f"Not triggering alert: stock={instance.stock} > 10 or status={instance.status}")
+                logger.debug(f"Not triggering alert: stock={instance.stock} > 10 or status={status_lower} != 'active'")
         except Exception as e:
-            logger.error(f"Error checking low stock after stock update: {str(e)}")
+            logger.error(f"Error checking low stock after stock update: {str(e)}", exc_info=True)
 
 
 def send_low_stock_alert(product):
@@ -104,15 +105,20 @@ def send_low_stock_alert(product):
         recipients = []
         message_codes = []
         for admin in admins:
-            result = sms_service.send_sms(admin.phone_number, message, allow_multipart=False)
-            if result.get('success'):
-                logger.info(f"REAL-TIME low stock alert sent to {admin.username} at {admin.phone_number}")
-                recipients.append(admin.username)
-                code = result.get('message_code')
-                if code:
-                    message_codes.append(code)
-            else:
-                logger.error(f"Failed to send low stock alert to {admin.username}: {result.get('message')}")
+            # Use schedule_now which uses iProg scheduling API (schedules for immediate delivery)
+            try:
+                from core.management.commands.send_notifications import schedule_now
+                result = schedule_now(admin.phone_number, message)
+                if result.get('success'):
+                    logger.info(f"REAL-TIME low stock alert sent to {admin.username} at {admin.phone_number}")
+                    recipients.append(admin.username)
+                    code = result.get('message_code') or result.get('response', {}).get('message_id')
+                    if code:
+                        message_codes.append(str(code))
+                else:
+                    logger.error(f"Failed to send low stock alert to {admin.username}: {result.get('message', 'Unknown error')}")
+            except Exception as e:
+                logger.error(f"Error sending low stock alert to {admin.username}: {e}", exc_info=True)
         
         # Log to audit trail
         if recipients:

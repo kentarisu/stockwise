@@ -454,7 +454,6 @@ class Command(BaseCommand):
             now_aware = timezone.now()
             qs = PricingRecommendation.objects.filter(expires_at__gt=now_aware).select_related('product')
             actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
-            actionable_qs = qs.filter(action__in=['INCREASE', 'DECREASE'])
             if actionable_qs.exists():
                 message = format_pricing_sms_from_queryset(actionable_qs)
             else:
@@ -465,28 +464,91 @@ class Command(BaseCommand):
             success_count = 0
             now_local = timezone.localtime()
             has_actionable = actionable_qs.exists()
-            # Global duplicate suppression window (handles concurrent workers)
-            try:
-                dup_window = now_local - timezone.timedelta(minutes=1)
-                recent_pricing_global = SMS.objects.filter(
-                    message_type='pricing_alert',
-                    sent_at__gt=dup_window
-                ).exists()
-            except Exception:
-                recent_pricing_global = False
-            # Additional suppression via action logs to avoid race conditions
+            
+            # Duplicate prevention: Check if ANY pricing SMS was sent in the last 5 minutes
+            # Check SMS records directly as they are the source of truth
+            lock_created = False
+            minute_key = None
             try:
                 from core.models import ActionLog
-                recent_log_global = ActionLog.objects.filter(
-                    action__startswith='Automatic SMS: Pricing Recommendations',
-                    created_at__gt=dup_window
+                minute_key = now_local.strftime('%Y%m%d%H%M')
+                lock_action = 'Automatic SMS: Pricing Recommendations (PENDING)'
+                
+                # Check for recent sends (completed or pending) in the last 5 minutes
+                cooldown_window = now_local - timezone.timedelta(minutes=5)
+                recent_any = ActionLog.objects.filter(
+                    action__in=[
+                        'Automatic SMS: Pricing Recommendations',
+                        'Automatic SMS: Pricing Recommendations (PENDING)'
+                    ],
+                    created_at__gte=cooldown_window
                 ).exists()
-            except Exception:
-                recent_log_global = False
-            # BYPASS: All duplicate checks removed - always send when scheduler triggers
+                if recent_any and not force:
+                    self.stdout.write(self.style.WARNING('Pricing recommendations already sent or pending in the last 5 minutes, skipping duplicate'))
+                    return
+                
+                # Also check SMS records as backup
+                recent_sms = SMS.objects.filter(
+                    message_type='pricing_alert',
+                    sent_at__gte=cooldown_window
+                ).exists()
+                if recent_sms and not force:
+                    self.stdout.write(self.style.WARNING('Pricing recommendations already sent in the last 5 minutes (found in SMS records), skipping duplicate'))
+                    return
+                
+                # Create pending lock record BEFORE sending to prevent race conditions
+                lock_record = ActionLog.objects.create(
+                    action=lock_action,
+                    details=f'minute={minute_key}',
+                    metadata='{}'
+                )
+                lock_created = True
+                
+                # Double-check: if another process created a lock first, abort
+                earliest_pending = ActionLog.objects.filter(
+                    action=lock_action,
+                    details__startswith=f'minute={minute_key}',
+                    created_at__gte=now_local - timezone.timedelta(minutes=1)
+                ).order_by('action_id').first()
+                
+                if earliest_pending and earliest_pending.action_id != lock_record.action_id and not force:
+                    self.stdout.write(self.style.WARNING('Another process acquired lock first, skipping duplicate'))
+                    try:
+                        ActionLog.objects.filter(action_id=lock_record.action_id).delete()
+                    except:
+                        pass
+                    lock_created = False
+                    return
+                    
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'Error creating lock: {str(e)}'))
+                if lock_created and minute_key:
+                    try:
+                        ActionLog.objects.filter(
+                            action=lock_action,
+                            details__startswith=f'minute={minute_key}'
+                        ).order_by('-action_id').first().delete()
+                    except:
+                        pass
+                lock_created = False
+                if not force:
+                    return
+            
             for admin in admins:
-                recent = SMS.objects.filter(user=admin, message_type='pricing_alert').order_by('-sent_at').first()
-                # BYPASS: All duplicate and cooldown checks removed - always send
+                # Check if this admin already received pricing SMS in the last 5 minutes
+                try:
+                    cooldown_window = now_local - timezone.timedelta(minutes=5)
+                    recent_admin_sms = SMS.objects.filter(
+                        user=admin,
+                        message_type='pricing_alert',
+                        sent_at__gte=cooldown_window
+                    ).exists()
+                    if recent_admin_sms and not force:
+                        self.stdout.write(self.style.WARNING(f'Pricing recommendations already sent to {admin.username} in the last 5 minutes, skipping'))
+                        continue
+                except Exception:
+                    pass
+                
                 result = schedule_now(admin.phone_number, message)
                 if result['success']:
                     try:
@@ -511,10 +573,22 @@ class Command(BaseCommand):
                                 demand_level='mid',
                                 message_content=message[:500]
                             )
+                        # Log the actual send (this happens AFTER SMS is sent successfully)
                         log_system_action(
                             action='Automatic SMS: Pricing Recommendations',
                             details=f'Recipient: {admin.username}'
                         )
+                        
+                        # Clean up pending lock after first successful send
+                        if admin == admins.first() and lock_created and minute_key:
+                            try:
+                                from core.models import ActionLog
+                                ActionLog.objects.filter(
+                                    action='Automatic SMS: Pricing Recommendations (PENDING)',
+                                    details__startswith=f'minute={minute_key}'
+                                ).delete()
+                            except:
+                                pass
                     except Exception:
                         pass
                     success_count += 1

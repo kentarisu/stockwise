@@ -10596,6 +10596,32 @@ def send_pricing_notification(request):
         from datetime import timedelta
         now_ts = timezone.now()
         force_override = str(request.POST.get('force', '')).lower() in ('true','1','yes','y')
+        
+        # Duplicate prevention: Check if pricing SMS was already sent to this user in the last 5 minutes
+        # This prevents duplicate sends from multiple rapid button clicks or scheduled sends
+        if not force_override:
+            try:
+                now_local = timezone.localtime()
+                cooldown_window = now_local - timezone.timedelta(minutes=5)
+                recent_manual_sms = SMS.objects.filter(
+                    user=user_obj,
+                    message_type='pricing_alert',
+                    sent_at__gte=cooldown_window
+                ).exists()
+                recent_manual_log = ActionLog.objects.filter(
+                    user=user_obj,
+                    action='Manual pricing notification sent',
+                    created_at__gte=cooldown_window
+                ).exists()
+                recent_auto_log = ActionLog.objects.filter(
+                    action='Automatic SMS: Pricing Recommendations',
+                    created_at__gte=cooldown_window
+                ).exists()
+                if recent_manual_sms or recent_manual_log or recent_auto_log:
+                    return JsonResponse({'success': False, 'message': 'Pricing recommendation already sent in the last 5 minutes. Please wait before sending again.'})
+            except Exception:
+                pass
+        
         from core.models import PricingRecommendation
         from core.pricing_ai import format_pricing_sms_from_queryset, validate_pricing_sms_parity
         qs = PricingRecommendation.objects.filter(expires_at__gt=now_ts).select_related('product')
@@ -11856,10 +11882,15 @@ def restore_backup(request, backup_id):
             f'Restored system from backup: {filename_removed}'
         )
         
+        # Clear session to force logout after restore
+        # This ensures user must login again with restored credentials
+        request.session.flush()
+        
         return JsonResponse({
             'success': True,
-            'message': 'System restored successfully. Please refresh.',
-            'removed_backup': filename_removed
+            'message': 'System restored successfully. Please login again.',
+            'removed_backup': filename_removed,
+            'logout': True  # Flag to indicate logout happened
         })
         
     except Backup.DoesNotExist:
@@ -12119,26 +12150,51 @@ def upload_and_restore_backup(request):
         import sys
         
         # Call restore command with proper error handling
-        # Capture stdout/stderr to prevent HTML error pages
+        # Capture stdout/stderr to capture error messages
         try:
             # Redirect stdout/stderr to capture any output
             old_stdout = sys.stdout
             old_stderr = sys.stderr
-            sys.stdout = StringIO()
-            sys.stderr = StringIO()
+            stdout_capture = StringIO()
+            stderr_capture = StringIO()
+            sys.stdout = stdout_capture
+            sys.stderr = stderr_capture
             
             try:
                 call_command('restore_backup', str(temp_path), force=True)
+            except SystemExit as e:
+                # call_command can raise SystemExit, capture the error output
+                stdout_output = stdout_capture.getvalue()
+                stderr_output = stderr_capture.getvalue()
+                error_msg = stderr_output or stdout_output or str(e) or 'Restore command failed'
+                raise Exception(f'Restore command failed: {error_msg}')
+            except Exception as restore_error:
+                # Capture any error output
+                stdout_output = stdout_capture.getvalue()
+                stderr_output = stderr_capture.getvalue()
+                error_details = stderr_output or stdout_output or str(restore_error)
+                raise Exception(f'Restore command error: {error_details}')
             finally:
                 # Restore stdout/stderr
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
-        except SystemExit:
-            # call_command can raise SystemExit, catch it
-            raise Exception('Restore command failed')
+                
+                # Log captured output for debugging
+                stdout_output = stdout_capture.getvalue()
+                stderr_output = stderr_capture.getvalue()
+                if stdout_output or stderr_output:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    if stdout_output:
+                        logger.info(f'Restore stdout: {stdout_output}')
+                    if stderr_output:
+                        logger.error(f'Restore stderr: {stderr_output}')
         except Exception as restore_error:
-            # Re-raise as a regular exception so it's caught by outer try/except
-            raise Exception(f'Restore command error: {str(restore_error)}')
+            # If restore failed, capture error details
+            stdout_output = stdout_capture.getvalue() if 'stdout_capture' in locals() else ''
+            stderr_output = stderr_capture.getvalue() if 'stderr_capture' in locals() else ''
+            error_details = stderr_output or stdout_output or str(restore_error)
+            raise Exception(f'Restore command error: {error_details}')
         
         # Clean up temp file (with retry for Windows file locking)
         import time
@@ -12164,9 +12220,14 @@ def upload_and_restore_backup(request):
             f'Uploaded and restored system from backup: {uploaded_file.name}'
         )
         
+        # Clear session to force logout after restore
+        # This ensures user must login again with restored credentials
+        request.session.flush()
+        
         return JsonResponse({
             'success': True,
-            'message': 'System restored successfully from uploaded backup. Please refresh.'
+            'message': 'System restored successfully from uploaded backup. Please login again.',
+            'logout': True  # Flag to indicate logout happened
         })
         
     except Exception as e:

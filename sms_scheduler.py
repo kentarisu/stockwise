@@ -40,6 +40,7 @@ class SMSScheduler:
         self.last_pricing_date = None
         self.last_sales_time_sent = None
         self.last_pricing_time_sent = None
+        self.last_pricing_minute_sent = None  # Track last minute pricing was sent to prevent duplicates
         logger.info("StockWise SMS Scheduler initialized")
         logger.info("Note: Low stock alerts are sent IMMEDIATELY when stock drops, not on schedule")
         
@@ -92,9 +93,10 @@ class SMSScheduler:
     def should_send_pricing(self, settings, now):
         """
         Check if we should send pricing recommendations.
-        BYPASS: Always sends if within 2 minutes of scheduled time (no duplicate check).
+        Prevents duplicate sends within the same minute.
         """
         if not settings.pricing_enabled:
+            logger.debug("Pricing recommendations disabled in settings")
             return False
         
         local_now = now
@@ -120,12 +122,27 @@ class SMSScheduler:
         current_minutes = current_time.hour * 60 + current_time.minute
         scheduled_minutes = scheduled_hour * 60 + scheduled_minute
         
-        # Check if we're within 2 minutes of scheduled time
-        time_diff = abs(current_minutes - scheduled_minutes)
-        is_within_window = time_diff <= 2
+        # Check if we're at or past the scheduled minute
+        # The command itself checks if now >= scheduled_dt, so we need to ensure current time >= scheduled time
+        time_diff = current_minutes - scheduled_minutes
         
-        # BYPASS: Always send if within window - no duplicate date or frequency check
-        return is_within_window
+        # Trigger if we're at the scheduled minute (time_diff == 0) or up to 1 minute after (time_diff == 1)
+        # This accounts for scheduler timing variance while still preventing duplicates via minute key
+        is_at_or_just_past_scheduled = time_diff == 0 or (time_diff == 1 and current_time.second < 30)
+        
+        # Additional check: prevent duplicate sends within the same minute using minute key
+        # This is the primary duplicate prevention mechanism
+        current_minute_key = f"{local_now.year}{local_now.month:02d}{local_now.day:02d}{local_now.hour:02d}{local_now.minute:02d}"
+        if self.last_pricing_minute_sent == current_minute_key:
+            logger.info(f"Pricing recommendations already sent this minute ({current_minute_key}), skipping duplicate")
+            return False
+        
+        # Log for debugging when we're at scheduled time
+        if is_at_or_just_past_scheduled:
+            logger.info(f"Pricing recommendations scheduled time reached: {scheduled_hour:02d}:{scheduled_minute:02d}, current time: {current_time.hour:02d}:{current_time.minute:02d}:{current_time.second:02d}, time_diff: {time_diff}")
+        
+        # Only send if at or just past scheduled minute AND not already sent this minute
+        return is_at_or_just_past_scheduled
     
     def send_daily_sales(self):
         """Send daily sales summary"""
@@ -169,13 +186,43 @@ class SMSScheduler:
     # send_low_stock() removed - Low stock alerts are REAL-TIME via Django signals
     
     def send_pricing(self):
-        """Send pricing recommendations - BYPASS all duplicate checks"""
+        """Send pricing recommendations with duplicate prevention"""
         try:
-            logger.info("Sending pricing recommendations (bypass enabled - always sends)...")
-            # Always send - no duplicate checks
+            # Check if pricing SMS was sent in the last 5 minutes using database check
+            # Check SMS records directly as they are the source of truth
+            try:
+                from django.utils import timezone as dj_tz
+                from core.models import SMS
+                local_now = dj_tz.localtime(dj_tz.now())
+                cooldown_window = local_now - dj_tz.timedelta(minutes=5)
+                recent_sms = SMS.objects.filter(
+                    message_type='pricing_alert',
+                    sent_at__gte=cooldown_window
+                ).exists()
+                if recent_sms:
+                    logger.info(f"Pricing recommendations already sent in the last 5 minutes (found in SMS records), skipping duplicate")
+                    return
+            except Exception as e:
+                logger.warning(f"Error checking pricing cooldown: {e}")
+            
+            # Track the current minute to prevent duplicate sends (backup check)
+            try:
+                from django.utils import timezone as dj_tz
+                local_now = dj_tz.localtime(dj_tz.now())
+                current_minute_key = f"{local_now.year}{local_now.month:02d}{local_now.day:02d}{local_now.hour:02d}{local_now.minute:02d}"
+            except Exception:
+                current_minute_key = datetime.now().strftime('%Y%m%d%H%M')
+            
+            # Check if we already sent in this minute (additional safety check)
+            if self.last_pricing_minute_sent == current_minute_key:
+                logger.info(f"Pricing recommendations already sent this minute, skipping duplicate")
+                return
+            
+            logger.info("Sending pricing recommendations...")
             call_command('send_notifications', '--type', 'pricing', '--allow-resend-today')
             
-            # Update tracking (for logging only, not for duplicate prevention)
+            # Update tracking to prevent duplicates
+            self.last_pricing_minute_sent = current_minute_key
             try:
                 settings = SMSNotificationSettings.get_settings()
                 st = (getattr(settings, 'pricing_time', None) or '08:00').strip()

@@ -1850,7 +1850,12 @@
                                         uploadModal.hide();
                                     }
                                     showMessage('success', 'Success', data.message, function() {
-                                        location.reload();
+                                        if (data.logout) {
+                                            // Redirect to login page after logout
+                                            window.location.href = '{% url "login" %}';
+                                        } else {
+                                            location.reload();
+                                        }
                                     });
                                 }, 500);
                             } else {
@@ -2019,7 +2024,14 @@
                             if (data.success) {
                                 setProgress(100, 'Completed');
                                 setTimeout(function(){ modal.hide(); }, 500);
-                                showMessage('success', 'Restore Complete', 'System restored successfully. Please refresh.', function(){ location.reload(); });
+                                showMessage('success', 'Restore Complete', 'System restored successfully. Please login again.', function(){ 
+                                    if (data.logout) {
+                                        // Redirect to login page after logout
+                                        window.location.href = '{% url "login" %}';
+                                    } else {
+                                        location.reload();
+                                    }
+                                });
                             } else {
                                 setTimeout(function(){ modal.hide(); }, 300);
                                 showMessage('error', 'Error', data.message);

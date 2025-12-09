@@ -74,6 +74,47 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Failed to create JSON backup: {e}'))
                     raise
+                
+                # 2. Backup media files
+                self.stdout.write('Backing up media files...')
+                media_root = Path(getattr(settings, 'MEDIA_ROOT', settings.BASE_DIR / 'media'))
+                media_count = 0
+                media_size = 0
+                
+                if media_root.exists() and media_root.is_dir():
+                    # Walk through media directory and add files to ZIP
+                    for root, dirs, files in os.walk(media_root):
+                        # Skip hidden directories and __pycache__
+                        dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+                        
+                        for file in files:
+                            # Skip hidden files and temporary files
+                            if file.startswith('.') or file.endswith('.tmp'):
+                                continue
+                            
+                            file_path = Path(root) / file
+                            try:
+                                # Get relative path from media_root
+                                relative_path = file_path.relative_to(media_root)
+                                zip_path = f'media/{relative_path}'
+                                
+                                # Add file to ZIP
+                                backup_zip.write(str(file_path), zip_path)
+                                media_count += 1
+                                media_size += file_path.stat().st_size
+                            except Exception as e:
+                                self.stdout.write(self.style.WARNING(f'  ⚠ Skipped {file_path}: {e}'))
+                                continue
+                    
+                    if media_count > 0:
+                        media_size_mb = media_size / (1024 * 1024)
+                        self.stdout.write(self.style.SUCCESS(
+                            f'✓ {media_count} media files backed up ({media_size_mb:.2f} MB)'
+                        ))
+                    else:
+                        self.stdout.write(self.style.WARNING('  ⚠ No media files found to backup'))
+                else:
+                    self.stdout.write(self.style.WARNING('  ⚠ Media directory does not exist'))
             
             # Get backup size
             backup_size = backup_path.stat().st_size

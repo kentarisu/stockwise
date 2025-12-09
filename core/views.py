@@ -11870,7 +11870,6 @@ def restore_backup(request, backup_id):
         
         # Fix sequences after restore (important for PostgreSQL in hosting environments)
         try:
-            from django.conf import settings
             if 'postgresql' in settings.DATABASES['default']['ENGINE']:
                 call_command('fix_sequences', verbosity=0)
         except Exception as seq_error:
@@ -11893,15 +11892,19 @@ def restore_backup(request, backup_id):
             f'Restored system from backup: {filename_removed}'
         )
         
-        # Clear session to force logout after restore
-        # This ensures user must login again with restored credentials
-        request.session.flush()
+        # Clear only app user session (not Django admin session)
+        # This ensures app user must login again with restored credentials
+        # but Django superuser/admin remains logged in
+        app_session_keys = ['app_user_id', 'app_username', 'app_role', 'user_id']
+        for key in app_session_keys:
+            if key in request.session:
+                del request.session[key]
         
         return JsonResponse({
             'success': True,
             'message': 'System restored successfully. Please login again.',
             'removed_backup': filename_removed,
-            'logout': True  # Flag to indicate logout happened
+            'logout': True  # Flag to indicate app logout happened
         })
         
     except Backup.DoesNotExist:
@@ -12209,7 +12212,6 @@ def upload_and_restore_backup(request):
         
         # Fix sequences after restore (important for PostgreSQL in hosting environments)
         try:
-            from django.conf import settings
             if 'postgresql' in settings.DATABASES['default']['ENGINE']:
                 call_command('fix_sequences', verbosity=0)
         except Exception as seq_error:
@@ -12242,14 +12244,18 @@ def upload_and_restore_backup(request):
             f'Uploaded and restored system from backup: {uploaded_file.name}'
         )
         
-        # Clear session to force logout after restore
-        # This ensures user must login again with restored credentials
-        request.session.flush()
+        # Clear only app user session (not Django admin session)
+        # This ensures app user must login again with restored credentials
+        # but Django superuser/admin remains logged in
+        app_session_keys = ['app_user_id', 'app_username', 'app_role', 'user_id']
+        for key in app_session_keys:
+            if key in request.session:
+                del request.session[key]
         
         return JsonResponse({
             'success': True,
             'message': 'System restored successfully from uploaded backup. Please login again.',
-            'logout': True  # Flag to indicate logout happened
+            'logout': True  # Flag to indicate app logout happened
         })
         
     except Exception as e:

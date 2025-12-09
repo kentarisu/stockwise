@@ -72,7 +72,6 @@ class Command(BaseCommand):
             # Fix sequences after restore (important for PostgreSQL)
             if not options['no_database']:
                 try:
-                    from django.conf import settings
                     if 'postgresql' in settings.DATABASES['default']['ENGINE']:
                         self.stdout.write('  - Fixing database sequences...')
                         call_command('fix_sequences', verbosity=0)

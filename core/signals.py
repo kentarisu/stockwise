@@ -187,20 +187,10 @@ def send_pricing_recommendations():
             phh, pmm = 8, 0
         scheduled_dt = now.replace(hour=phh, minute=pmm, second=0, microsecond=0)
         if now >= scheduled_dt:
-            try:
-                freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
-            except Exception:
-                freq_days = 3
-            from core.models import SMS
-            last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-            allow = True
-            if last:
-                next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
-                allow = now >= next_allowed
-            if allow:
-                from core.management.commands.send_pricing_recommendations import Command
-                command = Command()
-                command.send_pricing_recommendations(days=30)
+            # Cooldown check removed - pricing recommendations will send at scheduled time regardless of last send time
+            from core.management.commands.send_pricing_recommendations import Command
+            command = Command()
+            command.send_pricing_recommendations(days=30)
     except Exception as e:
         logger.error(f"Error sending pricing recommendations: {str(e)}")
 

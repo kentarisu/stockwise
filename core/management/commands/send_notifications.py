@@ -411,9 +411,31 @@ class Command(BaseCommand):
             except Exception:
                 phh, pmm = 8, 0
             scheduled_dt = now_local.replace(hour=phh, minute=pmm, second=0, microsecond=0)
-            if not force and now_local < scheduled_dt:
-                self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
-                return
+            
+            # When called from scheduler with allow_resend_today, trust that scheduler verified the time
+            # For manual calls, check if we're at or past scheduled time
+            if not force:
+                if allow_resend_today:
+                    # Scheduler calls this - we're at scheduled time, allow if within 5 minutes window
+                    # Handle case where scheduled_dt might be in the past (if scheduled time already passed today)
+                    time_since_scheduled = (now_local - scheduled_dt).total_seconds() / 60
+                    # Allow if we're at scheduled time (0) or up to 5 minutes after
+                    # Also handle case where scheduled time was earlier today (negative means scheduled time hasn't come yet today)
+                    if time_since_scheduled < 0:
+                        # Scheduled time hasn't come yet today - this shouldn't happen if scheduler is working correctly
+                        self.stdout.write(self.style.WARNING(f'Scheduled time for today ({getattr(settings, "pricing_time", "08:00")}) has not been reached yet.'))
+                        return
+                    elif time_since_scheduled > 5:
+                        # More than 5 minutes past scheduled time - scheduler should have caught it earlier
+                        self.stdout.write(self.style.WARNING(f'More than 5 minutes past scheduled time. Time since scheduled: {time_since_scheduled:.1f} minutes'))
+                        return
+                    # Within 0-5 minutes of scheduled time - proceed
+                else:
+                    # Manual call - must be at or past scheduled time
+                    if now_local < scheduled_dt:
+                        self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
+                        return
+            
             # Robust local day range
             today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
             today_end = today_start + timedelta(days=1)
@@ -422,6 +444,9 @@ class Command(BaseCommand):
             except Exception:
                 freq_days = 3
             cooldown_delta = timezone.timedelta(days=freq_days)
+            
+            # Cooldown check removed - pricing recommendations will send at scheduled time regardless of last send time
+            
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
             if not admins.exists():
                 self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
@@ -465,8 +490,8 @@ class Command(BaseCommand):
             now_local = timezone.localtime()
             has_actionable = actionable_qs.exists()
             
-            # Duplicate prevention: Check if ANY pricing SMS was sent in the last 5 minutes
-            # Check SMS records directly as they are the source of truth
+            # Duplicate prevention: Only check for sends in the same minute when called from scheduler
+            # This prevents duplicate sends from rapid scheduler checks, but allows sending at scheduled time
             lock_created = False
             minute_key = None
             try:
@@ -474,33 +499,25 @@ class Command(BaseCommand):
                 minute_key = now_local.strftime('%Y%m%d%H%M')
                 lock_action = 'Automatic SMS: Pricing Recommendations (PENDING)'
                 
-                # Check for recent sends (completed or pending) in the last 5 minutes
-                cooldown_window = now_local - timezone.timedelta(minutes=5)
-                recent_any = ActionLog.objects.filter(
-                    action__in=[
-                        'Automatic SMS: Pricing Recommendations',
-                        'Automatic SMS: Pricing Recommendations (PENDING)'
-                    ],
-                    created_at__gte=cooldown_window
-                ).exists()
-                if recent_any and not force:
-                    self.stdout.write(self.style.WARNING('Pricing recommendations already sent or pending in the last 5 minutes, skipping duplicate'))
-                    return
-                
-                # Also check SMS records as backup
-                recent_sms = SMS.objects.filter(
-                    message_type='pricing_alert',
-                    sent_at__gte=cooldown_window
-                ).exists()
-                if recent_sms and not force:
-                    self.stdout.write(self.style.WARNING('Pricing recommendations already sent in the last 5 minutes (found in SMS records), skipping duplicate'))
-                    return
+                # Only check for sends in the same minute (not last 5 minutes) when called from scheduler
+                if allow_resend_today and not force:
+                    # Check for pending or completed sends in the last 1 minute only
+                    one_minute_window = now_local - timezone.timedelta(minutes=1)
+                    recent_any = ActionLog.objects.filter(
+                        action__in=[
+                            'Automatic SMS: Pricing Recommendations',
+                            'Automatic SMS: Pricing Recommendations (PENDING)'
+                        ],
+                        created_at__gte=one_minute_window
+                    ).exists()
+                    if recent_any:
+                        self.stdout.write(self.style.WARNING('Pricing recommendations already sent or pending in the last minute, skipping duplicate'))
+                        return
                 
                 # Create pending lock record BEFORE sending to prevent race conditions
                 lock_record = ActionLog.objects.create(
                     action=lock_action,
-                    details=f'minute={minute_key}',
-                    metadata='{}'
+                    details=f'minute={minute_key}'
                 )
                 lock_created = True
                 
@@ -535,19 +552,21 @@ class Command(BaseCommand):
                     return
             
             for admin in admins:
-                # Check if this admin already received pricing SMS in the last 5 minutes
-                try:
-                    cooldown_window = now_local - timezone.timedelta(minutes=5)
-                    recent_admin_sms = SMS.objects.filter(
-                        user=admin,
-                        message_type='pricing_alert',
-                        sent_at__gte=cooldown_window
-                    ).exists()
-                    if recent_admin_sms and not force:
-                        self.stdout.write(self.style.WARNING(f'Pricing recommendations already sent to {admin.username} in the last 5 minutes, skipping'))
-                        continue
-                except Exception:
-                    pass
+                # When called from scheduler at scheduled time, skip per-admin duplicate check
+                # Only check if not called from scheduler (manual calls)
+                if not allow_resend_today and not force:
+                    try:
+                        cooldown_window = now_local - timezone.timedelta(minutes=5)
+                        recent_admin_sms = SMS.objects.filter(
+                            user=admin,
+                            message_type='pricing_alert',
+                            sent_at__gte=cooldown_window
+                        ).exists()
+                        if recent_admin_sms:
+                            self.stdout.write(self.style.WARNING(f'Pricing recommendations already sent to {admin.username} in the last 5 minutes, skipping'))
+                            continue
+                    except Exception:
+                        pass
                 
                 result = schedule_now(admin.phone_number, message)
                 if result['success']:

@@ -57,16 +57,7 @@ class Command(BaseCommand):
         if now < scheduled_dt:
             self.stdout.write(self.style.WARNING(f'Not yet time for pricing recommendations (scheduled at {getattr(settings, "pricing_time", "08:00")}).'))
             return
-        try:
-            freq_days = int(getattr(settings, 'pricing_frequency_days', 3))
-        except Exception:
-            freq_days = 3
-        last = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-        if last:
-            next_allowed = timezone.localtime(last.sent_at) + timezone.timedelta(days=freq_days)
-            if now < next_allowed:
-                self.stdout.write(self.style.WARNING('Pricing recommendations are under cooldown based on settings.'))
-                return
+        # Cooldown check removed - pricing recommendations will send at scheduled time regardless of last send time
         admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')
         if not admins.exists():
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))

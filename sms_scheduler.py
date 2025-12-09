@@ -126,9 +126,10 @@ class SMSScheduler:
         # The command itself checks if now >= scheduled_dt, so we need to ensure current time >= scheduled time
         time_diff = current_minutes - scheduled_minutes
         
-        # Trigger if we're at the scheduled minute (time_diff == 0) or up to 1 minute after (time_diff == 1)
-        # This accounts for scheduler timing variance while still preventing duplicates via minute key
-        is_at_or_just_past_scheduled = time_diff == 0 or (time_diff == 1 and current_time.second < 30)
+        # Trigger if we're at or past the scheduled time (time_diff >= 0)
+        # Allow a window of up to 5 minutes after scheduled time to account for scheduler delays
+        # Duplicate prevention is handled by minute key and database cooldown checks
+        is_at_or_past_scheduled = time_diff >= 0 and time_diff <= 5
         
         # Additional check: prevent duplicate sends within the same minute using minute key
         # This is the primary duplicate prevention mechanism
@@ -138,11 +139,11 @@ class SMSScheduler:
             return False
         
         # Log for debugging when we're at scheduled time
-        if is_at_or_just_past_scheduled:
+        if is_at_or_past_scheduled:
             logger.info(f"Pricing recommendations scheduled time reached: {scheduled_hour:02d}:{scheduled_minute:02d}, current time: {current_time.hour:02d}:{current_time.minute:02d}:{current_time.second:02d}, time_diff: {time_diff}")
         
-        # Only send if at or just past scheduled minute AND not already sent this minute
-        return is_at_or_just_past_scheduled
+        # Only send if at or past scheduled time (within 5 minute window) AND not already sent this minute
+        return is_at_or_past_scheduled
     
     def send_daily_sales(self):
         """Send daily sales summary"""
@@ -188,24 +189,7 @@ class SMSScheduler:
     def send_pricing(self):
         """Send pricing recommendations with duplicate prevention"""
         try:
-            # Check if pricing SMS was sent in the last 5 minutes using database check
-            # Check SMS records directly as they are the source of truth
-            try:
-                from django.utils import timezone as dj_tz
-                from core.models import SMS
-                local_now = dj_tz.localtime(dj_tz.now())
-                cooldown_window = local_now - dj_tz.timedelta(minutes=5)
-                recent_sms = SMS.objects.filter(
-                    message_type='pricing_alert',
-                    sent_at__gte=cooldown_window
-                ).exists()
-                if recent_sms:
-                    logger.info(f"Pricing recommendations already sent in the last 5 minutes (found in SMS records), skipping duplicate")
-                    return
-            except Exception as e:
-                logger.warning(f"Error checking pricing cooldown: {e}")
-            
-            # Track the current minute to prevent duplicate sends (backup check)
+            # Only check if we already sent in this exact minute to prevent duplicate sends from rapid scheduler checks
             try:
                 from django.utils import timezone as dj_tz
                 local_now = dj_tz.localtime(dj_tz.now())
@@ -213,7 +197,7 @@ class SMSScheduler:
             except Exception:
                 current_minute_key = datetime.now().strftime('%Y%m%d%H%M')
             
-            # Check if we already sent in this minute (additional safety check)
+            # Check if we already sent in this minute (prevent duplicate sends within same minute)
             if self.last_pricing_minute_sent == current_minute_key:
                 logger.info(f"Pricing recommendations already sent this minute, skipping duplicate")
                 return

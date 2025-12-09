@@ -69,6 +69,18 @@ class Command(BaseCommand):
                 # Handle ZIP files for backward compatibility
                 self._restore_from_zip(backup_file, options)
             
+            # Fix sequences after restore (important for PostgreSQL)
+            if not options['no_database']:
+                try:
+                    from django.conf import settings
+                    if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                        self.stdout.write('  - Fixing database sequences...')
+                        call_command('fix_sequences', verbosity=0)
+                        self.stdout.write(self.style.SUCCESS('  ✓ Sequences fixed'))
+                except Exception as seq_error:
+                    # Log but don't fail if sequence fix fails
+                    self.stdout.write(self.style.WARNING(f'  ⚠ Warning fixing sequences: {seq_error}'))
+            
             # Log the restore operation to audit logs
             try:
                 from core.views import log_system_action

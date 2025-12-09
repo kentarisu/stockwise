@@ -1022,18 +1022,20 @@ function updateProductSelects(){
       options += `<optgroup label="${fruitName}">`;
       groupedProducts[fruitName].forEach(p => {
         const stock = p.stock || 0;
-        const stockText = `[Stock: ${stock}]`;
+        const sizeUnit = (p.quantity_unit||'').toLowerCase();
+        // Format stock: integers for boxes, decimals for kg
+        const formattedStock = (sizeUnit==='kg') ? parseFloat(stock).toFixed(2) : Math.floor(parseFloat(stock));
+        const stockText = `[Stock: ${formattedStock}]`;
         const variant = (p.variant || '').trim();
         const hasVariantInName = variant && (p.name || '').toLowerCase().includes(`(${variant.toLowerCase()})`);
         const nameWithVariant = variant && !hasVariantInName ? `${p.name} (${variant})` : (p.name || '');
         let displayName = nameWithVariant;
-        const sizeUnit = (p.quantity_unit||'');
-        const sizeDisplay = (String(sizeUnit).toLowerCase()==='kg') ? 'kg' : sizeUnit;
+        const sizeDisplay = (sizeUnit==='kg') ? 'kg' : (p.quantity_unit||'');
         const size = sizeUnit ? ` (Qty: ${sizeDisplay})` : '';
         const pidStr=(p.product_id||'').toString();
         const isSelectedElsewhere = selectedProductIds.includes(pidStr) && pidStr !== (currentValue||'').toString();
         const selectedLabel = isSelectedElsewhere ? ' [Already Selected]' : '';
-        const unitLabel = (String(sizeUnit).toLowerCase()==='kg') ? 'per kg' : 'per box';
+        const unitLabel = (sizeUnit==='kg') ? 'per kg' : 'per box';
         displayName = `${displayName}${size} - ₱${formatCurrency(p.price)} ${unitLabel} ${stockText}${selectedLabel}`;
         const disabledAttr = (stock<=0 || isSelectedElsewhere) ? 'disabled' : '';
         options += `<option value="${p.product_id}" data-price="${p.price}" data-name="${nameWithVariant}" data-variant="${p.variant||''}" data-quantity_unit="${p.quantity_unit||''}" data-stock="${stock}" ${disabledAttr}>${displayName}</option>`;
@@ -1549,7 +1551,9 @@ $(document).ready(function(){
         const st = p.stock||0;
         const unit=(p.quantity_unit||'').toLowerCase();
         const unitLabel = (unit==='kg') ? 'kg' : 'boxes';
-        $info.text(`Stock: ${st} ${unitLabel}`);
+        // Format stock: integers for boxes, decimals for kg
+        const formattedStock = (unit==='kg') ? parseFloat(st).toFixed(2) : Math.floor(parseFloat(st));
+        $info.text(`Stock: ${formattedStock} ${unitLabel}`);
         $info.removeClass('text-muted stock-indicator-green stock-indicator-yellow stock-indicator-red');
         if(st<=0){ $info.addClass('stock-indicator-red'); }
         else if(st<=10){ $info.addClass('stock-indicator-yellow'); }

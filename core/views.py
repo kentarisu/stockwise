@@ -11868,6 +11868,17 @@ def restore_backup(request, backup_id):
             # Re-raise as a regular exception so it's caught by outer try/except
             raise Exception(f'Restore command error: {str(restore_error)}')
         
+        # Fix sequences after restore (important for PostgreSQL in hosting environments)
+        try:
+            from django.conf import settings
+            if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                call_command('fix_sequences', verbosity=0)
+        except Exception as seq_error:
+            # Log but don't fail if sequence fix fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Could not fix sequences after restore: {seq_error}')
+        
         # After successful restore, remove backup record so it no longer appears in the list
         try:
             filename_removed = backup.filename
@@ -12195,6 +12206,17 @@ def upload_and_restore_backup(request):
             stderr_output = stderr_capture.getvalue() if 'stderr_capture' in locals() else ''
             error_details = stderr_output or stdout_output or str(restore_error)
             raise Exception(f'Restore command error: {error_details}')
+        
+        # Fix sequences after restore (important for PostgreSQL in hosting environments)
+        try:
+            from django.conf import settings
+            if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+                call_command('fix_sequences', verbosity=0)
+        except Exception as seq_error:
+            # Log but don't fail if sequence fix fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f'Could not fix sequences after restore: {seq_error}')
         
         # Clean up temp file (with retry for Windows file locking)
         import time

@@ -2478,7 +2478,7 @@
                         <div class="row g-3 mb-3" id="initialStockRow">
                             <div class="col-md-6">
                                 <label for="stockInput" id="stockLabel" class="form-label">Initial Stock (Per Box)</label>
-                                <input type="number" class="form-control" id="stockInput" name="stock" min="0" step="1" value="0" required autocomplete="off">
+                                <input type="number" class="form-control" id="stockInput" name="stock" min="0" max="99" step="1" value="0" required autocomplete="off">
                             </div>
                             <div class="col-md-6 d-flex align-items-end">
                                 <div class="mb-0">
@@ -3017,16 +3017,20 @@
                     if (unit === 'kg') {
                         $('#productSizeDisplay').attr('list', '').val('').prop('disabled', true).attr('placeholder', 'kg');
                         $('#stockLabel').text('Initial Stock (Per kg)');
-                        // Allow decimal values for kg products
+                        // Allow decimal values for kg products, max 99
                         $stockInput.attr('step', '0.01');
-                        $stockInput.attr('min', '0.01');
-                        $stockInput.attr('placeholder', 'e.g., 21.87');
+                        $stockInput.attr('min', '0');
+                        $stockInput.attr('max', '99');
+                        $stockInput.prop('readonly', false);
+                        $stockInput.removeAttr('placeholder');
                     } else {
                         $('#productSizeDisplay').attr('list', 'quantitySuggestions').prop('disabled', false).attr('placeholder', 'Enter quantity');
                         $('#stockLabel').text('Initial Stock (Per Box)');
-                        // Only integers for box products
+                        // Only integers for box products, max 99
                         $stockInput.attr('step', '1');
                         $stockInput.attr('min', '0');
+                        $stockInput.attr('max', '99');
+                        $stockInput.prop('readonly', false);
                         $stockInput.removeAttr('placeholder');
                     }
                 }
@@ -3087,13 +3091,19 @@
                         const $stockInput = $('#stockInput');
                         if (unit === 'kg') {
                             $('#stockLabel').text('Initial Stock (Per kg)');
+                            // Allow decimal values for kg products, max 99
                             $stockInput.attr('step', '0.01');
-                            $stockInput.attr('min', '0.01');
-                            $stockInput.attr('placeholder', 'e.g., 21.87');
+                            $stockInput.attr('min', '0');
+                            $stockInput.attr('max', '99');
+                            $stockInput.prop('readonly', false);
+                            $stockInput.removeAttr('placeholder');
                         } else {
                             $('#stockLabel').text('Initial Stock (Per Box)');
+                            // Only integers for box products, max 99
                             $stockInput.attr('step', '1');
                             $stockInput.attr('min', '0');
+                            $stockInput.attr('max', '99');
+                            $stockInput.prop('readonly', false);
                             $stockInput.removeAttr('placeholder');
                         }
                         $('#initialStockRow').hide();
@@ -3222,6 +3232,26 @@
                 });
                 updateMin();
             })();
+            
+            // Initial stock limit notification (99 per day limit for batch IDs)
+            $('#stockInput').on('input', function(){
+                const stockVal = parseFloat($(this).val()) || 0;
+                const stockInput = $(this);
+                const isEditMode = $('#productId').val() && $('#productId').val() !== '';
+                
+                // Only validate for new products (not edit mode)
+                if (!isEditMode) {
+                    if (stockVal > 99) {
+                        stockInput.removeClass('is-valid').addClass('is-invalid');
+                        showFormAlert('Initial stock cannot exceed 99 boxes per day due to batch ID limitations. Please add more stock after product creation.', 'warning');
+                    } else if (stockVal < 0) {
+                        stockInput.removeClass('is-valid').addClass('is-invalid');
+                        showFormAlert('Stock cannot be negative.', 'danger');
+                    } else {
+                        stockInput.removeClass('is-invalid').addClass('is-valid');
+                    }
+                }
+            });
 
             (function(){
                 const $qty = $('#productSizeDisplay');
@@ -3334,6 +3364,7 @@
                 }
                 if (cost < 0){ showFormAlert('Cost cannot be negative.', 'danger'); return; }
                 if (!isEditMode && stock < 0){ showFormAlert('Stock cannot be negative.', 'danger'); return; }
+                if (!isEditMode && stock > 99){ showFormAlert('Initial stock cannot exceed 99. Please add more stock after creating the product.', 'danger'); return; }
                 formData.set('name', name);
                 formData.set('variant', variantVal);
                 formData.set('quantity_unit', unitSel === 'kg' ? 'kg' : (size || ''));

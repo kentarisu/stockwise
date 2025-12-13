@@ -491,7 +491,7 @@
           <div class="row g-3 mt-0">
             <div class="col-md-6">
                 <label class="form-label" id="stockLabel" for="stockInput">Initial Stock (Box)</label>
-                <input type="number" class="form-control" id="stockInput" name="stock" min="0" step="1" value="0" required autocomplete="off">
+                <input type="number" class="form-control" id="stockInput" name="stock" min="0" max="99" step="1" value="0" required autocomplete="off">
             </div>
             <div class="col-md-6 d-flex align-items-end">
                 <div class="mb-0">
@@ -743,6 +743,7 @@ $(document).ready(function(){
         }
         if (cost < 0) { showPageAlert('Cost cannot be negative.', 'danger'); return; }
         if (stock < 0) { showPageAlert('Stock cannot be negative.', 'danger'); return; }
+        if (stock > 99) { showPageAlert('Initial stock cannot exceed 99. Please add more stock after creating the product.', 'danger'); return; }
 
         formData.set('action', 'add');
         if (!formData.get('boxes')) {
@@ -850,6 +851,23 @@ $(document).ready(function(){
         $('#markupSelect').val('');
         validatePriceAgainstMin(); 
     });
+    
+    // Initial stock limit notification (99 per day limit for batch IDs)
+    $('#stockInput').on('input', function(){
+        const stockVal = parseFloat($(this).val()) || 0;
+        const stockInput = $(this);
+        
+        if (stockVal > 99) {
+            stockInput.removeClass('is-valid').addClass('is-invalid');
+            showPageAlert('Initial stock cannot exceed 99 boxes per day due to batch ID limitations. Please add more stock after product creation.', 'warning');
+        } else if (stockVal < 0) {
+            stockInput.removeClass('is-valid').addClass('is-invalid');
+            showPageAlert('Stock cannot be negative.', 'danger');
+        } else {
+            stockInput.removeClass('is-invalid').addClass('is-valid');
+        }
+    });
+    
     updateMinPriceHint();
     validatePriceAgainstMin();
 
@@ -866,17 +884,21 @@ $(document).ready(function(){
                     $qty.prop('disabled', true);
                     $qty.attr('placeholder', 'kg');
                     $('#stockLabel').text('Initial Stock (kg)');
-                    // Allow decimal values for kg products
+                    // Allow decimal values for kg products, max 99
                     $stockInput.attr('step', '0.01');
-                    $stockInput.attr('min', '0.01');
-                    $stockInput.attr('placeholder', 'e.g., 21.87');
+                    $stockInput.attr('min', '0');
+                    $stockInput.attr('max', '99');
+                    $stockInput.prop('readonly', false);
+                    $stockInput.removeAttr('placeholder');
                 } else {
                     $qty.prop('disabled', false);
                     $qty.attr('placeholder', 'Enter quantity');
                     $('#stockLabel').text('Initial Stock (Box)');
-                    // Only integers for box products
+                    // Only integers for box products, max 99
                     $stockInput.attr('step', '1');
                     $stockInput.attr('min', '0');
+                    $stockInput.attr('max', '99');
+                    $stockInput.prop('readonly', false);
                     $stockInput.removeAttr('placeholder');
                 }
             };

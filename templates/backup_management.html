@@ -1193,6 +1193,12 @@
                             <span>Reports</span>
                         </a>
                     </div>
+                    <div class="nav-item">
+                        <a href="{% url 'pricing_analysis' %}" class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}">
+                            <i class="bi bi-currency-exchange"></i>
+                            <span>Pricing Analysis</span>
+                        </a>
+                    </div>
                 </div>
                 {% endif %}
 

@@ -10615,18 +10615,61 @@ def apply_pricing_recommendation(request):
             return JsonResponse({'success': False, 'message': 'Invalid product ID or price'})
         
         # Update product price
-        from core.models import Product, PricingRecommendation
+        from core.models import Product, PricingRecommendation, PriceChangeHistory, Sale
+        from django.db.models import Avg
+        from datetime import datetime, timedelta
+        
         product = Product.objects.get(product_id=product_id)
         old_price = product.price
         product.price = new_price
         product.save()
 
-        # Persist the accepted recommendation to the database for reporting
-        # Skip creating records for HOLD actions - they should not be stored
+        # Record price change in PriceChangeHistory
         try:
             change_pct = 0.0
             if old_price and float(old_price) != 0:
                 change_pct = ((float(new_price) / float(old_price)) - 1.0) * 100.0
+            
+            # Calculate demand before change (last 7 days)
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=7)
+            sales_before = Sale.objects.filter(
+                product=product,
+                recorded_at__gte=start_date,
+                recorded_at__lt=end_date,
+                status='completed'
+            )
+            demand_before = sales_before.aggregate(avg=Avg('quantity'))['avg'] or 0
+            
+            # Determine reason from provided reason or action
+            reason = 'ai_recommendation'
+            reason_details = provided_reason or 'Price change applied via AI recommendation'
+            
+            # Get user
+            user_id = request.session.get('app_user_id')
+            user = AppUser.objects.get(user_id=user_id) if user_id else None
+            
+            PriceChangeHistory.objects.create(
+                product=product,
+                old_price=old_price,
+                new_price=new_price,
+                change_pct=change_pct,
+                reason=reason,
+                reason_details=reason_details,
+                demand_before=demand_before,
+                stock_level=product.stock,
+                service_type='AI Demand-Based Pricing',
+                created_by=user,
+            )
+        except Exception as e:
+            # Log but don't fail the request
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Error recording price change: {str(e)}')
+
+        # Persist the accepted recommendation to the database for reporting
+        # Skip creating records for HOLD actions - they should not be stored
+        try:
             action = provided_action if provided_action in ('INCREASE', 'DECREASE', 'HOLD') else ('INCREASE' if float(new_price) > float(old_price) else 'DECREASE' if float(new_price) < float(old_price) else 'HOLD')
             # Don't create records for HOLD actions
             action_str = str(action or '').strip().upper()
@@ -12568,3 +12611,454 @@ def get_scheduler_health(request):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@require_app_login
+def pricing_analysis_view(request):
+    """Pricing analysis dashboard with price comparison, demand analysis, and graphs"""
+    if request.session.get('app_role') != 'admin':
+        return redirect('dashboard')
+    
+    # Get user object for profile picture
+    user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    try:
+        user_obj = AppUser.objects.get(user_id=user_id)
+    except Exception:
+        user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
+    
+    # Get products for analysis
+    products = Product.objects.filter(status='active').order_by('name', 'variant')
+    
+    context = {
+        'app_role': request.session.get('app_role', 'user'),
+        'app_username': request.session.get('app_username', ''),
+        'user_obj': user_obj,
+        'products': products,
+    }
+    return render(request, 'pricing_analysis_full.html', context)
+
+
+@require_app_login
+def get_pricing_analysis_data(request):
+    """API endpoint to get pricing analysis data with price changes, demand, and graphs"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    try:
+        from core.models import PriceChangeHistory, Sale, Product
+        from django.db.models import Avg, Sum, Count, Q
+        from datetime import datetime, timedelta
+        import pandas as pd
+        
+        product_id = request.GET.get('product_id')
+        days = int(request.GET.get('days', 365))
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        if product_id:
+            products = Product.objects.filter(product_id=product_id, status='active')
+        else:
+            # Get the specified products from user request
+            product_names = [
+                ('Apple', 'Fuji'), ('Apple', 'Gala'), ('Apple', 'Red Delicious'),
+                ('Grapes', 'Seedless'), ('Grapes', 'Thompson Seedless'),
+                ('Orange', 'Valencia'), ('Orange', 'Kiat-Kiat'),
+                ('Watermelon', 'Sugar Baby'), ('Watermelon', 'Sweet Gold'),
+                ('Strawberry', 'Sweet Charlie'),
+            ]
+            products = Product.objects.filter(
+                status='active'
+            ).filter(
+                Q(name='Apple', variant__in=['Fuji', 'Gala', 'Red Delicious']) |
+                Q(name='Grapes', variant__in=['Seedless', 'Thompson Seedless']) |
+                Q(name='Orange', variant__in=['Valencia', 'Kiat-Kiat']) |
+                Q(name='Watermelon', variant__in=['Sugar Baby', 'Sweet Gold']) |
+                Q(name='Strawberry', variant='Sweet Charlie')
+            )
+        
+        # Use Pricing AI to get log-log elasticity models
+        from core.pricing_ai import DemandPricingAI, PolicyConfig
+        
+        # Prepare sales data for AI model (need product_id column)
+        all_sales = Sale.objects.filter(
+            recorded_at__gte=start_date,
+            recorded_at__lte=end_date,
+            status='completed'
+        ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+        
+        if all_sales.exists():
+            ai_sales_df = pd.DataFrame(list(all_sales))
+            ai_sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+            ai_sales_df['date'] = pd.to_datetime(ai_sales_df['date'])
+            # Convert to float for AI model
+            ai_sales_df['price'] = ai_sales_df['price'].astype(float)
+            ai_sales_df['units_sold'] = ai_sales_df['units_sold'].astype(float)
+        else:
+            ai_sales_df = pd.DataFrame(columns=['date', 'product_id', 'units_sold', 'price'])
+        
+        # Fit log-log elasticity models
+        cfg = PolicyConfig(
+            min_margin_pct=0.10,
+            max_move_pct=0.10,
+            cooldown_days=3,
+            planning_horizon_days=7,
+            min_obs_per_product=5,
+            default_elasticity=-1.0,
+            hold_band_pct=0.03,
+        )
+        pricing_ai = DemandPricingAI(cfg)
+        if not ai_sales_df.empty:
+            pricing_ai.fit(ai_sales_df)
+        
+        # Get current pricing recommendations
+        from core.models import PricingRecommendation
+        from django.utils import timezone
+        current_recommendations = PricingRecommendation.objects.filter(
+            expires_at__gt=timezone.now()
+        ).select_related('product')
+        recommendations_map = {rec.product.product_id: rec for rec in current_recommendations}
+        
+        analysis_data = []
+        
+        for product in products:
+            # Get sales data
+            sales = Sale.objects.filter(
+                product=product,
+                recorded_at__gte=start_date,
+                recorded_at__lte=end_date,
+                status='completed'
+            ).order_by('recorded_at')
+            
+            # Get price change history
+            price_changes = PriceChangeHistory.objects.filter(
+                product=product,
+                created_at__gte=start_date
+            ).order_by('created_at')
+            
+            # Get log-log model metrics from Pricing AI
+            ai_model = pricing_ai.models.get(product.product_id, {})
+            elasticity = float(ai_model.get('elasticity', cfg.default_elasticity))
+            r2 = float(ai_model.get('r2', 0.0))
+            n_observations = int(ai_model.get('n', 0))
+            
+            # Get current recommendation if exists
+            current_recommendation = recommendations_map.get(product.product_id)
+            
+            # Calculate demand metrics
+            sales_df = pd.DataFrame(list(sales.values('recorded_at', 'quantity', 'price')))
+            
+            if not sales_df.empty:
+                # Convert Decimal columns to float for pandas operations
+                sales_df['quantity'] = sales_df['quantity'].astype(float)
+                sales_df['price'] = sales_df['price'].astype(float)
+                
+                sales_df['date'] = pd.to_datetime(sales_df['recorded_at']).dt.date
+                daily_sales = sales_df.groupby('date').agg({
+                    'quantity': 'sum',
+                    'price': 'mean'
+                }).reset_index()
+                
+                total_quantity = float(sales_df['quantity'].sum())
+                avg_daily_demand = total_quantity / float(days) if days > 0 else 0.0
+                avg_price = float(sales_df['price'].mean())
+                price_std = float(sales_df['price'].std()) if len(sales_df) > 1 else 0.0
+                
+                # Calculate demand trends (7-day vs 30-day)
+                recent_cutoff = (end_date - timedelta(days=7)).date()
+                older_start = (end_date - timedelta(days=30)).date()
+                older_end = (end_date - timedelta(days=7)).date()
+                
+                recent_sales = sales_df[sales_df['date'] >= recent_cutoff]
+                older_sales = sales_df[
+                    (sales_df['date'] >= older_start) &
+                    (sales_df['date'] < older_end)
+                ]
+                
+                recent_total = float(recent_sales['quantity'].sum()) if len(recent_sales) > 0 else 0.0
+                older_total = float(older_sales['quantity'].sum()) if len(older_sales) > 0 else 0.0
+                recent_avg = recent_total / 7.0 if len(recent_sales) > 0 else 0.0
+                older_avg = older_total / 23.0 if len(older_sales) > 0 else 0.0
+                demand_ratio = recent_avg / older_avg if older_avg > 0 else 1.0
+                
+                # Check for stock outs (days with zero sales when there should be sales)
+                stock_out_days = 0
+                no_sales_days = 0
+                try:
+                    date_range = pd.date_range(start=start_date.date(), end=end_date.date(), freq='D')
+                    for date in date_range:
+                        date_obj = date.date() if hasattr(date, 'date') else date
+                        date_sales = sales_df[sales_df['date'] == date_obj]
+                        if len(date_sales) == 0:
+                            # Check if this is unusual (should have sales based on average)
+                            if avg_daily_demand > 0.1:  # If we expect sales
+                                no_sales_days += 1
+                except Exception:
+                    # If date range fails, skip this calculation
+                    pass
+                
+                # Price change data for graphs
+                price_history = []
+                for _, row in daily_sales.iterrows():
+                    price_history.append({
+                        'date': row['date'].isoformat(),
+                        'price': float(row['price']),
+                        'quantity': float(row['quantity'])
+                    })
+                
+                # Price change events
+                change_events = []
+                for change in price_changes:
+                    change_events.append({
+                        'date': change.created_at.date().isoformat(),
+                        'old_price': float(change.old_price),
+                        'new_price': float(change.new_price),
+                        'change_pct': float(change.change_pct),
+                        'reason': change.get_reason_display(),
+                        'reason_details': change.reason_details or '',
+                        'demand_before': float(change.demand_before) if change.demand_before else None,
+                        'demand_after': float(change.demand_after) if change.demand_after else None,
+                        'margin_of_error': float(change.margin_of_error) if change.margin_of_error else None,
+                        'service_type': change.service_type or '',
+                    })
+                
+                # Calculate margin of error using log-log model prediction
+                margin_of_error = None
+                if len(price_history) > 10 and elasticity is not None and n_observations >= cfg.min_obs_per_product:
+                    # Use log-log model to predict: q_new = q_base * (p_new/p_cur)^elasticity
+                    # For margin of error, compare predicted vs actual demand after price changes
+                    prices = [p['price'] for p in price_history[-30:]]
+                    quantities = [p['quantity'] for p in price_history[-30:]]
+                    if len(prices) > 1 and len(quantities) > 1:
+                        # Use recent average as baseline
+                        base_price = sum(prices[:-1]) / len(prices[:-1])
+                        base_quantity = sum(quantities[:-1]) / len(quantities[:-1])
+                        actual_price = prices[-1]
+                        actual_quantity = quantities[-1]
+                        
+                        # Predict quantity using log-log model
+                        if base_price > 0 and elasticity is not None:
+                            predicted_quantity = base_quantity * ((actual_price / base_price) ** elasticity)
+                            if predicted_quantity > 0 and actual_quantity > 0:
+                                margin_of_error = abs((actual_quantity - predicted_quantity) / predicted_quantity) * 100
+                
+                # Determine confidence level from R²
+                confidence_level = 'LOW'
+                if r2 >= 0.6:
+                    confidence_level = 'HIGH'
+                elif r2 >= 0.3:
+                    confidence_level = 'MEDIUM'
+                
+                # Service type based on whether we have a valid log-log model
+                service_type = 'AI Log-Log Pricing' if (n_observations >= cfg.min_obs_per_product and r2 > 0) else 'Manual Pricing'
+                
+                # Add recommendation data if exists
+                recommendation_data = None
+                if current_recommendation:
+                    recommendation_data = {
+                        'suggested_price': float(current_recommendation.suggested_price),
+                        'change_pct': float(current_recommendation.change_pct),
+                        'action': current_recommendation.action,
+                        'reason': current_recommendation.reason,
+                        'confidence': current_recommendation.confidence or confidence_level,
+                        'expires_at': current_recommendation.expires_at.isoformat() if current_recommendation.expires_at else None,
+                    }
+                
+                analysis_data.append({
+                    'product_id': product.product_id,
+                    'product_name': product.name,
+                    'variant': product.variant or '',
+                    'quantity_unit': product.quantity_unit,
+                    'current_price': float(product.price),
+                    'cost': float(product.cost),
+                    'current_stock': float(product.stock),
+                    'avg_daily_demand': round(avg_daily_demand, 2),
+                    'avg_price': round(avg_price, 2),
+                    'price_std': round(price_std, 2),
+                    'demand_ratio': round(demand_ratio, 2),
+                    'total_sales': int(total_quantity),
+                    'total_revenue': float(total_quantity * avg_price),
+                    'stock_out_days': stock_out_days,
+                    'no_sales_days': no_sales_days,
+                    'price_history': price_history,
+                    'price_changes': change_events,
+                    'margin_of_error': round(margin_of_error, 2) if margin_of_error else None,
+                    'service_type': service_type,
+                    # Log-log model metrics
+                    'elasticity': round(elasticity, 4),
+                    'r2': round(r2, 4),
+                    'n_observations': n_observations,
+                    'confidence': confidence_level,
+                    'current_recommendation': recommendation_data,
+                })
+        
+        # Categorize products by fruit type and variant
+        categorized_data = {}
+        for item in analysis_data:
+            fruit_name = item['product_name']
+            variant = item['variant'] or 'Standard'
+            category_key = f"{fruit_name} - {variant}"
+            
+            if category_key not in categorized_data:
+                categorized_data[category_key] = {
+                    'category': fruit_name,
+                    'variant': variant,
+                    'products': []
+                }
+            
+            categorized_data[category_key]['products'].append(item)
+        
+        # Sort products within each category by quantity_unit (size)
+        for category_key in categorized_data:
+            # Sort by quantity_unit, handling both numeric and 'kg' values
+            def sort_key(product):
+                unit = product['quantity_unit']
+                if unit == 'kg':
+                    return (1, 0)  # kg products go last
+                try:
+                    return (0, int(unit))  # Numeric sizes sorted numerically
+                except ValueError:
+                    return (0, 0)  # Fallback for unexpected values
+            
+            categorized_data[category_key]['products'].sort(key=sort_key)
+        
+        # Convert to list and sort categories
+        categorized_list = []
+        for category_key in sorted(categorized_data.keys()):
+            categorized_list.append(categorized_data[category_key])
+        
+        return JsonResponse({
+            'success': True,
+            'data': analysis_data,  # Keep flat list for backward compatibility
+            'categorized': categorized_list,  # New categorized structure
+            'period': {
+                'start': start_date.date().isoformat(),
+                'end': end_date.date().isoformat(),
+                'days': days
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'message': str(e),
+            'traceback': traceback.format_exc()
+        })
+
+
+@require_app_login
+def record_price_change(request):
+    """Record a price change with reason"""
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'})
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+    
+    try:
+        from core.models import PriceChangeHistory, Sale, Product
+        from django.db.models import Avg
+        from datetime import datetime, timedelta
+        
+        product_id = request.POST.get('product_id')
+        new_price = float(request.POST.get('new_price'))
+        reason = request.POST.get('reason', 'manual')
+        reason_details = request.POST.get('reason_details', '')
+        
+        product = Product.objects.get(product_id=product_id)
+        old_price = product.price
+        
+        # Calculate demand before change (last 7 days before price change)
+        change_date = datetime.now()
+        before_start = change_date - timedelta(days=7)
+        sales_before = Sale.objects.filter(
+            product=product,
+            recorded_at__gte=before_start,
+            recorded_at__lt=change_date,
+            status='completed'
+        )
+        demand_before = sales_before.aggregate(avg=Avg('quantity'))['avg'] or 0
+        
+        # Get log-log model metrics if available
+        from core.pricing_ai import DemandPricingAI, PolicyConfig
+        import pandas as pd
+        
+        # Get sales data for AI model
+        ai_start = change_date - timedelta(days=120)  # Use 120 days for model fitting
+        ai_sales = Sale.objects.filter(
+            product=product,
+            recorded_at__gte=ai_start,
+            recorded_at__lt=change_date,
+            status='completed'
+        ).values('recorded_at', 'quantity', 'price')
+        
+        elasticity = None
+        r2 = None
+        margin_of_error = None
+        
+        if ai_sales.exists():
+            ai_sales_df = pd.DataFrame(list(ai_sales))
+            ai_sales_df.columns = ['date', 'units_sold', 'price']
+            ai_sales_df['date'] = pd.to_datetime(ai_sales_df['date'])
+            ai_sales_df['product_id'] = product.product_id
+            ai_sales_df['price'] = ai_sales_df['price'].astype(float)
+            ai_sales_df['units_sold'] = ai_sales_df['units_sold'].astype(float)
+            
+            cfg = PolicyConfig()
+            pricing_ai = DemandPricingAI(cfg)
+            pricing_ai.fit(ai_sales_df)
+            
+            ai_model = pricing_ai.models.get(product.product_id, {})
+            elasticity = float(ai_model.get('elasticity', cfg.default_elasticity))
+            r2 = float(ai_model.get('r2', 0.0))
+            
+            # Calculate predicted demand after price change using log-log model
+            if elasticity is not None and demand_before > 0:
+                price_ratio = float(new_price) / float(old_price) if old_price > 0 else 1.0
+                predicted_demand_after = float(demand_before) * (price_ratio ** elasticity)
+                margin_of_error = None  # Will be calculated after actual sales data comes in
+        
+        # Update product price
+        product.price = new_price
+        product.save()
+        
+        # Calculate change percentage
+        change_pct = ((float(new_price) / float(old_price)) - 1.0) * 100.0 if old_price > 0 else 0
+        
+        # Get user
+        user_id = request.session.get('app_user_id')
+        user = AppUser.objects.get(user_id=user_id) if user_id else None
+        
+        # Determine service type
+        service_type = 'AI Log-Log Pricing' if (elasticity is not None and r2 is not None and r2 > 0) else 'Manual Pricing'
+        
+        # Create price change record
+        price_change = PriceChangeHistory.objects.create(
+            product=product,
+            old_price=old_price,
+            new_price=new_price,
+            change_pct=change_pct,
+            reason=reason,
+            reason_details=reason_details,
+            demand_before=demand_before,
+            stock_level=product.stock,
+            margin_of_error=margin_of_error,
+            service_type=service_type,
+            created_by=user,
+        )
+        
+        log_action(
+            request,
+            'Price change recorded',
+            f'Price changed for {product.name} ({product.variant}): {old_price} → {new_price} ({change_pct:.2f}%) - Reason: {reason}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Price change recorded successfully',
+            'change_id': price_change.change_id
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})

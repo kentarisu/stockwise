@@ -1448,6 +1448,14 @@
                                 <span>Reports</span>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{% url 'pricing_analysis' %}" 
+                               class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}"
+                               aria-current="{% if request.resolver_match.url_name == 'pricing_analysis' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-currency-exchange" aria-hidden="true"></i>
+                                <span>Pricing Analysis</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}

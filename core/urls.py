@@ -97,6 +97,11 @@ path('api/stock/add/', views.add_stock, name='add_stock_api'),
     path('api/pricing/reject/', views.reject_pricing_recommendation, name='reject_pricing_recommendation'),
     path('api/pricing/send/', views.send_pricing_notification, name='send_pricing_notification'),
     
+    # Pricing Analysis URLs
+    path('pricing-analysis/', views.pricing_analysis_view, name='pricing_analysis'),
+    path('api/pricing-analysis/data/', views.get_pricing_analysis_data, name='get_pricing_analysis_data'),
+    path('api/pricing-analysis/record-change/', views.record_price_change, name='record_price_change'),
+    
     # Inventory Reports URLs
     path('api/inventory/reports/stock/', views.inventory_stock_report, name='inventory_stock_report'),
     path('api/inventory/reports/movement/', views.inventory_movement_report, name='inventory_movement_report'),

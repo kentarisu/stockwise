@@ -336,6 +336,45 @@ class PricingRecommendation(models.Model):
         return timezone.now() > self.expires_at
 
 
+class PriceChangeHistory(models.Model):
+    """Track price changes with reasons (stock out, no sales, demand changes, etc.)"""
+    change_id = models.AutoField(primary_key=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    old_price = models.DecimalField(max_digits=10, decimal_places=2)
+    new_price = models.DecimalField(max_digits=10, decimal_places=2)
+    change_pct = models.DecimalField(max_digits=6, decimal_places=2)
+    REASON_CHOICES = [
+        ('stock_out', 'Stock Out'),
+        ('no_sales', 'No Sales'),
+        ('high_demand', 'High Demand'),
+        ('low_demand', 'Low Demand'),
+        ('seasonal', 'Seasonal Adjustment'),
+        ('cost_change', 'Cost Change'),
+        ('competitor', 'Competitor Pricing'),
+        ('manual', 'Manual Adjustment'),
+        ('ai_recommendation', 'AI Recommendation'),
+    ]
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    reason_details = models.TextField(null=True, blank=True)
+    demand_before = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Average daily sales before change')
+    demand_after = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Average daily sales after change')
+    stock_level = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Stock level at time of change')
+    margin_of_error = models.DecimalField(max_digits=6, decimal_places=4, null=True, blank=True, help_text='Prediction margin of error')
+    service_type = models.CharField(max_length=50, null=True, blank=True, help_text='Type of service/analysis used')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(AppUser, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = 'price_change_history'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['product', 'created_at'], name='idx_pch_product_date'),
+        ]
+
+    def __str__(self):
+        return f"{self.product.name}: {self.old_price} → {self.new_price} ({self.change_pct}%) - {self.get_reason_display()}"
+
+
 class Backup(models.Model):
     """Track system backups"""
     backup_id = models.AutoField(primary_key=True)

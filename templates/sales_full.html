@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockWise - Sales Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -273,90 +274,35 @@
             }
         }
 
-        /* Custom range modal - ensure it's centered */
-        #customRangeModal .modal-dialog {
-            margin-left: auto;
-            margin-right: auto;
-        }
-
 @media (max-width: 768px) {
-            :root {
-                --sidebar-width: 280px;
-                --header-height: 72px;
+            .sales-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
+            .stat-card { padding: 1rem 0.75rem !important; min-height: 0 !important; min-width: 0 !important; }
+            .stat-icon { width: 2rem !important; height: 2rem !important; font-size: 1rem !important; }
+            .stat-value { font-size: 1.25rem !important; }
+            .stat-label { font-size: 0.75rem !important; }
+            .burger-menu-btn {
+                display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 0.875rem;
+            height: 0.875rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1001;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
             }
-
-            .sidebar {
-                transform: translateX(-100%);
-                width: var(--sidebar-width);
-                max-width: 85vw;
-            }
-
-            .sidebar.active { transform: translateX(0); }
-
-            .main-content {
-                margin-left: 0 !important;
-                margin-top: 0;
-                padding: calc(var(--header-height) + 0.75rem) 0.75rem 0.75rem;
-            }
-            .main-content.sidebar-open { margin-left: 0 !important; }
-
-            .content-area {
-                padding: 0.75rem;
-                max-width: 100%;
-                overflow-x: hidden;
-                gap: 0.75rem;
-            }
-
-            .header { padding: 0.75rem 1rem; min-height: var(--header-height); }
-            .header-brand span { display: none; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
-
-            .header-left { gap: 0; display: flex; align-items: center; flex: 1; min-width: 0; }
-            .header-brand span { display: none; }
-            .header-brand i { font-size: 1.5rem; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
-
-            .burger-menu-btn { display: flex !important; width: 0.55rem !important; height: 0.55rem !important; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; justify-content: center !important; gap: 2px !important; }
-
+            .burger-menu-btn span { height: 1px !important; }
             .header-left h1 {
-                font-size: 1.125rem;
-                line-height: 1.3;
-                margin: 0;
+                font-size: 1.25rem;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .header-subtitle { display: none; }
-            .header-right { gap: 0.5rem; flex-shrink: 0; }
-            .table-header { justify-content: space-between; gap: 0.5rem; flex-wrap: nowrap; }
-            .table-title { justify-content: flex-start; }
-            .table-header .btn-filter-action { margin-left: auto; }
-            .btn-filter-action { padding: 0.3rem 0.65rem; font-size: 0.8rem; height: 28px; min-width: 84px; width: auto; }
-            .burger-menu-btn { display: flex !important; width: 0.55rem !important; height: 0.55rem !important; margin-right: 0.5rem !important; }
-            .burger-menu-btn span { height: 1px !important; }
-
-            .sales-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
-            .stat-card { padding: 0.5rem 0.375rem !important; min-height: 0 !important; min-width: 0 !important; }
-            .stat-icon { width: 28px !important; height: 28px !important; font-size: 0.75rem !important; }
-            .stat-value { font-size: 0.875rem !important; }
-            .stat-label { font-size: 0.65rem !important; }
-            .modern-card { padding: var(--space-sm); margin-bottom: var(--space-sm); }
-        }
-
-        @media (max-width: 480px) {
-            :root {
-                --header-height: 68px;
-            }
-            .burger-menu-btn { width: 0.65rem !important; height: 0.65rem !important; }
-            .sales-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
-            .stat-card { padding: 0.5rem 0.375rem !important; }
-            .stat-icon { width: 28px !important; height: 28px !important; font-size: 0.75rem !important; }
-            .stat-value { font-size: 0.875rem !important; }
-            .stat-label { font-size: 0.65rem !important; }
-            .content-area { padding: 0.625rem; }
-            .modern-card { padding: 0.625rem; margin-bottom: 0.625rem; }
-            .table-header .btn-filter-action { padding: 0.25rem 0.5rem; font-size: 0.78rem; height: 26px; min-width: 80px; }
-        }
+            .header-right { gap: 0.5rem; }
+}
 
         .header {
             background: white;
@@ -406,7 +352,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
-            padding-left: 2rem;
+            padding-left: 3rem !important;
         }
 
         .header-left h1 {
@@ -422,19 +368,6 @@
             font-size: 0.8rem;
             margin-top: var(--space-xs);
             line-height: 1.3;
-        }
-
-        /* Desktop: Ensure header brand and subtitle are visible, match dashboard spacing */
-        @media (min-width: 769px) {
-            .header-brand span {
-                display: inline !important;
-            }
-            .header-subtitle {
-                display: block !important;
-            }
-            .header-title-section {
-                padding-left: 3.8rem !important;
-            }
         }
 
         .header-right {
@@ -461,7 +394,9 @@
         .burger-menu-btn {
             display: flex;
             flex-direction: column;
-            justify-content: space-around;
+            justify-content: center;
+            align-items: center;
+            gap: 2px;
             width: 0.875rem;
             height: 0.875rem;
             background: transparent;
@@ -471,6 +406,7 @@
             z-index: 1001;
             margin-right: 0.5rem;
             flex-shrink: 0;
+            outline: none;
         }
 
         .burger-menu-btn span {
@@ -563,7 +499,7 @@
         .stat-card {
             background: white;
             border-radius: var(--radius-md);
-            padding: 0.75rem;
+            padding: var(--space-sm) var(--space-md);
             box-shadow: var(--shadow);
             border: 1px solid rgba(99, 102, 241, 0.12);
             transition: all 0.2s ease;
@@ -593,13 +529,13 @@
         }
 
         .stat-icon {
-            width: 1.75rem;
-            height: 1.75rem;
+            width: 2rem;
+            height: 2rem;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.95rem;
+            font-size: 1.1rem;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
         }
@@ -610,14 +546,14 @@
         }
 
         .stat-value {
-            font-size: 1rem;
+            font-size: 1.2rem;
             font-weight: 700;
             color: var(--gray-900);
             margin-bottom: var(--space-2xs);
         }
 
         .stat-label {
-            font-size: 0.65rem;
+            font-size: 0.72rem;
             color: var(--gray-500);
             font-weight: 500;
             text-transform: uppercase;
@@ -788,12 +724,11 @@
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
-            align-items: flex-end;
         }
 
         .filter-group > div {
-            flex: 1 1 calc(20% - 0.8rem);
-            min-width: 180px;
+            flex: 1 1 200px;
+            min-width: 200px;
         }
 
         .filter-group label {
@@ -818,16 +753,6 @@
             font-size: 0.85rem;
             background: rgba(255, 255, 255, 0.9);
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        /* Ensure calendar button matches select height and alignment */
-        .date-range-wrapper .sw-cal-btn {
-            height: 100%;
-            min-height: 38px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
         }
 
         .filter-group .form-select:focus,
@@ -1012,10 +937,6 @@
         /* Tabs Styling */
         .nav-tabs {
             border-bottom: 2px solid var(--gray-200);
-                display: flex;
-            flex-wrap: nowrap;
-            overflow-x: hidden;
-            width: 100%;
         }
 
         .nav-tabs .nav-link {
@@ -1027,8 +948,6 @@
             color: var(--gray-600);
             background: transparent;
             transition: all 0.2s ease;
-            white-space: nowrap;
-            flex-shrink: 0;
         }
 
         .nav-tabs .nav-link:hover {
@@ -1054,12 +973,37 @@
             background: var(--primary);
         }
 
-        .header-title-section {
-            gap: var(--space-2xs) !important;
-        }
-
         /* Responsive */
-        /* Additional mobile styles consolidated above */
+        @media (max-width: 768px) {
+            :root {
+                --content-padding: 1rem;
+                --sidebar-width: 212px;
+                --header-height: 72px;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-width);
+                max-width: 70vw;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                margin-top: var(--header-height);
+            }
+
+            .header {
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
+
+            .header-left {
+                gap: 0.75rem;
+            }
 
             .header-brand span {
                 display: none;
@@ -1140,12 +1084,9 @@
             }
 
             .table-responsive {
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow-x: hidden !important;
-                overflow-y: visible !important;
-                width: 100% !important;
-                max-width: 100% !important;
+                margin: 0 -1rem;
+                padding: 0 1rem;
+                overflow-x: auto;
             }
 
             .table {
@@ -1160,30 +1101,8 @@
             }
 
             .nav-tabs {
-                flex-wrap: nowrap;
+                flex-wrap: wrap;
                 border-bottom: 2px solid var(--gray-200);
-                overflow-x: auto;
-                overflow-y: hidden;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: thin;
-                scrollbar-color: var(--primary) transparent;
-            }
-            
-            .nav-tabs::-webkit-scrollbar {
-                height: 4px;
-            }
-            
-            .nav-tabs::-webkit-scrollbar-track {
-                background: transparent;
-            }
-            
-            .nav-tabs::-webkit-scrollbar-thumb {
-                background-color: var(--primary);
-                border-radius: 2px;
-            }
-            
-            .nav-tabs::-webkit-scrollbar-thumb:hover {
-                background-color: var(--primary-dark);
             }
 
             .nav-tabs .nav-link {
@@ -1192,10 +1111,6 @@
                 min-height: 44px;
                 display: flex;
                 align-items: center;
-                white-space: nowrap;
-                flex-shrink: 0;
-                min-width: -webkit-fill-available;
-                min-width: fit-content;
                 justify-content: center;
             }
 
@@ -1220,62 +1135,6 @@
                 margin: 0.75rem;
                 max-width: calc(100vw - 1.5rem);
             }
-            
-            /* Logout modal - match backups page width (responsive on mobile) */
-            #logoutConfirmModal .modal-dialog {
-                max-width: min(500px, calc(100vw - 1.5rem));
-                width: auto;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Keep logout modal footer buttons in same row */
-            #logoutConfirmModal .modal-footer {
-                flex-direction: row !important;
-                justify-content: flex-end;
-                gap: 0.5rem;
-            }
-            
-            #logoutConfirmModal .modal-footer .btn {
-                width: auto !important;
-            }
-            
-            /* Custom range modal - center it (responsive on mobile) */
-            #customRangeModal .modal-dialog {
-                max-width: min(500px, calc(100vw - 1.5rem));
-                width: auto;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Sale details modal - make itemized details section scrollable on mobile */
-            #saleDetailsModal .report-table-section .table-responsive {
-                max-height: 300px;
-                overflow-y: auto;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                scrollbar-width: thin;
-                scrollbar-color: var(--gray-400) var(--gray-100);
-            }
-            
-            #saleDetailsModal .report-table-section .table-responsive::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-            }
-            
-            #saleDetailsModal .report-table-section .table-responsive::-webkit-scrollbar-track {
-                background: var(--gray-100);
-                border-radius: 4px;
-            }
-            
-            #saleDetailsModal .report-table-section .table-responsive::-webkit-scrollbar-thumb {
-                background: var(--gray-400);
-                border-radius: 4px;
-            }
-            
-            #saleDetailsModal .report-table-section .table-responsive::-webkit-scrollbar-thumb:hover {
-                background: var(--gray-500);
-            }
 
             .modal-footer {
                 flex-direction: column;
@@ -1287,7 +1146,7 @@
             }
         }
 
-        @media (max-width: 480px) {
+@media (max-width: 480px) {
             :root {
                 --content-padding: 0.75rem;
                 --header-height: 80px;
@@ -1333,38 +1192,6 @@
                 margin: 0.5rem;
                 max-width: calc(100vw - 1rem);
             }
-            
-            /* Logout modal - match backups page width (responsive on mobile) */
-            #logoutConfirmModal .modal-dialog {
-                max-width: min(500px, calc(100vw - 1rem));
-                width: auto;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Keep logout modal footer buttons in same row */
-            #logoutConfirmModal .modal-footer {
-                flex-direction: row !important;
-                justify-content: flex-end;
-                gap: 0.5rem;
-            }
-            
-            #logoutConfirmModal .modal-footer .btn {
-                width: auto !important;
-            }
-            
-            /* Custom range modal - center it (responsive on small mobile) */
-            #customRangeModal .modal-dialog {
-                max-width: min(500px, calc(100vw - 1rem));
-                width: auto;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Sale details modal - adjust itemized details section for smaller mobile */
-            #saleDetailsModal .report-table-section .table-responsive {
-                max-height: 250px;
-            }
         }
 
         /* Desktop - Hide mobile menu button */
@@ -1372,51 +1199,11 @@
             #mobileMenuToggle {
                 display: none !important;
             }
-            
-            /* Logout modal - match backups page width */
-            #logoutConfirmModal .modal-dialog {
-                max-width: 500px;
-                width: 500px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Keep logout modal footer buttons in same row */
-            #logoutConfirmModal .modal-footer {
-                flex-direction: row !important;
-                justify-content: flex-end;
-                gap: 0.5rem;
-            }
-            
-            #logoutConfirmModal .modal-footer .btn {
-                width: auto !important;
-            }
-            
-            /* Custom range modal - center it */
-            #customRangeModal .modal-dialog {
-                max-width: 500px;
-                width: 500px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Custom range modal footer buttons - match reports page */
-            #customRangeModal .modal-footer {
-                flex-direction: row !important;
-                justify-content: flex-end;
-                gap: 0.5rem;
-            }
-            
-            #customRangeModal .modal-footer .btn {
-                width: auto !important;
-            }
         }
 
-        /* Dropdown positioning for sales table - Desktop only */
-        @media (min-width: 769px) {
-            .table-responsive {
-                overflow: visible !important;
-            }
+        /* Dropdown positioning for sales table */
+        .table-responsive {
+            overflow: visible !important;
         }
 
         .table tbody tr {
@@ -1605,26 +1392,6 @@
             letter-spacing: 0.04em;
             margin-bottom: 0.75rem;
         }
-        
-        /* Sale Details Modal - Narrower width on desktop and centered */
-        @media (min-width: 769px) {
-            #saleDetailsModal .modal-dialog {
-                max-width: 700px;
-                margin-left: auto;
-                margin-right: auto;
-            }
-            
-            /* Sale Details Modal footer - align Close button to the right */
-            #saleDetailsModal .modal-footer {
-                flex-direction: row !important;
-                justify-content: flex-end;
-                gap: 0.5rem;
-            }
-            
-            #saleDetailsModal .modal-footer .btn {
-                width: auto !important;
-            }
-        }
     </style>
     <style>
         /* Mobile: adopt Inventory page responsive behaviors */
@@ -1636,111 +1403,104 @@
             .header-title-section { flex: 1 !important; min-width: 0 !important; padding-left: 0.75rem !important; }
             .header-left h1 { font-size: 1.25rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; margin: 0 !important; }
 
-            /* Filters: single row layout */
+            /* Filters: two-row layout matching Inventory */
             .filter-panel { padding: 0.75rem 0.75rem !important; gap: 0.75rem !important; margin-top: 0.5rem !important; }
-            .filter-group { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
+            .filter-group { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
+            .filter-group > div:first-child { grid-column: 1 / -1 !important; }
             .filter-group > div { min-width: 0 !important; }
             .filter-group label { font-size: 0.65rem !important; margin-bottom: 0.25rem !important; }
             .filter-group .form-select, .filter-group .form-control { min-height: 38px !important; font-size: 0.82rem !important; padding: 0.4rem 0.6rem !important; }
-            
-            /* Calendar button height match on mobile */
-            .date-range-wrapper .sw-cal-btn { min-height: 38px !important; }
 
-            /* Mobile table - vertical scrollable layout */
-            .table-responsive-wrapper {
-                overflow-x: hidden !important;
-                overflow-y: auto !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                max-height: calc(100vh - 400px) !important;
-                -webkit-overflow-scrolling: touch;
-            }
+            /* Keep tables as tables; hide non-primary columns */
+            .content-area table.table-mobile-card { table-layout: fixed !important; width: 100% !important; display: table !important; border-collapse: collapse !important; box-sizing: border-box !important; }
+            .content-area table.table-mobile-card thead { display: table-header-group !important; }
+            .content-area table.table-mobile-card tbody { display: table-row-group !important; }
+            .content-area table.table-mobile-card tr { display: table-row !important; }
+            .content-area table.table-mobile-card td { display: table-cell !important; }
+            .content-area table.table-mobile-card td::before { content: none !important; display: none !important; }
+            .content-area table.table-mobile-card th, .content-area table.table-mobile-card td { padding: 0.06rem 0.08rem !important; font-size: 0.54rem !important; line-height: 1.03 !important; }
+            .content-area table.table-mobile-card thead th { text-align: center !important; }
+            /* Column visibility for sales tables: keep 2 (Date), 4 (Products), 7 (Total), 10 (Options) */
+            #allSalesTable th:nth-child(1), #allSalesTable td:nth-child(1),
+            #allSalesTable th:nth-child(3), #allSalesTable td:nth-child(3),
+            #allSalesTable th:nth-child(5), #allSalesTable td:nth-child(5),
+            #allSalesTable th:nth-child(6), #allSalesTable td:nth-child(6),
+            #allSalesTable th:nth-child(8), #allSalesTable td:nth-child(8),
+            #allSalesTable th:nth-child(9), #allSalesTable td:nth-child(9) { display: none !important; }
+            #todaySalesTable th:nth-child(1), #todaySalesTable td:nth-child(1),
+            #todaySalesTable th:nth-child(3), #todaySalesTable td:nth-child(3),
+            #todaySalesTable th:nth-child(5), #todaySalesTable td:nth-child(5),
+            #todaySalesTable th:nth-child(6), #todaySalesTable td:nth-child(6),
+            #todaySalesTable th:nth-child(8), #todaySalesTable td:nth-child(8),
+            #todaySalesTable th:nth-child(9), #todaySalesTable td:nth-child(9) { display: none !important; }
+            #salesTable th:nth-child(1), #salesTable td:nth-child(1),
+            #salesTable th:nth-child(3), #salesTable td:nth-child(3),
+            #salesTable th:nth-child(5), #salesTable td:nth-child(5),
+            #salesTable th:nth-child(6), #salesTable td:nth-child(6),
+            #salesTable th:nth-child(8), #salesTable td:nth-child(8),
+            #salesTable th:nth-child(9), #salesTable td:nth-child(9) { display: none !important; }
+            #voidedSalesTable th:nth-child(1), #voidedSalesTable td:nth-child(1),
+            #voidedSalesTable th:nth-child(3), #voidedSalesTable td:nth-child(3),
+            #voidedSalesTable th:nth-child(5), #voidedSalesTable td:nth-child(5),
+            #voidedSalesTable th:nth-child(6), #voidedSalesTable td:nth-child(6),
+            #voidedSalesTable th:nth-child(8), #voidedSalesTable td:nth-child(8) { display: none !important; }
+            /* Column widths for visible ones using colgroup */
+            .content-area table.table-mobile-card col.col-date { width: 22% !important; }
+            .content-area table.table-mobile-card col.col-products { width: 30% !important; }
+            .content-area table.table-mobile-card col.col-total { width: 18% !important; }
+            .content-area table.table-mobile-card col.col-options { width: 16% !important; }
+            /* Ensure only the major columns are shown; collapse others via nth-child (safer cross-browser) */
+            .content-area table.table-mobile-card th:nth-child(1), .content-area table.table-mobile-card td:nth-child(1),
+            .content-area table.table-mobile-card th:nth-child(3), .content-area table.table-mobile-card td:nth-child(3),
+            .content-area table.table-mobile-card th:nth-child(5), .content-area table.table-mobile-card td:nth-child(5),
+            .content-area table.table-mobile-card th:nth-child(6), .content-area table.table-mobile-card td:nth-child(6),
+            .content-area table.table-mobile-card th:nth-child(8), .content-area table.table-mobile-card td:nth-child(8),
+            .content-area table.table-mobile-card th:nth-child(9), .content-area table.table-mobile-card td:nth-child(9) { display: none !important; }
+
+            /* Force visible major columns to behave as table-cells and enforce widths via colgroup */
+            .content-area table.table-mobile-card th:nth-child(2), .content-area table.table-mobile-card td:nth-child(2),
+            .content-area table.table-mobile-card th:nth-child(4), .content-area table.table-mobile-card td:nth-child(4),
+            .content-area table.table-mobile-card th:nth-child(7), .content-area table.table-mobile-card td:nth-child(7),
+            .content-area table.table-mobile-card th:nth-child(10), .content-area table.table-mobile-card td:nth-child(10) { display: table-cell !important; }
+            .content-area table.table-mobile-card th:nth-child(2), .content-area table.table-mobile-card td:nth-child(2) { white-space: nowrap !important; }
+            /* Explicit widths on major columns (enforced on cells) */
+            .content-area table.table-mobile-card th:nth-child(2), .content-area table.table-mobile-card td:nth-child(2) { width: 22% !important; max-width: 22% !important; }
+            .content-area table.table-mobile-card th:nth-child(4), .content-area table.table-mobile-card td:nth-child(4) { width: 30% !important; max-width: 30% !important; }
+            .content-area table.table-mobile-card th:nth-child(7), .content-area table.table-mobile-card td:nth-child(7) { width: 18% !important; max-width: 18% !important; }
+            .content-area table.table-mobile-card th:nth-child(10), .content-area table.table-mobile-card td:nth-child(10) { width: 16% !important; max-width: 16% !important; }
+            .content-area table.table-mobile-card td:nth-child(4), .content-area table.table-mobile-card .products-column { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+            .content-area table.table-mobile-card th:nth-child(7), .content-area table.table-mobile-card td:nth-child(7) { text-align: right !important; white-space: nowrap !important; }
+            .content-area table.table-mobile-card th:nth-child(10), .content-area table.table-mobile-card td:nth-child(10) { text-align: center !important; }
+            .content-area table.table-mobile-card thead th { font-size: 0.58rem !important; }
             
-            table.table-mobile-card { 
-                width: 100% !important; 
-                min-width: 0 !important; 
-                max-width: 100% !important;
-                display: block !important; 
-                background: #fff; 
-                box-sizing: border-box !important;
+            /* Desktop view: Reduce products column width for voided table */
+            @media (min-width: 769px) {
+                #voidedSalesTable col.col-products { 
+                    width: 200px !important; 
+                    max-width: 200px !important;
+                }
+                #voidedSalesTable .products-column {
+                    max-width: 200px !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    white-space: nowrap !important;
+                }
             }
-            table.table-mobile-card thead { 
-                display: none !important; 
-            }
-            table.table-mobile-card tbody { 
-                display: block !important; 
-            }
-            table.table-mobile-card tr { 
-                display: block !important; 
-                margin-bottom: 0.75rem; 
-                border: 1px solid #e5e7eb; 
-                border-radius: 12px; 
-                padding: 0.75rem 1rem; 
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-                width: 100% !important;
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
-            table.table-mobile-card td { 
-                display: flex !important; 
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 0.25rem !important; 
-                padding: 0.5rem 0 !important; 
-                border: none !important; 
-                border-bottom: 1px solid #f3f4f6 !important; 
-                white-space: normal !important; 
-                color: #111827 !important; 
-                width: 100% !important;
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-                word-wrap: break-word !important;
-                overflow-wrap: break-word !important;
-            }
-            table.table-mobile-card td:last-child { 
-                border-bottom: none !important; 
-            }
-            table.table-mobile-card td::before { 
-                content: attr(data-label); 
-                font-weight: 600; 
-                color: #6b7280; 
-                text-transform: uppercase; 
-                font-size: 0.75rem; 
-                letter-spacing: 0.03em; 
-                margin-bottom: 0.25rem;
-                display: block;
-                width: 100%;
-            }
+            .content-area table.table-mobile-card .dropdown-toggle.btn { padding: 0.04rem !important; width: 24px !important; min-width: 24px !important; height: 24px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; }
+            .content-area table.table-mobile-card .dropdown-toggle.btn .bi { font-size: 0.82rem !important; }
+            .content-area table.table-mobile-card .dropdown-menu { position: absolute !important; min-width: 8rem !important; padding: 0.2rem !important; border: 1px solid #e5e7eb !important; border-radius: 0.375rem !important; background: #fff !important; box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important; display: none; }
+            .content-area table.table-mobile-card .dropdown-menu.show { display: block; }
+            .content-area table.table-mobile-card .bi.bi-three-dots-vertical::before { content: "\22EE"; }
+            .content-area table.table-mobile-card td:nth-child(4) { overflow: hidden !important; text-overflow: ellipsis !important; }
+            .content-area table.table-mobile-card .btn-icon { padding: 0.08rem 0.24rem !important; min-width: 22px !important; }
+            .content-area table.table-mobile-card .bi-three-dots-vertical { font-size: 0.8rem !important; }
 
             /* Content spacing alignment */
-            .content-area { 
-                padding: 0 !important; 
-                overflow-x: hidden !important;
-                max-width: 100% !important;
-            }
-            .table-responsive.table-responsive-wrapper { 
-                overflow-x: hidden !important; 
-                overflow-y: visible !important;
-                width: 100% !important; 
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                margin-bottom: 0.2rem !important; 
-            }
-            .sales-table-card {
-                width: 100% !important;
-                max-width: 100% !important;
-                overflow-x: hidden !important;
-                box-sizing: border-box !important;
-            }
+            .content-area { padding: 0 !important; }
+            .table-responsive.table-responsive-wrapper { overflow-x: hidden !important; width: 100% !important; margin-bottom: 0.2rem !important; }
             .sales-table-card { margin: 0.15rem 0.1rem !important; }
             .table-header { padding: 0.18rem 0.28rem !important; }
-            .nav-tabs .nav-link { 
-                padding: 0.28rem 0.4rem !important; 
-                font-size: 0.7rem !important; 
-                white-space: nowrap !important;
-                flex-shrink: 0 !important;
-            }
+            .nav-tabs .nav-link { padding: 0.28rem 0.4rem !important; font-size: 0.7rem !important; }
             .tab-content { padding: 0 !important; }
             /* Compact pagination same as inventory */
             .pagination-container { margin-top: 0.2rem !important; padding: 0.1rem !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; }
@@ -1754,6 +1514,16 @@
     <style>
         body.app-role-secretary .role-hide-secretary {
             display: none !important;
+        }
+
+        /* Local mobile table overrides: keep table semantics and disable card conversion */
+        @media (max-width: 768px) {
+            .content-area table.table-mobile-card { width: 100% !important; min-width: 0 !important; display: table !important; background: #fff; }
+            .content-area table.table-mobile-card thead { display: table-header-group !important; }
+            .content-area table.table-mobile-card tbody { display: table-row-group !important; }
+            .content-area table.table-mobile-card tr { display: table-row !important; }
+            .content-area table.table-mobile-card td { display: table-cell !important; padding: 0.06rem 0.08rem !important; border: none !important; white-space: normal !important; color: #111827 !important; }
+            .content-area table.table-mobile-card td::before { content: none !important; }
         }
 </style>
 </head>
@@ -1776,15 +1546,15 @@
     </div>
     <div class="app-container">
         <!-- Unified Header -->
-        <header class="header">
+        <header class="header" id="salesHeader">
             <div class="header-left">
-                <button class="burger-menu-btn" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                <button class="burger-menu-btn sw-burger" id="burgerMenuBtn" aria-label="Toggle sidebar menu" type="button">
+                    <span class="sw-burger-line"></span>
+                    <span class="sw-burger-line"></span>
+                    <span class="sw-burger-line"></span>
                 </button>
-                <a href="{% url 'dashboard' %}" class="header-brand" aria-label="StockWise - Go to Dashboard">
-                    <i class="bi bi-basket-fill" aria-hidden="true"></i>
+                <a href="{% url 'dashboard' %}" class="header-brand">
+                    <i class="bi bi-basket-fill"></i>
                     <span>StockWise</span>
                 </a>
                 <div class="header-title-section">
@@ -1858,7 +1628,7 @@
                     <div class="nav-item">
                         <a href="{% url 'sms_settings' %}" class="nav-link">
                             <i class="bi bi-chat-dots"></i>
-                            <span>SMS Notification</span>
+                            <span>SMS Settings</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -1947,7 +1717,7 @@
 
                 <div class="filter-panel mt-3">
                     <div class="filter-group">
-                        <div>
+                        <div class="flex-grow-1">
                             <label class="form-label small fw-semibold">Search</label>
                             <div class="filter-search-wrapper">
                                 <input type="text" class="form-control filter-search-input" id="searchFilter" placeholder="Search products..." value="{{ search }}" autocomplete="off" spellcheck="false">
@@ -1988,14 +1758,6 @@
                                 {% for fruit in fruits %}
                                 <option value="{{ fruit }}" {% if fruit_filter == fruit %}selected{% endif %}>{{ fruit }}</option>
                                 {% endfor %}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label small fw-semibold" for="unitFilter">Quantity</label>
-                            <select class="form-select" id="unitFilter" aria-label="Filter by quantity unit">
-                                <option value="all">All Units</option>
-                                <option value="box">Boxes</option>
-                                <option value="kg">kg</option>
                             </select>
                         </div>
                     </div>
@@ -2480,60 +2242,76 @@
 
                         <div class="report-table-section">
                             <h6>Itemized Details</h6>
-                    <div class="table-responsive">
-                                <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Description</th>
-                                    <th class="text-end">Qty</th>
-                                            <th id="detailBatchHeader">Batch ID(s)</th>
-                                    <th class="text-end">Price</th>
-                                    <th class="text-end">Amount</th>
-                                </tr>
-                            </thead>
-                                    <tbody id="detailItems">
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted">No itemized details available.</td>
-                                        </tr>
-                                    </tbody>
-                        </table>
-                    </div>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="text-end">Qty</th>
+                                        <th id="detailBatchHeader">Batch ID(s)</th>
+                                        <th class="text-end">Price</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailItems">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No itemized details available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
-                        
-                        <!-- Legend Section -->
-                        <div class="report-description mt-4 bg-light rounded p-3 border">
-                            <h6 class="sw-h6-blue mb-2">Understanding This Sale</h6>
-                            <div class="sw-grid-2">
-                                <div>
-                                    <h6 class="fw-semibold mb-2">Transaction Information</h6>
-                                    <ul class="sw-ul-sm text-muted mb-0">
-                                        <li><strong>Sale ID:</strong> Internal database identifier for this sale.</li>
-                                        <li><strong>Transaction No.:</strong> Unique transaction number for tracking and grouping related sales.</li>
-                                        <li><strong>OR No.:</strong> Official Receipt number for this transaction.</li>
-                                        <li><strong>Processed By:</strong> Staff member who recorded this sale.</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h6 class="fw-semibold mb-2">Financial Breakdown</h6>
-                                    <ul class="sw-ul-sm text-muted mb-0">
-                                        <li><strong>Subtotal:</strong> Total cost of all items before tax.</li>
-                                        <li><strong>Plus 12% VAT:</strong> Value-Added Tax collected for BIR remittance.</li>
-                                        <li><strong>Total Amount:</strong> Final amount customer needs to pay (Subtotal + VAT).</li>
-                                        <li><strong>Amount Paid:</strong> Cash received from customer.</li>
-                                        <li><strong>Change:</strong> Money returned to customer (Paid - Total).</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="mt-3 pt-3 border-top">
-                                <h6 class="fw-semibold mb-2">Itemized Details</h6>
-                                <ul class="sw-ul-sm text-muted mb-0 sw-grid-2">
-                                    <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and quantity/unit (e.g., 125-138 or kg) in parentheses.</li>
-                                    <li><strong>Qty:</strong> Number of units sold (boxes or kg).</li>
-                                    <li><strong>Batch ID(s):</strong> Inventory batch identifiers for stock tracking and traceability.</li>
-                                    <li><strong>Price:</strong> Price per box for this product.</li>
-                                    <li><strong>Amount:</strong> Total for this item (Qty × Price).</li>
-                                </ul>
-                            </div>
+
+                        <div class="report-table-section">
+                            <h6>Payment Breakdown</h6>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Mode</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailPayments">
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted">No payment breakdown available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="report-table-section">
+                            <h6>Audit Trail</h6>
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th class="sw-w-30">User</th>
+                                        <th class="sw-w-40">Action</th>
+                                        <th class="text-end sw-w-30">Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailTrail">
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted">No audit trail recorded.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Legend for Transaction Details -->
+                        <div class="report-description mt-3">
+                            <h6>Understanding These Numbers:</h6>
+                            <ul class="mb-0">
+                                <li><strong>Sale ID:</strong> Internal system number for this sale.</li>
+                                <li><strong>Transaction No.:</strong> Transaction reference number.</li>
+                                <li><strong>Subtotal:</strong> Total cost of all items after any discount.</li>
+                                <li><strong>Plus 12% VAT:</strong> The 12% Value Added Tax charged to the customer.</li>
+                                <li><strong>Discount:</strong> Discount applied to the transaction. Item prices shown already reflect discount.</li>
+                                <li><strong>Total Amount:</strong> Final amount the customer needs to pay (Subtotal + VAT).</li>
+                                <li><strong>Amount Paid:</strong> How much money the customer gave.</li>
+                                <li><strong>Change:</strong> Money returned to the customer (Amount Paid - Total Amount).</li>
+                                <li><strong>Description:</strong> Product name with variant (e.g., Fuji) and size/unit (e.g., 125-138 or kg) in parentheses.</li>
+                                <li><strong>Itemized Details:</strong> List of all products sold with their quantities and prices.</li>
+                                <li><strong>Payment Breakdown:</strong> Shows payment mode (currently Cash) and amount paid.</li>
+                                <li><strong>Audit Trail:</strong> Record of who created, modified, or voided this transaction and when.</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -3101,7 +2879,6 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
-            const unitFilter = document.getElementById('unitFilter')?.value || 'all';
             // Fetch fresh summary for the selected range
             
             const q = new URLSearchParams({
@@ -3111,8 +2888,7 @@
                 status: 'completed',
                 search: searchTerm,
                 user: userFilter,
-                product: fruitFilter,
-                unit: unitFilter
+                product: fruitFilter
             });
             
             try {
@@ -3162,7 +2938,6 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
-            const unitFilter = document.getElementById('unitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: r.filter,
@@ -3171,8 +2946,7 @@
                 status: status,
                 search: searchTerm,
                 user: userFilter,
-                product: fruitFilter,
-                unit: unitFilter
+                product: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -3194,7 +2968,6 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
-            const unitFilter = document.getElementById('unitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: 'today',
@@ -3203,8 +2976,7 @@
                 status: 'completed',
                 search: searchTerm,
                 user: userFilter,
-                product: fruitFilter,
-                unit: unitFilter
+                product: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -3229,7 +3001,6 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
-            const unitFilter = document.getElementById('unitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: 'weekly',
@@ -3238,8 +3009,7 @@
                 status: 'completed',
                 search: searchTerm,
                 user: userFilter,
-                product: fruitFilter,
-                unit: unitFilter
+                product: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -3260,7 +3030,6 @@
             const searchTerm = (searchInput?.value||'').trim();
             const userFilter = document.getElementById('userFilter')?.value || 'all';
             const fruitFilter = document.getElementById('productFilter')?.value || 'all';
-            const unitFilter = document.getElementById('unitFilter')?.value || 'all';
             
             const q = new URLSearchParams({
                 filter: r.filter,
@@ -3269,8 +3038,7 @@
                 status: 'voided',
                 search: searchTerm,
                 user: userFilter,
-                product: fruitFilter,
-                unit: unitFilter
+                product: fruitFilter
             });
             
             const res = await fetch(`/api/sales/fetch/?${q.toString()}`);
@@ -3299,8 +3067,6 @@
             if (userFilterEl) userFilterEl.value = 'all';
             const productFilterEl = document.getElementById('productFilter');
             if (productFilterEl) productFilterEl.value = 'all';
-            const unitFilterEl = document.getElementById('unitFilter');
-            if (unitFilterEl) unitFilterEl.value = 'all';
             const searchFilterEl = document.getElementById('searchFilter');
             if (searchFilterEl) searchFilterEl.value = '';
             clearSalesFilters();
@@ -3385,21 +3151,39 @@
         }
 
         rangeInput?.addEventListener('change', ()=>{
-            console.log('Date filter changed');
+            console.log('Date filter changed to:', rangeInput.value);
             const sel = (rangeInput.value||'today').toLowerCase();
             const isCustom = sel==='custom';
             toggleCalendarButtonSales();
             if (isCustom) {
                 // Open modal when custom is selected
                 openCustomRangeModal();
-            }
-            // Always keep the single-day input hidden; label shows the date instead
-            dateInput?.classList.add('d-none');
-            if(sel==='today') updateTodayLabel();
-            if(!isCustom) {
+            } else {
+                // For non-custom selections, immediately reload data
+                // Always keep the single-day input hidden; label shows the date instead
+                dateInput?.classList.add('d-none');
+                if(sel==='today') updateTodayLabel();
+                
+                // Clear current table data to show we're reloading
+                const activeTab = document.querySelector('.nav-link.active');
+                if (activeTab) {
+                    const tabId = activeTab.id;
+                    let tableId = 'allSalesTable';
+                    if (tabId === 'today-tab') tableId = 'todaySalesTable';
+                    else if (tabId === 'recent-tab') tableId = 'salesTable';
+                    else if (tabId === 'voided-tab') tableId = 'voidedSalesTable';
+                    
+                    const tbody = document.getElementById(tableId)?.querySelector('tbody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="10" class="text-center">Loading...</td></tr>';
+                    }
+                }
+                
+                // Save filters BEFORE loading
                 saveSalesFilters();
-                // Update cards immediately when date filter changes
-                console.log('Calling updateSummaryCards from date filter change');
+                
+                // Update cards and load data immediately
+                console.log('Loading data for date range:', sel);
                 updateSummaryCards();
                 loadCurrentTab();
             }
@@ -3493,11 +3277,6 @@
             updateSummaryCards(); // Update cards when product filter changes
             loadCurrentTab();
         });
-        document.getElementById('unitFilter')?.addEventListener('change', function() {
-            saveSalesFilters();
-            updateSummaryCards(); // Update cards when unit filter changes
-            loadCurrentTab();
-        });
         
         // Tab event listeners - save on change
         document.getElementById('all-tab')?.addEventListener('shown.bs.tab', function() {
@@ -3568,7 +3347,6 @@
                 rangeFilter: document.getElementById('rangeFilter')?.value || 'today',
                 userFilter: document.getElementById('userFilter')?.value || 'all',
                 fruitFilter: document.getElementById('productFilter')?.value || 'all',
-                unitFilter: document.getElementById('unitFilter')?.value || 'all',
                 dateFilter: document.getElementById('dateFilter')?.value || '',
                 activeTab: document.querySelector('.nav-link.active')?.id || 'all-tab',
                 customStart: customStart || '',
@@ -3613,10 +3391,6 @@
             if (saved.fruitFilter) {
                 const fruitFilterEl = document.getElementById('productFilter');
                 if (fruitFilterEl) fruitFilterEl.value = saved.fruitFilter;
-            }
-            if (saved.unitFilter) {
-                const unitFilterEl = document.getElementById('unitFilter');
-                if (unitFilterEl) unitFilterEl.value = saved.unitFilter;
             }
             if (saved.dateFilter && dateInput) dateInput.value = saved.dateFilter;
             if (saved.customStart) customStart = saved.customStart;
@@ -3798,6 +3572,17 @@
                     // Store original data for void_reason access
                     const originalData = data;
                     
+                    // Debug logging for voided sales
+                    console.log('Sale Details Response:', {
+                        hasTopLevelItems: !!data.items,
+                        hasFlatItems: !!flat.items,
+                        hasNestedItems: !!data.data?.items,
+                        itemsCount: itemsResp?.length || 0,
+                        items: itemsResp,
+                        status: s.status,
+                        saleId: s.sale_id
+                    });
+                    
                     // Banner fields - format date like "Dec 06, 2025 11:48 PM"
                     function formatLocalDate(ts) {
                         if (!ts) return 'N/A';
@@ -3839,21 +3624,16 @@
                     
                     // Meta fields
                     document.getElementById('detailSaleId').textContent = safeText(s.sale_id,'N/A');
-                    // Ensure TXN and OR are uppercase - treat 0 or "0" as empty
-                    const transactionNoRaw = s.transaction_number;
-                    const transactionNo = (!transactionNoRaw || transactionNoRaw === 0 || transactionNoRaw === '0' || String(transactionNoRaw).trim() === '') ? 'N/A' : String(transactionNoRaw);
+                    // Ensure TXN and OR are uppercase
+                    const transactionNo = safeText(s.transaction_number,'N/A');
                     document.getElementById('detailTransactionNumber').textContent = transactionNo !== 'N/A' ? transactionNo.toUpperCase() : 'N/A';
-                    const orNoRaw = s.or_number;
-                    const orNo = (!orNoRaw || orNoRaw === 0 || orNoRaw === '0' || String(orNoRaw).trim() === '') ? 'N/A' : String(orNoRaw);
+                    const orNo = safeText(s.or_number || '', 'N/A');
                     document.getElementById('detailOrNumber').textContent = orNo !== 'N/A' ? orNo.toUpperCase() : 'N/A';
                     document.getElementById('detailDate').textContent = dt && !isNaN(dt) ? formatLocalDate(s.recorded_at) : safeText(s.recorded_at,'N/A');
                     document.getElementById('detailProcessedBy').textContent = safeText(s.username,'N/A');
                     const customerName = safeText(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name||s.customer_info.full_name)) || 'N/A');
                     document.getElementById('detailCustomer').textContent = customerName;
-                    // Handle contact number - treat 0 or "0" as empty
-                    const contactRaw = s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact);
-                    const contact = (!contactRaw || contactRaw === 0 || contactRaw === '0' || String(contactRaw).trim() === '') ? 'N/A' : String(contactRaw);
-                    document.getElementById('detailCustContact').textContent = contact;
+                    document.getElementById('detailCustContact').textContent = safeText(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || 'N/A');
                     document.getElementById('detailCustAddress').textContent = safeText(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || 'N/A');
                     
                     const voidReasonContainer = document.getElementById('detailVoidReasonContainer');
@@ -3955,22 +3735,22 @@
                                             : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
                                             : null;
                             const batchHtml = batchArr && batchArr.length
-                                ? formatBatchIdRange(batchArr).map(b=>`<span class="badge bg-secondary me-1 mb-1">${safeText(b)}</span>`).join(' ')
+                                ? batchArr.join(', ')
                                 : safeText(it.batch_id || it.batch, 'N/A');
                             if (allKilo) {
                                 tr.innerHTML = `
                                     <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
                                     <td class="text-end">${qtyFormatted}</td>
-                                    <td class="text-end">${currency(price)}</td>
-                                    <td class="text-end">${currency(amount)}</td>
+                                    <td class="text-end amount-col">${currency(price)}</td>
+                                    <td class="text-end amount-col">${currency(amount)}</td>
                                 `;
                             } else {
                                 tr.innerHTML = `
                                     <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
                                     <td class="text-end">${qtyFormatted}</td>
-                                    <td>${isKiloRow ? '' : batchHtml}</td>
-                                    <td class="text-end">${currency(price)}</td>
-                                    <td class="text-end">${currency(amount)}</td>
+                                    <td>${isKiloRow ? 'N/A' : batchHtml}</td>
+                                    <td class="text-end amount-col">${currency(price)}</td>
+                                    <td class="text-end amount-col">${currency(amount)}</td>
                                 `;
                             }
                             tbody.appendChild(tr);
@@ -4004,6 +3784,35 @@
                             document.getElementById('detailTotal').textContent = currency(total);
                             document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
                             document.getElementById('detailChange').textContent = currency(change);
+                            
+                            // Populate Payment Breakdown
+                            const paymentsBody = document.getElementById('detailPayments');
+                            paymentsBody.innerHTML = '';
+                            if (amountPaid > 0) {
+                                paymentsBody.innerHTML = `
+                                    <tr>
+                                        <td>Cash</td>
+                                        <td class="text-end amount-col">${currency(amountPaid)}</td>
+                                    </tr>
+                                `;
+                            } else {
+                                paymentsBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No payment breakdown available.</td></tr>';
+                            }
+                            
+                            // Populate Audit Trail
+                            const trailBody = document.getElementById('detailTrail');
+                            trailBody.innerHTML = '';
+                            const processedBy = safeText(s.username || s.processed_by, 'System');
+                            const action = status === 'voided' ? `Voided sale #${s.sale_id}` : `Recorded sale #${s.sale_id}`;
+                            const timestamp = dt && !isNaN(dt) ? formatLocalDate(s.recorded_at) : safeText(s.recorded_at, 'N/A');
+                            trailBody.innerHTML = `
+                                <tr>
+                                    <td>${processedBy}</td>
+                                    <td>${action}</td>
+                                    <td class="text-end">${timestamp}</td>
+                                </tr>
+                            `;
+                            
                             new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
                         })
                         .catch(()=>{
@@ -4026,6 +3835,35 @@
                             document.getElementById('detailTotal').textContent = currency(total);
                             document.getElementById('detailAmountPaid').textContent = currency(amountPaid);
                             document.getElementById('detailChange').textContent = currency(change);
+                            
+                            // Populate Payment Breakdown
+                            const paymentsBody = document.getElementById('detailPayments');
+                            paymentsBody.innerHTML = '';
+                            if (amountPaid > 0) {
+                                paymentsBody.innerHTML = `
+                                    <tr>
+                                        <td>Cash</td>
+                                        <td class="text-end amount-col">${currency(amountPaid)}</td>
+                                    </tr>
+                                `;
+                            } else {
+                                paymentsBody.innerHTML = '<tr><td colspan="2" class="text-center text-muted">No payment breakdown available.</td></tr>';
+                            }
+                            
+                            // Populate Audit Trail
+                            const trailBody = document.getElementById('detailTrail');
+                            trailBody.innerHTML = '';
+                            const processedBy = safeText(s.username || s.processed_by, 'System');
+                            const action = status === 'voided' ? `Voided sale #${s.sale_id}` : `Recorded sale #${s.sale_id}`;
+                            const timestamp = dt && !isNaN(dt) ? formatLocalDate(s.recorded_at) : safeText(s.recorded_at, 'N/A');
+                            trailBody.innerHTML = `
+                                <tr>
+                                    <td>${processedBy}</td>
+                                    <td>${action}</td>
+                                    <td class="text-end">${timestamp}</td>
+                                </tr>
+                            `;
+                            
                             new bootstrap.Modal(document.getElementById('saleDetailsModal')).show();
                         });
                 })
@@ -4411,78 +4249,72 @@ function printReceipt(saleId) {
             });
         });
 
-        // Sidebar open/close functions
-        function openSidebar() {
-            if (!sidebar) return;
+        // Burger menu button toggle
+        function toggleSidebarFromButton(btn) {
+            sidebar.classList.toggle('active');
+            if (btn) btn.classList.toggle('active');
             const mainContent = document.querySelector('.main-content');
+            
             if (window.innerWidth > 768) {
-                sidebar.classList.add('active');
-                if (burgerMenuBtn) burgerMenuBtn.classList.add('active');
-                if (mobileMenuToggle) mobileMenuToggle.classList.add('active');
-                if (mainContent) mainContent.classList.add('sidebar-open');
-                if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-                document.body.style.overflow = '';
+                // Desktop: toggle sidebar and adjust main content
+                if (sidebar.classList.contains('active')) {
+                    if (mainContent) mainContent.classList.add('sidebar-open');
+                } else {
+                    if (mainContent) mainContent.classList.remove('sidebar-open');
+                }
             } else {
-                sidebar.classList.add('active');
-                if (burgerMenuBtn) burgerMenuBtn.classList.add('active');
-                if (mobileMenuToggle) mobileMenuToggle.classList.add('active');
-                if (sidebarOverlay) sidebarOverlay.classList.add('active');
-                document.body.style.overflow = 'hidden';
+                // Mobile: show overlay and prevent body scroll
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.toggle('active');
+                }
+                if (sidebar.classList.contains('active')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
             }
         }
 
-        function closeSidebar() {
-            if (!sidebar) return;
-            const mainContent = document.querySelector('.main-content');
-            sidebar.classList.remove('active');
-            if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
-            if (mobileMenuToggle) mobileMenuToggle.classList.remove('active');
-            if (mainContent) mainContent.classList.remove('sidebar-open');
-            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // Burger menu button toggle
         if (burgerMenuBtn && sidebar) {
-            burgerMenuBtn.addEventListener('click', function() {
-                const isOpen = sidebar.classList.contains('active');
-                if (isOpen) {
-                    closeSidebar();
-                } else {
-                    openSidebar();
-                }
-            });
+            burgerMenuBtn.addEventListener('click', function() { toggleSidebarFromButton(burgerMenuBtn); });
         }
         if (mobileMenuToggle && sidebar) {
-            mobileMenuToggle.addEventListener('click', function() {
-                const isOpen = sidebar.classList.contains('active');
-                if (isOpen) {
-                    closeSidebar();
-                } else {
-                    openSidebar();
-                }
-            });
+            mobileMenuToggle.addEventListener('click', function() { toggleSidebarFromButton(mobileMenuToggle); });
         }
 
         // Close sidebar when clicking overlay (mobile only)
         if (sidebarOverlay) {
             sidebarOverlay.addEventListener('click', function() {
                 if (window.innerWidth <= 768) {
-                    closeSidebar();
+                    sidebar.classList.remove('active');
+                    sidebarOverlay.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    if (mobileMenuToggle) mobileMenuToggle.classList.remove('active');
+                    document.body.style.overflow = '';
                 }
             });
         }
 
-        // Close sidebar when clicking on navigation links (except logout)
+        // Close sidebar when clicking on navigation links
         if (sidebar) {
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach(link => {
-                // Skip logout links - they have their own handler
-                if (link.classList.contains('logout-link') || (link.href && link.href.includes('logout'))) {
-                    return;
-                }
                 link.addEventListener('click', function() {
-                    closeSidebar();
+                    const mainContent = document.querySelector('.main-content');
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mobileMenuToggle) mobileMenuToggle.classList.remove('active');
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                        document.body.style.overflow = '';
+                        console.log('Mobile sidebar closed from nav link click');
+                    } else {
+                        // Desktop: close sidebar when navigating
+                        sidebar.classList.remove('active');
+                        if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                        if (mobileMenuToggle) mobileMenuToggle.classList.remove('active');
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    }
                 });
             });
         }
@@ -4507,67 +4339,29 @@ function printReceipt(saleId) {
 
         // Handle escape key to close sidebar
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
-                closeSidebar();
-            }
-        });
+                if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
+                    sidebar.classList.remove('active');
+                    if (burgerMenuBtn) burgerMenuBtn.classList.remove('active');
+                    if (mobileMenuToggle) mobileMenuToggle.classList.remove('active');
+                    const mainContent = document.querySelector('.main-content');
+                    if (window.innerWidth > 768) {
+                        if (mainContent) mainContent.classList.remove('sidebar-open');
+                    } else {
+                        if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+                    }
+                    console.log('Sidebar closed from escape key');
+                }
+            });
 
-        // Handle logout confirmation - prevent sidebar close and show modal
+        // Handle logout confirmation
         document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
-            // Skip if this is the confirm button inside the modal
-            if (link.id === 'confirmLogoutBtn' || link.closest('#logoutConfirmModal')) {
-                return;
-            }
-            
             link.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // Prevent sidebar close handler from running
-                
                 // Check if Bootstrap modal is available
                 if (typeof bootstrap !== 'undefined') {
-                    const logoutModalEl = document.getElementById('logoutConfirmModal');
-                    if (logoutModalEl) {
-                        // Clean up any existing modal backdrops first
-                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
-                            backdrop.remove();
-                        });
-                        document.body.classList.remove('modal-open');
-                        document.body.style.paddingRight = '';
-                        document.body.style.overflow = '';
-                        
-                        // Dispose any existing modal instances to prevent duplicates
-                        const existingModal = bootstrap.Modal.getInstance(logoutModalEl);
-                        if (existingModal) {
-                            existingModal.dispose();
-                        }
-                        
-                        // Create and show new modal
-                        const logoutModal = new bootstrap.Modal(logoutModalEl, {
-                            backdrop: true,
-                            keyboard: true,
-                            focus: true
-                        });
-                        
-                        // Clean up backdrop when modal is hidden
-                        function cleanupBackdrop() {
-                            setTimeout(function() {
-                                document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
-                                    backdrop.remove();
-                                });
-                                document.body.classList.remove('modal-open');
-                                document.body.style.paddingRight = '';
-                                document.body.style.overflow = '';
-                            }, 100);
-                        }
-                        
-                        logoutModalEl.addEventListener('hidden.bs.modal', cleanupBackdrop, { once: true });
-                        logoutModalEl.addEventListener('hide.bs.modal', function() {
-                            // Ensure cleanup happens even if modal is closed unexpectedly
-                            setTimeout(cleanupBackdrop, 200);
-                        }, { once: true });
-                        
-                        logoutModal.show();
-                    }
+                    e.preventDefault();
+                    const logoutModal = new bootstrap.Modal(document.getElementById('logoutConfirmModal'));
+                    logoutModal.show();
                 }
             });
         });

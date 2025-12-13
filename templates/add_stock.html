@@ -867,7 +867,7 @@ $(document).ready(function(){
             setTimeout(function(){ window.location.href = PAGE_CONFIG.inventoryUrl; }, 800);
           }
         } else {
-          $('#addStockFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">'+resp.message+'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+          $('#addStockFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><i class="bi bi-exclamation-triangle-fill me-2"></i>'+resp.message+'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
         }
       },
       error:function(){

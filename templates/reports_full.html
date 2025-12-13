@@ -1831,6 +1831,18 @@
             word-break: break-word;
         }
         
+        /* Match products column width with transactions tab - allow wrapping */
+        #voided-reports .cashbook-table td:nth-child(4),
+        #voided-reports .cashbook-table th:nth-child(4) {
+            min-width: 150px !important;
+            max-width: 150px !important;
+            width: 150px !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        
         /* Quantity column should wrap to fit content */
         .cashbook-table td:nth-child(6),
         .cashbook-table th:nth-child(6) {
@@ -5318,17 +5330,28 @@
                         const qtyFormatted = isKg 
                             ? (qty === Math.floor(qty) ? String(Math.floor(qty)) : qty.toFixed(2))
                             : String(Math.floor(qty));
+                        
+                        // Format batch IDs
+                        const batchIds = item.batch_ids || [];
+                        let batchIdsDisplay = 'N/A';
+                        if (Array.isArray(batchIds) && batchIds.length > 0) {
+                            batchIdsDisplay = batchIds.join(', ');
+                        } else if (isKg) {
+                            batchIdsDisplay = 'N/A'; // kg products don't have batch IDs
+                        }
+                        
                         itemsBody.append(`
                             <tr>
                                 <td>${desc}</td>
                                 <td class="text-end">${qtyFormatted}</td>
-                                <td class="text-end amount-col">${formatCurrency(price || 0)}</td>
-                                <td class="text-end amount-col">${formatCurrency(amount || 0)}</td>
+                                <td>${batchIdsDisplay}</td>
+                                <td class="text-end amount-col">₱${formatCurrency(price || 0)}</td>
+                                <td class="text-end amount-col">₱${formatCurrency(amount || 0)}</td>
                             </tr>
                         `);
                     });
                 } else {
-                    itemsBody.append('<tr><td colspan="4" class="text-center text-muted">No itemized details available.</td></tr>');
+                    itemsBody.append('<tr><td colspan="5" class="text-center text-muted">No itemized details available.</td></tr>');
                 }
 
                 $('#reportDetailSubtotal').text(`₱${formatCurrency(transaction.subtotal || 0)}`);
@@ -6257,13 +6280,14 @@
                                     <tr>
                                         <th>Description</th>
                                         <th class="text-end">Qty</th>
+                                        <th>Batch ID(s)</th>
                                         <th class="text-end">Price</th>
                                         <th class="text-end">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody id="reportDetailItems">
                                     <tr>
-                                        <td colspan="4" class="text-center text-muted">No itemized details available.</td>
+                                        <td colspan="5" class="text-center text-muted">No itemized details available.</td>
                                     </tr>
                                 </tbody>
                             </table>

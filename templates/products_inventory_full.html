@@ -2452,10 +2452,26 @@
                                 <label for="priceInput" class="form-label">Price</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₱</span>
-                                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="1" required>
+                                    <input type="number" class="form-control" id="priceInput" name="price" min="0" step="0.01" required>
+                                    {% if app_role == 'admin' %}
+                                    <select class="form-select" id="markupSelect" style="max-width: 120px; display: none;">
+                                        <option value="">Markup</option>
+                                        <option value="10">10%</option>
+                                        <option value="15">15%</option>
+                                        <option value="20">20%</option>
+                                        <option value="25">25%</option>
+                                        <option value="30">30%</option>
+                                        <option value="35">35%</option>
+                                        <option value="40">40%</option>
+                                        <option value="50">50%</option>
+                                        <option value="60">60%</option>
+                                        <option value="75">75%</option>
+                                        <option value="100">100%</option>
+                                    </select>
+                                    {% endif %}
                                 </div>
                                 {% if app_role == 'admin' %}
-                                <div id="minPriceHelp" class="form-text">Enter cost to see minimum price</div>
+                                <div id="minPriceHelp" class="form-text mt-1">Enter cost to see markup options</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -3144,24 +3160,66 @@
                 $('#vatInclusive').text((price * 1.12).toFixed(2));
             });
 
+            // Markup dropdown functionality
+            function applyMarkup(markupPercent) {
+                const costVal = parseFloat($('#costInput').val());
+                if (isNaN(costVal) || costVal <= 0) {
+                    return;
+                }
+                const price = Math.round(costVal * (1 + markupPercent / 100) * 100) / 100;
+                $('#priceInput').val(price.toFixed(2));
+                $('#priceInput').trigger('input');
+            }
+            
+            $('#markupSelect').on('change', function() {
+                const markup = parseFloat($(this).val());
+                if (!isNaN(markup) && markup > 0) {
+                    applyMarkup(markup);
+                }
+            });
+            
             (function(){
                 const $cost = $('#costInput');
                 const $price = $('#priceInput');
                 const $help = $('#minPriceHelp');
+                const $markupSelect = $('#markupSelect');
                 const updateMin = () => {
                     if (!$help.length) return;
                     const c = parseFloat($cost.val());
+                    const p = parseFloat($price.val());
                     if (isNaN(c) || c <= 0) {
-                        $help.text('Enter cost to see minimum price');
+                        $help.text('Enter cost to see markup options');
                         $price.attr('min', '0');
+                        $markupSelect.hide();
                         return;
                     }
-                    const minPrice = c * 1.10;
-                    const fmt = v => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    $help.text('Minimum price: ' + fmt(minPrice) + ' (cost ' + fmt(c) + ' + 10% margin)');
-                    $price.attr('min', minPrice.toFixed(2));
+                    $markupSelect.show();
+                    
+                    // If price is entered, calculate and show markup percentage
+                    if (!isNaN(p) && p > 0 && c > 0) {
+                        const markupPercent = ((p - c) / c) * 100;
+                        if (markupPercent >= 0) {
+                            $help.text(`Markup: ${markupPercent.toFixed(2)}%`);
+                        } else {
+                            $help.text('Price cannot be less than cost');
+                        }
+                    } else {
+                        $help.text('Select markup from dropdown or enter price manually');
+                    }
+                    $price.attr('min', '0');
                 };
-                $cost.on('input', updateMin);
+                $cost.on('input', function() {
+                    updateMin();
+                    // Clear price and markup selection when cost changes
+                    $('#priceInput').val('');
+                    $('#markupSelect').val('');
+                });
+                $price.on('input', function() {
+                    // Clear markup selection when manually entering price
+                    $('#markupSelect').val('');
+                    // Update hint to show calculated markup
+                    updateMin();
+                });
                 updateMin();
             })();
 
@@ -3266,16 +3324,13 @@
                 if (unitSel === 'kg'){ size = 'kg'; $('#productSizeDisplay').val(''); }
                 if (!size && unitSel !== 'kg'){ showFormAlert('Product quantity is required.', 'danger'); return; }
                 if (!price || price <= 0){ showFormAlert('Price must be greater than 0.', 'danger'); return; }
-                if (cost > 0){
-                    const minPrice = Math.round(cost * 1.10 * 100) / 100;
-                    if (price + 1e-9 < minPrice){
-                        const fmt = v => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        showFormAlert('Price too low. Minimum price: ' + fmt(minPrice) + ' (cost ' + fmt(cost) + ' + 10% margin).', 'danger');
-                        $('#priceInput').addClass('is-invalid');
-                        return;
-                    } else {
-                        $('#priceInput').removeClass('is-invalid');
-                    }
+                if (cost > 0 && price < cost){
+                    const fmt = v => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    showFormAlert('Price cannot be less than cost (' + fmt(cost) + ').', 'danger');
+                    $('#priceInput').addClass('is-invalid');
+                    return;
+                } else {
+                    $('#priceInput').removeClass('is-invalid');
                 }
                 if (cost < 0){ showFormAlert('Cost cannot be negative.', 'danger'); return; }
                 if (!isEditMode && stock < 0){ showFormAlert('Stock cannot be negative.', 'danger'); return; }

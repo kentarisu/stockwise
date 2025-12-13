@@ -2337,15 +2337,32 @@ def add_stock(request):
                     
                     # Build batch id similar to PHP/QR helpers (acronyms + date)
                     base_name = product.name or ''
-                    variant = ''
-                    if '(' in base_name and base_name.endswith(')'):
-                        try:
-                            variant = base_name.split('(')[1].rstrip(')').strip()
-                        except Exception:
-                            variant = ''
-                    # Create one stock addition record with total quantity and base batch ID
+                    # Extract variant using helper function
+                    variant = extract_variant_from_product(product)
+                    
+                    # Clean base name (remove variant if present in name)
+                    clean_base_name = base_name
+                    if variant and f"({variant})" in base_name:
+                        clean_base_name = base_name.replace(f"({variant})", "").strip()
+                    
+                    # Check for batch limit before generating batch ID
                     provided_batch = item.get('batch_id')
-                    batch_id = provided_batch or generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+                    if not provided_batch and not is_kg:
+                        warning = check_batch_limit_warning(
+                            product, 
+                            clean_base_name, 
+                            variant, 
+                            quantity
+                        )
+                        if warning:
+                            # Prevent addition if it would exceed the limit
+                            return JsonResponse({
+                                'success': False,
+                                'message': warning
+                            })
+                    
+                    # Create one stock addition record with total quantity and base batch ID
+                    batch_id = provided_batch or generate_batch_id(product, clean_base_name, variant)
                     
                     # Expiry/manufacturing dates were removed from schema in migration 0036.
                     # Ignore any provided values to maintain compatibility.
@@ -2480,13 +2497,27 @@ def stock_qr_apply(request):
                         quantity_decimal = Decimal(str(int(float(quantity))))  # Ensure integer for boxes
                     
                     base_name = product.name or ''
-                    variant = ''
-                    if '(' in base_name and base_name.endswith(')'):
-                        try:
-                            variant = base_name.split('(')[1].rstrip(')').strip()
-                        except Exception:
-                            variant = ''
-                    batch_id = generate_batch_id(product, base_name.replace(f"({variant})", '').strip() if variant else base_name, variant)
+                    # Extract variant using helper function
+                    variant = extract_variant_from_product(product)
+                    
+                    # Clean base name (remove variant if present in name)
+                    clean_base_name = base_name
+                    if variant and f"({variant})" in base_name:
+                        clean_base_name = base_name.replace(f"({variant})", "").strip()
+                    
+                    # Check for batch limit before generating batch ID
+                    if not is_kg:
+                        warning = check_batch_limit_warning(
+                            product, 
+                            clean_base_name, 
+                            variant, 
+                            quantity
+                        )
+                        if warning:
+                            # Prevent addition if it would exceed the limit
+                            return HttpResponse(f'Error: {warning}', status=400)
+                    
+                    batch_id = generate_batch_id(product, clean_base_name, variant)
                     dt = parse_datetime(date_added) if date_added else None
                     if dt is None:
                         dt = timezone.now()
@@ -2555,8 +2586,15 @@ def qr_next_batch_sequence(request, product_id):
         from datetime import date
         today = date.today()
         base_name = product.name or ''
-        variant = product.variant or ''
-        fruit_acr = get_acronym(base_name.replace(f"({variant})", '').strip() if variant else base_name)
+        # Extract variant using helper function
+        variant = extract_variant_from_product(product)
+        
+        # Clean base name (remove variant if present in name)
+        clean_base_name = base_name
+        if variant and f"({variant})" in base_name:
+            clean_base_name = base_name.replace(f"({variant})", "").strip()
+        
+        fruit_acr = get_acronym(clean_base_name)
         variant_acr = get_acronym(variant) if variant else ''
         size_clean = str(product.quantity_unit or '').replace('-', '')
         date_str = today.strftime('%m%d%Y')
@@ -2567,15 +2605,18 @@ def qr_next_batch_sequence(request, product_id):
             parts.append(size_clean)
         parts.append(date_str)
         base_batch_id = ''.join(parts)
-        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
-        last = StockAddition.objects.filter(product=product, batch_id__startswith=base_batch_id).defer('spoiled').order_by('-addition_id').first()
-        try:
-            last_seq = int((last.batch_id or '')[-2:]) if last else 0
-        except Exception:
-            last_seq = 0
-        # Use int() for sequence calculation (quantity can be decimal for kg products, but sequence is integer)
-        last_qty = int(float(getattr(last, 'quantity', 0) or 0))
-        next_sequence = ((max(0, last_seq) - 1 + last_qty) % 99) + 1 if last else 1
+        
+        # Calculate total boxes already added today to get the next sequence number
+        # This matches the logic in generate_batch_id()
+        today_additions = StockAddition.objects.filter(
+            product=product, 
+            batch_id__startswith=base_batch_id
+        ).defer('spoiled')
+        total_boxes_today = sum(int(getattr(addition, 'quantity', 0) or 0) for addition in today_additions)
+        
+        # Next sequence should continue from total boxes added today
+        # If 50 boxes were added (01-50), next should be 51
+        next_sequence = (total_boxes_today % 99) + 1
         return JsonResponse({'success': True, 'next_sequence': next_sequence, 'base_batch_id': base_batch_id})
         
     except Product.DoesNotExist:
@@ -2641,8 +2682,19 @@ def stock_add(request, product_id):
             else:
                 quantity_decimal = Decimal(str(int(float(data['quantity']))))  # Ensure integer for boxes
             
+            # Check for batch limit before generating batch ID
+            provided_batch = data.get('batch_id')
+            if not provided_batch and not is_kg:
+                warning = check_batch_limit_warning(product, product.name, product.variant or '', data['quantity'])
+                if warning:
+                    # Prevent addition if it would exceed the limit
+                    return JsonResponse({
+                        'success': False,
+                        'message': warning
+                    })
+            
             # Create one stock addition record with total quantity
-            batch_id = data.get('batch_id') or generate_batch_id(product, product.name, product.variant or '')
+            batch_id = provided_batch or generate_batch_id(product, product.name, product.variant or '')
             supplier_value = data.get('supplier', '')
             supplier_to_save = supplier_value.strip() if supplier_value and supplier_value.strip() else None
             try:
@@ -3137,20 +3189,38 @@ def fetch_sales(request):
             )
         
         # Apply filters (same logic as sales_view)
+        # For voided sales, filter by voided_at instead of recorded_at
         ft = (filter_type or 'Daily').strip().lower()
-        if ft in ('daily','today'):
-            sales_query = sales_query.filter(recorded_at__date=timezone.localtime().date())
-        elif ft in ('weekly','week'):
-            sales_query = sales_query.filter(recorded_at__gte=timezone.localtime() - timedelta(days=7))
-        elif ft in ('monthly','month'):
-            sales_query = sales_query.filter(recorded_at__gte=timezone.localtime() - timedelta(days=30))
-        elif ft == 'custom' and start_date and end_date:
-            try:
-                start = datetime.strptime(start_date, '%Y-%m-%d').date()
-                end = datetime.strptime(end_date, '%Y-%m-%d').date()
-                sales_query = sales_query.filter(recorded_at__date__range=[start, end])
-            except ValueError:
+        if status.lower() == 'voided':
+            # Filter voided sales by their void date
+            if ft in ('daily','today'):
+                sales_query = sales_query.filter(voided_at__date=timezone.localtime().date())
+            elif ft in ('weekly','week'):
+                sales_query = sales_query.filter(voided_at__gte=timezone.localtime() - timedelta(days=7))
+            elif ft in ('monthly','month'):
+                sales_query = sales_query.filter(voided_at__gte=timezone.localtime() - timedelta(days=30))
+            elif ft == 'custom' and start_date and end_date:
+                try:
+                    start = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                    sales_query = sales_query.filter(voided_at__date__range=[start, end])
+                except ValueError:
+                    sales_query = sales_query.filter(voided_at__date=timezone.localtime().date())
+        else:
+            # Filter completed sales by their recorded date
+            if ft in ('daily','today'):
                 sales_query = sales_query.filter(recorded_at__date=timezone.localtime().date())
+            elif ft in ('weekly','week'):
+                sales_query = sales_query.filter(recorded_at__gte=timezone.localtime() - timedelta(days=7))
+            elif ft in ('monthly','month'):
+                sales_query = sales_query.filter(recorded_at__gte=timezone.localtime() - timedelta(days=30))
+            elif ft == 'custom' and start_date and end_date:
+                try:
+                    start = datetime.strptime(start_date, '%Y-%m-%d').date()
+                    end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                    sales_query = sales_query.filter(recorded_at__date__range=[start, end])
+                except ValueError:
+                    sales_query = sales_query.filter(recorded_at__date=timezone.localtime().date())
 
         # Apply search: supports sale number, product name, and flexible dates
         if search:
@@ -3288,10 +3358,14 @@ def fetch_sales(request):
                 else:
                     total_boxes = qty_value
                 
+                # For voided sales, show the voided_at datetime instead of recorded_at
+                # This allows users to see when the sale was voided, while recorded_at is preserved in DB
+                display_datetime = row.voided_at if (row.status == 'voided' and row.voided_at) else row.recorded_at
+                
                 grouped[key] = {
                     'sale_id': row.sale_id,
                     'transaction_number': (key or '').upper(),
-                    'recorded_at': format_local_datetime(row.recorded_at),
+                    'recorded_at': format_local_datetime(display_datetime),
                     'items': [item],
                     'items_json': [item],
                     'total': str(row.total),
@@ -3381,29 +3455,15 @@ def void_sale(request, sale_id):
                     # Since we're using single-table sales, restore stock to the product
                     product = trans_sale.product
                     if product:
-                        # Add back to the most recent batch (LIFO for restoration)
-                        # Defer 'spoiled' field to avoid error if column doesn't exist in production database yet
-                        latest_batch = StockAddition.objects.filter(
-                            product=product
-                        ).defer('spoiled').order_by('-date_added', '-addition_id').first()
-                        
-                        if latest_batch:
-                            latest_batch.remaining_quantity += trans_sale.quantity
-                            latest_batch.save()
-                        else:
-                            # Create a new batch for restored stock
-                            batch_id = generate_batch_id(product, product.name, product.variant)
-                            try:
-                                StockAddition.objects.create(
-                                    product=product,
-                                    quantity=trans_sale.quantity,
-                                    date_added=timezone.now().date(),
-                                    remaining_quantity=trans_sale.quantity,
-                                    batch_id=batch_id
-                                )
-                            except Exception as e:
-                                if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
-                                    _reset_pg_sequence('stock_additions', 'addition_id')
+                        unit = (product.quantity_unit or '').strip().lower()
+                        if unit == 'kg':
+                            latest_batch = StockAddition.objects.filter(product=product).defer('spoiled').order_by('-date_added', '-addition_id').first()
+                            if latest_batch:
+                                latest_batch.remaining_quantity = models.F('remaining_quantity') + trans_sale.quantity
+                                latest_batch.save()
+                            else:
+                                batch_id = generate_batch_id(product, product.name, product.variant)
+                                try:
                                     StockAddition.objects.create(
                                         product=product,
                                         quantity=trans_sale.quantity,
@@ -3411,8 +3471,70 @@ def void_sale(request, sale_id):
                                         remaining_quantity=trans_sale.quantity,
                                         batch_id=batch_id
                                     )
+                                except Exception as e:
+                                    if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                                        _reset_pg_sequence('stock_additions', 'addition_id')
+                                        StockAddition.objects.create(
+                                            product=product,
+                                            quantity=trans_sale.quantity,
+                                            date_added=timezone.now().date(),
+                                            remaining_quantity=trans_sale.quantity,
+                                            batch_id=batch_id
+                                        )
+                                    else:
+                                        raise
+                        else:
+                            try:
+                                sale_qty_int = int(str(trans_sale.quantity))
+                            except Exception:
+                                sale_qty_int = int(float(str(trans_sale.quantity)))
+                            consumed_ids = _compute_sale_batch_ids(trans_sale)
+                            id_to_addition = {}
+                            additions = (StockAddition.objects
+                                         .filter(product=product)
+                                         .defer('spoiled')
+                                         .order_by('date_added', 'addition_id'))
+                            for add in additions:
+                                for bid in _expand_batch_box_ids(add.batch_id, add.quantity):
+                                    id_to_addition[bid] = add.addition_id
+                            counts = {}
+                            for bid in consumed_ids:
+                                add_id = id_to_addition.get(bid)
+                                if add_id:
+                                    counts[add_id] = counts.get(add_id, 0) + 1
+                            for add_id, cnt in counts.items():
+                                StockAddition.objects.filter(addition_id=add_id).update(
+                                    remaining_quantity=models.F('remaining_quantity') + Decimal(str(cnt))
+                                )
+                            leftover = max(0, sale_qty_int - sum(counts.values()))
+                            if leftover > 0:
+                                latest_batch = StockAddition.objects.filter(product=product).defer('spoiled').order_by('-date_added', '-addition_id').first()
+                                if latest_batch:
+                                    StockAddition.objects.filter(addition_id=latest_batch.addition_id).update(
+                                        remaining_quantity=models.F('remaining_quantity') + Decimal(str(leftover))
+                                    )
                                 else:
-                                    raise
+                                    batch_id = generate_batch_id(product, product.name, product.variant)
+                                    try:
+                                        StockAddition.objects.create(
+                                            product=product,
+                                            quantity=Decimal(str(leftover)),
+                                            date_added=timezone.now().date(),
+                                            remaining_quantity=Decimal(str(leftover)),
+                                            batch_id=batch_id
+                                        )
+                                    except Exception as e:
+                                        if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
+                                            _reset_pg_sequence('stock_additions', 'addition_id')
+                                            StockAddition.objects.create(
+                                                product=product,
+                                                quantity=Decimal(str(leftover)),
+                                                date_added=timezone.now().date(),
+                                                remaining_quantity=Decimal(str(leftover)),
+                                                batch_id=batch_id
+                                            )
+                                        else:
+                                            raise
                         
                         # Update product stock total
                         product.stock = models.F('stock') + trans_sale.quantity
@@ -3515,84 +3637,7 @@ def complete_sale(request, sale_id):
             'message': str(e)
         })
 
-@require_app_login
-def get_sale_details(request, sale_id):
-    """AJAX endpoint to get sale details."""
-    try:
-        main_sale = Sale.objects.select_related('user', 'product').get(sale_id=sale_id)
-        # Get all sales with the same transaction number (like reports page does)
-        txn_number = main_sale.transaction_number
-        if txn_number:
-            related_sales = Sale.objects.select_related('product', 'user').filter(transaction_number=txn_number).order_by('sale_id')
-        else:
-            related_sales = Sale.objects.select_related('product', 'user').filter(sale_id=sale_id)
-        
-        items_data = []
-        # Get void_reason the same way reports page does it - directly from main_sale
-        # Refresh main_sale to ensure we have the latest void_reason from database
-        main_sale.refresh_from_db()
-        void_reason = getattr(main_sale, 'void_reason', '') or ''
-        
-        # Process all related sales to build items_data
-        for sale in related_sales:
-            product_name = sale.product.name if sale.product else 'Unknown'
-            variant = ''
-            # Extract variant if product name has format "Name (Variant)"
-            if '(' in product_name and ')' in product_name:
-                name_parts = product_name.split('(')
-                product_name = name_parts[0].strip()
-                variant = name_parts[1].rstrip(')').strip()
-
-            # Get quantity and preserve decimals - use str() then float() to ensure precision
-            qty_value = sale.quantity
-            # Convert Decimal to string first, then to float to preserve all decimal places
-            # This ensures 3.50 becomes 3.5 (not 3.0)
-            if qty_value is None:
-                qty_float = 0.0
-            else:
-                # Convert to string first to preserve decimal representation
-                qty_str = str(qty_value)
-                qty_float = float(qty_str)
-
-            items_data.append({
-                'product_name': product_name,
-                'variant': variant,
-                'quantity_unit': sale.product.quantity_unit if sale.product else '',
-                'quantity': qty_float,
-                'price': float(sale.product.price) if sale.product else 0.0,
-                'subtotal': float(sale.total) if sale.total else 0.0
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'data': {
-                'sale_id': main_sale.sale_id,
-                'transaction_number': main_sale.transaction_number,
-                'or_number': main_sale.or_number,
-                'recorded_at': format_local_datetime(main_sale.recorded_at),
-                'status': main_sale.status,
-                'total': str(main_sale.total),
-                'amount_paid': str(main_sale.amount_paid),
-                'change_given': str(main_sale.change_given),
-                'username': main_sale.user.username if main_sale.user else 'Unknown',
-                'customer_name': getattr(main_sale, 'customer_name', '') or '',
-                'customer_address': getattr(main_sale, 'address', '') or '',
-                'customer_contact': getattr(main_sale, 'contact_number', '') or '',
-                # Return void_reason the same way reports page does it
-                'void_reason': void_reason or '',
-                'items': items_data
-            }
-        })
-    except Sale.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'Sale not found.'
-        })
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': str(e)
-        })
+# DELETED - Duplicate function - using the second get_sale_details at line 8097 instead
 
 @require_app_login
 def check_print_limit(request, sale_id):
@@ -7916,16 +7961,21 @@ def get_sale_details(request, sale_id):
             pass
 
         # Collect all rows that belong to the same transaction
+        # Don't filter by status - include voided sales too
         txn_key = getattr(sale, 'transaction_number', '') or ''
-        rows = Sale.objects.select_related('product').filter(
-            status__iexact='completed',
-            transaction_number=txn_key if txn_key else sale.transaction_number
-        ) if txn_key else [sale]
+        if txn_key:
+            rows = Sale.objects.select_related('product').filter(
+                transaction_number=txn_key
+            ).order_by('sale_id')
+        else:
+            rows = [sale]
 
         items_data = []
+        print(f"DEBUG: Sale {sale_id}: Found {len(rows)} rows, txn_key={txn_key}, status={sale.status}")
         total_amount = Decimal('0')
         total_boxes = 0
         for row in rows:
+            print(f"DEBUG: Processing row sale_id={row.sale_id}, has_product={row.product is not None}")
             batch_ids = _compute_sale_batch_ids(row)
             # Get quantity and preserve decimals - convert Decimal to float
             qty_value = row.quantity
@@ -7968,8 +8018,12 @@ def get_sale_details(request, sale_id):
             discount_pct = float(getattr(first_row, 'discount_pct', 0) or 0)
         except Exception:
             discount_pct = 0.0
+        
+        print(f"DEBUG (second function): Sale {sale_id}: Returning {len(items_data)} items")
+        
         return JsonResponse({
             'success': True,
+            'items': items_data,  # Add items at top level too
             'sale': {
                 'sale_id': sale.sale_id,
                 'transaction_number': txn_number,
@@ -8567,6 +8621,81 @@ def update_product_status(request):
 
 
 # Helper functions
+def extract_variant_from_product(product):
+    """Extract variant from product - prefer product.variant field, otherwise extract from name"""
+    variant = product.variant or ''
+    if not variant and '(' in (product.name or ''):
+        # Try to extract variant from name if not in separate field
+        import re
+        matches = re.findall(r'\(([^)]+)\)', product.name)
+        if matches:
+            # Get the first match that's not a number (not the quantity unit)
+            for match in matches:
+                if not match.strip().replace('.', '').isdigit():
+                    variant = match.strip()
+                    break
+    return variant
+
+def check_batch_limit_warning(product, name, variant, quantity):
+    """Check if adding the given quantity would exceed batch number 99 for today.
+    Returns a warning message if it would exceed, None otherwise."""
+    from datetime import date
+    
+    # Skip check for kg products (no batch IDs)
+    unit = (product.quantity_unit or '').strip().lower()
+    if unit == 'kg':
+        return None
+    
+    # Clean name (remove variant if present)
+    base_name = name
+    if variant and f"({variant})" in name:
+        base_name = name.replace(f"({variant})", "").strip()
+    
+    fruit_acr = get_acronym(base_name)
+    variant_acr = get_acronym(variant) if variant else ''
+    size_clean = str(product.quantity_unit or '').replace('-', '')
+    today = date.today()
+    date_part = f"{today.month:02d}{today.day:02d}{today.year}"
+    prefix_parts = [fruit_acr]
+    if variant_acr:
+        prefix_parts.append(variant_acr)
+    if size_clean:
+        prefix_parts.append(size_clean)
+    prefix_parts.append(date_part)
+    base_prefix = ''.join(prefix_parts)
+    
+    # Calculate total boxes already added today for this product
+    today_additions = StockAddition.objects.filter(
+        product=product, 
+        batch_id__startswith=base_prefix
+    )
+    total_boxes_today = sum(int(getattr(addition, 'quantity', 0) or 0) for addition in today_additions)
+    
+    # Calculate if adding this quantity would exceed 99
+    quantity_int = int(float(quantity))
+    total_after_addition = total_boxes_today + quantity_int
+    
+    if total_after_addition > 99:
+        # Calculate how many can still be added today
+        remaining_capacity = 99 - total_boxes_today
+        excess_quantity = quantity_int - remaining_capacity
+        
+        # Build product name with variant and quantity unit
+        variant_part = f" ({variant})" if variant else ""
+        unit_part = f" ({product.quantity_unit})" if product.quantity_unit and product.quantity_unit.lower() != 'kg' else ""
+        product_display = f"{name}{variant_part}{unit_part}"
+        
+        if remaining_capacity <= 0:
+            # Already at or over limit
+            return f"Stock additions limit reached for today. You can only add 99 boxes per day for {product_display}. " \
+                   f"Please add the remaining {quantity_int} boxes tomorrow."
+        else:
+            # Can add some today, but not all
+            return f"You can only add {remaining_capacity} more boxes today for {product_display} (already added {total_boxes_today} boxes today, limit is 99). " \
+                   f"Please add the remaining {excess_quantity} boxes tomorrow."
+    
+    return None
+
 def generate_batch_id(product, name, variant):
     """Generate per-box batch ID: <FRUIT><VARIANT?><QUANTITY><MMDDYYYY><SS>.
     Returns empty string for kg products (no batch IDs needed for decimal quantities)."""
@@ -8594,13 +8723,17 @@ def generate_batch_id(product, name, variant):
         prefix_parts.append(size_clean)
     prefix_parts.append(date_part)
     base_prefix = ''.join(prefix_parts)
-    last = StockAddition.objects.filter(product=product, batch_id__startswith=base_prefix).order_by('-addition_id').first()
-    try:
-        last_seq = int((last.batch_id or '')[-2:]) if last else 0
-    except Exception:
-        last_seq = 0
-    last_qty = int(getattr(last, 'quantity', 0) or 0)
-    next_seq = ((max(0, last_seq) - 1 + last_qty) % 99) + 1 if last else 1
+    
+    # Calculate total boxes added today to get the next sequence number
+    today_additions = StockAddition.objects.filter(
+        product=product, 
+        batch_id__startswith=base_prefix
+    )
+    total_boxes_today = sum(int(getattr(addition, 'quantity', 0) or 0) for addition in today_additions)
+    
+    # Next sequence should continue from total boxes added today
+    # If 50 boxes were added (01-50), next should be 51
+    next_seq = (total_boxes_today % 99) + 1
     return f"{base_prefix}{next_seq:02d}"
 
 
@@ -8680,7 +8813,8 @@ def _expand_batch_box_ids(batch_id, quantity):
 
 def _compute_sale_batch_ids(sale):
     """Compute which per-box batch IDs were consumed by this sale using strict FIFO.
-    Works for single-product sales by replaying prior completed sales.
+    Works for single-product sales by replaying prior sales.
+    For voided sales, shows the batch IDs that were originally consumed.
     Returns empty list for kg products (no batch IDs).
     """
     product = sale.product
@@ -8699,9 +8833,11 @@ def _compute_sale_batch_ids(sale):
     fifo_boxes = []
     for add in additions:
         fifo_boxes.extend(_expand_batch_box_ids(add.batch_id, add.quantity))
-    # Replay all prior completed sales for this product in chronological order
+    
+    # Replay all sales for this product in chronological order (both completed and voided)
+    # This allows us to show original batch IDs for voided sales
     prior_sales = (Sale.objects
-                   .filter(product=product, status__iexact='completed')
+                   .filter(product=product)
                    .order_by('recorded_at', 'sale_id'))
     consumed_index = 0
     target_ids = []
@@ -11222,12 +11358,17 @@ def transaction_details(request, sale_id):
             if sale.product and sale.product.quantity_unit:
                 product_display = f"{product_display} ({sale.product.quantity_unit})"
 
+            # Compute batch IDs for this sale
+            batch_ids = _compute_sale_batch_ids(sale)
+
             items.append({
+                'product_id': sale.product.product_id if sale.product else None,
                 'product_name': product_display,
                 'quantity_unit': sale.product.quantity_unit if sale.product else 'N/A',
                 'quantity': sale.quantity,
                 'price': float(sale.product.price) if sale.product else 0.0,
                 'amount': float(line_gross),
+                'batch_ids': batch_ids,
             })
 
             audit_trail.append({

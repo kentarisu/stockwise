@@ -1,0 +1,68 @@
+      console.log('Cascading dropdown script loaded');
+      // Cascading Fruit / Variant / Size Select2
+      const fruitSel = $('#fruitSelect');
+      const variantSel = $('#variantSelect');
+      const sizeSel = $('#sizeSelect');
+
+      // Event handlers for native select
+      fruitSel.on('change', function(){
+          loadVariants($(this).val());
+      });
+      variantSel.on('change', function(){
+          const fruit = $('#fruitSelect').val();
+          const variant = $(this).val();
+          loadSizes(fruit, variant);
+      });
+
+      // Calculate VAT-inclusive price (12%) dynamically
+      $('#priceInput').on('input', function() {
+          const price = parseFloat($(this).val()) || 0;
+          const vatPrice = price * 1.12;
+          $('#vatInclusive').text(vatPrice.toFixed(2));
+      });
+
+      function loadVariants(fruit) {
+           // Populate variant datalist
+            const variantList = $('#variantList');
+            $('#variantSelect').prop('disabled', true).val('');
+            $('#sizeSelect').prop('disabled', true).val('');
+            variantList.empty();
+            if(!fruit) return;
+            $.getJSON("{% url 'fruit_master_variants' %}", { name: fruit }, function(j){
+                $('#variantSelect').prop('disabled', false);
+                // Add placeholder option
+                variantList.append($('<option>', { value: '' }));
+                j.data.forEach(function(v){
+                    variantList.append($('<option>', { value: v }));
+                });
+            });
+        }
+
+        function loadSizes(fruit, variant) {
+            // Populate size datalist
+            const sizeList = $('#sizeList');
+            $('#sizeSelect').prop('disabled', true).val('');
+            sizeList.empty();
+            if(!fruit) return;
+            $.getJSON("{% url 'fruit_master_sizes' %}", { name: fruit, variant: variant || '' }, function(j){
+                $('#sizeSelect').prop('disabled', false);
+                sizeList.append($('<option>', { value: '' }));
+                j.data.forEach(function(sz){
+                    sizeList.append($('<option>', { value: sz }));
+                });
+            });
+        }
+
+      // Form initialization
+      $('#addFruitModal').on('show.bs.modal', function() {
+          $('#addFruitForm')[0].reset();
+          $('#dateAdded').val('{{ today|date:"Y-m-d" }}');
+          // Reset dropdowns
+          fruitSel.val(null).trigger('change');
+          variantSel.prop('disabled', true).empty();
+          sizeSel.prop('disabled', true).empty();
+      });
+  });
+ </script>
+</body>
+</html> 

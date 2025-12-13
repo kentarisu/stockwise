@@ -1,0 +1,102 @@
+<nav class="sidebar {% if sidebar_active %}active{% endif %}" id="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-header">
+        <a href="{% url 'dashboard' %}" class="sidebar-brand" aria-label="StockWise - Go to Dashboard">
+            <i class="bi bi-basket-fill" aria-hidden="true"></i>
+            <span>StockWise</span>
+        </a>
+    </div>
+
+    <div class="sidebar-nav">
+        <div class="nav-section">
+            <h2 class="nav-section-title">Main</h2>
+            <ul class="nav-list" role="list">
+                <li class="nav-item">
+                    <a href="{% url 'dashboard' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'dashboard' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-speedometer2" aria-hidden="true"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'products_inventory' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'products_inventory' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'products_inventory' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-basket" aria-hidden="true"></i>
+                        <span>Inventory</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'sales' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'sales' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'sales' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-cart" aria-hidden="true"></i>
+                        <span>Sales</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        {% if request.session.app_role|default:''|lower == 'admin' or user.is_staff %}
+        <div class="nav-section">
+            <h2 class="nav-section-title">Reports</h2>
+            <ul class="nav-list" role="list">
+                <li class="nav-item">
+                    <a href="{% url 'reports' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'reports' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-graph-up" aria-hidden="true"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="nav-section">
+            <h2 class="nav-section-title">Account</h2>
+            <ul class="nav-list" role="list">
+                {% if request.session.app_role|default:''|lower == 'admin' or user.is_staff %}
+                <li class="nav-item">
+                    <a href="{% url 'sms_settings' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'sms_settings' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'sms_settings' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                        <span>SMS Settings</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'action_logs' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-journal-text" aria-hidden="true"></i>
+                        <span>Audit Logs</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'backup_management' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-database" aria-hidden="true"></i>
+                        <span>Backups</span>
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a href="{% url 'profile' %}" 
+                       class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
+                       aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
+                        <i class="bi bi-person" aria-hidden="true"></i>
+                        <span>Profile</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'logout' %}" class="nav-link logout-link">
+                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                        <span>Logout</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

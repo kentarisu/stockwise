@@ -757,7 +757,7 @@ body {
 
 .filters-row {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(140px, 1fr));
+    grid-template-columns: 1fr 200px 140px;
     gap: var(--space-4);
     align-items: end;
 }
@@ -1211,7 +1211,7 @@ body {
     }
     
     .filters-row {
-        grid-template-columns: minmax(180px, 1fr) repeat(4, minmax(120px, 1fr));
+        grid-template-columns: 1fr;
         gap: var(--space-4);
     }
     
@@ -1554,7 +1554,7 @@ body {
     
     .filters-row {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr auto;
         gap: 12px;
         align-items: end;
     }
@@ -1827,7 +1827,7 @@ body {
     }
     
     .filters-row {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 8px;
     }
     

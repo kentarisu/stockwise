@@ -83,6 +83,19 @@ class AppUser(models.Model):
 	def __str__(self) -> str:
 		return self.username
 
+	def save(self, *args, **kwargs):
+		"""Automatically hash password if it's plain text before saving."""
+		from passlib.hash import bcrypt
+		
+		# Check if password is already hashed (starts with $2a$, $2b$, or $2y$)
+		if self.password and not (self.password.startswith('$2a$') or 
+		                          self.password.startswith('$2b$') or 
+		                          self.password.startswith('$2y$')):
+			# Password is plain text, hash it
+			self.password = bcrypt.hash(self.password)
+		
+		super().save(*args, **kwargs)
+
 
 class Sale(models.Model):
 	STATUS_CHOICES = (

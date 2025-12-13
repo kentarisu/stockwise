@@ -2410,13 +2410,15 @@
                             <div class="col-md-6">
                                 <label for="productNameDisplay" class="form-label">Product Name</label>
                                 <div class="position-relative">
-                                    <input type="text" class="form-control" id="productNameDisplay" name="productName" placeholder="Search or type a product name" autocomplete="off" inputmode="text" maxlength="60" aria-autocomplete="list" aria-controls="nameSuggestions">
+                                    <input type="text" class="form-control" id="productNameDisplay" name="productName" placeholder="Search or type a product name" autocomplete="off" inputmode="text" maxlength="60" aria-autocomplete="list" aria-controls="nameSuggestions" spellcheck="true">
                                     <div id="nameSuggestions" class="dropdown-menu w-100" style="display:none;"></div>
                                 </div>
+                                <div id="nameSpellCheck" class="text-muted small mt-1" style="display:none;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label for="productVariantDisplay" class="form-label">Variant</label>
-                                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" inputmode="text" maxlength="60" list="variantDefaultSuggestions">
+                                <input type="text" class="form-control" id="productVariantDisplay" name="variant" placeholder="Type or select a variant" autocomplete="off" inputmode="text" maxlength="60" list="variantDefaultSuggestions" spellcheck="true">
+                                <div id="variantSpellCheck" class="text-muted small mt-1" style="display:none;"></div>
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
@@ -2432,12 +2434,13 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="supplierInput" class="form-label">Supplier <small class="text-muted ms-1">(optional)</small></label>
-                                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off" inputmode="text" maxlength="80">
+                                <input type="text" class="form-control" id="supplierInput" name="supplier" list="supplierList" placeholder="Select or enter supplier" autocomplete="off" inputmode="text" maxlength="80" spellcheck="true">
                                 <datalist id="supplierList">
                                     {% for sup in suppliers %}
                                         <option value="{{ sup }}"></option>
                                     {% endfor %}
                                 </datalist>
+                                <div id="supplierSpellCheck" class="text-muted small mt-1" style="display:none;"></div>
                             </div>
                         </div>
                         <div class="row g-3 mb-3">
@@ -3252,6 +3255,145 @@
                     }
                 }
             });
+            
+            // Spell checking functionality
+            let productNamesCache = [];
+            let variantsCache = [];
+            let suppliersCache = [];
+            
+            // Load existing product names, variants, and suppliers for spell checking
+            function loadSpellCheckData() {
+                // Load product names
+                $.get('{% url "fetch_built_in_products" %}', {})
+                    .done(function(resp) {
+                        if (resp && resp.success && resp.data) {
+                            productNamesCache = resp.data.map(p => p.name.toLowerCase());
+                        }
+                    });
+                
+                // Load suppliers from datalist
+                suppliersCache = $('#supplierList option').map(function() {
+                    return $(this).val().toLowerCase();
+                }).get();
+            }
+            
+            // Calculate Levenshtein distance for string similarity
+            function levenshteinDistance(str1, str2) {
+                const m = str1.length;
+                const n = str2.length;
+                const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+                
+                for (let i = 0; i <= m; i++) dp[i][0] = i;
+                for (let j = 0; j <= n; j++) dp[0][j] = j;
+                
+                for (let i = 1; i <= m; i++) {
+                    for (let j = 1; j <= n; j++) {
+                        if (str1[i - 1] === str2[j - 1]) {
+                            dp[i][j] = dp[i - 1][j - 1];
+                        } else {
+                            dp[i][j] = Math.min(
+                                dp[i - 1][j] + 1,
+                                dp[i][j - 1] + 1,
+                                dp[i - 1][j - 1] + 1
+                            );
+                        }
+                    }
+                }
+                return dp[m][n];
+            }
+            
+            // Find closest matches
+            function findClosestMatches(input, dictionary, maxResults = 3) {
+                if (!input || input.length < 2) return [];
+                const inputLower = input.toLowerCase();
+                const matches = [];
+                
+                for (const word of dictionary) {
+                    const distance = levenshteinDistance(inputLower, word);
+                    const maxLen = Math.max(inputLower.length, word.length);
+                    const similarity = 1 - (distance / maxLen);
+                    
+                    // Only suggest if similarity is high (>= 0.7) and not exact match
+                    if (similarity >= 0.7 && word !== inputLower) {
+                        matches.push({ word, similarity, distance });
+                    }
+                }
+                
+                return matches.sort((a, b) => a.distance - b.distance).slice(0, maxResults);
+            }
+            
+            // Check spelling and show suggestions
+            function checkSpelling(inputValue, fieldType, displayElement) {
+                if (!inputValue || inputValue.length < 2) {
+                    displayElement.hide().empty();
+                    return;
+                }
+                
+                let dictionary = [];
+                if (fieldType === 'name') {
+                    dictionary = productNamesCache;
+                } else if (fieldType === 'variant') {
+                    dictionary = variantsCache;
+                } else if (fieldType === 'supplier') {
+                    dictionary = suppliersCache;
+                }
+                
+                if (dictionary.length === 0) return;
+                
+                const matches = findClosestMatches(inputValue, dictionary);
+                
+                if (matches.length > 0) {
+                    const suggestions = matches.map(m => m.word).join(', ');
+                    displayElement.html(`<i class="bi bi-info-circle"></i> Did you mean: <strong>${suggestions}</strong>?`).show();
+                } else {
+                    displayElement.hide().empty();
+                }
+            }
+            
+            // Product name spell check
+            let nameCheckTimeout;
+            $('#productNameDisplay').on('input', function() {
+                clearTimeout(nameCheckTimeout);
+                const value = $(this).val().trim();
+                nameCheckTimeout = setTimeout(() => {
+                    checkSpelling(value, 'name', $('#nameSpellCheck'));
+                }, 500);
+            });
+            
+            // Variant spell check (load variants when product name changes)
+            $('#productNameDisplay').on('blur', function() {
+                const baseName = $(this).val().trim();
+                if (baseName) {
+                    $.get('{% url "fruit_master_variants" %}', { name: baseName })
+                        .done(function(resp) {
+                            if (resp && resp.success && resp.data) {
+                                variantsCache = resp.data.map(v => v.toLowerCase());
+                            }
+                        });
+                }
+            });
+            
+            let variantCheckTimeout;
+            $('#productVariantDisplay').on('input', function() {
+                clearTimeout(variantCheckTimeout);
+                const value = $(this).val().trim();
+                variantCheckTimeout = setTimeout(() => {
+                    checkSpelling(value, 'variant', $('#variantSpellCheck'));
+                }, 500);
+            });
+            
+            // Supplier spell check
+            let supplierCheckTimeout;
+            $('#supplierInput').on('input', function() {
+                clearTimeout(supplierCheckTimeout);
+                const value = $(this).val().trim();
+                supplierCheckTimeout = setTimeout(() => {
+                    checkSpelling(value, 'supplier', $('#supplierSpellCheck'));
+                }, 500);
+            });
+            
+            // Load spell check data on page load
+            loadSpellCheckData();
 
             (function(){
                 const $qty = $('#productSizeDisplay');

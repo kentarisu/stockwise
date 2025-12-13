@@ -41,6 +41,23 @@ class Command(BaseCommand):
 
         self.stdout.write('Checking for duplicate column issues...')
         
+        # Check migration status first
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT app, name, applied 
+                FROM django_migrations 
+                WHERE app='core' 
+                AND (name LIKE '%0041%' OR name LIKE '%pricing_fields%')
+                ORDER BY applied DESC, name
+            """)
+            migration_status = cursor.fetchall()
+            
+            if migration_status:
+                self.stdout.write('\nFound migrations:')
+                for app, name, applied in migration_status:
+                    status = '✓ Applied' if applied else '✗ Not applied'
+                    self.stdout.write(f'  {status}: {app}.{name}')
+        
         # Check for pricing_time and pricing_frequency_days columns
         with connection.cursor() as cursor:
             cursor.execute("""
@@ -60,21 +77,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('No duplicate columns found. Migration should run normally.'))
                 return
             
-            # Check migration status
-            cursor.execute("""
-                SELECT app, name, applied 
-                FROM django_migrations 
-                WHERE app='core' AND name LIKE '%pricing_fields%'
-                ORDER BY applied DESC
-            """)
-            migration_status = cursor.fetchall()
-            
-            if migration_status:
-                self.stdout.write('\nMigration status:')
-                for app, name, applied in migration_status:
-                    status = '✓ Applied' if applied else '✗ Not applied'
-                    self.stdout.write(f'  {status}: {app}.{name}')
-            
             if check_only:
                 return
             
@@ -83,15 +85,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(
                     '\nBoth columns exist. You can mark the migration as applied:'
                 ))
-                self.stdout.write(f'  python manage.py migrate core {migration_num} --fake')
+                self.stdout.write('  Use the full migration name to avoid ambiguity:')
+                self.stdout.write('  python manage.py migrate core 0041_add_pricing_fields_to_sms_notification_settings --fake')
                 
                 if fake:
                     self.stdout.write('\nMarking migration as applied...')
                     try:
-                        call_command('migrate', 'core', migration_num, '--fake', verbosity=1)
+                        # Use full migration name to avoid ambiguity
+                        call_command('migrate', 'core', '0041_add_pricing_fields_to_sms_notification_settings', '--fake', verbosity=1)
                         self.stdout.write(self.style.SUCCESS('✓ Migration marked as applied'))
                     except Exception as e:
                         self.stdout.write(self.style.ERROR(f'✗ Failed: {str(e)}'))
+                        self.stdout.write(self.style.WARNING('Try using the full migration name manually'))
             else:
                 self.stdout.write(self.style.WARNING(
                     '\nSome columns are missing. The migration should run normally.'

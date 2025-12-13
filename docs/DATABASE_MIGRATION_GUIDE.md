@@ -289,14 +289,49 @@ ALTER SEQUENCE core_product_product_id_seq RESTART WITH 1;
 - Date formats
 - Decimal precision
 
+### Issue: "More than one migration matches" error
+**Error:** `CommandError: More than one migration matches '0041' in app 'core'. Please be more specific.`
+
+**Solution:** Use the full migration name instead of just the number:
+```bash
+# Instead of: python manage.py migrate core 0041 --fake
+# Use the full name:
+python manage.py migrate core 0041_add_pricing_fields_to_sms_notification_settings --fake
+
+# Or list all migrations to see which one you need:
+python manage.py showmigrations core
+```
+
+### Issue: "No index named 'idx_sa_expiry' on model 'StockAddition'"
+**Error:** `ValueError: No index named 'idx_sa_expiry' on model 'StockAddition'`
+
+**Solution:** This happens when a migration tries to remove an index that doesn't exist. Migration `0037_remove_stockaddition_idx_sa_expiry` has been fixed to check for index existence first.
+
+**Quick Fix:**
+```bash
+# Option 1: Mark the migration as applied (if index was already removed)
+python manage.py migrate core 0037_remove_stockaddition_idx_sa_expiry --fake
+
+# Option 2: Check if index exists manually
+python manage.py dbshell
+```
+```sql
+-- Check if index exists
+SELECT indexname FROM pg_indexes WHERE tablename='core_stockaddition' AND indexname='idx_sa_expiry';
+-- If no results, the index doesn't exist, so fake the migration
+```
+```bash
+python manage.py migrate core 0037_remove_stockaddition_idx_sa_expiry --fake
+```
+
 ### Issue: Migration conflicts or out-of-order migrations
 **Solution:** If migrations are out of sync:
 ```bash
 # Show migration status
 python manage.py showmigrations
 
-# Fake migrations that are already applied
-python manage.py migrate core 0041 --fake
+# Fake migrations that are already applied (use full migration name)
+python manage.py migrate core 0041_add_pricing_fields_to_sms_notification_settings --fake
 
 # Or reset specific app migrations (CAREFUL - backup first!)
 python manage.py migrate core zero  # Unapplies all migrations

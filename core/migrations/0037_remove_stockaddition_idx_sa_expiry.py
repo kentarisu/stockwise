@@ -3,6 +3,29 @@
 from django.db import migrations
 
 
+def remove_index_if_exists(apps, schema_editor):
+    """Remove index only if it exists"""
+    with schema_editor.connection.cursor() as cursor:
+        # Check if index exists in PostgreSQL
+        cursor.execute("""
+            SELECT indexname 
+            FROM pg_indexes 
+            WHERE tablename='core_stockaddition' 
+            AND indexname='idx_sa_expiry'
+        """)
+        index_exists = cursor.fetchone() is not None
+        
+        if index_exists:
+            cursor.execute("DROP INDEX IF EXISTS idx_sa_expiry")
+        # If index doesn't exist, do nothing (it was already removed)
+
+
+def reverse_migration(apps, schema_editor):
+    """Reverse migration - recreate index if needed"""
+    # This is a no-op since we're removing an index
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,8 +33,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveIndex(
-            model_name='stockaddition',
-            name='idx_sa_expiry',
-        ),
+        migrations.RunPython(remove_index_if_exists, reverse_migration),
     ]

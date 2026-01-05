@@ -399,7 +399,11 @@ GOOGLE_ALLOWED_ACCOUNTS = {
 # Default to SMTP backend (production-safe). Override via EMAIL_BACKEND env var if needed.
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+# Handle EMAIL_PORT gracefully - use default if invalid
+try:
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+except (ValueError, TypeError):
+    EMAIL_PORT = 587
 # Use STARTTLS by default (change via env vars if needed)
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'false').lower() == 'true'

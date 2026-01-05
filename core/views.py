@@ -13688,8 +13688,8 @@ def get_pricing_analysis_data(request):
                 recent_total = float(recent_sales['quantity'].sum()) if len(recent_sales) > 0 else 0.0
                 older_total = float(older_sales['quantity'].sum()) if len(older_sales) > 0 else 0.0
                 # Calculate averages: divide by number of days in period
-                recent_avg = recent_total / 7.0  # Always divide by 7 days
-                older_avg = older_total / 23.0 if len(older_sales) > 0 else (older_total / 23.0)  # Always divide by 23 days
+                recent_avg = recent_total / 7.0  # Last 7 days
+                older_avg = older_total / 23.0  # Days 8-30 (23 days)
                 # Demand ratio: recent demand vs older demand
                 # If older_avg is 0, we can't compare, so default to 1.0 (no change)
                 # If recent_avg is 0 and older_avg > 0, ratio is 0 (demand dropped to zero)
@@ -13715,20 +13715,31 @@ def get_pricing_analysis_data(request):
                     # If calculation fails, default to 0
                     no_sales_days = 0
                 
-                # Check for stock outs (days with zero sales when there should be sales within the period)
+                # Calculate stock out days: consecutive days at the end of period with no sales
+                # This indicates potential stock unavailability
                 stock_out_days = 0
                 try:
-                    date_range = pd.date_range(start=start_date.date(), end=end_date.date(), freq='D')
-                    for date in date_range:
-                        date_obj = date.date() if hasattr(date, 'date') else date
-                        date_sales = sales_df[sales_df['date'] == date_obj]
-                        if len(date_sales) == 0:
-                            # Check if this is unusual (should have sales based on average)
-                            if avg_daily_demand > 0.1:  # If we expect sales
-                                stock_out_days += 1
+                    if not sales_df.empty:
+                        # Get sorted unique dates with sales
+                        sales_dates = sorted(sales_df['date'].unique())
+                        last_sale_date = sales_dates[-1]
+                        
+                        # Count days from last sale to today
+                        days_since_last = (timezone.now().date() - last_sale_date).days
+                        
+                        # Only count as stock-out if:
+                        # 1. There are days since last sale (days_since_last > 0)
+                        # 2. Product typically has demand (avg_daily_demand > 0.1)
+                        # 3. Current stock is zero or very low (< 1)
+                        if days_since_last > 0 and avg_daily_demand > 0.1:
+                            # If product has zero stock now, it's likely been out of stock
+                            if float(product.stock) < 1:
+                                stock_out_days = days_since_last
+                            # If product has stock but no recent sales, might be demand issue, not stock-out
+                            # So we don't count it
                 except Exception:
-                    # If date range fails, skip this calculation
-                    pass
+                    # If calculation fails, default to 0
+                    stock_out_days = 0
                 
                 # Price change data for graphs
                 price_history = []

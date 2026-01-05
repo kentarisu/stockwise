@@ -4,11 +4,7 @@ services:
     name: stockwise-web
     env: python
     plan: starter  # You can change to standard or pro based on your needs
-    buildCommand: |
-      pip install -r requirements.txt
-      python manage.py migrate --noinput
-      python manage.py load_initial_data
-      python manage.py collectstatic --noinput
+    buildCommand: pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py load_initial_data && python manage.py collectstatic --noinput
     startCommand: gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120
     dockerfilePath: ""  # Use buildpacks, not Dockerfile
     disk:

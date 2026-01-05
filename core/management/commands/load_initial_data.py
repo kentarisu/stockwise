@@ -23,11 +23,13 @@ class Command(BaseCommand):
         zip_path = fixture_path + '.zip'
         
         # Extract if compressed
+        extracted = False
         if not os.path.exists(fixture_path) and os.path.exists(zip_path):
             self.stdout.write(f'Extracting compressed fixture from {zip_path}...')
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(os.path.dirname(fixture_path))
             self.stdout.write(self.style.SUCCESS('✅ Extracted successfully'))
+            extracted = True
         
         if not os.path.exists(fixture_path):
             self.stdout.write(
@@ -50,11 +52,29 @@ class Command(BaseCommand):
         self.stdout.write(f'Size: {os.path.getsize(fixture_path) / 1024 / 1024:.2f} MB')
         
         try:
+            # Temporarily rename zip to avoid conflict
+            temp_zip_path = zip_path + '.bak' if os.path.exists(zip_path) else None
+            if temp_zip_path and os.path.exists(zip_path):
+                os.rename(zip_path, temp_zip_path)
+            
             call_command('loaddata', fixture_path, verbosity=2)
             self.stdout.write(
                 self.style.SUCCESS('✅ Initial data loaded successfully!')
             )
+            
+            # Clean up extracted file if we extracted it
+            if extracted and os.path.exists(fixture_path):
+                os.remove(fixture_path)
+                self.stdout.write('Cleaned up extracted fixture file')
+            
+            # Restore zip file
+            if temp_zip_path and os.path.exists(temp_zip_path):
+                os.rename(temp_zip_path, zip_path)
+                
         except Exception as e:
+            # Restore zip file on error
+            if temp_zip_path and os.path.exists(temp_zip_path):
+                os.rename(temp_zip_path, zip_path)
             self.stdout.write(
                 self.style.ERROR(f'❌ Error loading data: {e}')
             )

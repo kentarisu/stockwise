@@ -48,6 +48,17 @@ from django.core.validators import validate_email
 # Unified numeric quantity options shared across all products
 STANDARD_SIZE_OPTIONS = ['120', '130', '140', '150', '160']
 
+def ensure_directory_exists(path):
+    """Safely create directory if it doesn't exist. Handles permission errors gracefully."""
+    try:
+        Path(path).mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError) as e:
+        # Log the error but don't crash - this is common in read-only filesystems
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Could not create directory {path}: {e}")
+        pass
+
 # ---- Input sanitizers (server-side hardening) ----
 import re
 
@@ -384,6 +395,8 @@ def format_local_datetime(dt, fmt='%b %d, %Y %I:%M %p'):
 
 def safe_media_serve(request, path):
     base = str(settings.MEDIA_ROOT)
+    # Ensure media directory exists
+    ensure_directory_exists(base)
     full = os.path.abspath(os.path.join(base, path))
     if not full.startswith(os.path.abspath(base)):
         raise Http404()
@@ -2166,6 +2179,11 @@ def stock_decrease(request, product_id):
         current_stock = Decimal(str(product.stock or 0))
         product.stock = max(Decimal('0'), current_stock - decrease)
         product.save()
+        
+        # Update product price to next available batch if current batch is now depleted (FIFO pricing)
+        if new_remaining <= 0:
+            update_product_price_from_fifo_batches(product_id)
+        
         variant_part = f" ({product.variant})" if product.variant else ""
         unit_label = "kg" if (product.quantity_unit or '').strip().lower() == 'kg' else "boxes"
         product_desc = f"{product.name}{variant_part}"
@@ -2370,6 +2388,33 @@ def add_stock(request):
                     # Convert empty string to None and sanitize supplier
                     supplier_to_save = sanitize_text(supplier, 60) if supplier and supplier.strip() else None
                     
+                    # Get cost and price from item
+                    cost_value = item.get('cost')
+                    price_value = item.get('price')
+                    update_product_price = item.get('update_product_price', False)
+                    
+                    # Convert to Decimal - handle None, 0, and numeric values correctly
+                    # Check explicitly for None (not provided) vs 0 (provided but zero)
+                    if cost_value is None:
+                        cost_decimal = Decimal('0')  # Default to 0 if not provided
+                    else:
+                        try:
+                            # Convert to float first to handle both int and float from JSON
+                            cost_float = float(cost_value)
+                            cost_decimal = Decimal(str(cost_float))
+                        except (ValueError, TypeError):
+                            cost_decimal = Decimal('0')
+                    
+                    if price_value is None:
+                        price_decimal = None  # Keep None if not provided
+                    else:
+                        try:
+                            # Convert to float first to handle both int and float from JSON
+                            price_float = float(price_value)
+                            price_decimal = Decimal(str(price_float))
+                        except (ValueError, TypeError):
+                            price_decimal = None
+                    
                     try:
                         StockAddition.objects.create(
                             product=product,
@@ -2378,7 +2423,9 @@ def add_stock(request):
                             remaining_quantity=quantity_decimal,
                             batch_id=batch_id,
                             supplier=supplier_to_save,
-                            cost=Decimal(str(item.get('cost') or 0)),
+                            cost=cost_decimal,
+                            price=price_decimal,
+                            update_product_price=update_product_price,
                         )
                     except Exception as e:
                         if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
@@ -2390,13 +2437,31 @@ def add_stock(request):
                                 remaining_quantity=quantity_decimal,
                                 batch_id=batch_id,
                                 supplier=supplier_to_save,
-                                cost=Decimal(str(item.get('cost') or 0)),
+                                cost=cost_decimal,
+                                price=price_decimal,
+                                update_product_price=update_product_price,
                             )
                         else:
                             raise
                     
+                    # Get current stock before adding (to check if this is the first stock)
+                    product.refresh_from_db(fields=['stock'])
+                    old_stock = product.stock or Decimal('0')
+                    
                     # Update product stock directly - use Decimal for kg, ensure Decimal for boxes
                     product.stock = models.F('stock') + quantity_decimal
+                    
+                    # If this is the first stock addition (product had no stock before), set cost/price immediately
+                    # Otherwise, don't update product cost or price - they will be updated automatically
+                    # when all old stock is sold out and new stock becomes active (FIFO method)
+                    if old_stock == 0:
+                        # First stock addition - set cost/price immediately
+                        if cost_value is not None and cost_decimal > 0:
+                            product.cost = cost_decimal
+                        if price_value is not None and price_decimal and price_decimal > 0:
+                            product.price = price_decimal
+                    # (For subsequent additions, cost and price update logic is in deduct_stock_fifo function)
+                    
                     product.save()
                     # Refresh to get updated stock value for low stock check
                     product.refresh_from_db(fields=['stock'])
@@ -2521,6 +2586,18 @@ def stock_qr_apply(request):
                     dt = parse_datetime(date_added) if date_added else None
                     if dt is None:
                         dt = timezone.now()
+                    
+                    # Get cost and price from item
+                    cost_value = item.get('cost')
+                    price_value = item.get('price')
+                    update_product_price = item.get('update_product_price', False)
+                    
+                    # Convert to Decimal, defaulting to 0 if not provided
+                    cost_decimal = Decimal(str(cost_value)) if cost_value is not None else Decimal('0')
+                    price_decimal = Decimal(str(price_value)) if price_value is not None else None
+                    
+                    supplier_to_save = sanitize_text(supplier, 60) if supplier and supplier.strip() else None
+                    
                     try:
                         StockAddition.objects.create(
                             product=product,
@@ -2528,7 +2605,10 @@ def stock_qr_apply(request):
                             date_added=dt,
                             remaining_quantity=quantity_decimal,
                             batch_id=batch_id,
-                            supplier=supplier
+                            supplier=supplier_to_save,
+                            cost=cost_decimal,
+                            price=price_decimal,
+                            update_product_price=update_product_price,
                         )
                     except Exception as e:
                         if 'duplicate key' in str(e).lower() or 'stock_additions_pkey' in str(e).lower():
@@ -2539,11 +2619,31 @@ def stock_qr_apply(request):
                                 date_added=dt,
                                 remaining_quantity=quantity_decimal,
                                 batch_id=batch_id,
-                                supplier=supplier
+                                supplier=supplier_to_save,
+                                cost=cost_decimal,
+                                price=price_decimal,
+                                update_product_price=update_product_price,
                             )
                         else:
                             raise
+                    # Get current stock before adding (to check if this is the first stock)
+                    product.refresh_from_db(fields=['stock'])
+                    old_stock = product.stock or Decimal('0')
+                    
                     product.stock = models.F('stock') + quantity_decimal
+                    
+                    # If this is the first stock addition (product had no stock before), set cost/price immediately
+                    # Otherwise, don't update product cost or price - they will be updated automatically
+                    # when all old stock is sold out and new stock becomes active (FIFO method)
+                    if old_stock == 0:
+                        # First stock addition - set cost/price immediately
+                        if cost_value is not None and cost_decimal > 0:
+                            product.cost = cost_decimal
+                        if price_value is not None and price_decimal and price_decimal > 0:
+                            product.price = price_decimal
+                    # (For subsequent additions, cost and price update logic is in deduct_stock_fifo function)
+                    # Note: update_product_price flag is stored in StockAddition but not used here
+                    
                     product.save()
                     # Refresh to get updated stock value for low stock check
                     product.refresh_from_db(fields=['stock'])
@@ -2554,7 +2654,7 @@ def stock_qr_apply(request):
                         send_low_stock_alert(product)
                     
                     if supplier:
-                        product.supplier = supplier
+                        product.supplier = sanitize_text(supplier, 60)
                         product.save()
                     added_items.append({'name': product.name, 'qty': quantity})
                 except Product.DoesNotExist:
@@ -2578,24 +2678,48 @@ def stock_qr_apply(request):
     except Exception as e:
         return HttpResponse(f'Error: {str(e)}', status=500)
 
+@require_app_login
 @require_http_methods(["GET"])
 def qr_next_batch_sequence(request, product_id):
     """Get next batch sequence number for a product"""
     try:
         product = Product.objects.get(product_id=product_id)
+        
+        # Check if product uses kg (no batch IDs for kg products)
+        is_kg = (product.quantity_unit or '').strip().lower() == 'kg'
+        if is_kg:
+            return JsonResponse({'success': False, 'message': 'Batch IDs are not used for kg products'}, status=400)
+        
         from datetime import date
+        from decimal import Decimal
         today = date.today()
         base_name = product.name or ''
-        # Extract variant using helper function
-        variant = extract_variant_from_product(product)
+        
+        # Extract variant using helper function (defined later in file, but accessible)
+        try:
+            variant = extract_variant_from_product(product)
+        except (NameError, AttributeError) as e:
+            # Fallback if helper function not found or fails
+            variant = getattr(product, 'variant', '') or ''
         
         # Clean base name (remove variant if present in name)
         clean_base_name = base_name
         if variant and f"({variant})" in base_name:
             clean_base_name = base_name.replace(f"({variant})", "").strip()
         
-        fruit_acr = get_acronym(clean_base_name)
-        variant_acr = get_acronym(variant) if variant else ''
+        # Get acronyms safely (helper function defined later in file)
+        try:
+            fruit_acr = get_acronym(clean_base_name)
+        except (NameError, AttributeError):
+            # Fallback: use first 3 letters of base name
+            fruit_acr = clean_base_name[:3].upper() if clean_base_name else 'PRD'
+        
+        try:
+            variant_acr = get_acronym(variant) if variant else ''
+        except (NameError, AttributeError):
+            # Fallback: use first 2 letters of variant
+            variant_acr = variant[:2].upper() if variant else ''
+        
         size_clean = str(product.quantity_unit or '').replace('-', '')
         date_str = today.strftime('%m%d%Y')
         parts = [fruit_acr]
@@ -2608,11 +2732,25 @@ def qr_next_batch_sequence(request, product_id):
         
         # Calculate total boxes already added today to get the next sequence number
         # This matches the logic in generate_batch_id()
-        today_additions = StockAddition.objects.filter(
-            product=product, 
-            batch_id__startswith=base_batch_id
-        ).defer('spoiled')
-        total_boxes_today = sum(int(getattr(addition, 'quantity', 0) or 0) for addition in today_additions)
+        try:
+            today_additions = StockAddition.objects.filter(
+                product=product, 
+                batch_id__startswith=base_batch_id
+            )
+            
+            # Convert quantity to int safely (for boxes, quantity should be integer)
+            total_boxes_today = 0
+            for addition in today_additions:
+                qty = addition.quantity
+                if qty:
+                    # Convert Decimal to int for boxes
+                    try:
+                        total_boxes_today += int(float(qty))
+                    except (ValueError, TypeError):
+                        pass
+        except Exception as e:
+            # If there's an error calculating, default to 1
+            total_boxes_today = 0
         
         # Next sequence should continue from total boxes added today
         # If 50 boxes were added (01-50), next should be 51
@@ -2622,7 +2760,14 @@ def qr_next_batch_sequence(request, product_id):
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+        import traceback
+        error_msg = str(e)
+        traceback_str = traceback.format_exc()
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in qr_next_batch_sequence: {error_msg}\n{traceback_str}')
+        return JsonResponse({'success': False, 'message': error_msg, 'traceback': traceback_str}, status=500)
 
 @require_http_methods(["GET"])
 def stock_qr_decode(request):
@@ -3956,7 +4101,8 @@ def fetch_reports(request):
                     output_field=models.DecimalField()
                 )
             ),
-            total_cogs=Sum(F('quantity') * F('product__cost')),
+            # COGS will be calculated separately using average cost from StockAddition
+            total_cogs=Sum(F('quantity') * F('product__cost')),  # Temporary, will be recalculated
             total_rows=Count('sale_id')
         )
         total_rev = Decimal(str(agg['total_revenue'] or 0))
@@ -3964,7 +4110,41 @@ def fetch_reports(request):
         total_items = Decimal(str(agg['total_items_sold'] or 0))  # Convert to Decimal for consistency
         total_boxes = Decimal(str(agg['total_boxes_sold'] or 0))
         total_kg = Decimal(str(agg['total_kg_sold'] or 0))
-        total_cogs = Decimal(str(agg['total_cogs'] or 0))
+        
+        # Calculate weighted average cost from StockAddition records (weighted by quantity, only cost > 0)
+        # This is more accurate than simple average
+        from django.db.models import Sum as DSum
+        stock_additions_weighted = StockAddition.objects.filter(
+            product__status='active',
+            cost__gt=0
+        ).values('product__product_id').annotate(
+            total_cost_qty=Sum(F('cost') * F('quantity')),
+            total_qty=Sum('quantity')
+        )
+        # Calculate weighted average: total_cost_qty / total_qty
+        avg_cost_map = {}
+        for item in stock_additions_weighted:
+            product_id = item['product__product_id']
+            total_cost_qty = Decimal(str(item['total_cost_qty'] or 0))
+            total_qty = Decimal(str(item['total_qty'] or 0))
+            if total_qty > 0:
+                avg_cost_map[product_id] = total_cost_qty / total_qty
+        
+        # Recalculate total_cogs using weighted average costs
+        total_cogs = Decimal('0')
+        sales_for_cogs = sales_queryset.values('product__product_id', 'quantity')
+        for sale in sales_for_cogs:
+            product_id = sale['product__product_id']
+            quantity = Decimal(str(sale['quantity'] or 0))
+            # Use weighted average cost if available, otherwise fallback to product.cost
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None:
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    avg_cost = Decimal(str(product.cost or 0))
+                except Product.DoesNotExist:
+                    avg_cost = Decimal('0')
+            total_cogs += quantity * avg_cost
         gross_profit = total_rev - total_cogs
         gross_margin_pct = float((gross_profit / total_rev * 100) if total_rev else 0)
         vat_total = total_rev - (total_rev / Decimal('1.12'))
@@ -4031,21 +4211,53 @@ def fetch_reports(request):
         }
 
         previous_summary_map = {}
+        # Calculate previous period COGS using average cost from StockAddition
         previous_summary_queryset = previous_queryset.values(
             'product__product_id'
         ).annotate(
             boxes_sold=Sum('quantity'),
-            revenue=Sum('total'),
-            cogs=Sum(F('quantity') * F('product__cost'))
+            revenue=Sum('total')
         )
         for prev in previous_summary_queryset:
             product_id = prev['product__product_id']
+            total_quantity = Decimal(str(prev.get('boxes_sold') or 0))
+            # Use weighted average cost from StockAddition if available
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None:
+                # Fallback: get product cost
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    avg_cost = Decimal(str(product.cost or 0))
+                except Product.DoesNotExist:
+                    avg_cost = Decimal('0')
+            prev_cogs = total_quantity * avg_cost
+            prev_kg = Decimal('0')  # Previous period kg not tracked separately
             previous_summary_map[product_id] = {
                 'boxes_sold': prev['boxes_sold'] or 0,
+                'kg_sold': float(prev_kg),
                 'revenue': Decimal(prev['revenue'] or 0),
-                'cogs': Decimal(prev['cogs'] or 0)
+                'cogs': prev_cogs
             }
 
+        # Calculate weighted average cost per product from StockAddition records (weighted by quantity, only cost > 0)
+        # This is more accurate than simple average - accounts for different quantities at different costs
+        from django.db.models import Sum as DSum
+        stock_additions_weighted = StockAddition.objects.filter(
+            product__status='active',
+            cost__gt=0
+        ).values('product__product_id').annotate(
+            total_cost_qty=Sum(F('cost') * F('quantity')),
+            total_qty=Sum('quantity')
+        )
+        # Calculate weighted average: total_cost_qty / total_qty
+        avg_cost_map = {}
+        for item in stock_additions_weighted:
+            product_id = item['product__product_id']
+            total_cost_qty = Decimal(str(item['total_cost_qty'] or 0))
+            total_qty = Decimal(str(item['total_qty'] or 0))
+            if total_qty > 0:
+                avg_cost_map[product_id] = total_cost_qty / total_qty
+        
         summary = list(
             sales_queryset.values(
                 'product__product_id',
@@ -4069,10 +4281,23 @@ def fetch_reports(request):
                     )
                 ),
                 revenue=Sum('total'),
-                cogs=Sum(F('quantity') * F('product__cost')),
                 transaction_count=Count('sale_id', distinct=True)
             ).order_by('-revenue')
         )
+        
+        # Calculate COGS using weighted average cost from StockAddition, fallback to product.cost
+        # NOTE: If StockAddition records have cost=0, we use product.cost as the actual cost
+        # This ensures we use the cost that was actually paid when stock was purchased
+        for s in summary:
+            product_id = s['product__product_id']
+            total_quantity = Decimal(str(s.get('boxes_sold') or 0)) + Decimal(str(s.get('kg_sold') or 0))
+            # Use weighted average cost from StockAddition if available and valid, otherwise use product cost
+            # The product.cost represents the standard/default cost for this product
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None or avg_cost == 0:
+                # Fallback to product.cost - this is the actual cost set in the product
+                avg_cost = Decimal(str(s.get('product__cost') or 0))
+            s['cogs'] = float(total_quantity * avg_cost)
 
         summary_date = end_date if end_date else timezone.localtime().strftime('%Y-%m-%d')
         sales_summary_data = []
@@ -4091,8 +4316,44 @@ def fetch_reports(request):
             # Use total_quantity for unit price/cost calculations
             unit_price = float(revenue / total_quantity) if total_quantity else 0
             unit_cost = float(cogs / total_quantity) if total_quantity else 0
-            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0})
+            
+            # Calculate markup percentage and amount
+            markup_pct = 0.0
+            markup_amount = 0.0
+            if unit_cost > 0 and unit_price > 0:
+                markup_pct = float(((unit_price - unit_cost) / unit_cost) * 100)
+                markup_amount = unit_price - unit_cost
+            
+            # Calculate previous period markup for trend comparison
+            prev = previous_summary_map.get(product_id, {'revenue': Decimal('0'), 'boxes_sold': 0, 'cogs': Decimal('0')})
             prev_revenue = prev['revenue']
+            prev_cogs = prev.get('cogs', Decimal('0'))
+            prev_boxes = prev.get('boxes_sold', 0)
+            prev_kg = Decimal('0')  # Previous period kg not tracked separately in previous_summary_map
+            prev_total_quantity = Decimal(str(prev_boxes)) + prev_kg
+            
+            prev_unit_price = 0.0
+            prev_unit_cost = 0.0
+            prev_markup_pct = 0.0
+            prev_markup_amount = 0.0
+            if prev_total_quantity > 0:
+                prev_unit_price = float(prev_revenue / prev_total_quantity) if prev_total_quantity else 0
+                prev_unit_cost = float(prev_cogs / prev_total_quantity) if prev_total_quantity else 0
+                if prev_unit_cost > 0 and prev_unit_price > 0:
+                    prev_markup_pct = float(((prev_unit_price - prev_unit_cost) / prev_unit_cost) * 100)
+                    prev_markup_amount = prev_unit_price - prev_unit_cost
+            
+            # Calculate markup trend (increase/decrease)
+            markup_trend_pct = 0.0
+            markup_trend_amount = 0.0
+            if prev_markup_pct > 0:
+                markup_trend_pct = markup_pct - prev_markup_pct
+                markup_trend_amount = markup_amount - prev_markup_amount
+            elif markup_pct > 0:
+                # New markup (no previous period data)
+                markup_trend_pct = markup_pct
+                markup_trend_amount = markup_amount
+            
             sales_growth_pct = 0.0
             if prev_revenue and prev_revenue != 0:
                 sales_growth_pct = float(((revenue - prev_revenue) / prev_revenue) * 100)
@@ -4134,6 +4395,12 @@ def fetch_reports(request):
                 'transaction_count': transaction_count,
                 'avg_transaction_value': avg_transaction,
                 'sales_growth_pct': sales_growth_pct,
+                'markup_pct': markup_pct,
+                'markup_amount': markup_amount,
+                'prev_markup_pct': prev_markup_pct,
+                'prev_markup_amount': prev_markup_amount,
+                'markup_trend_pct': markup_trend_pct,
+                'markup_trend_amount': markup_trend_amount,
                 'date': summary_date
             })
 
@@ -5176,33 +5443,62 @@ def export_report(request):
             }, status=400)
         
         # Calculate comprehensive sales summary data - separate boxes and kg
-        summary = list(
-        sales_queryset.values(
-            'product__product_id',
-            'product__name',
-            'product__variant',
-            'product__quantity_unit',
-            'product__cost'
-        ).annotate(
-            boxes_sold=Sum(
-                Case(
-                    When(product__quantity_unit__iexact='kg', then=0),
-                    default='quantity',
-                    output_field=models.DecimalField()
-                )
-            ),
-            kg_sold=Sum(
-                Case(
-                    When(product__quantity_unit__iexact='kg', then='quantity'),
-                    default=0,
-                    output_field=models.DecimalField()
-                )
-            ),
-            revenue=Sum('total'),
-            cogs=Sum(F('quantity') * F('product__cost')),
-            transaction_count=Count('sale_id', distinct=True)
-        ).order_by('-revenue')[:20]
+        # First, get weighted average cost per product from StockAddition records (weighted by quantity, only cost > 0)
+        # This is more accurate than simple average or current product.cost
+        from django.db.models import Sum as DSum
+        stock_additions_weighted = StockAddition.objects.filter(
+            product__status='active',
+            cost__gt=0
+        ).values('product__product_id').annotate(
+            total_cost_qty=Sum(F('cost') * F('quantity')),
+            total_qty=Sum('quantity')
         )
+        # Calculate weighted average: total_cost_qty / total_qty
+        avg_cost_map = {}
+        for item in stock_additions_weighted:
+            product_id = item['product__product_id']
+            total_cost_qty = Decimal(str(item['total_cost_qty'] or 0))
+            total_qty = Decimal(str(item['total_qty'] or 0))
+            if total_qty > 0:
+                avg_cost_map[product_id] = total_cost_qty / total_qty
+        
+        summary = list(
+            sales_queryset.values(
+                'product__product_id',
+                'product__name',
+                'product__variant',
+                'product__quantity_unit',
+                'product__cost'
+            ).annotate(
+                boxes_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then=0),
+                        default='quantity',
+                        output_field=models.DecimalField()
+                    )
+                ),
+                kg_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then='quantity'),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                revenue=Sum('total'),
+                transaction_count=Count('sale_id', distinct=True)
+            ).order_by('-revenue')[:20]
+        )
+        
+        # Calculate COGS using weighted average cost from StockAddition, fallback to product.cost
+        # NOTE: If StockAddition records have cost=0, we use product.cost as the actual cost
+        for s in summary:
+            product_id = s['product__product_id']
+            total_quantity = Decimal(str(s.get('boxes_sold') or 0)) + Decimal(str(s.get('kg_sold') or 0))
+            # Use weighted average cost from StockAddition if available and valid, otherwise use product cost
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None or avg_cost == 0:
+                avg_cost = Decimal(str(s.get('product__cost') or 0))
+            s['cogs'] = float(total_quantity * avg_cost)
     
         # Get previous period data for comparison
         previous_summary_map = {}
@@ -5223,17 +5519,27 @@ def export_report(request):
                     output_field=models.DecimalField()
                 )
             ),
-            revenue=Sum('total'),
-            cogs=Sum(F('quantity') * F('product__cost'))
+            revenue=Sum('total')
         )
         for prev in previous_summary_queryset:
             product_id = prev['product__product_id']
             prev_boxes = Decimal(str(prev['boxes_sold'] or 0))
             prev_kg = Decimal(str(prev.get('kg_sold') or 0))
+            total_quantity = prev_boxes + prev_kg
+            # Use weighted average cost from StockAddition if available
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None:
+                # Fallback: get product cost
+                try:
+                    product = Product.objects.get(product_id=product_id)
+                    avg_cost = Decimal(str(product.cost or 0))
+                except Product.DoesNotExist:
+                    avg_cost = Decimal('0')
+            prev_cogs = total_quantity * avg_cost
             previous_summary_map[product_id] = {
-                'boxes_sold': prev_boxes + prev_kg,  # Total quantity for comparison
+                'boxes_sold': total_quantity,  # Total quantity for comparison
                 'revenue': Decimal(prev['revenue'] or 0),
-                'cogs': Decimal(prev['cogs'] or 0)
+                'cogs': prev_cogs
             }
         
         total_current_revenue = sum(Decimal(item['revenue'] or 0) for item in summary)
@@ -6373,6 +6679,189 @@ def export_report(request):
         except Exception:
             elems.append(Paragraph("Accepted pricing data unavailable.", styles['Normal']))
 
+        elems.append(Spacer(1, 8))
+        
+        # ========== SECTION: PRICING ANALYSIS ==========
+        elems.append(Paragraph("PRICING ANALYSIS", section_style))
+        elems.append(Spacer(1, 8))
+        
+        try:
+            # Get pricing analysis data for the report period
+            from core.models import PriceChangeHistory
+            from core.pricing_ai import DemandPricingAI, PolicyConfig
+            import pandas as pd
+            
+            # Calculate days for pricing analysis based on report period
+            if date_range:
+                period_start, period_end = date_range
+                analysis_days = (period_end - period_start).days
+                analysis_start = period_start
+                analysis_end = period_end
+            else:
+                analysis_days = 365
+                analysis_end = timezone.now()
+                analysis_start = analysis_end - timedelta(days=analysis_days)
+            
+            # Get all active products
+            pricing_products = Product.objects.filter(status='active').order_by('name', 'variant', 'quantity_unit')
+            
+            # Prepare sales data for AI model
+            all_sales = Sale.objects.filter(
+                recorded_at__gte=analysis_start,
+                recorded_at__lte=analysis_end,
+                status='completed'
+            ).values('recorded_at', 'product__product_id', 'quantity', 'price')
+            
+            if all_sales.exists():
+                ai_sales_df = pd.DataFrame(list(all_sales))
+                ai_sales_df.columns = ['date', 'product_id', 'units_sold', 'price']
+                ai_sales_df['date'] = pd.to_datetime(ai_sales_df['date'])
+                ai_sales_df['price'] = ai_sales_df['price'].astype(float)
+                ai_sales_df['units_sold'] = ai_sales_df['units_sold'].astype(float)
+            else:
+                ai_sales_df = pd.DataFrame(columns=['date', 'product_id', 'units_sold', 'price'])
+            
+            # Fit log-log elasticity models
+            cfg = PolicyConfig(
+                min_margin_pct=0.10,
+                max_move_pct=0.10,
+                cooldown_days=3,
+                planning_horizon_days=7,
+                min_obs_per_product=5,
+                default_elasticity=-1.0,
+                hold_band_pct=0.03,
+            )
+            pricing_ai = DemandPricingAI(cfg)
+            if not ai_sales_df.empty:
+                pricing_ai.fit(ai_sales_df)
+            
+            pricing_rows = [[
+                Paragraph('Product', table_header_style),
+                Paragraph('Current Price', table_header_style),
+                Paragraph('Avg Price', table_header_style),
+                Paragraph('Price Change %', table_header_style),
+                Paragraph('Demand Ratio', table_header_style),
+                Paragraph('R²', table_header_style),
+                Paragraph('Observations', table_header_style)
+            ]]
+            
+            pricing_data_count = 0
+            for product in pricing_products[:30]:  # Limit to top 30 products to avoid PDF being too large
+                # Get sales data
+                sales = Sale.objects.filter(
+                    product=product,
+                    recorded_at__gte=analysis_start,
+                    recorded_at__lte=analysis_end,
+                    status='completed'
+                ).order_by('recorded_at')
+                
+                if not sales.exists():
+                    continue
+                
+                # Get AI model metrics
+                ai_model = pricing_ai.models.get(product.product_id, {})
+                elasticity = float(ai_model.get('elasticity', cfg.default_elasticity))
+                r2 = float(ai_model.get('r2', 0.0))
+                n_observations = int(ai_model.get('n', 0))
+                
+                # Calculate price metrics
+                sales_df = pd.DataFrame(list(sales.values('recorded_at', 'quantity', 'price')))
+                if sales_df.empty:
+                    continue
+                
+                sales_df['quantity'] = sales_df['quantity'].astype(float)
+                sales_df['price'] = sales_df['price'].astype(float)
+                sales_df['date'] = pd.to_datetime(sales_df['recorded_at']).dt.date
+                
+                avg_price = float(sales_df['price'].mean())
+                current_price = float(product.price or 0)
+                
+                # Calculate price change
+                price_change_pct = 0.0
+                if current_price > 0 and avg_price > 0:
+                    price_change_pct = ((current_price - avg_price) / avg_price) * 100
+                
+                # Calculate demand ratio (7-day vs 30-day)
+                recent_cutoff = (analysis_end - timedelta(days=7)).date()
+                older_start = (analysis_end - timedelta(days=30)).date()
+                older_end = (analysis_end - timedelta(days=7)).date()
+                
+                recent_sales = sales_df[sales_df['date'] >= recent_cutoff]
+                older_sales = sales_df[
+                    (sales_df['date'] >= older_start) &
+                    (sales_df['date'] < older_end)
+                ]
+                
+                recent_total = float(recent_sales['quantity'].sum()) if len(recent_sales) > 0 else 0.0
+                older_total = float(older_sales['quantity'].sum()) if len(older_sales) > 0 else 0.0
+                recent_avg = recent_total / 7.0
+                older_avg = older_total / 23.0 if len(older_sales) > 0 else 0.0
+                
+                if older_avg > 0:
+                    demand_ratio = recent_avg / older_avg
+                elif recent_avg > 0:
+                    demand_ratio = 2.0
+                else:
+                    demand_ratio = 1.0
+                
+                # Format product name
+                product_name = _fmt_prod(product.name, product.variant, product.quantity_unit)
+                
+                # Add row
+                pricing_rows.append([
+                    Paragraph(product_name[:35], cell_style),
+                    Paragraph(f"PHP {current_price:,.2f}", cell_small_style),
+                    Paragraph(f"PHP {avg_price:,.2f}", cell_small_style),
+                    Paragraph(f"{price_change_pct:+.1f}%", cell_small_style),
+                    Paragraph(f"{demand_ratio:.2f}x", cell_small_style),
+                    Paragraph(f"{r2:.3f}", cell_small_style),
+                    Paragraph(str(n_observations), cell_small_style)
+                ])
+                pricing_data_count += 1
+            
+            if pricing_data_count > 0:
+                pricing_col_widths = [
+                    140,  # Product
+                    70,   # Current Price
+                    70,   # Avg Price
+                    60,   # Price Change %
+                    60,   # Demand Ratio
+                    50,   # R²
+                    60    # Observations
+                ]
+                pricing_analysis_table = Table(pricing_rows, repeatRows=1, colWidths=pricing_col_widths)
+                pricing_analysis_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
+                    ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0,0), (-1,0), 8),
+                    ('FONTSIZE', (0,1), (-1,-1), 7),
+                    ('ALIGN', (1,1), (6,-1), 'RIGHT'),
+                    ('ALIGN', (0,0), (0,-1), 'LEFT'),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('LEFTPADDING', (0,0), (-1,-1), 4),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                    ('TOPPADDING', (0,0), (-1,-1), 5),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                    ('WORDWRAP', (0,0), (-1,-1), True),
+                ]))
+                elems.append(pricing_analysis_table)
+                elems.append(Spacer(1, 6))
+                elems.append(Paragraph(
+                    "<i>Note: Demand Ratio compares average daily sales in last 7 days vs days 8-30. "
+                    "R² indicates model fit quality (higher is better). Observations = number of sales data points used.</i>",
+                    ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
+                ))
+            else:
+                elems.append(Paragraph("No pricing analysis data available for this period.", styles['Normal']))
+        except Exception as e:
+            import traceback
+            print(f"Error generating pricing analysis section: {str(e)}")
+            print(traceback.format_exc())
+            elems.append(Paragraph("Pricing analysis data unavailable.", styles['Normal']))
+
         doc.build(elems)
         pdf = buffer.getvalue()
         buffer.close()
@@ -7364,6 +7853,28 @@ def fetch_active_products(request):
 
 @require_app_login
 @require_GET
+def calculate_fifo_pricing_api(request, product_id):
+    """Calculate FIFO pricing breakdown for a given product and quantity."""
+    try:
+        quantity = float(request.GET.get('quantity', 0))
+        if quantity <= 0:
+            return JsonResponse({'success': False, 'message': 'Quantity must be greater than 0'})
+        
+        result = calculate_fifo_pricing(product_id, quantity)
+        if result is None:
+            return JsonResponse({'success': False, 'message': 'Insufficient stock available'})
+        
+        return JsonResponse({'success': True, 'data': result})
+    except Product.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Product not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@require_app_login
+@require_GET
 def fetch_stock_details(request, product_id):
     """Return stock details for a product.
 
@@ -7479,6 +7990,10 @@ def fetch_stock_details(request, product_id):
             'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
             'addition_id': b.addition_id,
             'batch_ids': group_visible_ids,
+            # Return cost and price - show None only if they're actually None or 0
+            # Note: cost defaults to 0, so we check if it's > 0 to determine if it was set
+            'cost': float(b.cost) if (b.cost is not None and float(b.cost) > 0) else None,
+            'price': float(b.price) if (b.price is not None and float(b.price) > 0) else None,
         })
     try:
         return JsonResponse({
@@ -7743,6 +8258,7 @@ def record_sale(request):
     product, quantity, price, customer_name, address, contact_number, amount_paid
     used by tests.
     """
+    import json  # Import at function level
     try:
         with transaction.atomic():
             items = json.loads(request.POST.get('items', '[]'))
@@ -7792,14 +8308,26 @@ def record_sale(request):
                     raise ValidationError(f'Product not found or inactive: {product_id}')
                 if product.stock < quantity:
                     raise ValidationError(f'Insufficient stock for {product.name}. Available: {product.stock}, Requested: {quantity}')
-                posted_price = request.POST.get('price')
-                unit_price = Decimal(str(posted_price)) if posted_price else Decimal(product.price)
-                line_total = unit_price * quantity
+                
+                # Calculate FIFO pricing breakdown
+                fifo_result = calculate_fifo_pricing(product_id, quantity)
+                if fifo_result is None:
+                    raise ValidationError(f'Insufficient stock in batches for {product.name}')
+                
+                # Use FIFO total price instead of single unit price
+                line_total = Decimal(str(fifo_result['total']))
+                # Store FIFO breakdown for later use
+                fifo_breakdown = fifo_result['breakdown']
+                
+                # Calculate weighted average unit price for the sale record
+                weighted_avg_price = line_total / quantity if quantity > 0 else Decimal('0')
+                
                 prepared.append({
                     'product': product,
                     'quantity': quantity,
-                    'unit_price': unit_price,
-                    'line_total': line_total
+                    'unit_price': weighted_avg_price,  # Weighted average for sale record
+                    'line_total': line_total,
+                    'fifo_breakdown': fifo_breakdown  # Store breakdown for display
                 })
                 pre_total += line_total
 
@@ -7845,6 +8373,8 @@ def record_sale(request):
                     contact_int = int(contact_digits or '0')
                 except Exception:
                     contact_int = 0
+                # Store FIFO breakdown as JSON string
+                fifo_breakdown_json = json.dumps(entry['fifo_breakdown']) if 'fifo_breakdown' in entry else None
                 try:
                     sale_row = Sale.objects.create(
                         product=product,
@@ -7863,6 +8393,7 @@ def record_sale(request):
                         discount_amount=discount_amount,
                         status='completed',
                         user=user,
+                        fifo_breakdown=fifo_breakdown_json,
                     )
                 except Exception as e:
                     if 'duplicate key' in str(e).lower() or 'sales_pkey' in str(e).lower():
@@ -7884,6 +8415,7 @@ def record_sale(request):
                             discount_amount=discount_amount,
                             status='completed',
                             user=user,
+                            fifo_breakdown=fifo_breakdown_json,
                         )
                     else:
                         raise
@@ -7925,13 +8457,27 @@ def record_sale(request):
                 'Record transaction',
                 f'Recorded transaction {transaction_number}: {items_desc}. Total: ₱{total_amount:.2f}{discount_info}{customer_info}'
             )
+            
+            # Build FIFO breakdown for response (for display in payment step)
+            fifo_breakdowns = []
+            for entry in prepared:
+                if 'fifo_breakdown' in entry:
+                    fifo_breakdowns.append({
+                        'product_id': entry['product'].product_id,
+                        'product_name': entry['product'].name,
+                        'variant': entry['product'].variant or '',
+                        'quantity': float(entry['quantity']),
+                        'breakdown': entry['fifo_breakdown']
+                    })
+            
             return JsonResponse({
                 'success': True,
                 'message': f'Recorded {len(created_sales)} sale item(s).',
                 'sale_ids': created_sales,
                 'total_charged': float(total_amount),
                 'transaction_number': transaction_number,
-                'or_number': or_number
+                'or_number': or_number,
+                'fifo_breakdowns': fifo_breakdowns  # Include FIFO breakdown for display
             })
 
     except ValidationError as e:
@@ -7944,7 +8490,7 @@ def record_sale(request):
 def get_active_products(request):
     """Return active products for the record sale modal"""
     try:
-        products = Product.objects.filter(status='active').values('product_id', 'name', 'variant', 'price', 'quantity_unit', 'stock')
+        products = Product.objects.filter(status='active').values('product_id', 'name', 'variant', 'price', 'cost', 'quantity_unit', 'stock')
         return JsonResponse({'success': True, 'data': list(products)})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
@@ -7986,6 +8532,53 @@ def get_sale_details(request, sale_id):
                 qty_str = str(qty_value)
                 qty_float = float(qty_str)
             
+            # Get FIFO breakdown - first try stored breakdown, then calculate if not available
+            fifo_breakdown = None
+            import json
+            if row.product:
+                # First, try to get stored FIFO breakdown from the sale record
+                if hasattr(row, 'fifo_breakdown') and row.fifo_breakdown:
+                    try:
+                        fifo_breakdown = json.loads(row.fifo_breakdown)
+                        print(f"DEBUG get_sale_details: Using stored FIFO breakdown for sale {row.sale_id}, has {len(fifo_breakdown)} batches")
+                    except (json.JSONDecodeError, TypeError) as e:
+                        print(f"DEBUG get_sale_details: Error parsing stored FIFO breakdown: {e}")
+                        fifo_breakdown = None
+                
+                # If no stored breakdown, calculate it (for older sales)
+                if not fifo_breakdown:
+                    try:
+                        sale_date = row.recorded_at if hasattr(row, 'recorded_at') and row.recorded_at else None
+                        if sale_date:
+                            # Ensure sale_date is timezone-aware datetime
+                            from django.utils import timezone
+                            if timezone.is_naive(sale_date):
+                                sale_date = timezone.make_aware(sale_date)
+                        print(f"DEBUG get_sale_details: Calculating FIFO for sale {row.sale_id}, product {row.product.product_id}, qty {qty_value}, date {sale_date}")
+                        fifo_result = calculate_fifo_pricing(row.product.product_id, qty_value, sale_date, exclude_sale_id=row.sale_id)
+                        print(f"DEBUG get_sale_details: FIFO result type: {type(fifo_result)}, value: {fifo_result}")
+                        if fifo_result and fifo_result.get('breakdown'):
+                            fifo_breakdown = fifo_result['breakdown']
+                            print(f"DEBUG get_sale_details: Calculated FIFO breakdown has {len(fifo_breakdown)} batches: {fifo_breakdown}")
+                        else:
+                            print(f"DEBUG get_sale_details: No FIFO breakdown returned for sale {row.sale_id}, result: {fifo_result}")
+                            # Try without sale_date as fallback
+                            print(f"DEBUG get_sale_details: Trying FIFO calculation without sale_date as fallback...")
+                            try:
+                                fifo_result_fallback = calculate_fifo_pricing(row.product.product_id, qty_value, None)
+                                if fifo_result_fallback and fifo_result_fallback.get('breakdown'):
+                                    fifo_breakdown = fifo_result_fallback['breakdown']
+                                    print(f"DEBUG get_sale_details: Fallback FIFO breakdown has {len(fifo_breakdown)} batches")
+                            except Exception as e2:
+                                import traceback
+                                print(f"DEBUG get_sale_details: Fallback calculation also failed: {e2}")
+                                traceback.print_exc()
+                    except Exception as e:
+                        # If FIFO calculation fails, continue without breakdown
+                        import traceback
+                        print(f"ERROR get_sale_details: Could not calculate FIFO breakdown for sale {row.sale_id}: {e}")
+                        traceback.print_exc()
+            
             items_data.append({
                 'product_id': row.product.product_id if row.product else None,
                 'product__name': row.product.name if row.product else 'Unknown',
@@ -7996,7 +8589,8 @@ def get_sale_details(request, sale_id):
                 'product__size': row.product.quantity_unit if row.product else '',
                 'quantity': qty_float,
                 'price': float(row.price or 0),
-                'batch_ids': batch_ids
+                'batch_ids': batch_ids,
+                'fifo_breakdown': fifo_breakdown  # Add FIFO breakdown
             })
             total_amount += (row.total or Decimal('0'))
             total_boxes += int(row.quantity or 0)
@@ -8020,6 +8614,9 @@ def get_sale_details(request, sale_id):
             discount_pct = 0.0
         
         print(f"DEBUG (second function): Sale {sale_id}: Returning {len(items_data)} items")
+        # Debug: print first item's fifo_breakdown
+        if items_data:
+            print(f"DEBUG get_sale_details: First item fifo_breakdown: {items_data[0].get('fifo_breakdown')}")
         
         return JsonResponse({
             'success': True,
@@ -8052,6 +8649,8 @@ def get_sale_details(request, sale_id):
 
 
 def stock_details(request, product_id):
+    # Update product price to next available batch (FIFO pricing) before displaying
+    update_product_price_from_fifo_batches(product_id)
     """Get stock details for a product with newest-first ordering and pagination"""
     try:
         product = Product.objects.get(pk=product_id)
@@ -8116,6 +8715,8 @@ def stock_details(request, product_id):
                 'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
                 'addition_id': b.addition_id,
                 'batch_ids': [],  # No batch IDs for kg products
+                'cost': float(b.cost) if (b.cost is not None and float(b.cost) > 0) else None,
+                'price': float(b.price) if (b.price is not None and float(b.price) > 0) else None,
             })
         else:
             # For box products, expand into per-box entries
@@ -8150,6 +8751,8 @@ def stock_details(request, product_id):
                 'supplier': b.supplier if b.supplier and b.supplier.strip() else 'N/A',
                 'addition_id': b.addition_id,
                 'batch_ids': group_visible_ids,
+                'cost': float(b.cost) if (b.cost is not None and float(b.cost) > 0) else None,
+                'price': float(b.price) if (b.price is not None and float(b.price) > 0) else None,
             })
     
     return JsonResponse({
@@ -8751,6 +9354,259 @@ def get_acronym(text):
     return acronym
 
 
+def calculate_fifo_pricing(product_id, quantity, sale_date=None, exclude_sale_id=None):
+    """Calculate FIFO pricing breakdown for a given quantity without deducting stock.
+    Returns a list of batches with quantities and prices that would be used.
+    
+    Args:
+        product_id: Product ID
+        quantity: Quantity to calculate pricing for
+        sale_date: Optional sale date for historical reconstruction. If provided, 
+                   calculates what batches would have been used at that time.
+        exclude_sale_id: Optional sale_id to exclude from historical calculations
+    """
+    from decimal import Decimal
+    
+    # Get batches that existed at the time of sale (or currently if sale_date is None)
+    batch_filter = {'product_id': product_id}
+    if sale_date:
+        # Only batches added before or at the sale date
+        # Ensure sale_date is timezone-aware
+        from django.utils import timezone
+        if timezone.is_naive(sale_date):
+            sale_date = timezone.make_aware(sale_date)
+        batch_filter['date_added__lte'] = sale_date
+        print(f"DEBUG calculate_fifo_pricing: Filtering batches with date_added <= {sale_date}")
+    
+    # Get batches ordered by date_added then addition_id for strict FIFO
+    if sale_date:
+        # For historical sales, include all batches that existed, not just those with remaining stock
+        batches = StockAddition.objects.filter(**batch_filter).order_by('date_added', 'addition_id')
+        print(f"DEBUG calculate_fifo_pricing: Found {batches.count()} batches for historical sale (date <= {sale_date})")
+        # Debug: list all batches found
+        for b in batches:
+            print(f"DEBUG calculate_fifo_pricing: Batch {b.addition_id} - date: {b.date_added}, qty: {b.quantity}, price: {b.price}, remaining: {b.remaining_quantity}")
+    else:
+        # For current sales, only batches with remaining stock
+        batches = StockAddition.objects.filter(**batch_filter, remaining_quantity__gt=0).order_by('date_added', 'addition_id')
+        print(f"DEBUG calculate_fifo_pricing: Found {batches.count()} batches with remaining stock")
+        # Debug: list all batches found
+        for b in batches:
+            print(f"DEBUG calculate_fifo_pricing: Batch {b.addition_id} - date: {b.date_added}, qty: {b.quantity}, price: {b.price}, remaining: {b.remaining_quantity}")
+    
+    if batches.count() == 0:
+        print(f"DEBUG calculate_fifo_pricing: No batches found for product {product_id}, sale_date={sale_date}")
+        return None
+    
+    breakdown = []
+    remaining_to_allocate = Decimal(str(quantity))
+    
+    print(f"DEBUG calculate_fifo_pricing: Starting allocation for {quantity}, found {batches.count()} batches")
+    for batch in batches:
+        if remaining_to_allocate <= 0:
+            print(f"DEBUG calculate_fifo_pricing: All quantity allocated, stopping")
+            break
+        
+        # Calculate available stock at the time of sale
+        if sale_date:
+            # For historical sales, simulate FIFO allocation by tracking stock state
+            initial_qty = Decimal(str(batch.quantity))
+            
+            # Check if this batch existed at the time of sale
+            if batch.date_added > sale_date:
+                # This batch wasn't added yet at sale time
+                available = Decimal('0')
+                print(f"DEBUG calculate_fifo: batch {batch.addition_id} was added after sale date ({batch.date_added} > {sale_date}), skipping")
+            else:
+                # Get all batches in FIFO order (oldest first) up to and including this batch
+                all_batches_ordered = StockAddition.objects.filter(
+                    product_id=product_id,
+                    date_added__lte=sale_date
+                ).order_by('date_added', 'addition_id')
+                
+                # Find this batch's position and calculate cumulative stock before it
+                cumulative_before_this = Decimal('0')
+                found_this_batch = False
+                for b in all_batches_ordered:
+                    if b.addition_id == batch.addition_id:
+                        found_this_batch = True
+                        break
+                    cumulative_before_this += Decimal(str(b.quantity))
+                
+                if not found_this_batch:
+                    available = Decimal('0')
+                    print(f"DEBUG calculate_fifo: batch {batch.addition_id} not found in ordered list, skipping")
+                else:
+                    # Get total quantity sold BEFORE this sale date (exclude current sale if provided)
+                    sale_filter = {
+                        'product_id': product_id,
+                        'recorded_at__lt': sale_date,
+                        'status': 'completed'
+                    }
+                    if exclude_sale_id:
+                        sale_filter['sale_id__ne'] = exclude_sale_id  # Exclude current sale
+                    # Use exclude() since __ne doesn't exist in Django
+                    sale_query = Sale.objects.filter(**{k: v for k, v in sale_filter.items() if k != 'sale_id__ne'})
+                    if exclude_sale_id:
+                        sale_query = sale_query.exclude(sale_id=exclude_sale_id)
+                    total_sold_before_sale = sale_query.aggregate(total=models.Sum('quantity'))['total'] or Decimal('0')
+                    print(f"DEBUG calculate_fifo: batch {batch.addition_id}, total_sold_before_sale={total_sold_before_sale}, cumulative_before_this={cumulative_before_this}, initial_qty={initial_qty}")
+                    
+                    # CRITICAL: Simulate FIFO allocation
+                    # If previous batches still have stock, this batch is not available yet
+                    if total_sold_before_sale < cumulative_before_this:
+                        # Previous batches still have stock - this batch not available yet (FIFO)
+                        available = Decimal('0')
+                        print(f"DEBUG calculate_fifo: batch {batch.addition_id}, previous batches still have stock (sold {total_sold_before_sale} < cumulative {cumulative_before_this}), available=0")
+                    elif total_sold_before_sale >= cumulative_before_this + initial_qty:
+                        # All of this batch was consumed
+                        available = Decimal('0')
+                        print(f"DEBUG calculate_fifo: batch {batch.addition_id}, fully consumed, available=0")
+                    else:
+                        # Previous batches exhausted, calculate available from this batch
+                        stock_consumed_from_this = total_sold_before_sale - cumulative_before_this
+                        available = initial_qty - stock_consumed_from_this
+                        available = max(Decimal('0'), available)
+                        print(f"DEBUG calculate_fifo: batch {batch.addition_id}, previous exhausted, consumed_from_this={stock_consumed_from_this}, available={available}")
+        else:
+            # Current stock state
+            available = Decimal(str(batch.remaining_quantity))
+            print(f"DEBUG calculate_fifo: batch {batch.addition_id}, current remaining={available}")
+        
+        if available <= 0:
+            print(f"DEBUG calculate_fifo: Skipping batch {batch.addition_id} - no available stock (available={available})")
+            continue
+        
+        # Only allocate if we still have quantity to allocate
+        if remaining_to_allocate <= 0:
+            print(f"DEBUG calculate_fifo: All quantity allocated, stopping at batch {batch.addition_id}")
+            break
+        
+        allocate_amount = min(remaining_to_allocate, available)
+        print(f"DEBUG calculate_fifo: Allocating {allocate_amount} from batch {batch.addition_id} (available: {available}, remaining: {remaining_to_allocate})")
+        
+        # CRITICAL: Use batch's OWN price, not product price
+        # The price field can be None, 0, or a valid Decimal value
+        batch_price = None
+        
+        # Check if batch has a price set (handle None, 0, and valid values)
+        try:
+            # Try to get the batch price - it might be None, 0, or a Decimal
+            if batch.price is not None:
+                price_val = float(batch.price)
+                if price_val > 0:
+                    batch_price = Decimal(str(batch.price))
+                    print(f"DEBUG calculate_fifo_pricing: Batch {batch.addition_id} has its own price: {batch_price}")
+                else:
+                    # Price is 0 or negative - treat as no price
+                    print(f"DEBUG calculate_fifo_pricing: Batch {batch.addition_id} has price 0, will use product price")
+            else:
+                print(f"DEBUG calculate_fifo_pricing: Batch {batch.addition_id} has no price (None), will use product price")
+        except (ValueError, TypeError, AttributeError) as e:
+            print(f"DEBUG calculate_fifo_pricing: Error reading batch price for {batch.addition_id}: {e}")
+        
+        # Only fall back to product price if batch has NO valid price set
+        if batch_price is None:
+            try:
+                product = Product.objects.get(product_id=product_id)
+                batch_price = Decimal(str(product.price))
+                print(f"DEBUG calculate_fifo_pricing: Batch {batch.addition_id} using product price {batch_price} as fallback")
+            except Product.DoesNotExist:
+                batch_price = Decimal('0')
+                print(f"DEBUG calculate_fifo_pricing: WARNING - No product found, using price 0")
+        
+        batch_entry = {
+            'addition_id': batch.addition_id,
+            'quantity': float(allocate_amount),
+            'price': float(batch_price),
+            'date_added': batch.date_added.isoformat() if hasattr(batch.date_added, 'isoformat') else str(batch.date_added),
+            'subtotal': float(allocate_amount * Decimal(str(batch_price)))
+        }
+        breakdown.append(batch_entry)
+        print(f"DEBUG calculate_fifo_pricing: Added batch {batch.addition_id}: {allocate_amount} @ {batch_price} = {batch_entry['subtotal']}")
+        
+        remaining_to_allocate -= allocate_amount
+        print(f"DEBUG calculate_fifo: After allocation, remaining_to_allocate = {remaining_to_allocate}")
+    
+    # For historical sales, if we couldn't allocate all quantity, still return what we have
+    # For current sales, return None if not enough stock
+    if remaining_to_allocate > 0:
+        if sale_date:
+            # Historical: return partial breakdown if we have some batches
+            print(f"DEBUG calculate_fifo: Could not fully allocate {quantity}, remaining: {remaining_to_allocate}, but returning {len(breakdown)} batches")
+        else:
+            # Current: need exact match
+            print(f"DEBUG calculate_fifo: ERROR - Could not fully allocate {quantity}, remaining: {remaining_to_allocate}")
+            return None
+    
+    if not breakdown:
+        print(f"DEBUG calculate_fifo: No breakdown generated for product {product_id}, quantity {quantity}")
+        print(f"DEBUG calculate_fifo: This might indicate an issue with batch availability calculation")
+        # Try a fallback: if we have batches but couldn't allocate, return at least one batch with product price
+        if batches.count() > 0:
+            print(f"DEBUG calculate_fifo: Attempting fallback - using first batch with product price")
+            try:
+                product = Product.objects.get(product_id=product_id)
+                fallback_price = Decimal(str(product.price)) if product.price else Decimal('0')
+                first_batch = batches.first()
+                fallback_breakdown = [{
+                    'addition_id': first_batch.addition_id,
+                    'date_added': first_batch.date_added.isoformat() if hasattr(first_batch.date_added, 'isoformat') else str(first_batch.date_added),
+                    'quantity': float(quantity),
+                    'price': float(fallback_price),
+                    'subtotal': float(Decimal(str(quantity)) * fallback_price)
+                }]
+                print(f"DEBUG calculate_fifo: Fallback breakdown created with 1 batch")
+                return {
+                    'breakdown': fallback_breakdown,
+                    'total': Decimal(str(quantity)) * fallback_price,
+                    'quantity': float(quantity)
+                }
+            except Exception as e:
+                import traceback
+                print(f"DEBUG calculate_fifo: Fallback also failed: {e}")
+                traceback.print_exc()
+        return None
+    
+    total = sum(item['subtotal'] for item in breakdown)
+    print(f"DEBUG calculate_fifo: Returning breakdown with {len(breakdown)} batches, total: {total}")
+    return {
+        'breakdown': breakdown,
+        'total': total,
+        'quantity': float(quantity)
+    }
+
+
+def update_product_price_from_fifo_batches(product_id):
+    """Update product price and cost to the next available batch following FIFO order."""
+    try:
+        product = Product.objects.get(product_id=product_id)
+        
+        # Find the oldest stock addition that still has remaining stock (FIFO order)
+        next_available_batch = StockAddition.objects.filter(
+            product_id=product_id,
+            remaining_quantity__gt=0
+        ).order_by('date_added', 'addition_id').first()
+
+        if next_available_batch:
+            # Update product cost and price to the next available batch's values (FIFO pricing)
+            update_fields = []
+            # Update cost if the next batch has a cost value
+            if next_available_batch.cost and next_available_batch.cost > 0:
+                product.cost = next_available_batch.cost
+                update_fields.append('cost')
+            # Update price if the next batch has a price value
+            if next_available_batch.price and next_available_batch.price > 0:
+                product.price = next_available_batch.price
+                update_fields.append('price')
+            # Only save if there are fields to update
+            if update_fields:
+                product.save(update_fields=update_fields)
+                return True
+    except Exception:
+        pass
+    return False
+
 def deduct_stock_fifo(product_id, quantity):
     """Deduct stock using FIFO method (strict FIFO by date_added, then addition_id)"""
     # Get batches with remaining stock, ordered by date_added then addition_id for strict FIFO
@@ -8785,6 +9641,10 @@ def deduct_stock_fifo(product_id, quantity):
         p = Product.objects.get(product_id=product_id)
         p.stock = total_remaining
         p.save(update_fields=['stock'])
+        
+        # Update product cost and price to the next available batch following FIFO (oldest first)
+        # When a batch gets stocked out, the product price should reflect the next available batch's price
+        update_product_price_from_fifo_batches(product_id)
     except Exception:
         pass
 
@@ -11404,14 +12264,52 @@ def transaction_details(request, sale_id):
             # Compute batch IDs for this sale
             batch_ids = _compute_sale_batch_ids(sale)
 
+            # Get FIFO breakdown - use stored data if available, otherwise calculate
+            fifo_breakdown = None
+            if sale.product:
+                try:
+                    # First, try to use the stored fifo_breakdown from the Sale model
+                    if sale.fifo_breakdown:
+                        try:
+                            import json
+                            fifo_breakdown = json.loads(sale.fifo_breakdown) if isinstance(sale.fifo_breakdown, str) else sale.fifo_breakdown
+                            print(f"DEBUG transaction_details: Using stored FIFO breakdown for sale {sale.sale_id}: {len(fifo_breakdown)} batches")
+                        except (json.JSONDecodeError, TypeError) as e:
+                            print(f"DEBUG transaction_details: Failed to parse stored fifo_breakdown for sale {sale.sale_id}: {e}")
+                            fifo_breakdown = None
+                    
+                    # If no stored breakdown, calculate it (for old sales)
+                    if not fifo_breakdown:
+                        print(f"DEBUG transaction_details: No stored FIFO breakdown, calculating for sale {sale.sale_id}")
+                    sale_date = sale.recorded_at if hasattr(sale, 'recorded_at') and sale.recorded_at else None
+                    if sale_date:
+                        # Ensure sale_date is timezone-aware datetime
+                        from django.utils import timezone
+                        if timezone.is_naive(sale_date):
+                            sale_date = timezone.make_aware(sale_date)
+                    print(f"DEBUG transaction_details: Calculating FIFO for sale {sale.sale_id}, product {sale.product.product_id}, qty {sale.quantity}, date {sale_date}")
+                    fifo_result = calculate_fifo_pricing(sale.product.product_id, sale.quantity, sale_date, exclude_sale_id=sale.sale_id)
+                    print(f"DEBUG transaction_details: FIFO result type: {type(fifo_result)}, value: {fifo_result}")
+                    if fifo_result and fifo_result.get('breakdown'):
+                        fifo_breakdown = fifo_result['breakdown']
+                        print(f"DEBUG transaction_details: FIFO breakdown has {len(fifo_breakdown)} batches: {fifo_breakdown}")
+                    else:
+                        print(f"DEBUG transaction_details: No FIFO breakdown returned for sale {sale.sale_id}, result: {fifo_result}")
+                except Exception as e:
+                    import traceback
+                    print(f"ERROR transaction_details: Could not get FIFO breakdown for sale {sale.sale_id}: {e}")
+                    traceback.print_exc()
+            
             items.append({
                 'product_id': sale.product.product_id if sale.product else None,
                 'product_name': product_display,
+                'variant': sale.product.variant if sale.product and hasattr(sale.product, 'variant') else None,
                 'quantity_unit': sale.product.quantity_unit if sale.product else 'N/A',
                 'quantity': sale.quantity,
                 'price': float(sale.product.price) if sale.product else 0.0,
                 'amount': float(line_gross),
                 'batch_ids': batch_ids,
+                'fifo_breakdown': fifo_breakdown  # Add FIFO breakdown
             })
 
             audit_trail.append({
@@ -12648,7 +13546,13 @@ def get_pricing_analysis_data(request):
         from core.models import PriceChangeHistory, Sale, Product
         from django.db.models import Avg, Sum, Count, Q
         from datetime import datetime, timedelta
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError:
+            return JsonResponse({
+                'success': False,
+                'message': 'pandas library is required but not installed. Please install it with: pip install pandas'
+            })
         
         product_id = request.GET.get('product_id')
         days = int(request.GET.get('days', 365))
@@ -12656,8 +13560,14 @@ def get_pricing_analysis_data(request):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         
+        # Check if we want all products (for dashboard graph) or filtered products
+        all_products = request.GET.get('all_products', 'false').lower() == 'true'
+        
         if product_id:
             products = Product.objects.filter(product_id=product_id, status='active')
+        elif all_products:
+            # Get ALL active products for dashboard graph
+            products = Product.objects.filter(status='active')
         else:
             # Get the specified products from user request
             product_names = [
@@ -12777,9 +13687,20 @@ def get_pricing_analysis_data(request):
                 
                 recent_total = float(recent_sales['quantity'].sum()) if len(recent_sales) > 0 else 0.0
                 older_total = float(older_sales['quantity'].sum()) if len(older_sales) > 0 else 0.0
-                recent_avg = recent_total / 7.0 if len(recent_sales) > 0 else 0.0
-                older_avg = older_total / 23.0 if len(older_sales) > 0 else 0.0
-                demand_ratio = recent_avg / older_avg if older_avg > 0 else 1.0
+                # Calculate averages: divide by number of days in period
+                recent_avg = recent_total / 7.0  # Always divide by 7 days
+                older_avg = older_total / 23.0 if len(older_sales) > 0 else (older_total / 23.0)  # Always divide by 23 days
+                # Demand ratio: recent demand vs older demand
+                # If older_avg is 0, we can't compare, so default to 1.0 (no change)
+                # If recent_avg is 0 and older_avg > 0, ratio is 0 (demand dropped to zero)
+                if older_avg > 0:
+                    demand_ratio = recent_avg / older_avg
+                elif recent_avg > 0:
+                    # If older period had no sales but recent period does, demand increased
+                    demand_ratio = 2.0  # Indicate significant increase
+                else:
+                    # Both periods have no sales - no change
+                    demand_ratio = 1.0
                 
                 # Check for stock outs (days with zero sales when there should be sales)
                 stock_out_days = 0
@@ -12892,40 +13813,47 @@ def get_pricing_analysis_data(request):
                     'current_recommendation': recommendation_data,
                 })
         
-        # Categorize products by fruit type and variant
-        categorized_data = {}
+        # Categorize products by product name (fruit type), then by variant
+        # Structure: {product_name: {variant: [products]}}
+        categorized_by_product = {}
         for item in analysis_data:
-            fruit_name = item['product_name']
+            product_name = item['product_name']
             variant = item['variant'] or 'Standard'
-            category_key = f"{fruit_name} - {variant}"
             
-            if category_key not in categorized_data:
-                categorized_data[category_key] = {
-                    'category': fruit_name,
-                    'variant': variant,
-                    'products': []
-                }
+            if product_name not in categorized_by_product:
+                categorized_by_product[product_name] = {}
             
-            categorized_data[category_key]['products'].append(item)
+            if variant not in categorized_by_product[product_name]:
+                categorized_by_product[product_name][variant] = []
+            
+            categorized_by_product[product_name][variant].append(item)
         
-        # Sort products within each category by quantity_unit (size)
-        for category_key in categorized_data:
-            # Sort by quantity_unit, handling both numeric and 'kg' values
-            def sort_key(product):
-                unit = product['quantity_unit']
-                if unit == 'kg':
-                    return (1, 0)  # kg products go last
-                try:
-                    return (0, int(unit))  # Numeric sizes sorted numerically
-                except ValueError:
-                    return (0, 0)  # Fallback for unexpected values
-            
-            categorized_data[category_key]['products'].sort(key=sort_key)
+        # Sort products within each variant by quantity_unit (size)
+        for product_name in categorized_by_product:
+            for variant in categorized_by_product[product_name]:
+                products = categorized_by_product[product_name][variant]
+                # Sort by quantity_unit, handling both numeric and 'kg' values
+                def sort_key(product):
+                    unit = product['quantity_unit']
+                    if unit == 'kg':
+                        return (1, 0)  # kg products go last
+                    try:
+                        return (0, int(unit))  # Numeric sizes sorted numerically
+                    except ValueError:
+                        return (0, 0)  # Fallback for unexpected values
+                
+                products.sort(key=sort_key)
         
-        # Convert to list and sort categories
+        # Convert to flat categorized list for backward compatibility
+        # Format: [{category: product_name, variant: variant, products: [...]}]
         categorized_list = []
-        for category_key in sorted(categorized_data.keys()):
-            categorized_list.append(categorized_data[category_key])
+        for product_name in sorted(categorized_by_product.keys()):
+            for variant in sorted(categorized_by_product[product_name].keys()):
+                categorized_list.append({
+                    'category': product_name,
+                    'variant': variant,
+                    'products': categorized_by_product[product_name][variant]
+                })
         
         return JsonResponse({
             'success': True,
@@ -12940,10 +13868,16 @@ def get_pricing_analysis_data(request):
         
     except Exception as e:
         import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        error_traceback = traceback.format_exc()
+        logger.error(f"Error in get_pricing_analysis_data: {str(e)}\n{error_traceback}")
+        print(f"ERROR get_pricing_analysis_data: {str(e)}")
+        print(error_traceback)
         return JsonResponse({
             'success': False,
             'message': str(e),
-            'traceback': traceback.format_exc()
+            'traceback': error_traceback
         })
 
 

@@ -244,8 +244,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage' 
 # Otherwise use project directory (for local development)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media')))
-# Ensure MEDIA_ROOT directory exists
-MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+# Don't create directory at import time - let Django/application handle it when needed
+# This prevents permission errors in production environments like Render
 
 BACKUPS_DIR = Path(os.getenv('BACKUPS_DIR') or (BASE_DIR / 'backups'))
 

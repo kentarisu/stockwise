@@ -15,6 +15,18 @@ class CoreConfig(AppConfig):
         import os
         import threading
         from django.core.signals import request_started
+        from pathlib import Path
+        
+        # Ensure media directories exist (create them if possible, ignore permission errors)
+        try:
+            media_root = Path(settings.MEDIA_ROOT)
+            media_root.mkdir(parents=True, exist_ok=True)
+            (media_root / 'builtins').mkdir(parents=True, exist_ok=True)
+            (media_root / 'uploads').mkdir(parents=True, exist_ok=True)
+            logger.info(f"Media directories ensured at {media_root}")
+        except (PermissionError, OSError) as e:
+            # In read-only filesystems (like some hosting platforms), this is expected
+            logger.warning(f"Could not create media directories: {e}")
         
         # Verify SMS service configuration on startup
         try:

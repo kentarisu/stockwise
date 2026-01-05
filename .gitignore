@@ -10,7 +10,11 @@ venv/
 
 # Django collected/static and media
 staticfiles/
-media/
+# Ignore media uploads but keep built-in files
+media/uploads/
+media/*
+!media/builtins/
+!media/builtins/**
 uploads/
 
 # SQLite databases and backups

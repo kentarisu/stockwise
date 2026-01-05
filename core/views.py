@@ -13702,9 +13702,21 @@ def get_pricing_analysis_data(request):
                     # Both periods have no sales - no change
                     demand_ratio = 1.0
                 
-                # Check for stock outs (days with zero sales when there should be sales)
-                stock_out_days = 0
+                # Calculate days since last sale
                 no_sales_days = 0
+                try:
+                    if not sales_df.empty:
+                        # Get the most recent sale date for this product
+                        last_sale_date = sales_df['date'].max()
+                        # Calculate days from last sale to today
+                        days_diff = (timezone.now().date() - last_sale_date).days
+                        no_sales_days = days_diff if days_diff >= 0 else 0
+                except Exception:
+                    # If calculation fails, default to 0
+                    no_sales_days = 0
+                
+                # Check for stock outs (days with zero sales when there should be sales within the period)
+                stock_out_days = 0
                 try:
                     date_range = pd.date_range(start=start_date.date(), end=end_date.date(), freq='D')
                     for date in date_range:
@@ -13713,7 +13725,7 @@ def get_pricing_analysis_data(request):
                         if len(date_sales) == 0:
                             # Check if this is unusual (should have sales based on average)
                             if avg_daily_demand > 0.1:  # If we expect sales
-                                no_sales_days += 1
+                                stock_out_days += 1
                 except Exception:
                     # If date range fails, skip this calculation
                     pass

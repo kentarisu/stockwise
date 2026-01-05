@@ -1505,10 +1505,10 @@
                         <div><strong>Total Sales:</strong> ${product.total_sales}</div>
                     </div>
                     <div class="col-md-3">
-                        <div><strong>No Sales Days:</strong> ${product.no_sales_days}</div>
+                        <div><strong>No Sales Days:</strong> ${product.no_sales_days} ${product.no_sales_days === 1 ? 'day' : 'days'}</div>
                     </div>
                     <div class="col-md-3">
-                        <div><strong>Stock Out Days:</strong> ${product.stock_out_days}</div>
+                        <div><strong>Stock Out Days:</strong> ${product.stock_out_days} ${product.stock_out_days === 1 ? 'day' : 'days'}</div>
                     </div>
                 </div>
                 ${product.service_type && product.service_type.includes('Log-Log') ? `

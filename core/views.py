@@ -7761,6 +7761,34 @@ def fetch_products(request):
                 image_path = p.image.lstrip('/')
                 image_url = media_url + image_path
         
+        # Get detailed stock tracking info
+        from django.db.models import Max, Count
+        from datetime import datetime, timedelta
+        
+        # Get last stock addition date and total batches with remaining stock
+        stock_info = StockAddition.objects.filter(
+            product=p,
+            remaining_quantity__gt=0
+        ).aggregate(
+            last_addition=Max('date_added'),
+            total_batches=Count('addition_id')
+        )
+        
+        last_addition = stock_info.get('last_addition')
+        total_batches = stock_info.get('total_batches', 0)
+        
+        # Calculate days since last addition
+        days_since_addition = None
+        if last_addition:
+            if isinstance(last_addition, datetime):
+                days_since_addition = (timezone.now() - last_addition).days
+            else:
+                # If date_added is DateField, convert to datetime
+                days_since_addition = (timezone.now().date() - last_addition).days
+        
+        # Calculate stock value
+        stock_value = float(p.stock) * float(p.cost) if p.stock and p.cost else 0
+        
         data.append({
             'product_id': p.product_id,
             'name': p.name,
@@ -7772,7 +7800,12 @@ def fetch_products(request):
             'supplier': p.supplier or '',
             'variant': p.variant or '',
             'image': image_url,
-            'date_added': p.date_added.strftime('%Y-%m-%d') if getattr(p, 'date_added', None) else ''
+            'date_added': p.date_added.strftime('%Y-%m-%d') if getattr(p, 'date_added', None) else '',
+            'last_updated': p.last_updated.strftime('%Y-%m-%d %H:%M') if getattr(p, 'last_updated', None) else '',
+            'last_stock_addition': last_addition.strftime('%Y-%m-%d %H:%M') if last_addition else None,
+            'total_batches': total_batches,
+            'days_since_addition': days_since_addition,
+            'stock_value': round(stock_value, 2)
         })
     return JsonResponse({'success': True, 'data': data})
 

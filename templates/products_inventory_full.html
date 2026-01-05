@@ -84,6 +84,46 @@
         html {
             font-size: 14px;
         }
+        
+        /* Real-Time Tracking Columns Styling */
+        .table td small {
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        
+        .badge.bg-success.days-badge {
+            background-color: #10b981 !important;
+        }
+        
+        .badge.bg-warning.days-badge {
+            background-color: #f59e0b !important;
+        }
+        
+        .badge.bg-danger.days-badge {
+            background-color: #ef4444 !important;
+        }
+        
+        #refreshIndicator {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .table thead th[title] {
+            cursor: help;
+        }
+        
+        .table tbody td {
+            vertical-align: middle;
+        }
+        
+        .table .text-muted {
+            color: #9ca3af !important;
+        }
+        
         .header {
             background: white;
             min-height: var(--header-height);
@@ -2335,6 +2375,36 @@
                                 <span id="mPDStockCount"></span>
                             </a>
                         </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Stock Value</div>
+                            <div id="mPDStockValue" style="font-weight: 600; color: #10b981;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Real-Time Tracking Section -->
+                    <hr class="my-3" style="border-color: #e5e7eb;">
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 8px;">
+                        <div class="small text-muted mb-2" style="font-weight: 600; color: #4f46e5;">
+                            <i class="bi bi-clock-history"></i> Real-Time Tracking
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <div class="small text-muted">Last Stock Addition</div>
+                                <div id="mPDLastAddition" style="font-size: 0.9rem;"></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Active Batches</div>
+                                <div id="mPDBatches"></div>
+                            </div>
+                            <div class="col-6">
+                                <div class="small text-muted">Days Since Added</div>
+                                <div id="mPDDaysSince"></div>
+                            </div>
+                            <div class="col-12">
+                                <div class="small text-muted">Last Updated</div>
+                                <div id="mPDLastUpdated" style="font-size: 0.85rem; color: #6b7280;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -4139,7 +4209,7 @@
                 
                 if (!response.success) {
                     const tbody = $(`#${tableId} tbody`).empty();
-                    tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No products found</td></tr>');
+                    tbody.append('<tr><td colspan="10" class="text-center text-muted py-4">No products found</td></tr>');
                     try { setHeaderCount(0); normalizeHeaderCountLocation(); } catch (e) {}
                     return;
                 }
@@ -4165,7 +4235,7 @@
             .catch(function(error){
                 console.error('Failed to fetch products:', error);
                 const tbody = $('#inventoryTable tbody').empty();
-                tbody.append('<tr><td colspan="8" class="text-center text-muted py-4">No product yet</td></tr>');
+                tbody.append('<tr><td colspan="10" class="text-center text-muted py-4">No product yet</td></tr>');
                 if (window.enhanceMobileTables) { window.enhanceMobileTables(); }
                 try { setHeaderCount(0); normalizeHeaderCountLocation(); } catch (e) {}
             });
@@ -5065,6 +5135,13 @@
                     // For boxes, show as integer if whole number
                     stockValue = Math.floor(stockNum);
                 }
+                // Format tracking data for view details
+                const lastAddition = product.last_stock_addition || '';
+                const lastUpdated = product.last_updated || '';
+                const totalBatches = product.total_batches || 0;
+                const stockValueAmount = product.stock_value || 0;
+                const daysSince = product.days_since_addition;
+                
                 let optionsHtml = `
                     <div class="dropdown">
                         <button class="btn btn-sm btn-icon dropdown-toggle" type="button" aria-expanded="false" title="More options">
@@ -5072,7 +5149,7 @@
                             <span class="visually-hidden">More options for ${product.name}</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button class="dropdown-item view-details-item d-md-none"
+                            <li><button class="dropdown-item view-details-item"
                                 data-id="${product.product_id}"
                                 data-name="${productName}"
                                 data-variant="${variant || ''}"
@@ -5081,6 +5158,11 @@
                                 data-stock="${stockValue}"
                                 data-image="${imageUrl}"
                                 data-status="${statusDisplay}"
+                                data-last-addition="${lastAddition}"
+                                data-last-updated="${lastUpdated}"
+                                data-batches="${totalBatches}"
+                                data-stock-value="${stockValueAmount}"
+                                data-days-since="${daysSince || ''}"
                                 title="View details"><i class="bi bi-eye me-2"></i> View Details</button></li>
                             <li><button class="dropdown-item edit-btn" data-id="${product.product_id}" title="Edit this product"><i class="bi bi-pencil me-2"></i> Edit</button></li>
                             <li><button class="dropdown-item discontinue-btn ${isDiscontinued?'continue-btn':''}" data-id="${product.product_id}" data-status="${product.status}" data-stock="${stockValue}" title="${isDiscontinued?'Continue this product':'Discontinue this product'}"><i class="bi bi-${isDiscontinued?'arrow-counterclockwise':'x-circle'} me-2"></i> ${isDiscontinued?'Continue':'Discontinue'}</button></li>
@@ -5145,12 +5227,78 @@
                     $('#imageViewerModal').modal('show');
                 }
             });
+            
+            // Real-Time Auto-Refresh for Inventory Tracking
+            const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+            let refreshTimer = null;
+            let lastRefreshTime = Date.now();
+            
+            function refreshInventoryData() {
+                // Get current active tab
+                const activeTab = $('.tab-pane.active').attr('id');
+                let tableId = 'allProductsTable';
+                let filter = 'all';
+                
+                if (activeTab === 'low-stock') {
+                    tableId = 'lowStockTable';
+                    filter = 'Low Stock';
+                } else if (activeTab === 'out-of-stock') {
+                    tableId = 'outOfStockTable';
+                    filter = 'Out of Stock';
+                }
+                
+                // Reload current tab data
+                loadProducts(tableId, filter);
+                updateInventoryCards();
+                
+                // Update last refresh time
+                lastRefreshTime = Date.now();
+                updateRefreshIndicator();
+            }
+            
+            function updateRefreshIndicator() {
+                const now = Date.now();
+                const secondsAgo = Math.floor((now - lastRefreshTime) / 1000);
+                const indicator = $('#refreshIndicator');
+                if (indicator.length) {
+                    indicator.text(`Last updated: ${secondsAgo}s ago`);
+                }
+            }
+            
+            // Start auto-refresh
+            function startAutoRefresh() {
+                if (refreshTimer) clearInterval(refreshTimer);
+                refreshTimer = setInterval(refreshInventoryData, AUTO_REFRESH_INTERVAL);
+                console.log('🔄 Auto-refresh started (every 30s)');
+            }
+            
+            // Stop auto-refresh (when user navigates away)
+            function stopAutoRefresh() {
+                if (refreshTimer) {
+                    clearInterval(refreshTimer);
+                    refreshTimer = null;
+                    console.log('⏸️ Auto-refresh stopped');
+                }
+            }
+            
+            // Start auto-refresh on page load
+            startAutoRefresh();
+            
+            // Update indicator every second
+            setInterval(updateRefreshIndicator, 1000);
+            
+            // Stop auto-refresh when user leaves page
+            window.addEventListener('beforeunload', stopAutoRefresh);
+            
+            // Add refresh indicator to page header if not exists
+            if ($('#refreshIndicator').length === 0) {
+                $('.content-header h1').append(' <small id="refreshIndicator" style="font-size: 0.7rem; color: #6b7280; font-weight: normal; margin-left: 1rem;">Last updated: 0s ago</small>');
+            }
         });
     </script>
     <script>
         $(document).on('click', '.view-details-btn, .view-details-item', function(e){
             e.preventDefault();
-            if (!window.matchMedia('(max-width: 768px)').matches) return;
             const $btn = $(this);
             const name = $btn.data('name') || '';
             const variant = $btn.data('variant') || '';
@@ -5160,13 +5308,59 @@
             const stock = Number($btn.data('stock') || 0);
             const image = $btn.data('image') || '';
             const status = $btn.data('status') || '';
+            
+            // Get tracking data
+            const lastAddition = $btn.data('last-addition') || '';
+            const lastUpdated = $btn.data('last-updated') || '';
+            const batches = $btn.data('batches') || 0;
+            const stockValue = $btn.data('stock-value') || 0;
+            const daysSince = $btn.data('days-since');
 
+            // Populate basic info
             $('#mPDName').text(name);
             $('#mPDVariant').text(variant || '-');
             $('#mPDProductId').text(productId);
             $('#mPDQuantityUnit').text(quantityUnit || '-');
             $('#mPDPrice').text(`₱${formatCurrency(price)}`);
             $('#mPDStatus').text(status);
+            
+            // Populate stock value
+            $('#mPDStockValue').text(stockValue ? `₱${formatCurrency(stockValue)}` : '₱0.00');
+            
+            // Populate tracking info
+            if (lastAddition) {
+                const addDate = new Date(lastAddition);
+                $('#mPDLastAddition').html(`<i class="bi bi-calendar-plus text-success"></i> ${addDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'})}`);
+            } else {
+                $('#mPDLastAddition').html('<span class="text-muted">Never added</span>');
+            }
+            
+            if (lastUpdated) {
+                const updateDate = new Date(lastUpdated);
+                $('#mPDLastUpdated').text(updateDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}));
+            } else {
+                $('#mPDLastUpdated').text('-');
+            }
+            
+            $('#mPDBatches').html(`<span class="badge bg-primary">${batches}</span> ${batches === 1 ? 'batch' : 'batches'}`);
+            
+            // Days since with color coding
+            if (daysSince !== null && daysSince !== undefined && daysSince !== '') {
+                const days = parseInt(daysSince);
+                let badgeClass = 'bg-success';
+                let icon = 'bi-check-circle';
+                if (days > 30) {
+                    badgeClass = 'bg-danger';
+                    icon = 'bi-exclamation-circle';
+                } else if (days > 14) {
+                    badgeClass = 'bg-warning';
+                    icon = 'bi-clock';
+                }
+                $('#mPDDaysSince').html(`<i class="bi ${icon}"></i> <span class="badge ${badgeClass}">${days} day${days !== 1 ? 's' : ''} ago</span>`);
+            } else {
+                $('#mPDDaysSince').html('<span class="text-muted">N/A</span>');
+            }
+            
             if (image) {
                 $('#mPDImage').attr('src', image).show();
             } else {

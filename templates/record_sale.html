@@ -1826,16 +1826,28 @@ $(document).ready(function(){
           const date = new Date(batch.date_added);
           const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           const batchQty = (u==='kg' && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
-          html+=`<tr><td><strong>${d} - Batch #${batch.addition_id} (${dateStr})</strong></td><td class="text-end"><strong>${batchQty} ${u==='kg'?'kg':(it.quantity_unit||'boxes')}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.price)}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.subtotal)}</strong></td></tr>`;
+          const qtyUnit = u==='kg' ? ' kg' : '';
+          html+=`<tr><td><strong>${d} - Batch #${batch.addition_id} (${dateStr})</strong></td><td class="text-end"><strong>${batchQty}${qtyUnit}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.price)}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.subtotal)}</strong></td></tr>`;
         });
       } else {
         // Fallback: if no FIFO breakdown, show single row with product details
         const avgPrice = it.amount / it.quantity;
-        html+=`<tr><td><strong>${d}</strong></td><td class="text-end"><strong>${qtyDisplay}</strong></td><td class="text-end"><strong>₱${formatCurrency(avgPrice)}</strong></td><td class="text-end"><strong>₱${formatCurrency(it.amount)}</strong></td></tr>`;
+        const qtyUnit = u==='kg' ? ' kg' : '';
+        html+=`<tr><td><strong>${d}</strong></td><td class="text-end"><strong>${qtyDisplay}${qtyUnit}</strong></td><td class="text-end"><strong>₱${formatCurrency(avgPrice)}</strong></td><td class="text-end"><strong>₱${formatCurrency(it.amount)}</strong></td></tr>`;
       }
     }); 
     $('#paymentTableItems').html(html); 
     window.saleItems=items; 
+    
+    // Update quantity header based on product types
+    const units = items.map(it => String(it.quantity_unit||'').toLowerCase()).filter(Boolean);
+    const allKilo = units.length > 0 && units.every(u => u === 'kg');
+    const allBox = units.length > 0 && units.every(u => u !== 'kg');
+    const qtyHeader = document.getElementById('qtyHeader');
+    if(qtyHeader) {
+      qtyHeader.textContent = allKilo ? 'kg' : allBox ? 'Boxes' : 'Quantity';
+    }
+    
     const base=Date.now(); 
     const txnSuffix=(base%1000000).toString().padStart(6,'0'); 
     let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); 

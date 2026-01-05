@@ -3217,8 +3217,9 @@
                     // If price is entered, calculate and show markup percentage
                     if (!isNaN(p) && p > 0 && c > 0) {
                         const markupPercent = ((p - c) / c) * 100;
+                        const markupAmount = p - c;
                         if (markupPercent >= 0) {
-                            $help.text(`Markup: ${markupPercent.toFixed(2)}%`);
+                            $help.text(`Markup: ${markupPercent.toFixed(2)}% (₱${markupAmount.toFixed(2)} increase)`);
                         } else {
                             $help.text('Price cannot be less than cost');
                         }

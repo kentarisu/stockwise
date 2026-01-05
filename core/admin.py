@@ -11,7 +11,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(StockAddition)
 class StockAdditionAdmin(admin.ModelAdmin):
-    list_display = ("addition_id", "product", "quantity", "remaining_quantity", "cost", "batch_id", "date_added", "created_at")
+    list_display = ("addition_id", "product", "quantity", "remaining_quantity", "cost", "price", "batch_id", "date_added", "created_at")
     search_fields = ("product__name", "batch_id")
     list_filter = ("date_added", "product")
 

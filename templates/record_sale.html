@@ -330,6 +330,22 @@
         .action-btns .btn { flex: 1 1 0; min-width: 0; }
         @media (max-width: 480px) { .action-btns .btn { padding: 0.45rem 0.5rem; font-size: 0.82rem; } }
         
+        .fifo-breakdown-row {
+            font-size: 0.875rem;
+        }
+        .fifo-breakdown-row td {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            border-top: none;
+        }
+        .item-main-row {
+            border-bottom: 2px solid var(--gray-300);
+        }
+        .item-main-row td {
+            font-weight: 600;
+            padding-top: 0.75rem;
+            padding-bottom: 0.5rem;
+        }
         .payment-summary-table {
             width: 100%;
             max-width: 700px;
@@ -1072,7 +1088,48 @@ function updateVariantButtons(){
     if(lastRow && row.is(lastRow)) { $btn.show(); } else { $btn.hide(); }
   });
 }
-function updateTotal(){ let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price'))||0; const q=parseFloat($qty.val())||0; total+=price*q; }}); $('#liveSaleTotalWithVATText').text(formatCurrency(total)); }
+async function updateTotal(){ 
+  let total=0;
+  const promises = [];
+  $('.item-row').each(function(){ 
+    const $row = $(this);
+    const $sel=$(this).find('.product-select option:selected'); 
+    const $qty=$(this).find('.quantity-input'); 
+    if($sel.val()&&$qty.val()){ 
+      const productId = $sel.val();
+      const q=parseFloat($qty.val())||0;
+      // Fetch FIFO pricing for this item
+      promises.push(
+        fetch(`/api/products/${productId}/fifo-pricing/?quantity=${q}`)
+          .then(r => r.json())
+          .then(resp => {
+            if(resp.success && resp.data) {
+              const itemTotal = resp.data.total;
+              total += itemTotal;
+              // Store FIFO breakdown in the row for later use
+              $row.data('fifo-breakdown', resp.data.breakdown);
+              $row.data('fifo-total', itemTotal);
+            } else {
+              // Fallback to product price if FIFO fails
+              const price=parseFloat($sel.data('price'))||0;
+              total+=price*q;
+              $row.data('fifo-breakdown', null);
+              $row.data('fifo-total', price*q);
+            }
+          })
+          .catch(() => {
+            // Fallback to product price on error
+            const price=parseFloat($sel.data('price'))||0;
+            total+=price*q;
+            $row.data('fifo-breakdown', null);
+            $row.data('fifo-total', price*q);
+          })
+      );
+    }
+  });
+  await Promise.all(promises);
+  $('#liveSaleTotalWithVATText').text(formatCurrency(total)); 
+}
 
 async function updateBatchesToSell(itemRow) {
   const $row = $(itemRow);
@@ -1158,6 +1215,37 @@ function generateReceipt(){
   const discountPct=parseFloat($('#discountPercentage').val())||0; 
   const discountAmount=(window.originalTotalWithVAT||0)*Math.max(0,Math.min(100,discountPct))/100; 
   
+  // Build items list from FIFO breakdown for accurate receipt
+  const receiptItems = [];
+  items.forEach(it => {
+    const u = String(it.quantity_unit || '').toLowerCase();
+    const unit = (u === 'kg') ? 'kg' : it.quantity_unit;
+    
+    // If has FIFO breakdown, use that for individual batch lines
+    if (it.fifo_breakdown && Array.isArray(it.fifo_breakdown) && it.fifo_breakdown.length > 0) {
+      it.fifo_breakdown.forEach(batch => {
+        let d = `${it.name || ''}`;
+        if (unit) d += ` (${unit})`;
+        receiptItems.push({
+          name: d,
+          quantity: batch.quantity,
+          price: batch.price,
+          amount: batch.subtotal
+        });
+      });
+    } else {
+      // Fallback: single line item
+      let d = it.name || '';
+      if (unit) d += ` (${unit})`;
+      receiptItems.push({
+        name: d,
+        quantity: it.quantity,
+        price: it.price,
+        amount: it.amount
+      });
+    }
+  });
+  
   const previewData = {
     company_name: 'FruitMaster Marketing',
     company_address: 'Mabini Street - Libertad, Bacolod City, Negros Occidental',
@@ -1169,17 +1257,7 @@ function generateReceipt(){
     customer_name: customerName,
     customer_contact: customerContact,
     customer_address: customerAddress,
-    items: items.map(it => {
-      // Product name already includes variant, just add normalized unit
-      let d = it.name || '';
-      if(it.quantity_unit){ const u=String(it.quantity_unit).toLowerCase(); const u2=(u==='kg')?'kg':it.quantity_unit; d += ` (${u2})`; }
-      return {
-        name: d,
-        quantity: it.quantity,
-        price: it.price,
-        amount: it.amount
-      };
-    }),
+    items: receiptItems,
     subtotal,
     vat,
     discount: discountAmount,
@@ -1625,7 +1703,147 @@ $(document).ready(function(){
     updateVariantButtons();
   });
 
-  $('#nextToStep2').on('click',function(){ const form=$('#buyForm')[0]; if(!form.checkValidity()){ form.reportValidity(); return; } const selectedIds=[]; let hasDup=false; $('.product-select').each(function(){ const v=$(this).val(); if(v){ if(selectedIds.includes(v)){ hasDup=true; } else { selectedIds.push(v); } } }); if(hasDup){ $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Duplicate products detected. Please select unique products for each row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; } const items=[]; let total=0; $('.item-row').each(function(){ const $sel=$(this).find('.product-select option:selected'); const $qty=$(this).find('.quantity-input'); if($sel.val()&&$qty.val()){ const price=parseFloat($sel.data('price')); const q=parseFloat($qty.val()); const amt=q*price; total+=amt; items.push({ product_id:$sel.val(), name:$sel.data('name')||'', variant:$sel.data('variant')||'', quantity_unit:$sel.data('quantity_unit')||'', quantity:q, price:price, amount:amt }); }}); if(items.length===0){ $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Please add at least one item to proceed.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); return; } const subtotal=total/1.12; const vat=total-subtotal; $('#paymentSubtotal').text(formatCurrency(subtotal)); $('#paymentVAT').text(formatCurrency(vat)); $('#paymentTotalWithVAT').text(formatCurrency(total)); let html=''; items.forEach(it=>{ const u=String(it.quantity_unit||'').toLowerCase(); let d=`#${it.product_id} ${it.name}`; if(it.quantity_unit){ const u2=(u==='kg')?'kg':it.quantity_unit; d+=` (${u2})`; } const qtyDisplay = (u==='kg' && it.quantity % 1 !== 0) ? it.quantity.toFixed(2) : it.quantity; html+=`<tr><td>${d}</td><td class=\"text-end\">${qtyDisplay}</td><td class=\"text-end\">₱${formatCurrency(it.price)}</td><td class=\"text-end\">₱${formatCurrency(it.amount)}</td></tr>`; }); $('#paymentTableItems').html(html); window.saleItems=items; const base=Date.now(); const txnSuffix=(base%1000000).toString().padStart(6,'0'); let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); if(orSuffix===Number(txnSuffix)){ orSuffix=(orSuffix+1)%1000000; } transactionNumber=`TXN${txnSuffix}`; orNumber=`OR${orSuffix.toString().padStart(6,'0')}`; showStep(2); });
+  $('#nextToStep2').on('click',async function(){ 
+    const form=$('#buyForm')[0]; 
+    if(!form.checkValidity()){ form.reportValidity(); return; } 
+    const selectedIds=[]; 
+    let hasDup=false; 
+    $('.product-select').each(function(){ 
+      const v=$(this).val(); 
+      if(v){ 
+        if(selectedIds.includes(v)){ hasDup=true; } 
+        else { selectedIds.push(v); } 
+      } 
+    }); 
+    if(hasDup){ 
+      $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Duplicate products detected. Please select unique products for each row.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); 
+      return; 
+    } 
+    
+    // Fetch FIFO pricing for all items
+    const items=[];
+    let total=0;
+    const fifoPromises = [];
+    
+    $('.item-row').each(function(){ 
+      const $row = $(this);
+      const $sel=$(this).find('.product-select option:selected'); 
+      const $qty=$(this).find('.quantity-input'); 
+      if($sel.val()&&$qty.val()){ 
+        const productId = $sel.val();
+        const q=parseFloat($qty.val())||0;
+        const productName = $sel.data('name') || '';
+        const variant = $sel.data('variant') || '';
+        const quantityUnit = $sel.data('quantity_unit') || '';
+        
+        // Fetch FIFO pricing
+        fifoPromises.push(
+          fetch(`/api/products/${productId}/fifo-pricing/?quantity=${q}`)
+            .then(r => r.json())
+            .then(resp => {
+              if(resp.success && resp.data) {
+                const itemTotal = resp.data.total;
+                total += itemTotal;
+                items.push({
+                  product_id: productId,
+                  name: productName,
+                  variant: variant,
+                  quantity_unit: quantityUnit,
+                  quantity: q,
+                  amount: itemTotal,
+                  fifo_breakdown: resp.data.breakdown
+                });
+              } else {
+                // Fallback to product price
+                const price=parseFloat($sel.data('price'))||0;
+                const amt=price*q;
+                total+=amt;
+                items.push({
+                  product_id: productId,
+                  name: productName,
+                  variant: variant,
+                  quantity_unit: quantityUnit,
+                  quantity: q,
+                  price: price,
+                  amount: amt,
+                  fifo_breakdown: null
+                });
+              }
+            })
+            .catch(() => {
+              // Fallback to product price on error
+              const price=parseFloat($sel.data('price'))||0;
+              const q=parseFloat($qty.val())||0;
+              const amt=price*q;
+              total+=amt;
+              items.push({
+                product_id: productId,
+                name: productName,
+                variant: variant,
+                quantity_unit: quantityUnit,
+                quantity: q,
+                price: price,
+                amount: amt,
+                fifo_breakdown: null
+              });
+            })
+        );
+      }
+    });
+    
+    // Wait for all FIFO pricing calculations
+    await Promise.all(fifoPromises);
+    
+    if(items.length===0){ 
+      $('#buyFormAlert').html('<div class=\"alert alert-warning alert-dismissible fade show\" role=\"alert\">Please add at least one item to proceed.<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"alert\"></button></div>'); 
+      return; 
+    } 
+    
+    const subtotal=total/1.12; 
+    const vat=total-subtotal; 
+    $('#paymentSubtotal').text(formatCurrency(subtotal)); 
+    $('#paymentVAT').text(formatCurrency(vat)); 
+    $('#paymentTotalWithVAT').text(formatCurrency(total)); 
+    
+    // Build table with FIFO breakdown
+    let html='';
+    items.forEach(it=>{ 
+      const u=String(it.quantity_unit||'').toLowerCase(); 
+      let d=`#${it.product_id} ${it.name}`; 
+      // Only add variant if it's not already in the name
+      if(it.variant && !it.name.toLowerCase().includes(`(${it.variant.toLowerCase()})`)){ 
+        d+=` (${it.variant})`; 
+      }
+      if(it.quantity_unit){ 
+        const u2=(u==='kg')?'kg':it.quantity_unit; 
+        d+=` (${u2})`; 
+      } 
+      const qtyDisplay = (u==='kg' && it.quantity % 1 !== 0) ? it.quantity.toFixed(2) : it.quantity;
+      
+      // Show FIFO breakdown if available (no combined row - only batch breakdowns)
+      if(it.fifo_breakdown && it.fifo_breakdown.length > 0) {
+        it.fifo_breakdown.forEach((batch, idx) => {
+          const date = new Date(batch.date_added);
+          const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const batchQty = (u==='kg' && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
+          html+=`<tr><td><strong>${d} - Batch #${batch.addition_id} (${dateStr})</strong></td><td class="text-end"><strong>${batchQty} ${u==='kg'?'kg':(it.quantity_unit||'boxes')}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.price)}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.subtotal)}</strong></td></tr>`;
+        });
+      } else {
+        // Fallback: if no FIFO breakdown, show single row with product details
+        const avgPrice = it.amount / it.quantity;
+        html+=`<tr><td><strong>${d}</strong></td><td class="text-end"><strong>${qtyDisplay}</strong></td><td class="text-end"><strong>₱${formatCurrency(avgPrice)}</strong></td><td class="text-end"><strong>₱${formatCurrency(it.amount)}</strong></td></tr>`;
+      }
+    }); 
+    $('#paymentTableItems').html(html); 
+    window.saleItems=items; 
+    const base=Date.now(); 
+    const txnSuffix=(base%1000000).toString().padStart(6,'0'); 
+    let orSuffix=((base + Math.floor(Math.random()*900+100))%1000000); 
+    if(orSuffix===Number(txnSuffix)){ orSuffix=(orSuffix+1)%1000000; } 
+    transactionNumber=`TXN${txnSuffix}`; 
+    orNumber=`OR${orSuffix.toString().padStart(6,'0')}`; 
+    showStep(2); 
+  });
   $('#backToStep1').on('click',function(){ if(currentStep===2){ showStep(1); } else if(currentStep===3){ showStep(2); }});
   $('#confirmPaymentStep').on('click',function(){ const tendered=parseFloat($('#paymentTendered').val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; if(tendered<total){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Amount tendered is less than total amount.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const change=tendered-total; $('#paymentChange').text(formatCurrency(change)); generateReceipt(); showStep(3); });
   $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const change=t-total; $('#paymentChange').text(formatCurrency(change)); $('#confirmPaymentStep').prop('disabled', t<total); });

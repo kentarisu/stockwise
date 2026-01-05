@@ -629,21 +629,23 @@
         }
 
         /* Column widths (percent-based to fit screen without scrolling - totals 100%) */
-        .stock-additions-table .col-addition { width: 10%; }
+        .stock-additions-table .col-addition { width: 7%; }
         .stock-additions-table .col-date { width: 10%; }
-        .stock-additions-table .col-added { width: 10%; }
-        .stock-additions-table .col-available { width: 10%; }
-        .stock-additions-table .col-sold { width: 10%; }
-        .stock-additions-table .col-spoiled { width: 10%; }
-        .stock-additions-table .col-supplier { width: 10%; }
-        .stock-additions-table .col-status { width: 12%; }
+        .stock-additions-table .col-added { width: 7%; }
+        .stock-additions-table .col-available { width: 7%; }
+        .stock-additions-table .col-sold { width: 7%; }
+        .stock-additions-table .col-spoiled { width: 7%; }
+        .stock-additions-table .col-cost { width: 7%; }
+        .stock-additions-table .col-price { width: 7%; }
+        .stock-additions-table .col-supplier { width: 8%; }
+        .stock-additions-table .col-status { width: 10%; }
         .stock-additions-table .col-batch { 
-            width: 14%; 
+            width: 12%; 
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
         .stock-additions-table .col-options { 
-            width: 12%;
+            width: 10%;
             white-space: nowrap;
             overflow: visible !important;
             text-overflow: clip !important;
@@ -712,6 +714,8 @@
 
         .number-cell.added { color: var(--success); }
         .number-cell.available { color: var(--warning); }
+        .number-cell.cost { color: var(--danger); font-weight: 600; }
+        .number-cell.price { color: var(--primary); font-weight: 600; }
         .number-cell.sold { color: var(--danger); }
 
         /* Date */
@@ -1762,6 +1766,8 @@
                             <th class="col-available">Available</th>
                             <th class="col-sold">Sold</th>
                             <th class="col-spoiled">Spoiled Stock</th>
+                            <th class="col-cost">Cost</th>
+                            <th class="col-price">Price</th>
                             <th class="col-supplier">Supplier</th>
                             <th class="col-status">Status</th>
                             ${isKilo ? '' : '<th class="col-batch">Batch IDs</th>'}
@@ -1796,6 +1802,18 @@
                             const spoiled = group.spoiled_total || 0;
                             const sold = Math.max(0, added - available - spoiled);
                             
+                            // Debug: log cost and price values for first group
+                            if (index === 0) {
+                                console.log('First group cost/price debug:', {
+                                    cost: group.cost,
+                                    price: group.price,
+                                    costType: typeof group.cost,
+                                    priceType: typeof group.price,
+                                    costCheck: group.cost && group.cost > 0,
+                                    priceCheck: group.price && group.price > 0
+                                });
+                            }
+                            
                             return `
                                 <tr>
                                     <td class="col-addition" data-label="Addition #">
@@ -1806,6 +1824,8 @@
                                     <td class="number-cell available col-available" data-label="Available">${formatQuantity(available, quantityUnit)}</td>
                                     <td class="number-cell sold col-sold" data-label="Sold">${formatQuantity(sold, quantityUnit)}</td>
                                     <td class="number-cell spoiled col-spoiled" data-label="Spoiled Stock">${formatQuantity(spoiled, quantityUnit)}</td>
+                                    <td class="number-cell cost col-cost" data-label="Cost">${(group.cost !== null && group.cost !== undefined && parseFloat(group.cost) > 0) ? '₱' + parseFloat(group.cost).toFixed(2) : '<span class="text-muted">-</span>'}</td>
+                                    <td class="number-cell price col-price" data-label="Price">${(group.price !== null && group.price !== undefined && parseFloat(group.price) > 0) ? '₱' + parseFloat(group.price).toFixed(2) : '<span class="text-muted">-</span>'}</td>
                                     <td class="supplier-cell col-supplier" data-label="Supplier">${group.supplier || '-'}</td>
                                     <td class="col-status" data-label="Status">
                                         <span class="status-badge ${status}">

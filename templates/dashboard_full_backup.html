@@ -2019,56 +2019,56 @@
                 <div class="tab-content dashboard-tab-content">
                     <!-- Overview Tab -->
                     <div class="tab-pane fade show active" id="overview-content" role="tabpanel" aria-labelledby="overview-tab">
-                <div class="row g-3">
-                    <div class="col-lg-6">
-                        <div class="modern-card">
-                            <div class="table-header">
-                                <h3 class="table-title">
-                                    <i class="bi bi-trophy"></i>
-                                    Top Selling Products
-                                </h3>
-                                <span class="badge bg-success">{{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}</span>
-                            </div>
-                            <div>
-                                {% if top_products %}
-                                    {% for product in top_products %}
-                                    <div class="overview-item">
-                                        <div class="overview-rank">{{ forloop.counter }}</div>
-                                        <div class="overview-content">
-                                            <h6>{{ product.product__name }}</h6>
-                                            <p>{% if product.product__quantity_unit|lower == 'kg' %}{{ product.quantity|floatformat:2|default:"0.00" }} kg{% else %}{{ product.quantity|floatformat:0|default:"0" }} {% if product.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
-                                            <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
-                                        </div>
-                                        <div class="overview-value">
-                                            <i class="bi bi-graph-up"></i>
-                                        </div>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="modern-card">
+                                    <div class="table-header">
+                                        <h3 class="table-title">
+                                            <i class="bi bi-trophy"></i>
+                                            Top Selling Products
+                                        </h3>
+                                        <span class="badge bg-success">{{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}</span>
                                     </div>
-                                    {% endfor %}
-                                {% else %}
-                                <div class="empty-state-custom">
-                                    <p class="text-muted mb-0">No sales data available</p>
+                                    <div>
+                                        {% if top_products %}
+                                            {% for product in top_products %}
+                                            <div class="overview-item">
+                                                <div class="overview-rank">{{ forloop.counter }}</div>
+                                                <div class="overview-content">
+                                                    <h6>{{ product.product__name }}</h6>
+                                                    <p>{% if product.product__quantity_unit|lower == 'kg' %}{{ product.quantity|floatformat:2|default:"0.00" }} kg{% else %}{{ product.quantity|floatformat:0|default:"0" }} {% if product.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
+                                                    <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
+                                                </div>
+                                                <div class="overview-value">
+                                                    <i class="bi bi-graph-up"></i>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                        <div class="empty-state-custom">
+                                            <p class="text-muted mb-0">No sales data available</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                {% endif %}
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="modern-card">
-                            <div class="table-header">
-                                <h3 class="table-title">
-                                    <i class="bi bi-clock-history"></i>
-                                    Recent Activity
-                                </h3>
-                                <div class="text-muted text-muted-custom">Last updated: {{ now|date:"M d, g:i A" }}</div>
-                            </div>
-                            <div class="activity-container">
-                                {% for sale in recent_sales %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-custom">
-                                        <i class="bi bi-cart-check"></i>
+                            <div class="col-lg-6">
+                                <div class="modern-card">
+                                    <div class="table-header">
+                                        <h3 class="table-title">
+                                            <i class="bi bi-clock-history"></i>
+                                            Recent Activity
+                                        </h3>
+                                        <div class="text-muted text-muted-custom">Last updated: {{ now|date:"M d, g:i A" }}</div>
                                     </div>
-                                    <div class="activity-content">
-                                        <h6>New sale recorded</h6>
+                                    <div class="activity-container">
+                                        {% for sale in recent_sales %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-custom">
+                                                <i class="bi bi-cart-check"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>New sale recorded</h6>
                                                 <p>
                                                     ₱{{ sale.formatted_total }} - 
                                                     {% if sale.product.formatted_name %}
@@ -2080,18 +2080,18 @@
                                                     {% endif %}
                                                      x{% if sale.product.quantity_unit|lower == 'kg' %}{{ sale.quantity|floatformat:2|default:"0.00" }}{% else %}{{ sale.quantity|floatformat:0|default:"0" }}{% endif %} {% if sale.product.quantity_unit|lower == 'kg' %}kg{% else %}{% if sale.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}
                                                 </p>
-                                        <small class="text-muted">By: {{ sale.user.username|default:"Unknown" }}</small>
-                                    </div>
-                                    <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
-                                </div>
-                                {% endfor %}
-                                {% for stock in recent_stock_additions %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-blue">
-                                        <i class="bi bi-box-arrow-in-down"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h6>Stock added</h6>
+                                                <small class="text-muted">By: {{ sale.user.username|default:"Unknown" }}</small>
+                                            </div>
+                                            <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% for stock in recent_stock_additions %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-blue">
+                                                <i class="bi bi-box-arrow-in-down"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>Stock added</h6>
                                                 <p>
                                                     {{ stock.product.name }}
                                                     {% if stock.product.variant %} ({{ stock.product.variant }}){% endif %}
@@ -2109,17 +2109,17 @@
                                                         {% if stock.quantity == 1 %}box{% else %}boxes{% endif %}
                                                     {% endif %}
                                                 </p>
-                                    </div>
-                                    <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
-                                </div>
-                                {% endfor %}
-                                {% for product in low_stock_products %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-yellow">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h6>Low stock alert</h6>
+                                            </div>
+                                            <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% for product in low_stock_products %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-yellow">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>Low stock alert</h6>
                                                 <p>
                                                     {{ product.name }}
                                                     {% if product.variant %} ({{ product.variant }}){% endif %}
@@ -2138,67 +2138,67 @@
                                                     {% endif %}
                                                      left
                                                 </p>
+                                            </div>
+                                            <span class="activity-time">Now</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% if not recent_sales and not recent_stock_additions and not low_stock_products %}
+                                        <div class="empty-state-custom">
+                                            <p class="text-muted mb-0">No recent activity</p>
+                                        </div>
+                                        {% endif %}
                                     </div>
-                                    <span class="activity-time">Now</span>
                                 </div>
-                                {% endfor %}
-                                {% if not recent_sales and not recent_stock_additions and not low_stock_products %}
-                                <div class="empty-state-custom">
-                                    <p class="text-muted mb-0">No recent activity</p>
-                                </div>
-                                {% endif %}
-                                    </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {% if app_role == 'admin' %}
+                    {% if app_role == 'admin' %}
                     <!-- Pricing Analysis Tab -->
                     <div class="tab-pane fade" id="pricing-content" role="tabpanel" aria-labelledby="pricing-tab">
                         <div class="modern-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i class="bi bi-graph-up-arrow"></i>
-                            Pricing Analysis - All Products
-                        </h3>
-                        <div class="d-flex align-items-center gap-2">
-                            <select id="pricingGraphPeriod" class="form-select form-select-sm pricing-period-select" aria-label="Select time period for pricing graph" style="min-width: 200px;">
-                                <option value="30">Last 30 Days</option>
-                                <option value="90">Last 90 Days</option>
-                                <option value="180">Last 6 Months</option>
-                                <option value="365" selected>Last Year</option>
-                            </select>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="refreshPricingGraph">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-3">
-                        <div class="row g-3 mb-3">
-                            <div class="col-12">
-                                <div class="pricing-legend-container">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <small class="text-muted fw-semibold">
-                                            <i class="bi bi-info-circle"></i> Product Legend (Click to show only that product)
-                                        </small>
-                                        <small class="text-muted" id="productCountInfo"></small>
-                                    </div>
-                                    <div class="d-flex flex-wrap align-items-center gap-2" id="pricingLegend">
-                                        <div class="text-muted small">
-                                            <i class="bi bi-hourglass-split"></i> Loading product data...
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-graph-up-arrow"></i>
+                                    Pricing Analysis - All Products
+                                </h3>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select id="pricingGraphPeriod" class="form-select form-select-sm pricing-period-select" aria-label="Select time period for pricing graph" style="min-width: 200px;">
+                                        <option value="30">Last 30 Days</option>
+                                        <option value="90">Last 90 Days</option>
+                                        <option value="180">Last 6 Months</option>
+                                        <option value="365" selected>Last Year</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="refreshPricingGraph">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-12">
+                                        <div class="pricing-legend-container">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <small class="text-muted fw-semibold">
+                                                    <i class="bi bi-info-circle"></i> Product Legend (Click to show only that product)
+                                                </small>
+                                                <small class="text-muted" id="productCountInfo"></small>
+                                            </div>
+                                            <div class="d-flex flex-wrap align-items-center gap-2" id="pricingLegend">
+                                                <div class="text-muted small">
+                                                    <i class="bi bi-hourglass-split"></i> Loading product data...
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                <div class="chart-wrapper" style="position: relative; height: 450px;">
+                                    <canvas id="pricingAnalysisChart"></canvas>
+                                </div>
                             </div>
                         </div>
-                        <div class="chart-wrapper" style="position: relative; height: 450px;">
-                            <canvas id="pricingAnalysisChart"></canvas>
-                                </div>
-                        </div>
                     </div>
-                </div>
-                {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </main>

@@ -1288,6 +1288,14 @@
             font-size: 0.85rem;
         }
 
+        .fifo-breakdown-row {
+            font-size: 0.875rem;
+        }
+        .fifo-breakdown-row td {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            border-top: none;
+        }
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -3575,6 +3583,17 @@
                     const flat = data.data || data.sale || data;
                     const itemsResp = data.items || flat.items || data.data?.items || [];
                     const s = flat;
+                    
+                    // Debug: log the response structure
+                    console.log('Sale Details Response Structure:', {
+                        hasItems: !!data.items,
+                        itemsCount: data.items ? data.items.length : 0,
+                        firstItem: data.items && data.items.length > 0 ? data.items[0] : null,
+                        firstItemFifo: data.items && data.items.length > 0 ? data.items[0].fifo_breakdown : null,
+                        itemsResp: itemsResp,
+                        itemsRespCount: itemsResp.length,
+                        firstItemResp: itemsResp.length > 0 ? itemsResp[0] : null
+                    });
                     // Store original data for void_reason access
                     const originalData = data;
                     
@@ -3671,7 +3690,7 @@
                             const qty = typeof qtyRaw === 'string' ? parseFloat(qtyRaw.replace(/,/g,'')) : Number(qtyRaw);
                             const price = safeNum(it.price, 0);
                             const amount = qty * price;
-                            subtotal += amount;
+                            // Don't add to subtotal here - will be calculated from FIFO breakdown if available
                             const tr = document.createElement('tr');
                             const fullName = it.product_name || it['product__name'] || '';
                             const prodName = fullName.replace(/\s*\(.*?\)\s*$/, '');
@@ -3736,30 +3755,77 @@
                                     toFixed: qty.toFixed(2)
                                 });
                             }
-                            const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
-                                            : Array.isArray(it.batches) ? it.batches
-                                            : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
-                                            : null;
-                            const batchHtml = batchArr && batchArr.length
-                                ? batchArr.join(', ')
-                                : safeText(it.batch_id || it.batch, 'N/A');
-                            if (allKilo) {
-                                tr.innerHTML = `
-                                    <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
-                                    <td class="text-end">${qtyFormatted}</td>
-                                    <td class="text-end amount-col">${currency(price)}</td>
-                                    <td class="text-end amount-col">${currency(amount)}</td>
-                                `;
+                            // Add FIFO breakdown rows if available (no main row - only show batch breakdowns)
+                            console.log('Sale Details - Item FIFO breakdown check:', {
+                                item: it,
+                                hasFifoBreakdown: !!it.fifo_breakdown,
+                                fifoBreakdown: it.fifo_breakdown,
+                                isArray: Array.isArray(it.fifo_breakdown),
+                                length: it.fifo_breakdown ? it.fifo_breakdown.length : 0
+                            });
+                            if (it.fifo_breakdown && Array.isArray(it.fifo_breakdown) && it.fifo_breakdown.length > 0) {
+                                // Show only batch breakdown rows (no main row)
+                                it.fifo_breakdown.forEach((batch, idx) => {
+                                    const breakdownTr = document.createElement('tr');
+                                    breakdownTr.className = 'fifo-breakdown-row';
+                                    breakdownTr.style.background = '#f8f9fa';
+                                    const date = new Date(batch.date_added);
+                                    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                    const batchQty = (isKiloRow && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
+                                    const batchSubtotal = safeNum(batch.subtotal, 0);
+                                    subtotal += batchSubtotal; // Add to subtotal from actual batch prices
+                                    if (allKilo) {
+                                        breakdownTr.innerHTML = `
+                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
+                                            <td class="text-end"><small>${batchQty} ${unit}</small></td>
+                                            <td class="text-end"><small>${currency(batch.price)}</small></td>
+                                            <td class="text-end"><small>${currency(batchSubtotal)}</small></td>
+                                        `;
+                                    } else {
+                                        const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
+                                                        : Array.isArray(it.batches) ? it.batches
+                                                        : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
+                                                        : null;
+                                        const batchHtml = batchArr && batchArr.length
+                                            ? batchArr.join(', ')
+                                            : `Batch #${batch.addition_id}`;
+                                        breakdownTr.innerHTML = `
+                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
+                                            <td class="text-end"><small>${batchQty} ${unit}</small></td>
+                                            <td><small>${batchHtml}</small></td>
+                                            <td class="text-end"><small>${currency(batch.price)}</small></td>
+                                            <td class="text-end"><small>${currency(batchSubtotal)}</small></td>
+                                        `;
+                                    }
+                                    tbody.appendChild(breakdownTr);
+                                });
                             } else {
-                                tr.innerHTML = `
-                                    <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
-                                    <td class="text-end">${qtyFormatted}</td>
-                                    <td>${isKiloRow ? 'N/A' : batchHtml}</td>
-                                    <td class="text-end amount-col">${currency(price)}</td>
-                                    <td class="text-end amount-col">${currency(amount)}</td>
-                                `;
+                                // Fallback: if no FIFO breakdown, show main row (for older sales)
+                                const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
+                                                : Array.isArray(it.batches) ? it.batches
+                                                : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
+                                                : null;
+                                const batchHtml = batchArr && batchArr.length
+                                    ? batchArr.join(', ')
+                                    : safeText(it.batch_id || it.batch, 'N/A');
+                                if (allKilo) {
+                                    tr.innerHTML = `
+                                        <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
+                                        <td class="text-end">${qtyFormatted}</td>
+                                        <td class="text-end amount-col">${currency(price)}</td>
+                                        <td class="text-end amount-col">${currency(amount)}</td>
+                                    `;
+                                } else {
+                                    tr.innerHTML = `
+                                        <td>#${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</td>
+                                        <td class="text-end">${qtyFormatted}</td>
+                                        <td>${isKiloRow ? 'N/A' : batchHtml}</td>
+                                        <td class="text-end amount-col">${currency(price)}</td>
+                                        <td class="text-end amount-col">${currency(amount)}</td>
+                                    `;
+                                }
+                                tbody.appendChild(tr);
                             }
-                            tbody.appendChild(tr);
                         });
                         return subtotal;
                     }
@@ -3976,8 +4042,41 @@ function showReceiptPrintCompletion(){
                 const flat = data.data || data.sale || data;
                 const s = flat;
                 const itemsSrc = (data.items || flat.items || data.data?.items || []);
-                const items = itemsSrc.map(it=>{ const qty=Number(it.quantity||0); const price=Number(it.price||0); const amount=qty*price; const base=(it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,''); const variant = it.variant ? (' ('+String(it.variant)+')') : ''; const sizeValRaw = it.quantity_unit || it.product__size; const sizeVal = (String(sizeValRaw).toLowerCase()==='kg') ? 'kg' : sizeValRaw; const size = sizeVal ? (' ('+String(sizeVal)+')') : ''; return { name: base+variant+size, quantity: qty, price, amount };});
-                const subtotalCalc = items.reduce((a,b)=>a+(b.amount||0),0);
+                
+                // Build items list from FIFO breakdown for accurate receipt
+                const receiptItems = [];
+                itemsSrc.forEach(it => {
+                  const base = (it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,'');
+                  const variant = it.variant ? (' ('+String(it.variant)+')') : '';
+                  const sizeValRaw = it.quantity_unit || it.product__size;
+                  const sizeVal = (String(sizeValRaw).toLowerCase()==='kg') ? 'kg' : sizeValRaw;
+                  const size = sizeVal ? (' ('+String(sizeVal)+')') : '';
+                  
+                  // If has FIFO breakdown, use that for individual batch lines
+                  if (it.fifo_breakdown && Array.isArray(it.fifo_breakdown) && it.fifo_breakdown.length > 0) {
+                    it.fifo_breakdown.forEach(batch => {
+                      receiptItems.push({
+                        name: base + variant + size,
+                        quantity: batch.quantity,
+                        price: batch.price,
+                        amount: batch.subtotal
+                      });
+                    });
+                  } else {
+                    // Fallback: single line item
+                    const qty = Number(it.quantity||0);
+                    const price = Number(it.price||0);
+                    const amount = qty * price;
+                    receiptItems.push({
+                      name: base + variant + size,
+                      quantity: qty,
+                      price: price,
+                      amount: amount
+                    });
+                  }
+                });
+                
+                const subtotalCalc = receiptItems.reduce((a,b)=>a+(b.amount||0),0);
                 const discount = Number(s.discount || s.discount_amount || 0);
                 const dpct = Number(s.discount_pct || 0);
                 const gross = Number(s.total || subtotalCalc);
@@ -3997,7 +4096,7 @@ function showReceiptPrintCompletion(){
                   customer_name: String(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name || s.customer_info.full_name)) || ''),
                   customer_contact: String(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || ''),
                   customer_address: String(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || ''),
-                  items,
+                  items: receiptItems,
                   subtotal: net,
                   vat,
                   discount,
@@ -4054,8 +4153,41 @@ function printReceipt(saleId) {
                     const flat = data.data || data.sale || data;
                     const s = flat;
                     const itemsSrc = (data.items || flat.items || data.data?.items || []);
-                    const items = itemsSrc.map(it=>{ const qty=Number(it.quantity||0); const price=Number(it.price||0); const amount=qty*price; const base=(it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,''); const variant = it.variant ? (' ('+String(it.variant)+')') : ''; const sizeValRaw = it.quantity_unit || it.product__size; const sizeVal = (String(sizeValRaw).toLowerCase()==='kg') ? 'kg' : sizeValRaw; const size = sizeVal ? (' ('+String(sizeVal)+')') : ''; return { name: base+variant+size, quantity: qty, price, amount };});
-                    const subtotalCalc = items.reduce((a,b)=>a+(b.amount||0),0);
+                    
+                    // Build items list from FIFO breakdown for accurate receipt
+                    const receiptItems = [];
+                    itemsSrc.forEach(it => {
+                      const base = (it.product__name || it.product_name || '').replace(/\s*\(.*?\)\s*$/,'');
+                      const variant = it.variant ? (' ('+String(it.variant)+')') : '';
+                      const sizeValRaw = it.quantity_unit || it.product__size;
+                      const sizeVal = (String(sizeValRaw).toLowerCase()==='kg') ? 'kg' : sizeValRaw;
+                      const size = sizeVal ? (' ('+String(sizeVal)+')') : '';
+                      
+                      // If has FIFO breakdown, use that for individual batch lines
+                      if (it.fifo_breakdown && Array.isArray(it.fifo_breakdown) && it.fifo_breakdown.length > 0) {
+                        it.fifo_breakdown.forEach(batch => {
+                          receiptItems.push({
+                            name: base + variant + size,
+                            quantity: batch.quantity,
+                            price: batch.price,
+                            amount: batch.subtotal
+                          });
+                        });
+                      } else {
+                        // Fallback: single line item
+                        const qty = Number(it.quantity||0);
+                        const price = Number(it.price||0);
+                        const amount = qty * price;
+                        receiptItems.push({
+                          name: base + variant + size,
+                          quantity: qty,
+                          price: price,
+                          amount: amount
+                        });
+                      }
+                    });
+                    
+                    const subtotalCalc = receiptItems.reduce((a,b)=>a+(b.amount||0),0);
                     const discount = Number(s.discount || s.discount_amount || 0);
                     const dpct = Number(s.discount_pct || 0);
                     const gross = Number(s.total || subtotalCalc);
@@ -4075,7 +4207,7 @@ function printReceipt(saleId) {
                       customer_name: String(s.customer_name || s.customer_fullname || s.customer || (s.customer_info && (s.customer_info.name || s.customer_info.full_name)) || ''),
                       customer_contact: String(s.customer_contact || s.contact_number || (s.customer_info && s.customer_info.contact) || ''),
                       customer_address: String(s.customer_address || s.address || (s.customer_info && s.customer_info.address) || ''),
-                      items,
+                      items: receiptItems,
                       subtotal: net,
                       vat,
                       discount,

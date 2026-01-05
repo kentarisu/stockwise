@@ -1520,6 +1520,14 @@
             font-size: 0.85rem;
         }
 
+        .fifo-breakdown-row {
+            font-size: 0.875rem;
+        }
+        .fifo-breakdown-row td {
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
+            border-top: none;
+        }
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -2067,6 +2075,24 @@
                 max-width: 80px;
                 font-size: 0.7rem;
             }
+            
+            /* Pricing Analysis Styles */
+            .pricing-legend-container {
+                background: var(--gray-50);
+                border-radius: var(--radius-md);
+                padding: 1rem;
+                border: 1px solid var(--gray-200);
+            }
+            
+            .pricing-period-select {
+                width: auto;
+                min-width: 200px;
+            }
+            
+            .pricing-chart-container {
+                position: relative;
+                height: 450px;
+            }
 
             .cashbook-table .address-info {
                 max-width: 80px;
@@ -2107,6 +2133,11 @@
             .transaction-summary-card {
                 padding: 1rem;
             }
+            
+            .pricing-chart-container {
+                height: 350px !important;
+            }
+        }
             
             .transaction-summary-card .card-value {
                 font-size: 1rem;
@@ -3869,6 +3900,13 @@
                                     </button>
                                 </li>
                                 {% endif %}
+                                {% if app_role == 'admin' %}
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="pricing-analysis-tab" data-bs-toggle="tab" data-bs-target="#pricing-analysis" type="button" role="tab" aria-controls="pricing-analysis" aria-selected="false">
+                                        <i class="bi bi-currency-exchange me-2"></i>Pricing Analysis
+                                    </button>
+                                </li>
+                                {% endif %}
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab" aria-controls="analytics" aria-selected="false">
                                         <i class="bi bi-graph-up-arrow me-2"></i>Product Insights
@@ -3900,6 +3938,7 @@
                                                     <th>Quantity Sold</th>
                                                     <th>Revenue</th>
                                                     <th>Profit</th>
+                                                    <th>Markup</th>
                                                     <th></th>
                                                 </tr>
                                             </thead>
@@ -4177,6 +4216,60 @@
                                 {% endif %}
                                 
                                 <!-- Analytics & Insights Tab -->
+                                {% if app_role == 'admin' %}
+                                <!-- Pricing Analysis Tab -->
+                                <div class="tab-pane fade" id="pricing-analysis" role="tabpanel" aria-labelledby="pricing-analysis-tab">
+                                    <div class="p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <h5 class="mb-1">Pricing Analysis - All Products</h5>
+                                                <small class="text-muted">Price trends and demand analysis across all products</small>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <select id="reportsPricingGraphPeriod" class="form-select form-select-sm pricing-period-select" aria-label="Select time period for pricing graph" style="min-width: 200px;">
+                                                    <option value="30">Last 30 Days</option>
+                                                    <option value="90">Last 90 Days</option>
+                                                    <option value="180">Last 6 Months</option>
+                                                    <option value="365" selected>Last Year</option>
+                                                </select>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" id="refreshReportsPricingGraph">
+                                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-12">
+                                                <div class="pricing-legend-container">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <small class="text-muted fw-semibold">
+                                                            <i class="bi bi-info-circle"></i> Product Legend (Click to show only that product)
+                                                        </small>
+                                                        <small class="text-muted" id="reportsProductCountInfo"></small>
+                                                    </div>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2" id="reportsPricingLegend">
+                                                        <div class="text-muted small">
+                                                            <i class="bi bi-hourglass-split"></i> Loading product data...
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="pricing-chart-container" style="position: relative; height: 450px;">
+                                            <canvas id="reportsPricingAnalysisChart"></canvas>
+                                        </div>
+                                    </div>
+                                    <div class="report-description mt-4">
+                                        <h6>What does this show?</h6>
+                                        <p>Visualize price trends for all products over time. Compare how different products' prices change and identify pricing patterns.</p>
+                                        <ul>
+                                            <li><strong>Price Trends:</strong> Each line represents a product's price history over the selected period.</li>
+                                            <li><strong>Product Legend:</strong> Click on any product in the legend to show only that product on the graph (all others will be hidden).</li>
+                                            <li><strong>Time Period:</strong> Select different time ranges (30 days, 90 days, 6 months, or 1 year) to analyze pricing patterns.</li>
+                                            <li><strong>Top Products:</strong> The graph automatically shows the top 15 products by total sales to prevent overcrowding.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                {% endif %}
                                 <div class="tab-pane fade" id="analytics" role="tabpanel" aria-labelledby="analytics-tab">
                                     <div class="analytics-panels">
                                         <div class="analytics-card">
@@ -4299,6 +4392,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <div class="position-fixed top-0 start-50 translate-middle-x w-100 p-3 sw-z-1200">
         <div id="reportToastContainer" class="toast-container d-flex flex-column align-items-center gap-2 w-100 sw-pointer-auto"></div>
     </div>
@@ -4969,10 +5063,25 @@
             const tbody = $('#summaryBody');
             tbody.empty();
             const rows = repSlice(repData.summary, reportsPagination.currentPage.summary||1);
-            if(!rows.length){ tbody.append('<tr><td colspan="6" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
+            if(!rows.length){ tbody.append('<tr><td colspan="7" class="text-center">No sales summary data available for this period.</td></tr>'); updateRepControls('summary', 0); if (window.enhanceMobileTables) { window.enhanceMobileTables(); } return; }
             rows.forEach((item, idx) => {
                 const quantityDisplay = item.quantity_display || Number(item.boxes_sold ?? 0).toLocaleString();
                 const formattedDate = formatDateOnly(item.date);
+                
+                // Calculate markup display with trend
+                const markupPct = Number(item.markup_pct || 0);
+                const markupAmount = Number(item.markup_amount || 0);
+                const markupTrendPct = Number(item.markup_trend_pct || 0);
+                const markupTrendAmount = Number(item.markup_trend_amount || 0);
+                
+                let markupDisplay = '—';
+                if (markupPct > 0) {
+                    const trendIcon = markupTrendPct > 0 ? '▲' : markupTrendPct < 0 ? '▼' : '';
+                    const trendColor = markupTrendPct > 0 ? 'text-success' : markupTrendPct < 0 ? 'text-danger' : '';
+                    const trendText = markupTrendPct !== 0 ? ` <span class="${trendColor}">${trendIcon} ${Math.abs(markupTrendPct).toFixed(2)}%</span>` : '';
+                    markupDisplay = `${markupPct.toFixed(2)}% (₱${markupAmount.toFixed(2)})${trendText}`;
+                }
+                
                 const row = `
                     <tr>
                         <td class="date-col">${formattedDate}</td>
@@ -4980,6 +5089,7 @@
                         <td>${quantityDisplay}</td>
                         <td class="amount-col currency">${formatCurrency(item.revenue || 0)}</td>
                         <td class="amount-col currency">${formatCurrency(item.profit || 0)}</td>
+                        <td class="markup-col">${markupDisplay}</td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary view-summary-details" data-index="${idx}" type="button">
                                 Details
@@ -5228,6 +5338,14 @@
                 const items = Array.isArray(response.items) ? response.items : [];
                 const payments = Array.isArray(response.payments) ? response.payments : [];
                 const auditTrail = Array.isArray(response.audit_trail) ? response.audit_trail : [];
+                
+                // Debug: log the response structure
+                console.log('Transaction Details Response Structure:', {
+                    itemsCount: items.length,
+                    firstItem: items.length > 0 ? items[0] : null,
+                    firstItemFifo: items.length > 0 ? items[0].fifo_breakdown : null,
+                    response: response
+                });
 
                 $('#reportDetailBannerTitle').text(transaction.sale_id ? `Transaction Report · #${transaction.sale_id}` : 'Transaction Report');
                 const generatedTs = transaction.updated_at || transaction.date_time || transaction.created_at;
@@ -5339,6 +5457,25 @@
                             ? (qty === Math.floor(qty) ? String(Math.floor(qty)) : qty.toFixed(2))
                             : String(Math.floor(qty));
                         
+                        // Check if FIFO breakdown exists and show only batch rows
+                        if (item.fifo_breakdown && Array.isArray(item.fifo_breakdown) && item.fifo_breakdown.length > 0) {
+                            // Only show FIFO breakdown rows, skip the combined row
+                            item.fifo_breakdown.forEach((batch, idx) => {
+                                const date = new Date(batch.date_added);
+                                const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                                const batchQty = (isKg && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
+                                itemsBody.append(`
+                                    <tr class="fifo-breakdown-row" style="background: #f8f9fa;">
+                                        <td style="padding-left: 2rem;"><small>└─ ${desc} - Batch #${batch.addition_id} (${dateStr})</small></td>
+                                        <td class="text-end"><small>${batchQty} ${unit || ''}</small></td>
+                                        <td><small>Batch #${batch.addition_id}</small></td>
+                                        <td class="text-end"><small>₱${formatCurrency(batch.price)}</small></td>
+                                        <td class="text-end"><small>₱${formatCurrency(batch.subtotal)}</small></td>
+                                    </tr>
+                                `);
+                            });
+                        } else {
+                            // Fallback: show single row if no FIFO breakdown
                         // Format batch IDs
                         const batchIds = item.batch_ids || [];
                         let batchIdsDisplay = 'N/A';
@@ -5357,6 +5494,7 @@
                                 <td class="text-end amount-col">₱${formatCurrency(amount || 0)}</td>
                             </tr>
                         `);
+                        }
                     });
                 } else {
                     itemsBody.append('<tr><td colspan="5" class="text-center text-muted">No itemized details available.</td></tr>');
@@ -5449,6 +5587,28 @@
             $('#ssGrossMargin').text(formatPercent(item.gross_margin_pct || 0));
             $('#ssVAT').text(formatCurrency(item.vat_amount || 0));
             $('#ssAvgTransaction').text(formatCurrency(item.avg_transaction_value || 0));
+            
+            // Markup information
+            const markupPct = Number(item.markup_pct || 0);
+            const markupAmount = Number(item.markup_amount || 0);
+            const markupTrendPct = Number(item.markup_trend_pct || 0);
+            const markupTrendAmount = Number(item.markup_trend_amount || 0);
+            const prevMarkupPct = Number(item.prev_markup_pct || 0);
+            
+            $('#ssMarkupPct').text(formatPercent(markupPct));
+            $('#ssMarkupAmount').text(formatCurrency(markupAmount));
+            
+            // Trend display
+            let trendDisplay = '—';
+            if (markupTrendPct !== 0) {
+                const trendIcon = markupTrendPct > 0 ? '▲' : '▼';
+                const trendColor = markupTrendPct > 0 ? 'text-success' : 'text-danger';
+                trendDisplay = `<span class="${trendColor}">${trendIcon} ${Math.abs(markupTrendPct).toFixed(2)}% (₱${Math.abs(markupTrendAmount).toFixed(2)})</span>`;
+            }
+            $('#ssMarkupTrend').html(trendDisplay);
+            
+            // Previous period markup
+            $('#ssPrevMarkupPct').text(prevMarkupPct > 0 ? formatPercent(prevMarkupPct) : '—');
             
             new bootstrap.Modal(modal[0]).show();
         }
@@ -6739,6 +6899,22 @@
                                 <strong id="ssGrossMargin">0%</strong>
                             </div>
                             <div class="report-card">
+                                <span>Markup %</span>
+                                <strong id="ssMarkupPct">0%</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Markup Amount</span>
+                                <strong id="ssMarkupAmount">₱0.00</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Markup Trend</span>
+                                <strong id="ssMarkupTrend">—</strong>
+                            </div>
+                            <div class="report-card">
+                                <span>Prev. Period Markup</span>
+                                <strong id="ssPrevMarkupPct">—</strong>
+                            </div>
+                            <div class="report-card">
                                 <span>VAT</span>
                                 <strong id="ssVAT">₱0.00</strong>
                             </div>
@@ -7007,7 +7183,492 @@
 </script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function(){ if (window.enhanceMobileTables) { window.enhanceMobileTables(); } });
+    document.addEventListener('DOMContentLoaded', function(){ 
+        if (window.enhanceMobileTables) { 
+            window.enhanceMobileTables(); 
+        }
+        
+        {% if app_role == 'admin' %}
+        // Pricing Analysis Graph for Reports Page
+        let reportsPricingChart = null;
+        
+        function generateColor(index, total) {
+            const hue = (index * 360 / total) % 360;
+            return `hsl(${hue}, 70%, 50%)`;
+        }
+        
+        // Function to format date range for filter options
+        function updateReportsPricingPeriodDates() {
+            const periodSelect = document.getElementById('reportsPricingGraphPeriod');
+            if (!periodSelect) return;
+            
+            const today = new Date();
+            const options = periodSelect.options;
+            
+            // Format date helper
+            function formatDate(date) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+            }
+            
+            // Update each option with date range
+            for (let i = 0; i < options.length; i++) {
+                const days = parseInt(options[i].value);
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - days);
+                
+                const startStr = formatDate(startDate);
+                const endStr = formatDate(today);
+                
+                // Update option text with date range
+                const baseText = options[i].text.split(' (')[0]; // Remove existing date if any
+                options[i].text = `${baseText} (${startStr} - ${endStr})`;
+            }
+        }
+        
+        function loadReportsPricingGraph(days = 365) {
+            const canvas = document.getElementById('reportsPricingAnalysisChart');
+            if (!canvas) return;
+            
+            const legendContainer = document.getElementById('reportsPricingLegend');
+            if (legendContainer) {
+                legendContainer.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split"></i> Loading...</div>';
+            }
+            
+            fetch(`/api/pricing-analysis/data/?days=${days}&all_products=true`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Reports Pricing API Response:', data);
+                    
+                    if (!data.success) {
+                        if (legendContainer) {
+                            legendContainer.innerHTML = '<div class="text-danger small"><i class="bi bi-exclamation-circle"></i> ' + (data.message || 'No data available') + '</div>';
+                        }
+                        return;
+                    }
+                    
+                    // Flatten categorized data to get all products
+                    const allProducts = [];
+                    
+                    // Check if we have categorized data (new format) or flat data (old format)
+                    if (data.categorized && Array.isArray(data.categorized) && data.categorized.length > 0) {
+                        // New format: categorized is an array
+                        data.categorized.forEach(category => {
+                            if (category.products && Array.isArray(category.products)) {
+                                category.products.forEach(product => {
+                                    // Include products with price history (at least 1 data point)
+                                    if (product.price_history && Array.isArray(product.price_history) && product.price_history.length > 0) {
+                                        allProducts.push(product);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    
+                    // Also check flat data array as fallback
+                    if (allProducts.length === 0 && data.data && Array.isArray(data.data)) {
+                        data.data.forEach(product => {
+                            // Include products with price history (at least 1 data point)
+                            if (product.price_history && Array.isArray(product.price_history) && product.price_history.length > 0) {
+                                allProducts.push(product);
+                            }
+                        });
+                    }
+                    
+                    if (allProducts.length === 0) {
+                        console.log('No products with price history found.');
+                        if (legendContainer) {
+                            let message = '<div class="text-warning small"><i class="bi bi-info-circle"></i> ';
+                            if (data.data && data.data.length > 0) {
+                                message += `Found ${data.data.length} product(s) but none have price history. Price history is generated from sales data.`;
+                            } else {
+                                message += 'No products found. Make sure you have sales data for the selected period.';
+                            }
+                            message += '</div>';
+                            legendContainer.innerHTML = message;
+                        }
+                        return;
+                    }
+                    
+                    // Sort products alphabetically
+                    allProducts.sort((a, b) => {
+                        const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
+                        const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
+                    
+                    // Limit to top 15 products by total sales to avoid overcrowding
+                    const maxProducts = 15;
+                    const totalProductCount = allProducts.length;
+                    if (allProducts.length > maxProducts) {
+                        // Sort by total sales and take top products, then re-sort alphabetically
+                        allProducts.sort((a, b) => (b.total_sales || 0) - (a.total_sales || 0));
+                        const topProducts = allProducts.slice(0, maxProducts);
+                        // Re-sort the top products alphabetically
+                        topProducts.sort((a, b) => {
+                            const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
+                            const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
+                            return nameA.localeCompare(nameB);
+                        });
+                        allProducts.splice(0, allProducts.length, ...topProducts);
+                    }
+                    
+                    // Update product count info
+                    const countInfo = document.getElementById('reportsProductCountInfo');
+                    if (countInfo) {
+                        if (totalProductCount > maxProducts) {
+                            countInfo.textContent = `Showing top ${maxProducts} of ${totalProductCount} products`;
+                            countInfo.className = 'text-warning small';
+                        } else {
+                            countInfo.textContent = `${totalProductCount} product${totalProductCount !== 1 ? 's' : ''}`;
+                            countInfo.className = 'text-muted small';
+                        }
+                    }
+                    
+                    // Collect all unique dates from all products
+                    const allDates = new Set();
+                    allProducts.forEach(product => {
+                        if (product.price_history && product.price_history.length > 0) {
+                            product.price_history.forEach(item => {
+                                allDates.add(item.date);
+                            });
+                        }
+                    });
+                    
+                    // Sort dates chronologically
+                    const sortedDates = Array.from(allDates).sort((a, b) => {
+                        return new Date(a) - new Date(b);
+                    });
+                    
+                    // Format dates for display
+                    const sortedLabels = sortedDates.map(date => {
+                        const d = new Date(date);
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    });
+                    
+                    // Prepare datasets
+                    const datasets = [];
+                    const colors = [];
+                    
+                    allProducts.forEach((product, index) => {
+                        const productLabel = `${product.product_name}${product.variant ? ' (' + product.variant + ')' : ''} (${product.quantity_unit})`;
+                        const color = generateColor(index, allProducts.length);
+                        colors.push({ label: productLabel, color: color });
+                        
+                        // Create price map for this product
+                        const priceMap = new Map();
+                        if (product.price_history && product.price_history.length > 0) {
+                            product.price_history.forEach(item => {
+                                priceMap.set(item.date, item.price);
+                            });
+                        }
+                        
+                        // Map prices to sorted dates
+                        const priceData = sortedDates.map(date => {
+                            return priceMap.has(date) ? priceMap.get(date) : null;
+                        });
+                        
+                        datasets.push({
+                            label: productLabel,
+                            data: priceData,
+                            borderColor: color,
+                            backgroundColor: color.replace(')', ', 0.1)').replace('hsl', 'hsla'),
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 6,
+                            spanGaps: true, // Connect points across gaps
+                        });
+                    });
+                    
+                    // Destroy existing chart
+                    if (reportsPricingChart) {
+                        reportsPricingChart.destroy();
+                    }
+                    
+                    // Enable HD rendering for crisp graphs
+                    const dpr = window.devicePixelRatio || 1;
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = rect.width * dpr;
+                    canvas.height = rect.height * dpr;
+                    const ctx = canvas.getContext('2d');
+                    ctx.scale(dpr, dpr);
+                    canvas.style.width = rect.width + 'px';
+                    canvas.style.height = rect.height + 'px';
+                    
+                    // Create new chart
+                    reportsPricingChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: sortedLabels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            devicePixelRatio: dpr,
+                            plugins: {
+                                legend: {
+                                    display: false // We'll use custom legend
+                                },
+                                tooltip: {
+                                    mode: 'index',
+                                    intersect: false,
+                                    callbacks: {
+                                        title: function(context) {
+                                            return context[0].label;
+                                        },
+                                        label: function(context) {
+                                            return context.dataset.label + ': ₱' + context.parsed.y.toFixed(2);
+                                        },
+                                        filter: function(tooltipItem) {
+                                            return tooltipItem.parsed.y !== null;
+                                        }
+                                    },
+                                    // Sort tooltip items alphabetically
+                                    itemSort: function(a, b) {
+                                        const labelA = a.dataset.label || '';
+                                        const labelB = b.dataset.label || '';
+                                        return labelA.localeCompare(labelB);
+                                    },
+                                    // Improve tooltip rendering quality
+                                    padding: 10,
+                                    titleFont: {
+                                        size: 13,
+                                        weight: 'bold'
+                                    },
+                                    bodyFont: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: {
+                                        display: true,
+                                        text: 'Price (₱)',
+                                        font: {
+                                            size: 12,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    ticks: {
+                                        font: {
+                                            size: 11
+                                        },
+                                        callback: function(value) {
+                                            return '₱' + value.toFixed(0);
+                                        }
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Date',
+                                        font: {
+                                            size: 12,
+                                            weight: 'bold'
+                                        }
+                                    },
+                                    ticks: {
+                                        font: {
+                                            size: 11
+                                        },
+                                        maxRotation: 45,
+                                        minRotation: 45
+                                    },
+                                    grid: {
+                                        color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                }
+                            },
+                            interaction: {
+                                mode: 'nearest',
+                                axis: 'x',
+                                intersect: false
+                            }
+                        }
+                    });
+                    
+                    // Create custom legend with Bootstrap 5 styling (sorted alphabetically)
+                    if (legendContainer) {
+                        legendContainer.innerHTML = '';
+                        const legendRow = document.createElement('div');
+                        legendRow.className = 'row g-2';
+                        
+                        // Sort colors array alphabetically by label
+                        const sortedColors = colors.slice().sort((a, b) => {
+                            return a.label.localeCompare(b.label);
+                        });
+                        
+                        // Store legend items for updating all at once
+                        const legendItems = [];
+                        
+                        sortedColors.forEach((item, index) => {
+                            // Find original index in datasets
+                            const originalIndex = colors.findIndex(c => c.label === item.label);
+                            
+                            const legendCol = document.createElement('div');
+                            legendCol.className = 'col-auto';
+                            
+                            const legendItem = document.createElement('div');
+                            legendItem.className = 'd-flex align-items-center gap-2 p-2 border rounded';
+                            legendItem.style.cursor = 'pointer';
+                            legendItem.style.transition = 'all 0.2s ease';
+                            legendItem.title = 'Click to show only this product';
+                            
+                            const colorBox = document.createElement('div');
+                            colorBox.style.width = '14px';
+                            colorBox.style.height = '14px';
+                            colorBox.style.backgroundColor = item.color;
+                            colorBox.style.borderRadius = '3px';
+                            colorBox.style.flexShrink = '0';
+                            colorBox.style.border = '1px solid rgba(0,0,0,0.1)';
+                            
+                            const labelText = document.createElement('span');
+                            labelText.className = 'small';
+                            labelText.textContent = item.label;
+                            labelText.style.fontSize = '0.75rem';
+                            labelText.style.color = 'var(--gray-700)';
+                            labelText.style.fontWeight = '500';
+                            
+                            legendItem.appendChild(colorBox);
+                            legendItem.appendChild(labelText);
+                            
+                            // Store reference for updating all legend items
+                            legendItems.push({
+                                item: legendItem,
+                                colorBox: colorBox,
+                                labelText: labelText,
+                                originalIndex: originalIndex
+                            });
+                            
+                            // Show only clicked product on click
+                            legendItem.addEventListener('click', function() {
+                                const clickedMeta = reportsPricingChart.getDatasetMeta(originalIndex);
+                                const isCurrentlySolo = clickedMeta.hidden === false && 
+                                    sortedColors.every((otherItem, otherIdx) => {
+                                        if (otherIdx === index) return true;
+                                        const otherOriginalIdx = colors.findIndex(c => c.label === otherItem.label);
+                                        return reportsPricingChart.getDatasetMeta(otherOriginalIdx).hidden === true;
+                                    });
+                                
+                                if (isCurrentlySolo) {
+                                    // If this product is already solo, show all products
+                                    sortedColors.forEach((otherItem, otherIndex) => {
+                                        const otherOriginalIndex = colors.findIndex(c => c.label === otherItem.label);
+                                        const otherMeta = reportsPricingChart.getDatasetMeta(otherOriginalIndex);
+                                        const otherLegendItem = legendItems[otherIndex];
+                                        
+                                        otherMeta.hidden = false;
+                                        otherLegendItem.item.style.opacity = '1';
+                                        otherLegendItem.labelText.style.textDecoration = 'none';
+                                        otherLegendItem.colorBox.style.opacity = '1';
+                                        otherLegendItem.item.style.borderColor = '';
+                                        otherLegendItem.item.style.borderWidth = '';
+                                    });
+                                } else {
+                                    // Hide all datasets except the clicked one
+                                    sortedColors.forEach((otherItem, otherIndex) => {
+                                        const otherOriginalIndex = colors.findIndex(c => c.label === otherItem.label);
+                                        const otherMeta = reportsPricingChart.getDatasetMeta(otherOriginalIndex);
+                                        const otherLegendItem = legendItems[otherIndex];
+                                        
+                                        if (otherOriginalIndex === originalIndex) {
+                                            // Show the clicked product
+                                            otherMeta.hidden = false;
+                                            otherLegendItem.item.style.opacity = '1';
+                                            otherLegendItem.labelText.style.textDecoration = 'none';
+                                            otherLegendItem.colorBox.style.opacity = '1';
+                                            otherLegendItem.item.style.borderColor = 'var(--primary)';
+                                            otherLegendItem.item.style.borderWidth = '2px';
+                                        } else {
+                                            // Hide all other products
+                                            otherMeta.hidden = true;
+                                            otherLegendItem.item.style.opacity = '0.4';
+                                            otherLegendItem.labelText.style.textDecoration = 'line-through';
+                                            otherLegendItem.colorBox.style.opacity = '0.4';
+                                            otherLegendItem.item.style.borderColor = '';
+                                            otherLegendItem.item.style.borderWidth = '';
+                                        }
+                                    });
+                                }
+                                
+                                reportsPricingChart.update();
+                            });
+                            
+                            // Hover effect
+                            legendItem.addEventListener('mouseenter', function() {
+                                if (!reportsPricingChart.getDatasetMeta(originalIndex).hidden) {
+                                    legendItem.style.backgroundColor = 'var(--gray-50)';
+                                }
+                            });
+                            
+                            legendItem.addEventListener('mouseleave', function() {
+                                legendItem.style.backgroundColor = '';
+                            });
+                            
+                            legendCol.appendChild(legendItem);
+                            legendRow.appendChild(legendCol);
+                        });
+                        
+                        legendContainer.appendChild(legendRow);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching pricing data:', error);
+                    if (legendContainer) {
+                        legendContainer.innerHTML = '<div class="text-danger small"><i class="bi bi-exclamation-circle"></i> Error loading pricing data</div>';
+                    }
+                });
+        }
+        
+        // Update dates when page loads
+        updateReportsPricingPeriodDates();
+        
+        // Load initial graph
+        loadReportsPricingGraph(365);
+        
+        // Handle period change
+        const periodSelect = document.getElementById('reportsPricingGraphPeriod');
+        if (periodSelect) {
+            periodSelect.addEventListener('change', function() {
+                loadReportsPricingGraph(parseInt(this.value));
+            });
+        }
+        
+        // Handle refresh button
+        const refreshBtn = document.getElementById('refreshReportsPricingGraph');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                const period = document.getElementById('reportsPricingGraphPeriod')?.value || 365;
+                loadReportsPricingGraph(parseInt(period));
+            });
+        }
+        
+        // Reload graph when tab is shown
+        const pricingAnalysisTab = document.getElementById('pricing-analysis-tab');
+        if (pricingAnalysisTab) {
+            pricingAnalysisTab.addEventListener('shown.bs.tab', function() {
+                // Small delay to ensure canvas is visible
+                setTimeout(() => {
+                    const period = document.getElementById('reportsPricingGraphPeriod')?.value || 365;
+                    loadReportsPricingGraph(parseInt(period));
+                }, 100);
+            });
+        }
+        {% endif %}
+    });
 </script>
 </body>
 

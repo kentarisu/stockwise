@@ -13,8 +13,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive-enhancements.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 
     <style>
         :root {
@@ -383,30 +387,125 @@
         .demand-down { color: var(--danger); }
         .demand-stable { color: var(--gray-800); }
 
-        .summary-card {
-            background: white;
-            border-radius: var(--radius-md);
-            padding: var(--space-lg);
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            height: 100%;
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
         }
 
-        .summary-card h6 {
-            color: var(--gray-500);
-            font-size: 0.6rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
+        .stat-card {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 0.75rem;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+
+        .stat-icon.primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            box-shadow: 0 6px 14px -10px rgba(79, 70, 229, 0.6);
+        }
+
+        .stat-icon.warning {
+            background: linear-gradient(135deg, var(--warning), #dc6803);
+            box-shadow: 0 6px 14px -10px rgba(245, 158, 11, 0.6);
+        }
+
+        .stat-icon.danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 6px 14px -10px rgba(239, 68, 68, 0.6);
+        }
+
+        .stat-icon.success {
+            background: linear-gradient(135deg, var(--success), #059669);
+            box-shadow: 0 6px 14px -10px rgba(16, 185, 129, 0.6);
+        }
+
+        .stat-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .stat-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            line-height: 1.2;
             margin-bottom: 0.2rem;
         }
 
-        .summary-card h3 {
-            color: var(--gray-900);
-            font-size: 0.9rem;
-            font-weight: 700;
-            margin: 0;
-            line-height: 1.2;
+        .stat-label {
+            color: var(--gray-500);
+            font-size: 0.65rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .stat-subtitle {
+            color: var(--gray-400);
+            font-size: 0.6rem;
+            margin-top: 0.1rem;
+        }
+
+        /* Select2 Styling */
+        .select2-container--bootstrap-5 .select2-selection {
+            min-height: 31px !important;
+            font-size: 0.875rem !important;
+            border-color: var(--gray-300) !important;
+        }
+
+        .select2-container--bootstrap-5 .select2-selection--single {
+            padding: 0.25rem 0.5rem !important;
+        }
+
+        /* Refresh Button Styling */
+        #refreshDataBtn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        #refreshDataBtn:hover {
+            transform: rotate(15deg);
+        }
+
+        #refreshDataBtn:disabled {
+            opacity: 0.6;
+        }
+
+        /* Spinning animation */
+        @keyframes fa-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fa-spin {
+            animation: fa-spin 1s infinite linear;
         }
 
         .category-section {
@@ -455,6 +554,23 @@
         .details-modal .modal-body {
             max-height: 70vh;
             overflow-y: auto;
+        }
+
+        /* Sidebar - Match Dashboard */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(255, 255, 255, 0.95);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            height: calc(100vh - var(--header-height));
+            z-index: 1000;
+            transition: none;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
         }
 
         /* Ensure sidebar navigation is visible */
@@ -588,12 +704,15 @@
                     <select id="categoryFilter" class="form-select form-select-sm" style="width: auto; min-width: 150px;">
                         <option value="all">All Categories</option>
                     </select>
-                    <select id="periodSelect" class="form-select form-select-sm" style="width: auto; min-width: 120px;">
+                    <select id="periodSelect" class="form-select form-select-sm" style="width: auto; min-width: 200px;">
                         <option value="30">Last 30 Days</option>
                         <option value="90">Last 90 Days</option>
                         <option value="180">Last 6 Months</option>
                         <option value="365" selected>Last Year</option>
                     </select>
+                    <button id="refreshDataBtn" class="btn btn-sm btn-outline-primary" title="Refresh data">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
                 </div>
                 <div class="dropdown">
                     <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
@@ -743,29 +862,45 @@
 
             <div id="analysisContent" style="display: none;">
                 <!-- Summary Cards -->
-                <div class="row mb-4 g-3">
-                    <div class="col-md-3">
-                        <div class="summary-card">
-                            <h6>Total Products</h6>
-                            <h3 id="totalProducts">0</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalProducts">0</div>
+                            <div class="stat-label">Total Products</div>
+                            <div class="stat-subtitle">All product variants</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="summary-card">
-                            <h6>Price Changes</h6>
-                            <h3 id="totalPriceChanges">0</h3>
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalPriceChanges">0</div>
+                            <div class="stat-label">Price Changes</div>
+                            <div class="stat-subtitle">During selected period</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="summary-card">
-                            <h6>Avg Margin Error</h6>
-                            <h3 id="avgMarginError">0%</h3>
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="avgMarginError">0%</div>
+                            <div class="stat-label">Avg Margin Error</div>
+                            <div class="stat-subtitle">Pricing accuracy</div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="summary-card">
-                            <h6>Total Revenue</h6>
-                            <h3 id="totalRevenue">₱0</h3>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalRevenue">₱0</div>
+                            <div class="stat-label">Total Revenue</div>
+                            <div class="stat-subtitle">Total sales amount</div>
                         </div>
                     </div>
                 </div>
@@ -800,16 +935,233 @@
         let analysisData = [];
         let categorizedData = [];
         let detailCharts = {};
+        let dataLoaded = false; // In-memory flag - cleared on page refresh
+        let currentPeriod = 365; // Track current period
 
-        document.getElementById('periodSelect').addEventListener('change', function() {
-            loadAnalysisData(this.value);
+        // Check if page was manually refreshed (F5 or Ctrl+R)
+        function isManualRefresh() {
+            try {
+                // Modern Navigation Timing API
+                const navEntries = performance.getEntriesByType('navigation');
+                if (navEntries.length > 0) {
+                    return navEntries[0].type === 'reload';
+                }
+                // Legacy API fallback
+                if (performance.navigation && performance.navigation.type !== undefined) {
+                    return performance.navigation.type === 1; // TYPE_RELOAD
+                }
+            } catch (e) {
+                // API not available, assume it's a refresh to be safe
+                return true;
+            }
+            return false;
+        }
+
+        // Save current state to localStorage
+        function saveState() {
+            if (typeof Storage === 'undefined') return;
+            
+            const state = {
+                period: parseInt(document.getElementById('periodSelect')?.value || 365),
+                category: document.getElementById('categoryFilter')?.value || 'all',
+                dataLoaded: dataLoaded,
+                analysisData: analysisData,
+                categorizedData: categorizedData,
+                timestamp: Date.now()
+            };
+            
+            try {
+                localStorage.setItem('pricing_analysis_state', JSON.stringify(state));
+            } catch (e) {
+                console.error('Error saving state:', e);
+            }
+        }
+
+        // Load state from localStorage
+        function loadState() {
+            if (typeof Storage === 'undefined') return null;
+            
+            const saved = localStorage.getItem('pricing_analysis_state');
+            if (!saved) return null;
+            
+            try {
+                const state = JSON.parse(saved);
+                // Check if data is not too old (e.g., 1 hour)
+                const oneHour = 60 * 60 * 1000;
+                if (Date.now() - state.timestamp > oneHour) {
+                    return null;
+                }
+                return state;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Clear saved state
+        function clearState() {
+            localStorage.removeItem('pricing_analysis_state');
+        }
+
+        // Function to format date range for filter options
+        function updatePeriodSelectDates() {
+            const periodSelect = document.getElementById('periodSelect');
+            if (!periodSelect) return;
+            
+            const today = new Date();
+            const options = periodSelect.options;
+            
+            // Format date helper
+            function formatDate(date) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+            }
+            
+            // Update each option with date range
+            for (let i = 0; i < options.length; i++) {
+                const days = parseInt(options[i].value);
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - days);
+                
+                const startStr = formatDate(startDate);
+                const endStr = formatDate(today);
+                
+                // Update option text with date range
+                const baseText = options[i].text.split(' (')[0]; // Remove existing date if any
+                options[i].text = `${baseText} (${startStr} - ${endStr})`;
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePeriodSelectDates();
+            
+            // Initialize Select2 on category filter for searchable dropdown with custom matcher
+            $('#categoryFilter').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select a category',
+                width: '100%',
+                minimumResultsForSearch: 0, // Always show search box
+                matcher: function(params, data) {
+                    // If there are no search terms, return all data
+                    if ($.trim(params.term) === '') {
+                        return data;
+                    }
+                    
+                    // Skip if there is no 'text' property
+                    if (typeof data.text === 'undefined') {
+                        return null;
+                    }
+                    
+                    const searchTerm = params.term.toLowerCase();
+                    const optionText = data.text.toLowerCase();
+                    const filterType = $(data.element).attr('data-filter-type');
+                    const productName = $(data.element).attr('data-product');
+                    const variantName = $(data.element).attr('data-variant');
+                    
+                    // Check if the search term matches
+                    if (optionText.indexOf(searchTerm) > -1) {
+                        return data;
+                    }
+                    
+                    // For variant options, also check product and variant names separately
+                    if (filterType === 'variant') {
+                        if ((productName && productName.toLowerCase().indexOf(searchTerm) > -1) ||
+                            (variantName && variantName.toLowerCase().indexOf(searchTerm) > -1)) {
+                            return data;
+                        }
+                    }
+                    
+                    // Return null if no match
+                    return null;
+                }
+            });
+
+            // Event handlers
+            document.getElementById('periodSelect').addEventListener('change', function() {
+                loadAnalysisData(parseInt(this.value), true); // Force reload when user changes period
+            });
+
+            // Refresh button handler
+            document.getElementById('refreshDataBtn').addEventListener('click', function() {
+                const period = parseInt(document.getElementById('periodSelect').value);
+                const btn = this;
+                const icon = btn.querySelector('i');
+                
+                // Add spinning animation
+                icon.style.animation = 'fa-spin 1s infinite linear';
+                btn.disabled = true;
+                
+                // Clear state and force reload
+                clearState();
+                dataLoaded = false;
+                
+                // Wait for animation then reload
+                setTimeout(() => {
+                    loadAnalysisData(period, true);
+                    
+                    // Stop spinning after data loads
+                    setTimeout(() => {
+                        icon.style.animation = '';
+                        btn.disabled = false;
+                    }, 500);
+                }, 100);
+            });
+
+            // Use jQuery event for Select2 compatibility
+            $('#categoryFilter').on('change', function() {
+                filterByCategory(this.value);
+                saveState(); // Save state when category changes
+            });
+
+            // Check if this is a manual refresh or navigation
+            const wasManuallyRefreshed = isManualRefresh();
+            
+            if (wasManuallyRefreshed) {
+                // Manual refresh: clear state and load fresh data
+                console.log('Manual refresh detected - loading fresh data');
+                clearState();
+                loadAnalysisData(365);
+            } else {
+                // Navigation: try to restore previous state
+                console.log('Navigation detected - attempting to restore state');
+                const savedState = loadState();
+                
+                if (savedState && savedState.dataLoaded && savedState.analysisData && savedState.categorizedData) {
+                    // Restore from saved state
+                    console.log('Restoring from saved state');
+                    analysisData = savedState.analysisData;
+                    categorizedData = savedState.categorizedData;
+                    dataLoaded = true;
+                    currentPeriod = savedState.period;
+                    
+                    // Set period select value
+                    document.getElementById('periodSelect').value = savedState.period;
+                    
+                    // Render with saved data
+                    renderAnalysis(savedState.analysisData, savedState.categorizedData);
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    document.getElementById('analysisContent').style.display = 'block';
+                    
+                    // Restore category filter after a short delay to ensure Select2 and options are ready
+                    if (savedState.category) {
+                        setTimeout(() => {
+                            $('#categoryFilter').val(savedState.category).trigger('change.select2');
+                        }, 200);
+                    }
+                } else {
+                    // No saved state: load fresh data
+                    console.log('No saved state - loading fresh data');
+                    loadAnalysisData(365);
+                }
+            }
         });
 
-        document.getElementById('categoryFilter').addEventListener('change', function() {
-            filterByCategory(this.value);
-        });
-
-        function loadAnalysisData(days = 365) {
+        function loadAnalysisData(days = 365, forceReload = false) {
+            // If data is already loaded and not forcing reload, skip
+            if (dataLoaded && !forceReload && currentPeriod === days) {
+                return;
+            }
+            
             document.getElementById('loadingIndicator').style.display = 'block';
             document.getElementById('analysisContent').style.display = 'none';
 
@@ -819,8 +1171,15 @@
                     if (data.success) {
                         analysisData = data.data;
                         renderAnalysis(data.data, data.categorized);
+                        
+                        dataLoaded = true;
+                        currentPeriod = days;
+                        
                         document.getElementById('loadingIndicator').style.display = 'none';
                         document.getElementById('analysisContent').style.display = 'block';
+                        
+                        // Save state after successful load
+                        saveState();
                     } else {
                         alert('Error loading data: ' + data.message);
                         document.getElementById('loadingIndicator').style.display = 'none';
@@ -834,6 +1193,44 @@
         }
 
         function renderAnalysis(data, categorized) {
+            // Sort data alphabetically by product name, variant, and quantity_unit
+            data.sort((a, b) => {
+                const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
+                const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            // Sort categorized data alphabetically by product name
+            if (categorized && Array.isArray(categorized)) {
+                categorized.forEach(category => {
+                    if (category.products && Array.isArray(category.products)) {
+                        category.products.sort((a, b) => {
+                            // Sort by variant first, then quantity_unit
+                            const variantA = (a.variant || '').toLowerCase();
+                            const variantB = (b.variant || '').toLowerCase();
+                            if (variantA !== variantB) {
+                                return variantA.localeCompare(variantB);
+                            }
+                            const unitA = (a.quantity_unit || '').toLowerCase();
+                            const unitB = (b.quantity_unit || '').toLowerCase();
+                            return unitA.localeCompare(unitB);
+                        });
+                    }
+                });
+                // Sort categories alphabetically by product name
+                categorized.sort((a, b) => {
+                    const catA = (a.category || '').toLowerCase();
+                    const catB = (b.category || '').toLowerCase();
+                    if (catA !== catB) {
+                        return catA.localeCompare(catB);
+                    }
+                    // If same product, sort by variant
+                    const varA = (a.variant || '').toLowerCase();
+                    const varB = (b.variant || '').toLowerCase();
+                    return varA.localeCompare(varB);
+                });
+            }
+            
             analysisData = data;
             categorizedData = categorized || [];
             
@@ -865,23 +1262,61 @@
             // Populate category filter
             populateCategoryFilter(categorized);
 
-            // Render product cards
+            // Render product cards (default to 'all')
             filterByCategory('all');
         }
 
         function populateCategoryFilter(categorized) {
-            const filter = document.getElementById('categoryFilter');
+            const filter = $('#categoryFilter');
             // Keep "All Categories" option
-            filter.innerHTML = '<option value="all">All Categories</option>';
+            filter.html('<option value="all">All Categories</option>');
             
             if (categorized && categorized.length > 0) {
+                // Sort categories by product name and variant
+                const sortedCategories = [...categorized].sort((a, b) => {
+                    const nameCompare = a.category.localeCompare(b.category);
+                    if (nameCompare !== 0) return nameCompare;
+                    return a.variant.localeCompare(b.variant);
+                });
+                
+                // Add an option for each product name (all variants combined)
+                const productsMap = {};
                 categorized.forEach(category => {
-                    const option = document.createElement('option');
-                    option.value = `${category.category} - ${category.variant}`;
-                    option.textContent = `${category.category} - ${category.variant} (${category.products.length})`;
-                    filter.appendChild(option);
+                    const productName = category.category;
+                    if (!productsMap[productName]) {
+                        productsMap[productName] = {
+                            count: 0
+                        };
+                    }
+                    productsMap[productName].count += category.products.length;
+                });
+                
+                Object.keys(productsMap).sort().forEach(productName => {
+                    const count = productsMap[productName].count;
+                    const productText = count === 1 ? 'product' : 'products';
+                    const option = $('<option></option>')
+                        .attr('value', productName)
+                        .attr('data-filter-type', 'product')
+                        .text(`${productName} (${count} ${productText})`);
+                    filter.append(option);
+                });
+                
+                // Add individual variant options for granular filtering
+                sortedCategories.forEach(category => {
+                    const count = category.products.length;
+                    const productText = count === 1 ? 'product' : 'products';
+                    const option = $('<option></option>')
+                        .attr('value', `${category.category}|${category.variant}`)
+                        .attr('data-filter-type', 'variant')
+                        .attr('data-product', category.category)
+                        .attr('data-variant', category.variant)
+                        .text(`${category.category} (${category.variant}) - ${count} ${productText}`);
+                    filter.append(option);
                 });
             }
+            
+            // Trigger Select2 to refresh the dropdown
+            filter.trigger('change.select2');
         }
 
         function filterByCategory(categoryValue) {
@@ -901,33 +1336,67 @@
                 return;
             }
 
-            // Filter categories
-            const filteredCategories = categoryValue === 'all' 
-                ? categorizedData 
-                : categorizedData.filter(cat => `${cat.category} - ${cat.variant}` === categoryValue);
-
-            filteredCategories.forEach(category => {
-                const categorySection = createCategorySection(category);
+            // Check if this is a variant-specific filter (contains '|' separator)
+            let categoriesToShow;
+            if (categoryValue === 'all') {
+                categoriesToShow = categorizedData;
+            } else if (categoryValue.includes('|')) {
+                // Variant-specific filter: "ProductName|VariantName"
+                const [productName, variantName] = categoryValue.split('|');
+                categoriesToShow = categorizedData.filter(cat => 
+                    cat.category === productName && cat.variant === variantName
+                );
+            } else {
+                // Product-level filter: show all variants of this product
+                categoriesToShow = categorizedData.filter(cat => cat.category === categoryValue);
+            }
+            
+            // Group categories by product name first
+            const productsMap = {};
+            categoriesToShow.forEach(category => {
+                const productName = category.category;
+                if (!productsMap[productName]) {
+                    productsMap[productName] = {
+                        category: productName,
+                        variants: [],
+                        allProducts: []
+                    };
+                }
+                productsMap[productName].variants.push(category.variant);
+                productsMap[productName].allProducts.push(...category.products);
+            });
+            
+            // Create sections for each product (with all variants combined)
+            Object.keys(productsMap).sort().forEach(productName => {
+                const productGroup = productsMap[productName];
+                const categorySection = createProductCategorySection(productGroup);
                 container.appendChild(categorySection);
             });
         }
 
-        function createCategorySection(category) {
+        function createProductCategorySection(productGroup) {
             const section = document.createElement('div');
-            section.className = 'mb-4';
+            section.className = 'mb-5';
             
             const categoryHeader = document.createElement('div');
             categoryHeader.className = 'd-flex align-items-center mb-3';
             categoryHeader.style.cssText = 'padding: 1rem; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: var(--radius-md); color: white;';
             
+            // Get unique variants
+            const uniqueVariants = [...new Set(productGroup.variants.filter(v => v && v !== 'Standard'))];
+            const variantText = uniqueVariants.length > 0 
+                ? ` (${uniqueVariants.join(', ')})` 
+                : '';
+            
             categoryHeader.innerHTML = `
                 <div class="flex-grow-1">
                     <h4 class="mb-0" style="color: white; font-weight: 600;">
-                        <i class="bi bi-tags me-2"></i>
-                        ${category.category} - ${category.variant}
+                        <i class="bi bi-box-seam me-2"></i>
+                        ${productGroup.category}${variantText}
                     </h4>
                     <small style="color: rgba(255,255,255,0.9);">
-                        ${category.products.length} product${category.products.length !== 1 ? 's' : ''}
+                        ${productGroup.allProducts.length} product${productGroup.allProducts.length !== 1 ? 's' : ''} 
+                        ${uniqueVariants.length > 0 ? `across ${uniqueVariants.length} variant${uniqueVariants.length !== 1 ? 's' : ''}` : ''}
                     </small>
                 </div>
             `;
@@ -938,7 +1407,14 @@
             const productsGrid = document.createElement('div');
             productsGrid.className = 'row g-3';
             
-            category.products.forEach(product => {
+            // Sort products alphabetically by variant and quantity_unit
+            productGroup.allProducts.sort((a, b) => {
+                const nameA = `${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
+                const nameB = `${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            productGroup.allProducts.forEach(product => {
                 const col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-4';
                 const card = createProductCard(product, true); // true = compact view
@@ -948,6 +1424,15 @@
             
             section.appendChild(productsGrid);
             return section;
+        }
+        
+        // Keep old function for backward compatibility if needed
+        function createCategorySection(category) {
+            return createProductCategorySection({
+                category: category.category,
+                variants: [category.variant],
+                allProducts: category.products
+            });
         }
 
         function createProductCard(product, compact = false) {
@@ -1092,12 +1577,22 @@
         }
 
         function createPriceChart(canvas, product) {
+            // Enable HD rendering for crisp graphs
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
             const priceData = product.price_history || [];
             const labels = priceData.map(p => new Date(p.date).toLocaleDateString());
             const prices = priceData.map(p => p.price);
             const quantities = priceData.map(p => p.quantity);
 
-            return new Chart(canvas, {
+            return new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -1108,7 +1603,10 @@
                             borderColor: '#6366f1',
                             backgroundColor: 'rgba(99, 102, 241, 0.1)',
                             yAxisID: 'y',
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 6
                         },
                         {
                             label: 'Quantity Sold',
@@ -1116,13 +1614,17 @@
                             borderColor: '#10b981',
                             backgroundColor: 'rgba(16, 185, 129, 0.1)',
                             yAxisID: 'y1',
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    devicePixelRatio: dpr,
                     interaction: {
                         mode: 'index',
                         intersect: false,
@@ -1130,11 +1632,61 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Price vs Demand Over Time'
+                            text: 'Price vs Demand Over Time',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
                         },
                         legend: {
                             display: true,
-                            position: 'top'
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 12
+                                },
+                                padding: 12,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            padding: 10,
+                            titleFont: {
+                                size: 13,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            // Sort tooltip items alphabetically
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y !== null ? context.parsed.y : 'N/A';
+                                    const prefix = context.dataset.label === 'Price (₱)' ? '₱' : '';
+                                    return context.dataset.label + ': ' + prefix + (typeof value === 'number' ? value.toFixed(2) : value);
+                                },
+                                // Sort tooltip items alphabetically by dataset label
+                                afterBody: function(context) {
+                                    // Sort context items by dataset label alphabetically
+                                    const sorted = context.slice().sort((a, b) => {
+                                        const labelA = a.dataset.label || '';
+                                        const labelB = b.dataset.label || '';
+                                        return labelA.localeCompare(labelB);
+                                    });
+                                    // Return empty array to use sorted labels from label callback
+                                    return [];
+                                },
+                                // Override the filter to maintain order
+                                filter: function(tooltipItem) {
+                                    return tooltipItem.parsed.y !== null;
+                                }
+                            },
+                            // Sort tooltip items
+                            itemSort: function(a, b) {
+                                const labelA = a.dataset.label || '';
+                                const labelB = b.dataset.label || '';
+                                return labelA.localeCompare(labelB);
+                            }
                         }
                     },
                     scales: {
@@ -1144,7 +1696,19 @@
                             position: 'left',
                             title: {
                                 display: true,
-                                text: 'Price (₱)'
+                                text: 'Price (₱)',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         },
                         y1: {
@@ -1153,10 +1717,31 @@
                             position: 'right',
                             title: {
                                 display: true,
-                                text: 'Quantity'
+                                text: 'Quantity',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
                             },
                             grid: {
                                 drawOnChartArea: false
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
                             }
                         }
                     }
@@ -1419,9 +2004,6 @@
                     document.body.style.overflow = '';
                 }
             });
-
-            // Load data on page load
-            loadAnalysisData(365);
         });
     </script>
 
@@ -1452,3 +2034,4 @@
     </div>
 </body>
 </html>
+

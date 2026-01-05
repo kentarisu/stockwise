@@ -57,9 +57,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('Created admin user for sales data'))
 
         # Start date: November 1, 2024
-        # End date: November 30, 2025 (one full year)
+        # End date: Today (to ensure recent sales data for demand ratio calculation)
         start_date = datetime(2024, 11, 1)
-        end_date = datetime(2025, 11, 30)
+        end_date = datetime.now()  # Generate up to today to ensure recent sales
 
         with transaction.atomic():
             # Clear existing sales if requested
@@ -158,10 +158,21 @@ class Command(BaseCommand):
                     # Calculate daily sales with seasonality
                     base_range = base_daily_sales.get(product.name, {'min': 1, 'max': 5})
                     seasonal = seasonal_multiplier(current_date)
+                    
+                    # Calculate base daily sales
                     daily_sales = max(0, int(random.uniform(
                         base_range['min'] * seasonal,
                         base_range['max'] * seasonal
                     )))
+                    
+                    # Ensure minimum 1 sale per day for recent dates (last 30 days) to avoid 0.00x demand ratio
+                    days_from_end = (end_date.date() - current_date.date()).days
+                    if days_from_end <= 30:
+                        daily_sales = max(1, daily_sales)  # At least 1 sale in recent period
+                    elif days_from_end <= 60:
+                        # For days 31-60, ensure at least occasional sales (50% chance of at least 1)
+                        if daily_sales == 0 and random.random() < 0.5:
+                            daily_sales = 1
 
                     # Simulate price changes (gradual changes over time)
                     if len(price_history) == 0:
@@ -222,14 +233,21 @@ class Command(BaseCommand):
                     status='completed'
                 ).aggregate(total=Sum('quantity'))['total'] or Decimal('0')
 
-                # Add initial stock addition if needed
+                # Add initial stock addition if needed (use reasonable amount, not 10000)
                 if not StockAddition.objects.filter(product=product).exists():
+                    # Use a more reasonable initial stock based on expected sales
+                    # Calculate average daily sales and set initial stock to cover ~30 days
+                    avg_daily_sales = total_sold / max(1, (end_date - start_date).days)
+                    initial_stock = max(Decimal('100'), Decimal(str(int(avg_daily_sales * 30))))
+                    # Cap at 1000 to avoid excessive initial stock
+                    initial_stock = min(initial_stock, Decimal('1000'))
+                    
                     StockAddition.objects.create(
                         product=product,
-                        quantity=Decimal('10000'),
+                        quantity=initial_stock,
                         cost=product.cost,
                         batch_id='INIT001',
-                        remaining_quantity=Decimal('10000') - total_sold,
+                        remaining_quantity=initial_stock - total_sold,
                     )
 
                 self.stdout.write(
@@ -240,5 +258,5 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(self.style.SUCCESS(
-            f'\n✅ Successfully generated sales data from November 1, 2024 to November 30, 2025!'
+            f'\n✅ Successfully generated sales data from November 1, 2024 to {end_date.date()}!'
         ))

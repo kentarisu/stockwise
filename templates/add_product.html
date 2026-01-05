@@ -788,8 +788,9 @@ $(document).ready(function(){
         // If price is entered, calculate and show markup percentage
         if (!isNaN(priceVal) && priceVal > 0 && costVal > 0) {
             const markupPercent = ((priceVal - costVal) / costVal) * 100;
+            const markupAmount = priceVal - costVal;
             if (markupPercent >= 0) {
-                hintEl.text(`Markup: ${markupPercent.toFixed(2)}%`);
+                hintEl.text(`Markup: ${markupPercent.toFixed(2)}% (₱${markupAmount.toFixed(2)} increase)`);
             } else {
                 hintEl.text('Price cannot be less than cost');
             }

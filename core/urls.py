@@ -47,6 +47,7 @@ path('api/products/<int:product_id>/delete/', views.product_delete, name='delete
 	path('api/products/<int:product_id>/stock/decrease/', views.stock_decrease, name='stock_decrease'),
 	# Alternate simple stock details endpoint (used by modal for stability)
 	path('api/products/<int:product_id>/stock_details/', views.fetch_stock_details, name='fetch_stock_details'),
+	path('api/products/<int:product_id>/fifo-pricing/', views.calculate_fifo_pricing_api, name='calculate_fifo_pricing'),
 	path('api/products/built-in/', views.fetch_built_in_products, name='fetch_built_in_products'),
 	
 	# Sales URLs

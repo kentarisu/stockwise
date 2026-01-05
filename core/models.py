@@ -47,6 +47,8 @@ class StockAddition(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True)
 	remaining_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 	cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+	price = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)  # Price for this stock addition
+	update_product_price = models.BooleanField(default=False)  # Whether to update product's default price
 	batch_id = models.CharField(max_length=20)
 	supplier = models.CharField(max_length=100, null=True, blank=True)
 	spoiled = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Supports decimal for kg products
@@ -123,6 +125,7 @@ class Sale(models.Model):
 	voided_at = models.DateTimeField(null=True, blank=True)
 	void_reason = models.CharField(max_length=255, null=True, blank=True)
 	stock_restored = models.BooleanField(default=False)
+	fifo_breakdown = models.TextField(null=True, blank=True)  # Store FIFO breakdown as JSON string
 
 	class Meta:
 		db_table = 'sales'

@@ -392,9 +392,8 @@ GOOGLE_ALLOWED_ACCOUNTS = {
     },
 }
 
-if os.getenv('DATABASE_URL'):
-    import dj_database_url
-    DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URL'), conn_max_age=600)
+# DATABASE_URL is already handled above at lines 186-194 with proper error handling
+# No need to parse it again here
 
 # ========== EMAIL / TWO-FACTOR SETTINGS ==========
 # Default to SMTP backend (production-safe). Override via EMAIL_BACKEND env var if needed.

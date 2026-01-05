@@ -17,6 +17,16 @@ class CoreConfig(AppConfig):
         from django.core.signals import request_started
         from pathlib import Path
         
+        # Auto-run migrations if needed (for hosting platforms without shell access)
+        if os.getenv('AUTO_MIGRATE', 'false').lower() == 'true':
+            try:
+                from django.core.management import call_command
+                logger.info("Running migrations automatically...")
+                call_command('migrate', '--noinput')
+                logger.info("Migrations completed successfully")
+            except Exception as e:
+                logger.error(f"Auto-migration failed: {e}")
+        
         # Ensure media directories exist (create them if possible, ignore permission errors)
         try:
             media_root = Path(settings.MEDIA_ROOT)

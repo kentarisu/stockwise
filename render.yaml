@@ -4,7 +4,10 @@ services:
     name: stockwise-web
     env: python
     plan: starter  # You can change to standard or pro based on your needs
-    buildCommand: pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py migrate --noinput
+      python manage.py collectstatic --noinput
     startCommand: gunicorn stockwise_py.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 120
     dockerfilePath: ""  # Use buildpacks, not Dockerfile
     disk:
@@ -32,6 +35,8 @@ services:
         sync: false  # Set this manually in Render dashboard (same value as worker)
       - key: IPROG_SENDER_NAME
         value: kaprets  # Always use 'kaprets' for all SMS
+      - key: AUTO_MIGRATE
+        value: true  # Auto-run migrations on startup (useful for platforms without shell access)
     healthCheckPath: /
     autoDeploy: true
 

@@ -5464,10 +5464,11 @@
                                 const date = new Date(batch.date_added);
                                 const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                                 const batchQty = (isKg && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
+                                const qtyUnit = isKg ? ' kg' : ''; // Only show 'kg' for kilogram products
                                 itemsBody.append(`
                                     <tr class="fifo-breakdown-row" style="background: #f8f9fa;">
                                         <td style="padding-left: 2rem;"><small>└─ ${desc} - Batch #${batch.addition_id} (${dateStr})</small></td>
-                                        <td class="text-end"><small>${batchQty} ${unit || ''}</small></td>
+                                        <td class="text-end"><small>${batchQty}${qtyUnit}</small></td>
                                         <td><small>Batch #${batch.addition_id}</small></td>
                                         <td class="text-end"><small>₱${formatCurrency(batch.price)}</small></td>
                                         <td class="text-end"><small>₱${formatCurrency(batch.subtotal)}</small></td>

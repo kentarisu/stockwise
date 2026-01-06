@@ -12314,20 +12314,20 @@ def transaction_details(request, sale_id):
                     # If no stored breakdown, calculate it (for old sales)
                     if not fifo_breakdown:
                         print(f"DEBUG transaction_details: No stored FIFO breakdown, calculating for sale {sale.sale_id}")
-                    sale_date = sale.recorded_at if hasattr(sale, 'recorded_at') and sale.recorded_at else None
-                    if sale_date:
-                        # Ensure sale_date is timezone-aware datetime
-                        from django.utils import timezone
-                        if timezone.is_naive(sale_date):
-                            sale_date = timezone.make_aware(sale_date)
-                    print(f"DEBUG transaction_details: Calculating FIFO for sale {sale.sale_id}, product {sale.product.product_id}, qty {sale.quantity}, date {sale_date}")
-                    fifo_result = calculate_fifo_pricing(sale.product.product_id, sale.quantity, sale_date, exclude_sale_id=sale.sale_id)
-                    print(f"DEBUG transaction_details: FIFO result type: {type(fifo_result)}, value: {fifo_result}")
-                    if fifo_result and fifo_result.get('breakdown'):
-                        fifo_breakdown = fifo_result['breakdown']
-                        print(f"DEBUG transaction_details: FIFO breakdown has {len(fifo_breakdown)} batches: {fifo_breakdown}")
-                    else:
-                        print(f"DEBUG transaction_details: No FIFO breakdown returned for sale {sale.sale_id}, result: {fifo_result}")
+                        sale_date = sale.recorded_at if hasattr(sale, 'recorded_at') and sale.recorded_at else None
+                        if sale_date:
+                            # Ensure sale_date is timezone-aware datetime
+                            from django.utils import timezone
+                            if timezone.is_naive(sale_date):
+                                sale_date = timezone.make_aware(sale_date)
+                        print(f"DEBUG transaction_details: Calculating FIFO for sale {sale.sale_id}, product {sale.product.product_id}, qty {sale.quantity}, date {sale_date}")
+                        fifo_result = calculate_fifo_pricing(sale.product.product_id, sale.quantity, sale_date, exclude_sale_id=sale.sale_id)
+                        print(f"DEBUG transaction_details: FIFO result type: {type(fifo_result)}, value: {fifo_result}")
+                        if fifo_result and fifo_result.get('breakdown'):
+                            fifo_breakdown = fifo_result['breakdown']
+                            print(f"DEBUG transaction_details: FIFO breakdown has {len(fifo_breakdown)} batches: {fifo_breakdown}")
+                        else:
+                            print(f"DEBUG transaction_details: No FIFO breakdown returned for sale {sale.sale_id}, result: {fifo_result}")
                 except Exception as e:
                     import traceback
                     print(f"ERROR transaction_details: Could not get FIFO breakdown for sale {sale.sale_id}: {e}")

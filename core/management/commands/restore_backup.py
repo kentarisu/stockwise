@@ -205,9 +205,29 @@ class Command(BaseCommand):
             # Load data from JSON file
             try:
                 self.stdout.write('  - Loading backup data...')
-                # Use verbosity=2 to see more details
-                call_command('loaddata', str(backup_file), verbosity=2)
-                self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
+                
+                # For PostgreSQL, disable constraints temporarily during load
+                from django.db import connection
+                is_postgresql = 'postgresql' in settings.DATABASES['default']['ENGINE']
+                
+                if is_postgresql:
+                    self.stdout.write('  - Disabling PostgreSQL constraints...')
+                    with connection.cursor() as cursor:
+                        # Disable triggers (includes FK constraints)
+                        cursor.execute("SET session_replication_role = 'replica';")
+                    self.stdout.write(self.style.SUCCESS('  ✓ Constraints disabled'))
+                
+                try:
+                    # Use verbosity=2 to see more details
+                    call_command('loaddata', str(backup_file), verbosity=2)
+                    self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
+                finally:
+                    # Re-enable constraints for PostgreSQL
+                    if is_postgresql:
+                        self.stdout.write('  - Re-enabling PostgreSQL constraints...')
+                        with connection.cursor() as cursor:
+                            cursor.execute("SET session_replication_role = 'origin';")
+                        self.stdout.write(self.style.SUCCESS('  ✓ Constraints re-enabled'))
                 
                 # Verify data was loaded by checking a few key models
                 try:

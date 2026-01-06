@@ -327,21 +327,24 @@ class Command(BaseCommand):
                                 elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
                                     cursor.execute("SET session_replication_role = 'replica'")
                                 
-                                # Get all table names
+                                # Get all table names EXCEPT app users
                                 if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
-                                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+                                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'core_appuser'")
                                     tables = [row[0] for row in cursor.fetchall()]
                                     for table in tables:
-                                        cursor.execute(f"DELETE FROM {table}")
+                                        if table != 'core_appuser':  # Extra safety check
+                                            cursor.execute(f"DELETE FROM {table}")
                                 elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
                                     cursor.execute("""
                                         SELECT tablename FROM pg_tables 
                                         WHERE schemaname = 'public' 
                                         AND tablename NOT LIKE 'django_%'
+                                        AND tablename != 'core_appuser'
                                     """)
                                     tables = [row[0] for row in cursor.fetchall()]
                                     for table in tables:
-                                        cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
+                                        if table != 'core_appuser':  # Extra safety check
+                                            cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
                                     cursor.execute("SET session_replication_role = 'origin'")
                                 
                                 # Re-enable foreign key checks

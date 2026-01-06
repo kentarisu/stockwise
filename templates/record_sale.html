@@ -1878,9 +1878,11 @@ $('#discountPercentage').on('input', function(){
   const items = window.saleItems || [];
   items.forEach(item => {
     if (item.fifo_breakdown && Array.isArray(item.fifo_breakdown)) {
-      // Sum up cost from FIFO breakdown
+      // Sum up cost from FIFO breakdown (price = cost in FIFO context)
       item.fifo_breakdown.forEach(batch => {
-        totalCost += batch.cost * batch.quantity;
+        const batchCost = parseFloat(batch.price) || 0;
+        const batchQty = parseFloat(batch.quantity) || 0;
+        totalCost += batchCost * batchQty;
       });
     }
   });

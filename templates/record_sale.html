@@ -831,6 +831,7 @@
               {% if app_role == 'admin' %}
               <tr><th>Discount Percentage (%)</th><td><input type="number" class="form-control" id="discountPercentage" min="0" max="100" step="0.01" placeholder="0.00"></td></tr>
               <tr><th>Discount Amount</th><td class="text-end">₱<span id="paymentDiscountAmount">0.00</span></td></tr>
+              <tr id="profitWarningRow" class="d-none table-danger"><th colspan="2" class="text-center"><i class="bi bi-exclamation-triangle-fill me-2"></i><span id="profitWarningText">Warning: This discount will result in a loss!</span></th></tr>
               {% endif %}
               <tr><th>Amount Tendered</th><td><input type="number" class="form-control" id="paymentTendered" min="0" step="0.01" required placeholder="Amount received"></td></tr>
               <tr><th>Change</th><td class="text-end">₱<span id="paymentChange">0.00</span></td></tr>
@@ -1859,7 +1860,46 @@ $(document).ready(function(){
   $('#backToStep1').on('click',function(){ if(currentStep===2){ showStep(1); } else if(currentStep===3){ showStep(2); }});
   $('#confirmPaymentStep').on('click',function(){ const tendered=parseFloat($('#paymentTendered').val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; if(tendered<total){ $('#buyFormAlert').html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Amount tendered is less than total amount.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'); return; } const change=tendered-total; $('#paymentChange').text(formatCurrency(change)); generateReceipt(); showStep(3); });
   $('#paymentTendered').on('input',function(){ const t=parseFloat($(this).val())||0; const total=parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const change=t-total; $('#paymentChange').text(formatCurrency(change)); $('#confirmPaymentStep').prop('disabled', t<total); });
-$('#discountPercentage').on('input', function(){ const pct=parseFloat($(this).val())||0; const base=window.originalTotalWithVAT||parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; const applied=Math.max(0,Math.min(100,pct))/100; const discountAmt=base*applied; const final=base-discountAmt; $('#paymentDiscountAmount').text(formatCurrency(discountAmt)); $('#paymentTotalWithVAT').text(formatCurrency(final)); const t=parseFloat($('#paymentTendered').val())||0; const change=t-final; $('#paymentChange').text(formatCurrency(change)); $('#confirmPaymentStep').prop('disabled', t<final); });
+$('#discountPercentage').on('input', function(){ 
+  const pct=parseFloat($(this).val())||0; 
+  const base=window.originalTotalWithVAT||parseFloat($('#paymentTotalWithVAT').text().replace(/,/g,''))||0; 
+  const applied=Math.max(0,Math.min(100,pct))/100; 
+  const discountAmt=base*applied; 
+  const final=base-discountAmt; 
+  $('#paymentDiscountAmount').text(formatCurrency(discountAmt)); 
+  $('#paymentTotalWithVAT').text(formatCurrency(final)); 
+  const t=parseFloat($('#paymentTendered').val())||0; 
+  const change=t-final; 
+  $('#paymentChange').text(formatCurrency(change)); 
+  $('#confirmPaymentStep').prop('disabled', t<final);
+  
+  // Calculate total cost from FIFO breakdown
+  let totalCost = 0;
+  const items = window.saleItems || [];
+  items.forEach(item => {
+    if (item.fifo_breakdown && Array.isArray(item.fifo_breakdown)) {
+      // Sum up cost from FIFO breakdown
+      item.fifo_breakdown.forEach(batch => {
+        totalCost += batch.cost * batch.quantity;
+      });
+    }
+  });
+  
+  // Check if discount causes loss
+  const profitAfterDiscount = final - totalCost;
+  const warningRow = $('#profitWarningRow');
+  const warningText = $('#profitWarningText');
+  
+  if (profitAfterDiscount < 0 && totalCost > 0) {
+    // Show warning with loss amount
+    const lossAmount = Math.abs(profitAfterDiscount);
+    warningText.html(`<i class="bi bi-exclamation-triangle-fill me-2"></i>WARNING: This discount will cause a loss of ₱${formatCurrency(lossAmount)}!`);
+    warningRow.removeClass('d-none');
+  } else {
+    // Hide warning
+    warningRow.addClass('d-none');
+  }
+});
   $('#recordSaleBtn').on('click',recordSale);
   $('#printReceiptBtn,#printReceiptAfterBtn').on('click',printReceipt);
   $('#cancelBtn').on('click', function() {

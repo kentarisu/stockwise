@@ -28,11 +28,6 @@ class Command(BaseCommand):
             action='store_true',
             help='Include static files in backup (optional)',
         )
-        parser.add_argument(
-            '--data-only',
-            action='store_true',
-            help='Backup data only, skip media files for faster backup',
-        )
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Starting backup process...'))
@@ -80,17 +75,13 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.ERROR(f'Failed to create JSON backup: {e}'))
                     raise
                 
-                # 2. Backup media files (unless --data-only flag is set)
+                # 2. Backup media files
+                self.stdout.write('Backing up media files...')
+                media_root = Path(getattr(settings, 'MEDIA_ROOT', settings.BASE_DIR / 'media'))
                 media_count = 0
                 media_size = 0
                 
-                if options.get('data_only'):
-                    self.stdout.write(self.style.WARNING('⚡ Skipping media files (data-only backup)'))
-                else:
-                    self.stdout.write('Backing up media files...')
-                    media_root = Path(getattr(settings, 'MEDIA_ROOT', settings.BASE_DIR / 'media'))
-                
-                if not options.get('data_only') and media_root.exists() and media_root.is_dir():
+                if media_root.exists() and media_root.is_dir():
                     # Walk through media directory and add files to ZIP
                     for root, dirs, files in os.walk(media_root):
                         # Skip hidden directories and __pycache__

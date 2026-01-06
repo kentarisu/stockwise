@@ -2209,6 +2209,8 @@ def product_edit(request, product_id):
         data = json.loads(request.body)
         with transaction.atomic():
             product = Product.objects.get(product_id=product_id)
+            old_price = product.price  # Store old price
+            
             product.name = sanitize_text(data.get('name', ''), 120)
             unit_val = sanitize_text(data.get('quantity_unit', ''), 20).lower()
             product.quantity_unit = unit_val
@@ -2220,8 +2222,36 @@ def product_edit(request, product_id):
             if role == 'secretary':
                 pass
             else:
-                product.price = clamp_decimal(str(data.get('price', '0')), '0', '0.01')
+                new_price = clamp_decimal(str(data.get('price', '0')), '0', '0.01')
+                product.price = new_price
                 product.cost = clamp_decimal(str(data.get('cost', '0')), '0', '0.01')
+                
+                # Track price change if price changed
+                if old_price != new_price:
+                    from core.models import PriceChangeHistory
+                    change_pct = ((new_price - old_price) / old_price * 100) if old_price > 0 else 0
+                    try:
+                        user = AppUser.objects.get(user_id=request.session.get('app_user_id'))
+                    except:
+                        user = None
+                    
+                    PriceChangeHistory.objects.create(
+                        product=product,
+                        old_price=old_price,
+                        new_price=new_price,
+                        change_pct=change_pct,
+                        reason='manual',
+                        reason_details=f'Price manually updated from ₱{old_price} to ₱{new_price}',
+                        stock_level=product.stock,
+                        created_by=user
+                    )
+                    
+                    # Update active stock addition prices
+                    StockAddition.objects.filter(
+                        product=product,
+                        remaining_quantity__gt=0
+                    ).update(price=new_price)
+            
             product.save()
 
             if 'stock' in data:
@@ -4819,11 +4849,20 @@ def fetch_reports(request):
         accepted_pricing = []
         try:
             import re
-            from core.models import PricingRecommendation
-            prs_q = PricingRecommendation.objects.select_related('product')
+            from core.models import PriceChangeHistory
+            # Query ACCEPTED price changes (from PriceChangeHistory, not PricingRecommendation)
+            prs_q = PriceChangeHistory.objects.filter(reason='ai_recommendation').select_related('product')
+            
+            # DEBUG: Log the filtering parameters
+            print(f"[PRICING DEBUG] filter_type={filter_type}, start_date={start_date}, end_date={end_date}")
+            print(f"[PRICING DEBUG] date_range={date_range}")
+            print(f"[PRICING DEBUG] Total price changes before filter: {prs_q.count()}")
+            
             if date_range:
                 start_dt, end_dt = date_range
+                print(f"[PRICING DEBUG] Applying date filter: {start_dt} to {end_dt}")
                 prs_q = prs_q.filter(created_at__range=(start_dt, end_dt))
+                print(f"[PRICING DEBUG] After date filter: {prs_q.count()}")
             # Product (fruit) filter
             if fruit_filter and fruit_filter != 'all':
                 prs_q = prs_q.filter(
@@ -4839,7 +4878,7 @@ def fetch_reports(request):
                 )
             prs = prs_q.order_by('-created_at')[:200]
             if not prs:
-                prs = PricingRecommendation.objects.select_related('product').order_by('-created_at')[:50]
+                prs = PriceChangeHistory.objects.filter(reason='ai_recommendation').select_related('product').order_by('-created_at')[:50]
 
             def humanize_reason(text: str, action: str, change_pct=None, confidence=None) -> str:
                 raw = (text or '').strip()
@@ -4898,10 +4937,21 @@ def fetch_reports(request):
                 return ' '.join([p.strip() for p in parts if p and p.strip()])
 
             for pr in prs:
+                # Determine action from price change
+                old_price = float(pr.old_price or 0)
+                new_price = float(pr.new_price or 0)
+                change_pct = float(pr.change_pct or 0)
+                if new_price > old_price:
+                    action = 'INCREASE'
+                elif new_price < old_price:
+                    action = 'DECREASE'
+                else:
+                    action = 'HOLD'
+                
                 # Skip HOLD recommendations - they should not appear in accepted pricing
-                action_str = str(pr.action or '').strip().upper()
-                if action_str == 'HOLD':
+                if action == 'HOLD':
                     continue
+                    
                 name_raw = pr.product.name if pr.product else 'Unknown'
                 base_name = re.sub(r"\s*\([^)]*\)\s*", "", name_raw).strip()
                 variant = getattr(pr.product, 'variant', '') or ''
@@ -4909,20 +4959,26 @@ def fetch_reports(request):
                 variant_part = f" ({variant})" if variant else ''
                 unit_part = f" ({unit})" if unit else ''
                 label = f"{base_name}{variant_part}{unit_part}" if base_name else name_raw
+                # Convert UTC to local timezone for frontend display
+                local_dt = pr.created_at.astimezone(timezone.get_current_timezone()) if pr.created_at else None
                 accepted_pricing.append({
-                    'date': pr.created_at.strftime('%Y-%m-%d') if pr.created_at else None,
-                    'timestamp': pr.created_at.strftime('%Y-%m-%d %H:%M') if pr.created_at else None,
+                    'date': local_dt.strftime('%Y-%m-%d') if local_dt else None,
+                    'timestamp': local_dt.strftime('%Y-%m-%d %H:%M') if local_dt else None,
                     'product_id': pr.product.product_id if pr.product else None,
                     'product_name': label,
                     'name': base_name,
                     'variant': variant,
                     'quantity_unit': unit,
-                    'current_price': float(pr.current_price or 0),
-                    'suggested_price': float(pr.suggested_price or 0),
-                    'change_pct': float(pr.change_pct or 0),
-                    'action': pr.action,
-                    'reason': humanize_reason(pr.reason or '', pr.action, pr.change_pct, pr.confidence),
+                    'current_price': old_price,  # Use old_price from PriceChangeHistory
+                    'suggested_price': new_price,  # Use new_price from PriceChangeHistory
+                    'change_pct': change_pct,
+                    'action': action,
+                    'reason': pr.reason_details or 'Price change applied via AI recommendation',
                 })
+            # DEBUG: Log final count
+            print(f"[PRICING DEBUG] Final accepted_pricing count: {len(accepted_pricing)}")
+            if accepted_pricing:
+                print(f"[PRICING DEBUG] First record: {accepted_pricing[0].get('product_name')} at {accepted_pricing[0].get('timestamp')}")
             try:
                 print(f"Accepted pricing records: {len(accepted_pricing)}")
             except Exception:
@@ -9037,6 +9093,7 @@ def edit_product(request):
                 raise ValueError("Product ID required.")
             
             product = Product.objects.get(product_id=product_id)
+            old_price = product.price  # Store old price
             
             # Get form data - use existing product values as defaults if not provided
             # This allows editing just the image without requiring all fields
@@ -9146,6 +9203,32 @@ def edit_product(request):
             product.status = status
             product.supplier = supplier
             product.save()
+            
+            # Track price change if price changed
+            if old_price != price and role != 'secretary':
+                from core.models import PriceChangeHistory
+                change_pct = ((price - old_price) / old_price * 100) if old_price > 0 else 0
+                try:
+                    user = AppUser.objects.get(user_id=request.session.get('app_user_id'))
+                except:
+                    user = None
+                
+                PriceChangeHistory.objects.create(
+                    product=product,
+                    old_price=old_price,
+                    new_price=price,
+                    change_pct=change_pct,
+                    reason='manual',
+                    reason_details=f'Price manually updated from ₱{old_price} to ₱{price}',
+                    stock_level=product.stock,
+                    created_by=user
+                )
+                
+                # Update active stock addition prices
+                StockAddition.objects.filter(
+                    product=product,
+                    remaining_quantity__gt=0
+                ).update(price=price)
             
             # Handle stock changes
             current_stock = product.stock
@@ -10541,6 +10624,11 @@ def generate_and_store_pricing_recommendations():
             if change_pct_val > 10.0:
                 continue  # Skip recommendations that exceed 10% change
             
+            # Skip LOW confidence recommendations (R² < 0.3)
+            r2_val = r.get('r2')
+            if r2_val is not None and r2_val < 0.3:
+                continue  # Only show MEDIUM or HIGH confidence recommendations
+            
             p = Product.objects.get(product_id=r['product_id'])
             to_create.append(PricingRecommendation(
                 product=p,
@@ -10603,8 +10691,8 @@ def get_pricing_recommendations(request):
                 delta = abs(cur - sug)
                 chg_pct = 0.0 if cur == 0 else ((sug / cur) - 1.0) * 100.0
                 
-                # Enforce maximum 10% change - skip if exceeds
-                if abs(chg_pct) > 10.0:
+                # Enforce maximum 10% change - skip if exceeds (use 10.01 to handle floating point precision)
+                if abs(chg_pct) > 10.01:
                     continue  # Skip recommendations that exceed 10% change
                 
                 action = rec.action if delta >= 0.01 else 'HOLD'
@@ -11516,6 +11604,10 @@ def apply_pricing_recommendation(request):
         old_price = product.price
         product.price = new_price
         product.save()
+
+        # Update prices of all active stock batches for this product
+        from core.models import StockAddition
+        StockAddition.objects.filter(product=product, remaining_quantity__gt=0).update(price=new_price)
 
         # Record price change in PriceChangeHistory
         try:
@@ -13598,7 +13690,10 @@ def get_pricing_analysis_data(request):
         product_id = request.GET.get('product_id')
         days = int(request.GET.get('days', 365))
         
-        end_date = datetime.now()
+        # Use Manila timezone for date range
+        import pytz
+        manila_tz = pytz.timezone('Asia/Manila')
+        end_date = datetime.now(manila_tz)
         start_date = end_date - timedelta(days=days)
         
         # Check if we want all products (for dashboard graph) or filtered products
@@ -13704,7 +13799,11 @@ def get_pricing_analysis_data(request):
                 sales_df['quantity'] = sales_df['quantity'].astype(float)
                 sales_df['price'] = sales_df['price'].astype(float)
                 
-                sales_df['date'] = pd.to_datetime(sales_df['recorded_at']).dt.date
+                # TIMEZONE FIX: Convert UTC to Manila time before extracting date
+                import pytz
+                manila_tz = pytz.timezone('Asia/Manila')
+                # Django datetimes are already timezone-aware, so just convert (don't localize)
+                sales_df['date'] = pd.to_datetime(sales_df['recorded_at']).dt.tz_convert(manila_tz).dt.date
                 daily_sales = sales_df.groupby('date').agg({
                     'quantity': 'sum',
                     'price': 'mean'
@@ -13749,8 +13848,9 @@ def get_pricing_analysis_data(request):
                     if not sales_df.empty:
                         # Get the most recent sale date for this product
                         last_sale_date = sales_df['date'].max()
-                        # Calculate days from last sale to today
-                        days_diff = (timezone.now().date() - last_sale_date).days
+                        # Calculate days from last sale to today (Manila time)
+                        manila_today = timezone.now().astimezone(manila_tz).date()
+                        days_diff = (manila_today - last_sale_date).days
                         no_sales_days = days_diff if days_diff >= 0 else 0
                 except Exception:
                     # If calculation fails, default to 0
@@ -13765,8 +13865,9 @@ def get_pricing_analysis_data(request):
                         sales_dates = sorted(sales_df['date'].unique())
                         last_sale_date = sales_dates[-1]
                         
-                        # Count days from last sale to today
-                        days_since_last = (timezone.now().date() - last_sale_date).days
+                        # Count days from last sale to today (Manila time)
+                        manila_today = timezone.now().astimezone(manila_tz).date()
+                        days_since_last = (manila_today - last_sale_date).days
                         
                         # Only count as stock-out if:
                         # 1. There are days since last sale (days_since_last > 0)
@@ -13794,8 +13895,10 @@ def get_pricing_analysis_data(request):
                 # Price change events
                 change_events = []
                 for change in price_changes:
+                    # Convert UTC to Manila time before extracting date
+                    manila_date = change.created_at.astimezone(manila_tz).date()
                     change_events.append({
-                        'date': change.created_at.date().isoformat(),
+                        'date': manila_date.isoformat(),
                         'old_price': float(change.old_price),
                         'new_price': float(change.new_price),
                         'change_pct': float(change.change_pct),

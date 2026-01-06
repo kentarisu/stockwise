@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import datetime, timedelta
-from core.models import Sale, Product, SMS, AppUser
+from core.models import Sale, Product, SMS, AppUser, PricingRecommendation
 from core.pricing_ai import DemandPricingAI, PolicyConfig
 import pandas as pd
 
@@ -86,9 +86,47 @@ class Command(BaseCommand):
             # Filter actionable recommendations
             actionable = proposals[proposals['action'].isin(['INCREASE', 'DECREASE'])]
             
+            # Filter by confidence: Only show MEDIUM or HIGH confidence (R² >= 0.3)
+            if 'r2' in actionable.columns:
+                reliable = actionable[actionable['r2'] >= 0.3]
+                filtered_count = len(actionable) - len(reliable)
+                if filtered_count > 0:
+                    self.stdout.write(self.style.WARNING(f'Filtered out {filtered_count} LOW confidence recommendations (R² < 0.3)'))
+                actionable = reliable
+            
             if actionable.empty:
-                self.stdout.write(self.style.SUCCESS('No actionable pricing recommendations at this time.'))
+                self.stdout.write(self.style.SUCCESS('No reliable pricing recommendations at this time.'))
                 return
+            
+            # Store recommendations in database with 3-day expiration
+            try:
+                now_ts = timezone.now()
+                expires = now_ts + timezone.timedelta(days=3)
+                # Clear existing non-expired to avoid duplicates
+                PricingRecommendation.objects.filter(expires_at__gt=now_ts).delete()
+                to_create = []
+                for _, rec in actionable.iterrows():
+                    try:
+                        product = Product.objects.get(product_id=rec['product_id'])
+                        to_create.append(PricingRecommendation(
+                            product=product,
+                            current_price=rec['current_price'],
+                            suggested_price=rec['suggested_price'],
+                            change_pct=rec['change_pct'],
+                            action=rec['action'],
+                            reason=rec['reason'],
+                            elasticity=rec.get('elasticity'),
+                            r2=rec.get('r2'),
+                            confidence=rec.get('confidence'),
+                            expires_at=expires
+                        ))
+                    except Product.DoesNotExist:
+                        continue
+                if to_create:
+                    PricingRecommendation.objects.bulk_create(to_create)
+                    self.stdout.write(self.style.SUCCESS(f'Stored {len(to_create)} recommendations in database'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error storing recommendations: {str(e)}'))
             
             # Send notifications to admins
             admins = AppUser.objects.filter(role__iexact='admin').exclude(phone_number='')

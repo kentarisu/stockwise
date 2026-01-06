@@ -4265,7 +4265,7 @@
                                             <li><strong>Price Trends:</strong> Each line represents a product's price history over the selected period.</li>
                                             <li><strong>Product Legend:</strong> Click on any product in the legend to show only that product on the graph (all others will be hidden).</li>
                                             <li><strong>Time Period:</strong> Select different time ranges (30 days, 90 days, 6 months, or 1 year) to analyze pricing patterns.</li>
-                                            <li><strong>Top Products:</strong> The graph automatically shows the top 15 products by total sales to prevent overcrowding.</li>
+                                            <li><strong>All Products:</strong> The graph displays all products. Use the legend to toggle individual products on/off.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -4606,6 +4606,8 @@
                 renderSlowMovers(response.data.slow_movers || []);
                 renderDeadStock(response.data.dead_stock || []);
                 renderSpoilage(response.data.spoilage || []);
+                console.log('[PRICING DEBUG] Backend returned accepted_pricing:', response.data.accepted_pricing);
+                console.log('[PRICING DEBUG] Is array?', Array.isArray(response.data.accepted_pricing), 'Length:', (response.data.accepted_pricing || []).length);
                 populateAcceptedPricingTable(response.data.accepted_pricing || []);
 
             } catch (error) {
@@ -4921,9 +4923,14 @@
 
         function populateAcceptedPricingTable(items = []) {
             const raw = Array.isArray(items) ? items : [];
+            console.log('[PRICING DEBUG] populateAcceptedPricingTable called with', raw.length, 'items');
+            if (raw.length > 0) {
+                console.log('[PRICING DEBUG] First item:', raw[0]);
+            }
             const fruitFilter = $('#productFilter').val() || 'all';
             const s = startDate;
             const e = endDate;
+            console.log('[PRICING DEBUG] Date filter:', { startDate: s, endDate: e });
             const parseDate = (txt) => {
                 if (!txt) return null;
                 const str = String(txt);
@@ -4933,12 +4940,26 @@
             const inRange = (d) => {
                 const sd = s ? new Date(s) : null;
                 const ed = e ? new Date(e) : null;
-                if (!sd || !ed || !d) return true;
+                if (!sd || !ed || !d) {
+                    console.log('[PRICING DEBUG] inRange early return:', { s, e, d, sd, ed, result: true });
+                    return true;
+                }
                 // normalize to date-only
                 const dn = new Date(d.getFullYear(), d.getMonth(), d.getDate());
                 const sn = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate());
                 const en = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate());
-                return dn >= sn && dn <= en;
+                const result = dn >= sn && dn <= en;
+                console.log('[PRICING DEBUG] inRange check:', { 
+                    s, e, 
+                    d: d.toISOString(), 
+                    dn: dn.toISOString(), 
+                    sn: sn.toISOString(), 
+                    en: en.toISOString(),
+                    'dn >= sn': dn >= sn,
+                    'dn <= en': dn <= en,
+                    result 
+                });
+                return result;
             };
 
             function formatLocal(ts) {
@@ -7303,32 +7324,14 @@
                         return nameA.localeCompare(nameB);
                     });
                     
-                    // Limit to top 15 products by total sales to avoid overcrowding
-                    const maxProducts = 15;
+                    // Show all products (no limit unless user applies a filter)
                     const totalProductCount = allProducts.length;
-                    if (allProducts.length > maxProducts) {
-                        // Sort by total sales and take top products, then re-sort alphabetically
-                        allProducts.sort((a, b) => (b.total_sales || 0) - (a.total_sales || 0));
-                        const topProducts = allProducts.slice(0, maxProducts);
-                        // Re-sort the top products alphabetically
-                        topProducts.sort((a, b) => {
-                            const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
-                            const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
-                            return nameA.localeCompare(nameB);
-                        });
-                        allProducts.splice(0, allProducts.length, ...topProducts);
-                    }
                     
                     // Update product count info
                     const countInfo = document.getElementById('reportsProductCountInfo');
                     if (countInfo) {
-                        if (totalProductCount > maxProducts) {
-                            countInfo.textContent = `Showing top ${maxProducts} of ${totalProductCount} products`;
-                            countInfo.className = 'text-warning small';
-                        } else {
-                            countInfo.textContent = `${totalProductCount} product${totalProductCount !== 1 ? 's' : ''}`;
-                            countInfo.className = 'text-muted small';
-                        }
+                        countInfo.textContent = `Showing all ${totalProductCount} products`;
+                        countInfo.className = 'text-muted small';
                     }
                     
                     // Collect all unique dates from all products

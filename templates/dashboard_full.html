@@ -2746,6 +2746,7 @@
                                 }
                                 
                                 // Show success message
+                                showOffcanvasMessage(data.message || 'Price updated successfully!', 'success');
                                 console.log('✅', data.message);
                             } else {
                                 throw new Error(data.message || 'Failed to update price');
@@ -3485,32 +3486,14 @@
                         return nameA.localeCompare(nameB);
                     });
                     
-                    // Limit to top 15 products by total sales to avoid overcrowding
-                    const maxProducts = 15;
+                    // Show all products (no limit unless user applies a filter)
                     const totalProductCount = allProducts.length;
-                    if (allProducts.length > maxProducts) {
-                        // Sort by total sales and take top products, then re-sort alphabetically
-                        allProducts.sort((a, b) => (b.total_sales || 0) - (a.total_sales || 0));
-                        const topProducts = allProducts.slice(0, maxProducts);
-                        // Re-sort the top products alphabetically
-                        topProducts.sort((a, b) => {
-                            const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
-                            const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
-                            return nameA.localeCompare(nameB);
-                        });
-                        allProducts = topProducts;
-                    }
                     
                     // Update product count info
                     const countInfo = document.getElementById('productCountInfo');
                     if (countInfo) {
-                        if (totalProductCount > maxProducts) {
-                            countInfo.textContent = `Showing top ${maxProducts} of ${totalProductCount} products`;
-                            countInfo.className = 'text-warning small';
-                        } else {
-                            countInfo.textContent = `${totalProductCount} product${totalProductCount !== 1 ? 's' : ''}`;
-                            countInfo.className = 'text-muted small';
-                        }
+                        countInfo.textContent = `Showing all ${totalProductCount} products`;
+                        countInfo.className = 'text-muted small';
                     }
                     
                     // Collect all unique dates from all products

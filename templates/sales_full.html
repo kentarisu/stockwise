@@ -3774,10 +3774,11 @@
                                     const batchQty = (isKiloRow && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
                                     const batchSubtotal = safeNum(batch.subtotal, 0);
                                     subtotal += batchSubtotal; // Add to subtotal from actual batch prices
+                                    const qtyUnit = isKiloRow ? ' kg' : ''; // Only show 'kg' for kilogram products
                                     if (allKilo) {
                                         breakdownTr.innerHTML = `
                                             <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
-                                            <td class="text-end"><small>${batchQty} ${unit}</small></td>
+                                            <td class="text-end"><small>${batchQty}${qtyUnit}</small></td>
                                             <td class="text-end"><small>${currency(batch.price)}</small></td>
                                             <td class="text-end"><small>${currency(batchSubtotal)}</small></td>
                                         `;
@@ -3791,7 +3792,7 @@
                                             : `Batch #${batch.addition_id}`;
                                         breakdownTr.innerHTML = `
                                             <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
-                                            <td class="text-end"><small>${batchQty} ${unit}</small></td>
+                                            <td class="text-end"><small>${batchQty}${qtyUnit}</small></td>
                                             <td><small>${batchHtml}</small></td>
                                             <td class="text-end"><small>${currency(batch.price)}</small></td>
                                             <td class="text-end"><small>${currency(batchSubtotal)}</small></td>

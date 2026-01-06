@@ -70,7 +70,7 @@ class Command(BaseCommand):
                     # Add JSON file to ZIP
                     backup_zip.write(json_path, 'database/stockwise_dump.json')
                     os.unlink(json_path)
-                    self.stdout.write(self.style.SUCCESS('✓ Database JSON backup created'))
+                    self.stdout.write(self.style.SUCCESS('[OK] Database JSON backup created'))
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Failed to create JSON backup: {e}'))
                     raise
@@ -109,12 +109,12 @@ class Command(BaseCommand):
                     if media_count > 0:
                         media_size_mb = media_size / (1024 * 1024)
                         self.stdout.write(self.style.SUCCESS(
-                            f'✓ {media_count} media files backed up ({media_size_mb:.2f} MB)'
+                            f'[OK] {media_count} media files backed up ({media_size_mb:.2f} MB)'
                         ))
                     else:
-                        self.stdout.write(self.style.WARNING('  ⚠ No media files found to backup'))
+                        self.stdout.write(self.style.WARNING('  [WARNING] No media files found to backup'))
                 else:
-                    self.stdout.write(self.style.WARNING('  ⚠ Media directory does not exist'))
+                    self.stdout.write(self.style.WARNING('  [WARNING] Media directory does not exist'))
             
             # Get backup size
             backup_size = backup_path.stat().st_size
@@ -146,7 +146,7 @@ class Command(BaseCommand):
                 pass
             
             self.stdout.write(self.style.SUCCESS(
-                f'\n✓ Backup completed successfully!\n'
+                f'\n[OK] Backup completed successfully!\n'
                 f'  File: {backup_path}\n'
                 f'  Size: {size_mb:.2f} MB\n'
                 f'  Timestamp: {timestamp}'

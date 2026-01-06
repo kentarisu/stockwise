@@ -13172,15 +13172,15 @@ def upload_and_restore_backup(request):
                 file_list = test_zip.namelist()
                 from pathlib import PurePosixPath
                 
-                # Check for JSON file in root (new format)
-                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('database/') and not f.startswith('media/')]
+                # Check for JSON file - can be in root OR in database/ folder
+                json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('media/')]
                 
-                # Check for database folder (old format)
+                # Check for database folder
                 has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
                 database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
                 
-                # Must have either JSON file in root OR database folder
-                if not json_files and not has_database:
+                # Must have JSON file (anywhere) OR database folder with files
+                if not json_files:
                     if test_zip:
                         test_zip.close()
                     try:

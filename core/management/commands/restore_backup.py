@@ -152,50 +152,55 @@ class Command(BaseCommand):
             from django.db import connections
             connections.close_all()
             
-            # Clear existing data before loading backup
+            # Preserve user accounts before clearing
+            from core.models import AppUser
+            preserved_users = list(AppUser.objects.all().values(
+                'user_id', 'username', 'password', 'role', 'phone_number', 
+                'email', 'is_active', 'full_name'
+            ))
+            self.stdout.write(f'  - Preserved {len(preserved_users)} user accounts')
+            
+            # Clear existing data before loading backup (EXCEPT users)
             # This is critical - loaddata doesn't clear data, it just inserts
-            self.stdout.write('  - Clearing existing database data...')
+            self.stdout.write('  - Clearing existing database data (preserving accounts)...')
             try:
-                # Use flush to clear all data, but preserve migrations
-                call_command('flush', '--noinput', verbosity=0)
-                self.stdout.write(self.style.SUCCESS('  ✓ Database cleared'))
-            except Exception as e:
-                self.stdout.write(self.style.WARNING(f'  ⚠ Warning clearing database: {e}'))
-                # If flush fails, try manual truncation as fallback
-                try:
-                    from django.db import connection
-                    with connection.cursor() as cursor:
-                        # Disable foreign key checks temporarily
-                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
-                            cursor.execute("PRAGMA foreign_keys = OFF")
-                        elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
-                            cursor.execute("SET session_replication_role = 'replica'")
-                        
-                        # Get all table names
-                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
-                            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-                            tables = [row[0] for row in cursor.fetchall()]
-                            for table in tables:
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    # Disable foreign key checks temporarily
+                    if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("PRAGMA foreign_keys = OFF")
+                    elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("SET session_replication_role = 'replica'")
+                    
+                    # Get all table names EXCEPT app users
+                    if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'core_appuser'")
+                        tables = [row[0] for row in cursor.fetchall()]
+                        for table in tables:
+                            if table != 'core_appuser':  # Extra safety check
                                 cursor.execute(f"DELETE FROM {table}")
-                        elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
-                            cursor.execute("""
-                                SELECT tablename FROM pg_tables 
-                                WHERE schemaname = 'public' 
-                                AND tablename NOT LIKE 'django_%'
-                            """)
-                            tables = [row[0] for row in cursor.fetchall()]
-                            for table in tables:
-                                cursor.execute(f"TRUNCATE TABLE {table} CASCADE")
-                            cursor.execute("SET session_replication_role = 'origin'")
-                        
-                        # Re-enable foreign key checks
-                        if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
-                            cursor.execute("PRAGMA foreign_keys = ON")
-                        
-                        self.stdout.write(self.style.SUCCESS('  ✓ Database cleared (manual method)'))
-                except Exception as e2:
-                    self.stdout.write(self.style.ERROR(f'  ✗ Failed to clear database: {e2}'))
-                    raise
+                    elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("""
+                            SELECT tablename FROM pg_tables 
+                            WHERE schemaname = 'public' 
+                            AND tablename NOT LIKE 'django_%'
+                            AND tablename != 'core_appuser'
+                        """)
+                        tables = [row[0] for row in cursor.fetchall()]
+                        for table in tables:
+                            if table != 'core_appuser':  # Extra safety check
+                                cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
+                    
+                    # Re-enable foreign key checks
+                    if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("PRAGMA foreign_keys = ON")
+                    elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                        cursor.execute("SET session_replication_role = 'origin'")
+                    
+                    self.stdout.write(self.style.SUCCESS('  ✓ Database cleared (accounts preserved)'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'  ✗ Failed to clear database: {e}'))
+                raise
             
             # Run migrations to ensure schema is up to date before loading data
             self.stdout.write('  - Running migrations...')
@@ -219,7 +224,8 @@ class Command(BaseCommand):
                 
                 try:
                     # Use verbosity=2 to see more details
-                    call_command('loaddata', str(backup_file), verbosity=2)
+                    # --ignorenonexistent to skip missing models
+                    call_command('loaddata', str(backup_file), verbosity=2, ignorenonexistent=True)
                     self.stdout.write(self.style.SUCCESS('  ✓ JSON data loaded'))
                 finally:
                     # Re-enable constraints for PostgreSQL

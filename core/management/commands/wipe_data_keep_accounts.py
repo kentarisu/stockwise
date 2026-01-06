@@ -40,9 +40,9 @@ class Command(BaseCommand):
             self.stdout.write('Proceed? Run again with --force to skip this prompt.')
             return
 
-        delete_products = options['delete-products']
-        delete_media = options['delete-media']
-        reset_sequences = options['reset-sequences']
+        delete_products = options.get('delete_products', False)
+        delete_media = options.get('delete_media', False)
+        reset_sequences = options.get('reset_sequences', False)
 
         with transaction.atomic():
             # Delete dependent tables first to avoid FK issues

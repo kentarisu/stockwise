@@ -12963,12 +12963,16 @@ def restore_backup(request, backup_id):
         
         # Call restore command with proper error handling
         # Capture stdout/stderr to prevent HTML error pages
+        stdout_output = ""
+        stderr_output = ""
         try:
             # Redirect stdout/stderr to capture any output
             old_stdout = sys.stdout
             old_stderr = sys.stderr
-            sys.stdout = StringIO()
-            sys.stderr = StringIO()
+            stdout_buffer = StringIO()
+            stderr_buffer = StringIO()
+            sys.stdout = stdout_buffer
+            sys.stderr = stderr_buffer
             
             try:
                 call_command('restore_backup', backup.file_path, force=True)
@@ -12976,12 +12980,16 @@ def restore_backup(request, backup_id):
                 # Restore stdout/stderr
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
+                stdout_output = stdout_buffer.getvalue()
+                stderr_output = stderr_buffer.getvalue()
         except SystemExit:
             # call_command can raise SystemExit, catch it
-            raise Exception('Restore command failed')
+            error_details = f"\n=== Output ===\n{stdout_output}\n=== Errors ===\n{stderr_output}"
+            raise Exception(f'Restore command failed{error_details}')
         except Exception as restore_error:
             # Re-raise as a regular exception so it's caught by outer try/except
-            raise Exception(f'Restore command error: {str(restore_error)}')
+            error_details = f"\n=== Output ===\n{stdout_output}\n=== Errors ===\n{stderr_output}" if stdout_output or stderr_output else ""
+            raise Exception(f'Restore command error: {str(restore_error)}{error_details}')
         
         # Fix sequences after restore (important for PostgreSQL in hosting environments)
         try:

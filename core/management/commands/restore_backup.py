@@ -697,36 +697,78 @@ class Command(BaseCommand):
             _ensure_accounts()
             
             # 2. Restore media files (if present in old format)
+            # Skip media restoration if we can't write to the media directory (common in hosting)
             if not options.get('no_media', False):
                 media_files = [f for f in file_list if f.startswith('media/')]
                 if media_files:
                     self.stdout.write('Restoring media files...')
-                    # Use MEDIA_ROOT from settings (not legacy uploads path)
-                    media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
-                    media_root.mkdir(parents=True, exist_ok=True)
-                    
-                    # Backup current media files if they exist
-                    if media_root.exists() and any(media_root.iterdir()):
-                        backup_media = media_root.parent / f'media_backup_{Path(backup_file).stem}'
-                        if backup_media.exists():
-                            shutil.rmtree(backup_media)
-                        shutil.copytree(media_root, backup_media)
-                        self.stdout.write(f'  - Current media files backed up to: {backup_media}')
-                    
-                    # Extract media files
-                    media_count = 0
-                    for media_file in media_files:
-                        # Get relative path within media directory
-                        relative_path = media_file.replace('media/', '')
-                        target_path = media_root / relative_path
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        # Use MEDIA_ROOT from settings (not legacy uploads path)
+                        media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
                         
-                        with backup_zip.open(media_file) as source:
-                            with open(target_path, 'wb') as target:
-                                target.write(source.read())
-                        media_count += 1
-                    
-                    self.stdout.write(self.style.SUCCESS(f'  [OK] {media_count} media files restored to {media_root}'))
+                        # Try to create media directory, but don't fail if we can't (hosting environments)
+                        try:
+                            media_root.mkdir(parents=True, exist_ok=True)
+                        except (PermissionError, OSError) as perm_error:
+                            self.stdout.write(self.style.WARNING(
+                                f'  [WARNING] Cannot create media directory {media_root}: {perm_error}\n'
+                                '  Media files will be skipped. Database restore completed successfully.'
+                            ))
+                            # Skip media restoration but continue
+                            media_files = []
+                        
+                        if media_files:
+                            # Backup current media files if they exist
+                            if media_root.exists() and any(media_root.iterdir()):
+                                try:
+                                    backup_media = media_root.parent / f'media_backup_{Path(backup_file).stem}'
+                                    if backup_media.exists():
+                                        shutil.rmtree(backup_media)
+                                    shutil.copytree(media_root, backup_media)
+                                    self.stdout.write(f'  - Current media files backed up to: {backup_media}')
+                                except Exception as backup_error:
+                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not backup current media: {backup_error}'))
+                            
+                            # Extract media files
+                            media_count = 0
+                            media_errors = 0
+                            for media_file in media_files:
+                                try:
+                                    # Get relative path within media directory
+                                    relative_path = media_file.replace('media/', '')
+                                    target_path = media_root / relative_path
+                                    
+                                    # Try to create parent directories
+                                    try:
+                                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                                    except (PermissionError, OSError):
+                                        # Skip this file if we can't create its directory
+                                        media_errors += 1
+                                        continue
+                                    
+                                    with backup_zip.open(media_file) as source:
+                                        with open(target_path, 'wb') as target:
+                                            target.write(source.read())
+                                    media_count += 1
+                                except (PermissionError, OSError) as file_error:
+                                    media_errors += 1
+                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not restore {media_file}: {file_error}'))
+                                    continue
+                                except Exception as file_error:
+                                    media_errors += 1
+                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Error restoring {media_file}: {file_error}'))
+                                    continue
+                            
+                            if media_count > 0:
+                                self.stdout.write(self.style.SUCCESS(f'  [OK] {media_count} media files restored to {media_root}'))
+                            if media_errors > 0:
+                                self.stdout.write(self.style.WARNING(f'  [WARNING] {media_errors} media files could not be restored (permission issues)'))
+                    except Exception as media_error:
+                        # Don't fail the entire restore if media restoration fails
+                        self.stdout.write(self.style.WARNING(
+                            f'  [WARNING] Media restoration failed: {media_error}\n'
+                            '  Database restore completed successfully. Media files were skipped.'
+                        ))
                 else:
                     self.stdout.write(self.style.WARNING('No media files found in backup'))
             

@@ -13371,23 +13371,31 @@ def upload_and_restore_backup(request):
                 from pathlib import PurePosixPath
                 
                 # Check for JSON file - can be in root OR in database/ folder
+                # Accept JSON files anywhere except in media/ folder
                 json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('media/')]
                 
                 # Check for database folder
                 has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
                 database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
                 
+                # Debug: log file list for troubleshooting
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f'Backup ZIP contents: {file_list[:20]}...')  # Log first 20 files
+                
                 # Must have JSON file (anywhere) OR database folder with files
-                if not json_files:
+                if not json_files and not database_files:
                     if test_zip:
                         test_zip.close()
                     try:
                         temp_path.unlink()
                     except Exception:
                         pass
+                    # Provide helpful error message with file list info
+                    file_list_preview = ', '.join(file_list[:5]) if file_list else 'empty'
                     return JsonResponse({
                         'success': False, 
-                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file or database folder.'
+                        'message': f'Invalid backup file. This does not appear to be a valid StockWise backup file. Expected a JSON file in the root or database/ folder, but found: {file_list_preview}...'
                     }, status=400)
                 
                 # If old format, validate database files exist
@@ -13470,7 +13478,15 @@ def upload_and_restore_backup(request):
                     temp_path.unlink()
                 except Exception:
                     pass
-                return JsonResponse({'success': False, 'message': f'Error validating backup file: {str(e)}'}, status=400)
+                import traceback
+                error_details = traceback.format_exc()
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f'Backup validation error: {str(e)}\n{error_details}')
+                return JsonResponse({
+                    'success': False, 
+                    'message': f'Error validating backup file: {str(e)}. Please ensure the file is a valid StockWise backup ZIP file.'
+                }, status=400)
             finally:
                 # Ensure zip file is closed
                 if test_zip:
@@ -13581,8 +13597,18 @@ def upload_and_restore_backup(request):
         
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'message': f'Error restoring backup: {str(e)}'}, status=500)
+        error_trace = traceback.format_exc()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Backup restore error: {str(e)}\n{error_trace}')
+        # Return detailed error message for debugging
+        error_msg = str(e)
+        if 'restore_backup' in error_msg.lower() or 'restore command' in error_msg.lower():
+            error_msg = f'Failed to restore backup: {error_msg}. Please ensure the backup file is valid and not corrupted.'
+        return JsonResponse({
+            'success': False, 
+            'message': f'Error restoring backup: {error_msg}'
+        }, status=500)
 
 
 def auto_backup_before_critical_operation(request, operation_name='Critical Operation'):

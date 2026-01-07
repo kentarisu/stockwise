@@ -3526,17 +3526,26 @@
                         const color = generateColor(index, allProducts.length);
                         colors.push({ label: productLabel, color: color });
                         
-                        // Create price map for this product
+                        // Create price and quantity maps for this product
                         const priceMap = new Map();
+                        const quantityMap = new Map();
                         if (product.price_history && product.price_history.length > 0) {
                             product.price_history.forEach(item => {
                                 priceMap.set(item.date, item.price);
+                                if (item.quantity !== undefined && item.quantity !== null) {
+                                    quantityMap.set(item.date, item.quantity);
+                                }
                             });
                         }
                         
                         // Map prices to sorted dates
                         const priceData = sortedDates.map(date => {
                             return priceMap.has(date) ? priceMap.get(date) : null;
+                        });
+                        
+                        // Map quantities to sorted dates (for single product view)
+                        const quantityData = sortedDates.map(date => {
+                            return quantityMap.has(date) ? quantityMap.get(date) : null;
                         });
                         
                         datasets.push({
@@ -3550,6 +3559,8 @@
                             pointRadius: 3,
                             pointHoverRadius: 6,
                             spanGaps: true, // Connect points across gaps
+                            yAxisID: 'y',
+                            quantityData: quantityData // Store quantity data for single product view
                         });
                     });
                     
@@ -3591,6 +3602,9 @@
                                             return context[0].label;
                                         },
                                         label: function(context) {
+                                            if (context.dataset.label === 'Quantity Sold') {
+                                                return context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(2) : 'N/A');
+                                            }
                                             return context.dataset.label + ': ₱' + context.parsed.y.toFixed(2);
                                         },
                                         filter: function(tooltipItem) {
@@ -3616,6 +3630,8 @@
                             },
                             scales: {
                                 y: {
+                                    type: 'linear',
+                                    position: 'left',
                                     beginAtZero: false,
                                     title: {
                                         display: true,
@@ -3631,6 +3647,23 @@
                                     },
                                     grid: {
                                         color: 'rgba(0, 0, 0, 0.05)'
+                                    }
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    position: 'right',
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Quantity Sold'
+                                    },
+                                    ticks: {
+                                        font: {
+                                            size: 11
+                                        }
+                                    },
+                                    grid: {
+                                        drawOnChartArea: false
                                     }
                                 },
                                 x: {
@@ -3721,7 +3754,7 @@
                                     });
                                 
                                 if (isCurrentlySolo) {
-                                    // If this product is already solo, show all products
+                                    // If this product is already solo, show all products and remove quantity dataset
                                     sortedColors.forEach((otherItem, otherIndex) => {
                                         const otherOriginalIndex = colors.findIndex(c => c.label === otherItem.label);
                                         const otherMeta = pricingChart.getDatasetMeta(otherOriginalIndex);
@@ -3734,6 +3767,12 @@
                                         otherLegendItem.item.style.borderColor = '';
                                         otherLegendItem.item.style.borderWidth = '';
                                     });
+                                    
+                                    // Remove quantity sold dataset if it exists
+                                    const quantityDatasetIndex = pricingChart.data.datasets.findIndex(ds => ds.label === 'Quantity Sold');
+                                    if (quantityDatasetIndex !== -1) {
+                                        pricingChart.data.datasets.splice(quantityDatasetIndex, 1);
+                                    }
                                 } else {
                                     // Hide all datasets except the clicked one
                                     sortedColors.forEach((otherItem, otherIndex) => {
@@ -3749,6 +3788,35 @@
                                             otherLegendItem.colorBox.style.opacity = '1';
                                             otherLegendItem.item.style.borderColor = 'var(--primary)';
                                             otherLegendItem.item.style.borderWidth = '2px';
+                                            
+                                            // Add or update quantity sold dataset for single product view
+                                            const selectedProduct = allProducts[originalIndex];
+                                            if (selectedProduct && selectedProduct.price_history) {
+                                                // Check if quantity dataset already exists
+                                                const quantityDatasetIndex = pricingChart.data.datasets.findIndex(ds => ds.label === 'Quantity Sold');
+                                                
+                                                const quantityData = pricingChart.data.datasets[originalIndex].quantityData || [];
+                                                
+                                                if (quantityDatasetIndex === -1) {
+                                                    // Add quantity sold dataset
+                                                    pricingChart.data.datasets.push({
+                                                        label: 'Quantity Sold',
+                                                        data: quantityData,
+                                                        borderColor: '#10b981',
+                                                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                        borderWidth: 2,
+                                                        fill: false,
+                                                        tension: 0.4,
+                                                        pointRadius: 3,
+                                                        pointHoverRadius: 6,
+                                                        spanGaps: true,
+                                                        yAxisID: 'y1'
+                                                    });
+                                                } else {
+                                                    // Update existing quantity dataset with new product's data
+                                                    pricingChart.data.datasets[quantityDatasetIndex].data = quantityData;
+                                                }
+                                            }
                                         } else {
                                             // Hide all other products
                                             otherMeta.hidden = true;

@@ -5092,8 +5092,259 @@ def fetch_reports(request):
         except Exception:
             accepted_pricing = []
 
+        # Inventory Report - Get all products with current stock information
+        inventory_report = []
         try:
-            print(f"REPORTS COUNTS => sales_summary_rows:{len(sales_summary_data)} top_products:{len(top_fruits)} low_stock:{len(low_stock)} tx:{len(tx_data)} voided:{len(voided_data)} accepted_pricing:{len(accepted_pricing)}")
+            print(f"[INVENTORY REPORT] Starting inventory report generation. Filter type: {filter_type}, Start: {start_date}, End: {end_date}")
+            # Get sales for the date range to calculate quantity sold
+            date_range = _resolve_report_range(filter_type, start_date, end_date)
+            print(f"[INVENTORY REPORT] Date range resolved: {date_range}")
+            sales_queryset_for_inventory = base_queryset
+            if date_range:
+                current_start, current_end = date_range
+                sales_queryset_for_inventory = sales_queryset_for_inventory.filter(
+                    recorded_at__range=(current_start, current_end)
+                )
+            else:
+                sales_queryset_for_inventory = _apply_report_filters(sales_queryset_for_inventory, filter_type, start_date, end_date)
+            
+            # Aggregate sales by product for the date range
+            sales_by_product = sales_queryset_for_inventory.values('product_id').annotate(
+                quantity_sold=Sum('quantity'),
+                boxes_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then=0),
+                        default='quantity',
+                        output_field=models.DecimalField()
+                    )
+                ),
+                kg_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then='quantity'),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                revenue=Sum('total'),
+                transaction_count=Count('sale_id', distinct=True)
+            )
+            
+            # Get stock additions for the date range
+            stock_additions_by_product = []
+            if date_range:
+                current_start, current_end = date_range
+                stock_additions_by_product = StockAddition.objects.filter(
+                    date_added__date__gte=current_start.date(),
+                    date_added__date__lte=current_end.date()
+                ).values('product_id').annotate(
+                    quantity_added=Sum('quantity'),
+                    boxes_added=Sum(
+                        Case(
+                            When(product__quantity_unit__iexact='kg', then=0),
+                            default='quantity',
+                            output_field=models.DecimalField()
+                        )
+                    ),
+                    kg_added=Sum(
+                        Case(
+                            When(product__quantity_unit__iexact='kg', then='quantity'),
+                            default=0,
+                            output_field=models.DecimalField()
+                        )
+                    ),
+                    total_cost=Sum(
+                        Case(
+                            When(cost__isnull=False, then=F('quantity') * F('cost')),
+                            default=0,
+                            output_field=models.DecimalField()
+                        )
+                    )
+                )
+            else:
+                # For non-date range filters, get all additions
+                stock_additions_by_product = StockAddition.objects.all().values('product_id').annotate(
+                    quantity_added=Sum('quantity'),
+                    boxes_added=Sum(
+                        Case(
+                            When(product__quantity_unit__iexact='kg', then=0),
+                            default='quantity',
+                            output_field=models.DecimalField()
+                        )
+                    ),
+                    kg_added=Sum(
+                        Case(
+                            When(product__quantity_unit__iexact='kg', then='quantity'),
+                            default=0,
+                            output_field=models.DecimalField()
+                        )
+                    ),
+                    total_cost=Sum(
+                        Case(
+                            When(cost__isnull=False, then=F('quantity') * F('cost')),
+                            default=0,
+                            output_field=models.DecimalField()
+                        )
+                    )
+                )
+            
+            # Get last sale date for each product
+            last_sale_by_product = sales_queryset_for_inventory.values('product_id').annotate(
+                last_sale_date=Max('recorded_at')
+            )
+            
+            # Create dictionaries for quick lookup
+            sales_dict = {}
+            for item in sales_by_product:
+                sales_dict[item['product_id']] = {
+                    'quantity_sold': float(item.get('quantity_sold') or 0),
+                    'boxes_sold': float(item.get('boxes_sold') or 0),
+                    'kg_sold': float(item.get('kg_sold') or 0),
+                    'revenue': float(item.get('revenue') or 0),
+                    'transaction_count': int(item.get('transaction_count') or 0)
+                }
+            
+            additions_dict = {}
+            for item in stock_additions_by_product:
+                additions_dict[item['product_id']] = {
+                    'quantity_added': float(item.get('quantity_added') or 0),
+                    'boxes_added': float(item.get('boxes_added') or 0),
+                    'kg_added': float(item.get('kg_added') or 0),
+                    'total_cost': float(item.get('total_cost') or 0)
+                }
+            
+            last_sale_dict = {}
+            for item in last_sale_by_product:
+                if item.get('last_sale_date'):
+                    last_sale_dict[item['product_id']] = item['last_sale_date']
+            
+            products = Product.objects.all().order_by('name', 'variant')
+            print(f"[INVENTORY REPORT] Found {products.count()} products to process")
+            if products.count() == 0:
+                print("[INVENTORY REPORT] No products found in database")
+            for product in products:
+                stock_value_cost = float(product.stock * (product.cost or 0))
+                stock_value_price = float(product.stock * product.price)
+                margin = float(product.price - (product.cost or 0))
+                margin_pct = float(((product.price - (product.cost or 0)) / product.price * 100)) if product.price > 0 else 0
+                low_stock_flag = product.stock < 10
+                
+                # Get sales data for this product in the date range
+                sales_data = sales_dict.get(product.product_id, {
+                    'quantity_sold': 0,
+                    'boxes_sold': 0,
+                    'kg_sold': 0,
+                    'revenue': 0,
+                    'transaction_count': 0
+                })
+                
+                # Get stock additions data for this product in the date range
+                additions_data = additions_dict.get(product.product_id, {
+                    'quantity_added': 0,
+                    'boxes_added': 0,
+                    'kg_added': 0,
+                    'total_cost': 0
+                })
+                
+                # Calculate beginning stock (stock at start of period)
+                # Formula: Beginning Stock = Current Stock + Sold - Added
+                # This reverses the period's changes to get the starting point
+                beginning_stock = float(product.stock) + sales_data['quantity_sold'] - additions_data['quantity_added']
+                beginning_stock = max(0, beginning_stock)  # Ensure non-negative
+                
+                # If no activity in period, beginning stock equals current stock
+                if sales_data['quantity_sold'] == 0 and additions_data['quantity_added'] == 0:
+                    beginning_stock = float(product.stock)
+                
+                # Calculate COGS (Cost of Goods Sold) for the period
+                # Use average cost from additions if available, otherwise use product cost
+                avg_cost = float(product.cost or 0)
+                if additions_data['quantity_added'] > 0 and additions_data['total_cost'] > 0:
+                    avg_cost = float(additions_data['total_cost']) / float(additions_data['quantity_added'])
+                cogs = float(sales_data['quantity_sold']) * avg_cost
+                
+                # Calculate profit from sales
+                profit_from_sales = sales_data['revenue'] - cogs
+                
+                # Calculate average selling price
+                avg_selling_price = 0
+                if sales_data['quantity_sold'] > 0:
+                    avg_selling_price = sales_data['revenue'] / sales_data['quantity_sold']
+                
+                # Calculate stock turnover (how many times stock was sold)
+                stock_turnover = 0
+                if beginning_stock > 0:
+                    stock_turnover = sales_data['quantity_sold'] / beginning_stock
+                
+                # Calculate days of supply (if we have sales data)
+                days_of_supply = None
+                if date_range:
+                    current_start, current_end = date_range
+                    period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+                    avg_daily_sales = sales_data['quantity_sold'] / period_days if period_days > 0 else 0
+                    if avg_daily_sales > 0:
+                        days_of_supply = float(product.stock) / avg_daily_sales
+                
+                # Get last sale date
+                last_sale_date = last_sale_dict.get(product.product_id)
+                last_sale_date_str = last_sale_date.strftime('%Y-%m-%d %H:%M') if last_sale_date else 'Never'
+                
+                product_name = product.name or ''
+                variant = product.variant or ''
+                unit = product.quantity_unit or ''
+                if variant:
+                    product_name = f"{product_name} ({variant})"
+                if unit:
+                    product_name = f"{product_name} ({unit})"
+                
+                inventory_report.append({
+                    'product_id': product.product_id,
+                    'product_name': product_name,
+                    'name': product.name or '',
+                    'variant': variant,
+                    'quantity_unit': unit,
+                    'current_stock': float(product.stock),
+                    'beginning_stock': beginning_stock,
+                    'unit_cost': float(product.cost or 0),
+                    'unit_price': float(product.price),
+                    'stock_value_cost': stock_value_cost,
+                    'stock_value_price': stock_value_price,
+                    'margin': margin,
+                    'margin_pct': margin_pct,
+                    'low_stock_flag': low_stock_flag,
+                    'status': product.status.title() if product.status else 'N/A',
+                    'last_updated': product.last_updated.strftime('%Y-%m-%d %H:%M') if product.last_updated else 'N/A',
+                    'quantity_sold_in_period': sales_data['quantity_sold'],
+                    'boxes_sold_in_period': sales_data['boxes_sold'],
+                    'kg_sold_in_period': sales_data['kg_sold'],
+                    'quantity_added_in_period': additions_data['quantity_added'],
+                    'boxes_added_in_period': additions_data['boxes_added'],
+                    'kg_added_in_period': additions_data['kg_added'],
+                    'revenue_in_period': sales_data['revenue'],
+                    'cogs_in_period': cogs,
+                    'profit_in_period': profit_from_sales,
+                    'avg_selling_price': avg_selling_price,
+                    'transaction_count': sales_data['transaction_count'],
+                    'stock_turnover': stock_turnover,
+                    'days_of_supply': days_of_supply,
+                    'last_sale_date': last_sale_date_str,
+                    'total_additions_cost': additions_data['total_cost']
+                })
+        except Exception as e:
+            import traceback
+            error_msg = f"Inventory report error: {str(e)}"
+            print(f"[INVENTORY REPORT ERROR] {error_msg}")
+            traceback.print_exc()
+            # Log to Django logger if available
+            try:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Inventory report generation failed: {str(e)}", exc_info=True)
+            except:
+                pass
+            inventory_report = []
+        
+        try:
+            print(f"REPORTS COUNTS => sales_summary_rows:{len(sales_summary_data)} top_products:{len(top_fruits)} low_stock:{len(low_stock)} tx:{len(tx_data)} voided:{len(voided_data)} accepted_pricing:{len(accepted_pricing)} inventory_report:{len(inventory_report)}")
         except Exception:
             pass
         try:
@@ -5211,6 +5462,7 @@ def fetch_reports(request):
                 'inventory_reports': summary_reports_data, 
                 'accepted_pricing': accepted_pricing,
                 'spoilage': spoilage_list,
+                'inventory_report': inventory_report,
             }
         })
     except Exception as e:

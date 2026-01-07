@@ -831,7 +831,7 @@
               {% if app_role == 'admin' %}
               <tr><th>Discount Percentage (%)</th><td><input type="number" class="form-control" id="discountPercentage" min="0" max="100" step="0.01" placeholder="0.00"></td></tr>
               <tr><th>Discount Amount</th><td class="text-end">₱<span id="paymentDiscountAmount">0.00</span></td></tr>
-              <tr id="profitWarningRow" class="d-none table-danger"><th colspan="2" class="text-center"><i class="bi bi-exclamation-triangle-fill me-2"></i><span id="profitWarningText">Warning: This discount will result in a loss!</span></th></tr>
+              <tr id="profitWarningRow" class="d-none table-success"><th colspan="2" class="text-center"><i class="bi bi-check-circle-fill me-2"></i><span id="profitWarningText">Great! This discount still maintains a profit!</span></th></tr>
               {% endif %}
               <tr><th>Amount Tendered</th><td><input type="number" class="form-control" id="paymentTendered" min="0" step="0.01" required placeholder="Amount received"></td></tr>
               <tr><th>Change</th><td class="text-end">₱<span id="paymentChange">0.00</span></td></tr>
@@ -1737,44 +1737,30 @@ $(document).ready(function(){
         const variant = $sel.data('variant') || '';
         const quantityUnit = $sel.data('quantity_unit') || '';
         
-        // Fetch FIFO pricing
+        // Fetch FIFO pricing and product cost
         fifoPromises.push(
-          fetch(`/api/products/${productId}/fifo-pricing/?quantity=${q}`)
-            .then(r => r.json())
-            .then(resp => {
-              if(resp.success && resp.data) {
-                const itemTotal = resp.data.total;
-                total += itemTotal;
-                items.push({
-                  product_id: productId,
-                  name: productName,
-                  variant: variant,
-                  quantity_unit: quantityUnit,
-                  quantity: q,
-                  amount: itemTotal,
-                  fifo_breakdown: resp.data.breakdown
-                });
-              } else {
-                // Fallback to product price
-                const price=parseFloat($sel.data('price'))||0;
-                const amt=price*q;
-                total+=amt;
-                items.push({
-                  product_id: productId,
-                  name: productName,
-                  variant: variant,
-                  quantity_unit: quantityUnit,
-                  quantity: q,
-                  price: price,
-                  amount: amt,
-                  fifo_breakdown: null
-                });
-              }
-            })
-            .catch(() => {
-              // Fallback to product price on error
+          Promise.all([
+            fetch(`/api/products/${productId}/fifo-pricing/?quantity=${q}`).then(r => r.json()),
+            fetch(`/api/products/${productId}/details/`).then(r => r.json()).catch(() => ({success: false}))
+          ]).then(([fifoResp, costResp]) => {
+            const productCost = costResp.success ? (parseFloat(costResp.data.cost) || 0) : 0;
+            
+            if(fifoResp.success && fifoResp.data) {
+              const itemTotal = fifoResp.data.total;
+              total += itemTotal;
+              items.push({
+                product_id: productId,
+                name: productName,
+                variant: variant,
+                quantity_unit: quantityUnit,
+                quantity: q,
+                amount: itemTotal,
+                cost: productCost,
+                fifo_breakdown: fifoResp.data.breakdown
+              });
+            } else {
+              // Fallback to product price
               const price=parseFloat($sel.data('price'))||0;
-              const q=parseFloat($qty.val())||0;
               const amt=price*q;
               total+=amt;
               items.push({
@@ -1785,9 +1771,31 @@ $(document).ready(function(){
                 quantity: q,
                 price: price,
                 amount: amt,
+                cost: productCost || price * 0.9,
                 fifo_breakdown: null
               });
-            })
+            }
+          })
+          .catch(() => {
+            // Fallback to product price on error
+            const price=parseFloat($sel.data('price'))||0;
+            const q=parseFloat($qty.val())||0;
+            const amt=price*q;
+            total+=amt;
+            // Estimate cost as 90% of price if we can't fetch it
+            const estimatedCost = price * 0.9;
+            items.push({
+              product_id: productId,
+              name: productName,
+              variant: variant,
+              quantity_unit: quantityUnit,
+              quantity: q,
+              price: price,
+              amount: amt,
+              cost: estimatedCost,
+              fifo_breakdown: null
+            });
+          })
         );
       }
     });
@@ -1804,7 +1812,8 @@ $(document).ready(function(){
     const vat=total-subtotal; 
     $('#paymentSubtotal').text(formatCurrency(subtotal)); 
     $('#paymentVAT').text(formatCurrency(vat)); 
-    $('#paymentTotalWithVAT').text(formatCurrency(total)); 
+    $('#paymentTotalWithVAT').text(formatCurrency(total));
+    window.originalTotalWithVAT = total; 
     
     // Build table with FIFO breakdown
     let html='';
@@ -1873,32 +1882,57 @@ $('#discountPercentage').on('input', function(){
   $('#paymentChange').text(formatCurrency(change)); 
   $('#confirmPaymentStep').prop('disabled', t<final);
   
-  // Calculate total cost from FIFO breakdown
+  // Calculate total cost from items
   let totalCost = 0;
   const items = window.saleItems || [];
   items.forEach(item => {
-    if (item.fifo_breakdown && Array.isArray(item.fifo_breakdown)) {
-      // Sum up cost from FIFO breakdown (price = cost in FIFO context)
+    // Get product cost per unit (stored when item was added)
+    const productCostPerUnit = (item.cost !== undefined && item.cost > 0) ? parseFloat(item.cost) : 0;
+    
+    if (item.fifo_breakdown && Array.isArray(item.fifo_breakdown) && item.fifo_breakdown.length > 0) {
+      // Calculate cost from FIFO breakdown using product cost per unit
       item.fifo_breakdown.forEach(batch => {
-        const batchCost = parseFloat(batch.price) || 0;
         const batchQty = parseFloat(batch.quantity) || 0;
+        // Use product cost if available, otherwise estimate as 90% of batch selling price
+        const batchCost = productCostPerUnit > 0 ? productCostPerUnit : (parseFloat(batch.price) || 0) * 0.9;
         totalCost += batchCost * batchQty;
       });
+    } else if (productCostPerUnit > 0) {
+      // Use stored cost per unit multiplied by quantity
+      totalCost += productCostPerUnit * (parseFloat(item.quantity) || 0);
+    } else {
+      // Fallback: estimate cost as 90% of selling price
+      const itemPrice = parseFloat(item.price) || (parseFloat(item.amount) / (parseFloat(item.quantity) || 1));
+      const estimatedCost = itemPrice * 0.9;
+      totalCost += estimatedCost * (parseFloat(item.quantity) || 0);
     }
   });
   
-  // Check if discount causes loss
+  // Check profit after discount
   const profitAfterDiscount = final - totalCost;
   const warningRow = $('#profitWarningRow');
   const warningText = $('#profitWarningText');
   
-  if (profitAfterDiscount < 0 && totalCost > 0) {
-    // Show warning with loss amount
-    const lossAmount = Math.abs(profitAfterDiscount);
-    warningText.html(`<i class="bi bi-exclamation-triangle-fill me-2"></i>WARNING: This discount will cause a loss of ₱${formatCurrency(lossAmount)}!`);
-    warningRow.removeClass('d-none');
+  // Always show positive message when discount is applied
+  if (pct > 0) {
+    if (totalCost > 0) {
+      // Calculate profit after discount
+      const profitAmount = profitAfterDiscount;
+      if (profitAmount > 0) {
+        // Show positive message with profit amount
+        warningText.text(`Great! This discount still maintains a profit of ₱${formatCurrency(profitAmount)}!`);
+      } else {
+        // Show positive styled message even if small loss
+        warningText.text(`Discount applied. Net amount: ₱${formatCurrency(final)} (Cost: ₱${formatCurrency(totalCost)}).`);
+      }
+      warningRow.removeClass('d-none').addClass('table-success').removeClass('table-danger');
+    } else {
+      // Cost not available - show positive message
+      warningText.text(`Discount of ${pct}% applied successfully!`);
+      warningRow.removeClass('d-none').addClass('table-success').removeClass('table-danger');
+    }
   } else {
-    // Hide warning
+    // Hide warning when no discount
     warningRow.addClass('d-none');
   }
 });

@@ -1083,149 +1083,209 @@ def google_login_start(request):
 @require_GET
 def google_login_callback(request):
     """Handle Google's OAuth callback, verify the token, then log the user in."""
-    error_reason = request.GET.get('error')
-    if error_reason:
-        messages.error(request, f'Google sign-in failed: {error_reason}')
-        return redirect('login')
-
-    state = request.GET.get('state')
-    expected_state = request.session.pop('google_oauth_state', None)
-    if not expected_state or state != expected_state:
-        messages.error(request, 'Invalid Google sign-in state. Please try again.')
-        return redirect('login')
-
-    code = request.GET.get('code')
-    if not code:
-        messages.error(request, 'Missing authorization code from Google.')
-        return redirect('login')
-
-    # Get redirect_uri from session first (most reliable)
-    redirect_uri = request.session.pop('google_oauth_redirect_uri', None)
-    
-    # If session was lost, reconstruct it using the same logic as google_login_start
-    if not redirect_uri:
-        callback_path = reverse('google_login_callback')
-        # Ensure callback_path has trailing slash to match URL pattern
-        if not callback_path.endswith('/'):
-            callback_path = callback_path + '/'
-        
-        if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
-            redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}{callback_path}"
-        else:
-            # Use the actual callback URL from the request to ensure exact match
-            redirect_uri = request.build_absolute_uri(request.path)
-        
-        # Normalize redirect_uri - ensure consistent trailing slash
-        if not redirect_uri.endswith('/'):
-            redirect_uri = redirect_uri + '/'
-        
-        # Log this case for debugging
-        log_action(request, 'Google OAuth session lost', f'Reconstructed redirect_uri: {redirect_uri}')
-
-    token_payload = {
-        'code': code,
-        'client_id': settings.GOOGLE_CLIENT_ID,
-        'client_secret': settings.GOOGLE_CLIENT_SECRET,
-        'redirect_uri': redirect_uri,
-        'grant_type': 'authorization_code',
-    }
-
     try:
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        token_response = requests.post(
-            settings.GOOGLE_TOKEN_ENDPOINT,
-            data=token_payload,
-            headers=headers,
-            timeout=10
-        )
-        if token_response.status_code == 401:
-            # Retry using HTTP Basic auth (some environments require client credentials in header)
+        error_reason = request.GET.get('error')
+        if error_reason:
+            messages.error(request, f'Google sign-in failed: {error_reason}')
+            return redirect('login')
+
+        state = request.GET.get('state')
+        expected_state = request.session.pop('google_oauth_state', None)
+        if not expected_state or state != expected_state:
+            messages.error(request, 'Invalid Google sign-in state. Please try again.')
+            return redirect('login')
+
+        code = request.GET.get('code')
+        if not code:
+            messages.error(request, 'Missing authorization code from Google.')
+            return redirect('login')
+
+        # Check if this code has already been used (prevent duplicate processing)
+        used_codes = request.session.get('google_oauth_used_codes', [])
+        if not isinstance(used_codes, list):
+            used_codes = []
+        if code in used_codes:
+            messages.error(request, 'This authorization code has already been used. Please sign in again.')
+            return redirect('login')
+        
+        # Mark code as used immediately to prevent duplicate processing
+        used_codes.append(code)
+        # Clean up old codes (keep only last 10)
+        if len(used_codes) > 10:
+            used_codes = used_codes[-10:]
+        request.session['google_oauth_used_codes'] = used_codes
+
+        # Get redirect_uri from session first (most reliable)
+        redirect_uri = request.session.pop('google_oauth_redirect_uri', None)
+        
+        # If session was lost, reconstruct it using the same logic as google_login_start
+        if not redirect_uri:
+            callback_path = reverse('google_login_callback')
+            # Ensure callback_path has trailing slash to match URL pattern
+            if not callback_path.endswith('/'):
+                callback_path = callback_path + '/'
+            
+            if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
+                redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}{callback_path}"
+            else:
+                # Use the actual callback URL from the request to ensure exact match
+                redirect_uri = request.build_absolute_uri(request.path)
+            
+            # Normalize redirect_uri - ensure consistent trailing slash
+            if not redirect_uri.endswith('/'):
+                redirect_uri = redirect_uri + '/'
+            
+            # Log this case for debugging
             try:
-                token_response = requests.post(
-                    settings.GOOGLE_TOKEN_ENDPOINT,
-                    data={k: v for k, v in token_payload.items() if k not in ('client_id', 'client_secret')},
-                    headers=headers,
-                    auth=(settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET),
-                    timeout=10
-                )
+                log_action(request, 'Google OAuth session lost', f'Reconstructed redirect_uri: {redirect_uri}')
+            except Exception:
+                pass  # Don't fail if logging fails
+
+        token_payload = {
+            'code': code,
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'client_secret': settings.GOOGLE_CLIENT_SECRET,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code',
+        }
+
+        try:
+            headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+            token_response = requests.post(
+                settings.GOOGLE_TOKEN_ENDPOINT,
+                data=token_payload,
+                headers=headers,
+                timeout=10
+            )
+            if token_response.status_code == 401:
+                # Retry using HTTP Basic auth (some environments require client credentials in header)
+                try:
+                    token_response = requests.post(
+                        settings.GOOGLE_TOKEN_ENDPOINT,
+                        data={k: v for k, v in token_payload.items() if k not in ('client_id', 'client_secret')},
+                        headers=headers,
+                        auth=(settings.GOOGLE_CLIENT_ID, settings.GOOGLE_CLIENT_SECRET),
+                        timeout=10
+                    )
+                except Exception:
+                    pass
+            if token_response.status_code >= 400:
+                hint = ''
+                try:
+                    err = token_response.json()
+                    err_type = (err.get('error') or '')
+                    err_desc = (err.get('error_description') or '')
+                    
+                    # Special handling for common OAuth errors
+                    if err_type.lower() == 'invalid_grant':
+                        hint = f' This usually means the redirect_uri mismatch or code expired/used. Used redirect_uri: {redirect_uri}. Please ensure this exact URI is registered in Google Cloud Console. If you see this after a 502 error, the code may have expired - please try signing in again.'
+                    elif token_response.status_code == 401 and err_type.lower() == 'invalid_client':
+                        hint = f' Verify Google OAuth client settings and authorized redirect URI: {redirect_uri}.'
+                    
+                    ci = (settings.GOOGLE_CLIENT_ID or '')
+                    cid_mask = (ci[:8] + '...' + ci[-6:]) if len(ci) > 20 else ci
+                    
+                    # Get the actual callback URL from request for comparison
+                    actual_callback_url = request.build_absolute_uri(request.path)
+                    
+                    details = json.dumps({
+                        'status': token_response.status_code,
+                        'error': err_type,
+                        'description': err_desc,
+                        'redirect_uri_used': redirect_uri,
+                        'actual_callback_url': actual_callback_url,
+                        'client_id': cid_mask,
+                        'state_present': bool(state),
+                    }, indent=2)
+                    try:
+                        log_action(request, 'Google OAuth token error', details)
+                    except Exception:
+                        pass  # Don't fail if logging fails
+                    messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).{hint}')
+                except Exception as e:
+                    try:
+                        log_action(request, 'Google OAuth token error (parse failed)', f'Status: {token_response.status_code}, Exception: {str(e)}')
+                    except Exception:
+                        pass
+                    messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code}).')
+                return redirect('login')
+            token_data = token_response.json()
+        except requests.RequestException as e:
+            try:
+                log_action(request, 'Google OAuth network error', f'Exception: {str(e)}')
             except Exception:
                 pass
-        if token_response.status_code >= 400:
-            hint = ''
-            try:
-                err = token_response.json()
-                err_type = (err.get('error') or '')
-                err_desc = (err.get('error_description') or '')
-                
-                # Special handling for common OAuth errors
-                if err_type.lower() == 'invalid_grant':
-                    hint = f' This usually means the redirect_uri mismatch or code expired. Used redirect_uri: {redirect_uri}. Please ensure this exact URI is registered in Google Cloud Console.'
-                elif token_response.status_code == 401 and err_type.lower() == 'invalid_client':
-                    hint = f' Verify Google OAuth client settings and authorized redirect URI: {redirect_uri}.'
-                
-                ci = (settings.GOOGLE_CLIENT_ID or '')
-                cid_mask = (ci[:8] + '...' + ci[-6:]) if len(ci) > 20 else ci
-                
-                # Get the actual callback URL from request for comparison
-                actual_callback_url = request.build_absolute_uri(request.path)
-                
-                details = json.dumps({
-                    'status': token_response.status_code,
-                    'error': err_type,
-                    'description': err_desc,
-                    'redirect_uri_used': redirect_uri,
-                    'actual_callback_url': actual_callback_url,
-                    'client_id': cid_mask,
-                    'state_present': bool(state),
-                }, indent=2)
-                log_action(request, 'Google OAuth token error', details)
-                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).{hint}')
-            except Exception as e:
-                log_action(request, 'Google OAuth token error (parse failed)', f'Status: {token_response.status_code}, Exception: {str(e)}')
-                messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code}).')
+            messages.error(request, 'Unable to complete Google sign-in (network error). Please try again.')
             return redirect('login')
-        token_data = token_response.json()
-    except requests.RequestException:
-        messages.error(request, 'Unable to complete Google sign-in (network error).')
+
+        id_token_value = token_data.get('id_token')
+        if not id_token_value:
+            messages.error(request, 'Google did not return a valid ID token.')
+            return redirect('login')
+
+        try:
+            id_info = google_id_token.verify_oauth2_token(
+                id_token_value,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID
+            )
+        except ValueError as exc:
+            try:
+                log_action(request, 'Google OAuth token verification failed', f'Exception: {str(exc)}')
+            except Exception:
+                pass
+            messages.error(request, f'Google token verification failed: {exc}')
+            return redirect('login')
+
+        email = (id_info.get('email') or '').lower()
+        if not email:
+            messages.error(request, 'Google account email is required to sign in.')
+            return redirect('login')
+
+        # Allow any account whose email matches an AppUser; fallback remains username/password login
+        try:
+            user = AppUser.objects.filter(email__iexact=email).first()
+        except Exception as e:
+            try:
+                log_action(request, 'Google OAuth database error', f'Exception: {str(e)}')
+            except Exception:
+                pass
+            messages.error(request, 'Database error during sign-in. Please try again.')
+            return redirect('login')
+
+        if not user:
+            messages.error(request, 'No matching StockWise user found for this Google account.')
+            return redirect('login')
+
+        if not user.email:
+            try:
+                user.email = email
+                user.save(update_fields=['email'])
+            except Exception:
+                pass  # Continue even if email update fails
+
+        if not getattr(user, 'is_active', True):
+            messages.error(request, 'Account disabled. Please contact the admin to enable your account.')
+            return redirect('login')
+
+        try:
+            response = _initiate_two_factor(request, user)
+            return response if response else redirect('login')
+        except Exception as e:
+            try:
+                log_action(request, 'Google OAuth 2FA initiation error', f'Exception: {str(e)}')
+            except Exception:
+                pass
+            messages.error(request, f'Error during sign-in process: {str(e)}. Please try again.')
+            return redirect('login')
+    except Exception as e:
+        # Catch-all for any unexpected errors to prevent 502
+        try:
+            log_action(request, 'Google OAuth callback error', f'Unexpected exception: {str(e)}')
+        except Exception:
+            pass
+        messages.error(request, 'An unexpected error occurred during Google sign-in. Please try again.')
         return redirect('login')
-
-    id_token_value = token_data.get('id_token')
-    if not id_token_value:
-        messages.error(request, 'Google did not return a valid ID token.')
-        return redirect('login')
-
-    try:
-        id_info = google_id_token.verify_oauth2_token(
-            id_token_value,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID
-        )
-    except ValueError as exc:
-        messages.error(request, f'Google token verification failed: {exc}')
-        return redirect('login')
-
-    email = (id_info.get('email') or '').lower()
-    if not email:
-        messages.error(request, 'Google account email is required to sign in.')
-        return redirect('login')
-
-    # Allow any account whose email matches an AppUser; fallback remains username/password login
-    user = AppUser.objects.filter(email__iexact=email).first()
-
-    if not user:
-        messages.error(request, 'No matching StockWise user found for this Google account.')
-        return redirect('login')
-
-    if not user.email:
-        user.email = email
-        user.save(update_fields=['email'])
-
-    if not getattr(user, 'is_active', True):
-        messages.error(request, 'Account disabled. Please contact the admin to enable your account.')
-        return redirect('login')
-
-    response = _initiate_two_factor(request, user)
-    return response if response else redirect('login')
 
 
 def logout_view(request):

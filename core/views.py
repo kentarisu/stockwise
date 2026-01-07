@@ -1039,13 +1039,29 @@ def google_login_start(request):
         return redirect('login')
 
     state_token = secrets.token_urlsafe(32)
-    redirect_uri = request.build_absolute_uri(reverse('google_login_callback'))
-    # If a fixed redirect base is configured (e.g., localhost), always use it
+    
+    # Build redirect_uri consistently - always use the same method
+    callback_path = reverse('google_login_callback')
+    # Ensure callback_path has trailing slash to match URL pattern
+    if not callback_path.endswith('/'):
+        callback_path = callback_path + '/'
+    
     if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
-        redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}" + reverse('google_login_callback')
+        # Use fixed redirect base if configured
+        redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}{callback_path}"
+    else:
+        # Build from request
+        redirect_uri = request.build_absolute_uri(callback_path)
+    
+    # Normalize redirect_uri - ensure consistent trailing slash
+    # Google requires exact match, so we'll always include trailing slash
+    if not redirect_uri.endswith('/'):
+        redirect_uri = redirect_uri + '/'
 
+    # Store in session with longer expiry to prevent loss
     request.session['google_oauth_state'] = state_token
     request.session['google_oauth_redirect_uri'] = redirect_uri
+    request.session.set_expiry(300)  # 5 minutes for OAuth flow
     next_url = request.GET.get('next')
     if next_url:
         request.session['google_oauth_next'] = next_url
@@ -1083,10 +1099,28 @@ def google_login_callback(request):
         messages.error(request, 'Missing authorization code from Google.')
         return redirect('login')
 
-    default_redirect = request.build_absolute_uri(reverse('google_login_callback'))
-    if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
-        default_redirect = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}" + reverse('google_login_callback')
-    redirect_uri = request.session.pop('google_oauth_redirect_uri', default_redirect)
+    # Get redirect_uri from session first (most reliable)
+    redirect_uri = request.session.pop('google_oauth_redirect_uri', None)
+    
+    # If session was lost, reconstruct it using the same logic as google_login_start
+    if not redirect_uri:
+        callback_path = reverse('google_login_callback')
+        # Ensure callback_path has trailing slash to match URL pattern
+        if not callback_path.endswith('/'):
+            callback_path = callback_path + '/'
+        
+        if getattr(settings, 'GOOGLE_REDIRECT_BASE', ''):
+            redirect_uri = f"{settings.GOOGLE_REDIRECT_BASE.rstrip('/')}{callback_path}"
+        else:
+            # Use the actual callback URL from the request to ensure exact match
+            redirect_uri = request.build_absolute_uri(request.path)
+        
+        # Normalize redirect_uri - ensure consistent trailing slash
+        if not redirect_uri.endswith('/'):
+            redirect_uri = redirect_uri + '/'
+        
+        # Log this case for debugging
+        log_action(request, 'Google OAuth session lost', f'Reconstructed redirect_uri: {redirect_uri}')
 
     token_payload = {
         'code': code,
@@ -1122,20 +1156,32 @@ def google_login_callback(request):
                 err = token_response.json()
                 err_type = (err.get('error') or '')
                 err_desc = (err.get('error_description') or '')
-                if token_response.status_code == 401 and err_type.lower() == 'invalid_client':
+                
+                # Special handling for common OAuth errors
+                if err_type.lower() == 'invalid_grant':
+                    hint = f' This usually means the redirect_uri mismatch or code expired. Used redirect_uri: {redirect_uri}. Please ensure this exact URI is registered in Google Cloud Console.'
+                elif token_response.status_code == 401 and err_type.lower() == 'invalid_client':
                     hint = f' Verify Google OAuth client settings and authorized redirect URI: {redirect_uri}.'
+                
                 ci = (settings.GOOGLE_CLIENT_ID or '')
                 cid_mask = (ci[:8] + '...' + ci[-6:]) if len(ci) > 20 else ci
+                
+                # Get the actual callback URL from request for comparison
+                actual_callback_url = request.build_absolute_uri(request.path)
+                
                 details = json.dumps({
                     'status': token_response.status_code,
                     'error': err_type,
                     'description': err_desc,
-                    'redirect_uri': redirect_uri,
+                    'redirect_uri_used': redirect_uri,
+                    'actual_callback_url': actual_callback_url,
                     'client_id': cid_mask,
-                })
+                    'state_present': bool(state),
+                }, indent=2)
                 log_action(request, 'Google OAuth token error', details)
                 messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code} {err_type}: {err_desc}).{hint}')
-            except Exception:
+            except Exception as e:
+                log_action(request, 'Google OAuth token error (parse failed)', f'Status: {token_response.status_code}, Exception: {str(e)}')
                 messages.error(request, f'Unable to complete Google sign-in (token error: {token_response.status_code}).')
             return redirect('login')
         token_data = token_response.json()
@@ -9910,7 +9956,7 @@ def sms_settings_view(request):
         .values('product__name','product__variant','product__quantity_unit','product__stock')
         .annotate(boxes_sold=Sum('quantity'), revenue=Sum('total'))
         .order_by('-boxes_sold')[:5])
-    sales_preview_msg = "STOCKWISE Daily Sales Report\n\n"
+    sales_preview_msg = "Daily Sales Report\n\n"
     sales_preview_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
     sales_preview_msg += "== OVERALL SUMMARY ==\n\n"
     sales_preview_msg += f"Total Revenue: PHP {float(today_revenue):,.2f}\n"
@@ -9947,7 +9993,7 @@ def sms_settings_view(request):
         status='active',
         stock=0
     ).order_by('name')[:5]
-    stock_preview_msg = "STOCKWISE Stock Alert\n\n"
+    stock_preview_msg = "Stock Alert\n\n"
     if out_of_stock_products.exists():
         stock_preview_msg += "CRITICAL - OUT OF STOCK:\n"
         for i, p in enumerate(out_of_stock_products, 1):
@@ -10012,9 +10058,9 @@ def sms_settings_view(request):
         if actionable:
             pricing_preview_msg = format_pricing_sms_from_queryset(actionable)
         else:
-            pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
+            pricing_preview_msg = "Pricing Recommendation\n\nNo Pricing Recommendation Today."
     except Exception as _:
-        pricing_preview_msg = "STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today."
+        pricing_preview_msg = "Pricing Recommendation\n\nNo Pricing Recommendation Today."
 
     context = {
         'sms_notification': type('Obj', (), {
@@ -10178,12 +10224,12 @@ def test_notification_type(request):
                     from core.sms_formatter import format_pricing_recommendation
                     message = format_pricing_recommendation(actionable)
                 else:
-                    message = 'STOCKWISE Pricing Recommendation\n\nNo Pricing Recommendation Today.\n'
+                    message = 'Pricing Recommendation\n\nNo Pricing Recommendation Today.\n'
             except Exception as e:
                 message = f"Error generating pricing recommendations: {str(e)}"
         else:
             # Fallback generic message (should rarely be used)
-            message = "STOCKWISE Test Message\n\nSMS system is working correctly.\n\n- STOCKWISE System"
+            message = "Test Message\n\nSMS system is working correctly.\n\n- System"
         
 
         # Send SMS using the existing SMS service
@@ -12111,7 +12157,7 @@ def send_all_notifications_now(request):
         total_boxes = today_sales.aggregate(total=Sum('quantity'))['total'] or 0
         product_sales = today_sales.values('product__name', 'product__quantity_unit', 'product__stock').annotate(boxes_sold=Sum('quantity'), revenue=Sum('total')).order_by('-boxes_sold')[:5]
         kilos_sold = today_sales.filter(Q(product__quantity_unit__iexact='kg')).aggregate(total=Sum('quantity'))['total'] or 0
-        sales_msg = "STOCKWISE Daily Sales Report\n\n"
+        sales_msg = "Daily Sales Report\n\n"
         sales_msg += f"Date: {today.strftime('%B %d, %Y')}\n\n"
         sales_msg += "== OVERALL SUMMARY ==\n\n"
         sales_msg += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
@@ -12179,7 +12225,7 @@ def send_all_notifications_now(request):
         low_stock = Product.objects.filter(stock__lte=10, stock__gt=0, status='active').order_by('stock')
         oos = Product.objects.filter(stock=0, status='active').order_by('name')
         
-        stock_msg = "STOCKWISE Stock Alert\n\n"
+        stock_msg = "Stock Alert\n\n"
         if oos.exists():
             stock_msg += "CRITICAL - OUT OF STOCK:\n"
             for i, p in enumerate(oos, 1):
@@ -12267,9 +12313,9 @@ def send_all_notifications_now(request):
                 except Exception:
                     pass
             else:
-                pricing_msg = "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+                pricing_msg = "Pricing Recommendation\n\nNo pricing recommendations available at this time."
         except Exception as e:
-            pricing_msg = f"STOCKWISE Pricing Recommendation\n\nError generating recommendations: {str(e)}"
+            pricing_msg = f"Pricing Recommendation\n\nError generating recommendations: {str(e)}"
         results['pricing'] = _send_chunked(user_obj.phone_number, pricing_msg)
         print(f"DEBUG: Pricing SMS result: {results.get('pricing')}")
         print(f"DEBUG: Product available: {product is not None}")

@@ -46,7 +46,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
             return
         
-        message = "STOCKWISE Stock Alert\n\nTest Alert: This is a test notification."
+        message = "Stock Alert\n\nTest Alert: This is a test notification."
         
         for u in admins:
             if self.send_sms(u.phone_number, message):

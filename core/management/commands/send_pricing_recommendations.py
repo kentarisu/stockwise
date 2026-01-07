@@ -34,7 +34,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('No admin phone numbers configured.'))
             return
         
-        message = "STOCKWISE Pricing Recommendation\n\nTest Alert: This is a test pricing notification."
+        message = "Pricing Recommendation\n\nTest Alert: This is a test pricing notification."
         
         for u in admins:
             if self.send_sms(u.phone_number, message):

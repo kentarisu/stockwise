@@ -12,7 +12,7 @@ def format_daily_sales_summary(date, total_sales, total_revenue, total_boxes, to
     Format Daily Sales Summary SMS message.
     
     Format:
-    STOCKWISE Daily Sales Report
+    Daily Sales Report
     
     Date: December 08, 2025
     == OVERALL SUMMARY ==
@@ -30,7 +30,7 @@ def format_daily_sales_summary(date, total_sales, total_revenue, total_boxes, to
     ...
     """
     date_str = date.strftime('%B %d, %Y')
-    message = "STOCKWISE Daily Sales Report\n\n"
+    message = "Daily Sales Report\n\n"
     message += f"Date: {date_str}\n\n"
     message += "== OVERALL SUMMARY ==\n\n"
     message += f"Total Revenue: PHP {float(total_revenue):,.2f}\n"
@@ -71,7 +71,7 @@ def format_stock_alert(out_of_stock_products, low_stock_products):
     Format Stock Alert SMS message.
     
     Format:
-    STOCKWISE Stock Alert
+    Stock Alert
     
     CRITICAL - OUT OF STOCK:
     1. Apple (Red Delicious) (200)
@@ -83,7 +83,7 @@ def format_stock_alert(out_of_stock_products, low_stock_products):
     2. Apple (Gala) (kg): 5 kg left
     ...
     """
-    message = "STOCKWISE Stock Alert\n\n"
+    message = "Stock Alert\n\n"
     
     def _label(name, variant, quantity_unit):
         """Create product label: Name (Variant) (Unit)"""
@@ -150,7 +150,7 @@ def format_pricing_recommendation(recommendations):
     Format Pricing Recommendation SMS message.
     
     Format:
-    STOCKWISE Pricing Recommendation
+    Pricing Recommendation
     
     1. Melon (Small) (kg)
     PHP 60.00 -> 57.00 (-5%)
@@ -158,11 +158,11 @@ def format_pricing_recommendation(recommendations):
     
     OR
     
-    STOCKWISE Pricing Recommendation
+    Pricing Recommendation
     
     No Pricing Recommendation Today.
     """
-    message = "STOCKWISE Pricing Recommendation\n\n"
+    message = "Pricing Recommendation\n\n"
     
     if not recommendations or (hasattr(recommendations, '__len__') and len(recommendations) == 0):
         message += "No Pricing Recommendation Today.\n"

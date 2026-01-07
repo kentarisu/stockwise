@@ -355,7 +355,7 @@ class Command(BaseCommand):
             ).order_by('name')
 
             if not low_stock_products.exists() and not out_of_stock_products.exists():
-                message = "STOCKWISE Stock Alert\n\n"
+                message = "Stock Alert\n\n"
                 message += "All products have sufficient stock.\n\n"
                 
                 # Only send if forced, otherwise just log
@@ -650,4 +650,4 @@ class Command(BaseCommand):
         return format_stock_alert(out_of_stock_products, low_stock_products)
 
     def generate_pricing_recommendations(self, sales):
-        return "STOCKWISE Pricing Recommendation\n\nNo pricing recommendations available at this time."
+        return "Pricing Recommendation\n\nNo pricing recommendations available at this time."

@@ -265,7 +265,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
     
     def _format_pricing_message(self, recommendations, total_count):
-        message = "STOCKWISE Pricing Recommendation\n\n"
+        message = "Pricing Recommendation\n\n"
 
         for idx, (_, rec) in enumerate(recommendations.iterrows(), 1):
             action_symbol = "+" if rec['action'] == 'INCREASE' else "-"

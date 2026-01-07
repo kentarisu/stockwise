@@ -13277,6 +13277,7 @@ def delete_backup(request, backup_id):
 
 
 @require_app_login
+@csrf_exempt
 def upload_and_restore_backup(request):
     """Upload a backup JSON file and restore from it
     
@@ -13284,11 +13285,15 @@ def upload_and_restore_backup(request):
     The web server (nginx/gunicorn) timeout may need to be increased
     to handle long-running restore operations. Client-side timeout is set to 10 minutes.
     """
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
-    
-    if request.session.get('app_role') != 'admin':
-        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    # Ensure we always return JSON, even for errors
+    try:
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+        
+        if request.session.get('app_role') != 'admin':
+            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Error checking permissions: {str(e)}'}, status=500)
     
     try:
         if 'backup_file' not in request.FILES:
@@ -13328,16 +13333,50 @@ def upload_and_restore_backup(request):
         
         # Validate file size (max 500MB)
         max_size = 500 * 1024 * 1024  # 500MB
-        if temp_path.stat().st_size > max_size:
+        file_size = temp_path.stat().st_size
+        if file_size > max_size:
             try:
                 temp_path.unlink()
             except Exception:
                 pass  # Ignore deletion errors
             return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
         
+        # Check if file is empty
+        if file_size == 0:
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+            return JsonResponse({'success': False, 'message': 'Backup file is empty. Please ensure the file was downloaded completely.'}, status=400)
+        
         # Validate file based on extension
         import json
         import zipfile
+        
+        # For ZIP files, verify it's actually a ZIP by checking magic bytes
+        if uploaded_file.name.endswith('.zip'):
+            try:
+                with open(temp_path, 'rb') as f:
+                    magic = f.read(4)
+                    # ZIP files start with PK\x03\x04 or PK\x05\x06 (empty zip) or PK\x07\x08 (spanned)
+                    if not (magic.startswith(b'PK') and len(magic) >= 2):
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass
+                        return JsonResponse({
+                            'success': False, 
+                            'message': 'Invalid ZIP file. The file does not appear to be a valid ZIP archive. It may be corrupted or not fully downloaded.'
+                        }, status=400)
+            except Exception as e:
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+                return JsonResponse({
+                    'success': False, 
+                    'message': f'Error reading backup file: {str(e)}. The file may be corrupted.'
+                }, status=400)
         
         if uploaded_file.name.endswith('.json'):
             # Validate JSON file
@@ -13364,8 +13403,16 @@ def upload_and_restore_backup(request):
             test_zip = None
             try:
                 test_zip = zipfile.ZipFile(temp_path, 'r')
-                # Test zip integrity
-                test_zip.testzip()
+                # Test zip integrity - this can raise BadZipFile if corrupted
+                try:
+                    bad_file = test_zip.testzip()
+                    if bad_file:
+                        raise zipfile.BadZipFile(f'Corrupted file in ZIP: {bad_file}')
+                except zipfile.BadZipFile:
+                    raise  # Re-raise to be caught by outer handler
+                except Exception as test_error:
+                    # testzip() can raise other exceptions
+                    raise zipfile.BadZipFile(f'ZIP integrity check failed: {str(test_error)}')
                 
                 file_list = test_zip.namelist()
                 from pathlib import PurePosixPath
@@ -13374,16 +13421,17 @@ def upload_and_restore_backup(request):
                 # Accept JSON files anywhere except in media/ folder
                 json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('media/')]
                 
-                # Check for database folder
+                # Check for database folder and files in it
                 has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
                 database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
                 
                 # Debug: log file list for troubleshooting
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.info(f'Backup ZIP contents: {file_list[:20]}...')  # Log first 20 files
+                logger.info(f'Backup ZIP contents ({len(file_list)} files): {file_list[:20]}...')  # Log first 20 files
                 
                 # Must have JSON file (anywhere) OR database folder with files
+                # StockWise backups have database/stockwise_dump.json
                 if not json_files and not database_files:
                     if test_zip:
                         test_zip.close()
@@ -13392,11 +13440,26 @@ def upload_and_restore_backup(request):
                     except Exception:
                         pass
                     # Provide helpful error message with file list info
-                    file_list_preview = ', '.join(file_list[:5]) if file_list else 'empty'
+                    file_list_preview = ', '.join(file_list[:10]) if file_list else 'empty'
                     return JsonResponse({
                         'success': False, 
-                        'message': f'Invalid backup file. This does not appear to be a valid StockWise backup file. Expected a JSON file in the root or database/ folder, but found: {file_list_preview}...'
+                        'message': f'Invalid backup file. Expected a JSON file (e.g., database/stockwise_dump.json) but found: {file_list_preview}...'
                     }, status=400)
+                
+                # If we have database files but no JSON files, that's also valid (old format)
+                # But we need at least one file in the database folder
+                if not json_files and has_database:
+                    if not database_files:
+                        if test_zip:
+                            test_zip.close()
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass
+                        return JsonResponse({
+                            'success': False, 
+                            'message': 'Invalid backup file. Database folder exists but is empty.'
+                        }, status=400)
                 
                 # If old format, validate database files exist
                 if not json_files and has_database and not database_files:

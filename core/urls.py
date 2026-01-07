@@ -117,5 +117,6 @@ path('api/stock/add/', views.add_stock, name='add_stock_api'),
     path('api/backups/upload-restore/', views.upload_and_restore_backup, name='upload_and_restore_backup'),
     path('api/backups/<int:backup_id>/download/', views.download_backup, name='download_backup'),
     path('api/backups/<int:backup_id>/restore/', views.restore_backup, name='restore_backup'),
+    path('api/backups/<int:backup_id>/restore-incremental/', views.restore_backup_incremental, name='restore_backup_incremental'),
     path('api/backups/<int:backup_id>/delete/', views.delete_backup, name='delete_backup'),
 ]

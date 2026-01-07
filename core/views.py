@@ -13237,6 +13237,73 @@ def restore_backup(request, backup_id):
 
 
 @require_app_login
+def restore_backup_incremental(request, backup_id):
+    """Incrementally restore from a backup - only restores missing data"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
+    
+    try:
+        backup = Backup.objects.get(backup_id=backup_id)
+        
+        if not backup.verify_file_exists():
+            return JsonResponse({'success': False, 'message': 'Backup file no longer exists'}, status=404)
+        
+        from django.core.management import call_command
+        from io import StringIO
+        import sys
+        
+        # Call incremental restore command with proper error handling
+        stdout_output = ""
+        stderr_output = ""
+        try:
+            # Redirect stdout/stderr to capture any output
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            stdout_buffer = StringIO()
+            stderr_buffer = StringIO()
+            sys.stdout = stdout_buffer
+            sys.stderr = stderr_buffer
+            
+            try:
+                call_command('restore_backup_incremental', backup.file_path, force=True)
+            finally:
+                # Restore stdout/stderr
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                stdout_output = stdout_buffer.getvalue()
+                stderr_output = stderr_buffer.getvalue()
+        except SystemExit:
+            error_details = f"\n=== Output ===\n{stdout_output}\n=== Errors ===\n{stderr_output}"
+            raise Exception(f'Incremental restore command failed{error_details}')
+        except Exception as restore_error:
+            error_details = f"\n=== Output ===\n{stdout_output}\n=== Errors ===\n{stderr_output}" if stdout_output or stderr_output else ""
+            raise Exception(f'Incremental restore command error: {str(restore_error)}{error_details}')
+        
+        # Log the action
+        log_action(
+            request,
+            'Incremental restore backup',
+            f'Incrementally restored missing data from backup: {backup.filename}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Incremental restore completed successfully. Only missing data was restored.',
+            'output': stdout_output
+        })
+        
+    except Backup.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Backup not found'}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': f'Error during incremental restore: {str(e)}'}, status=500)
+
+
+@require_app_login
 def delete_backup(request, backup_id):
     """Delete a backup"""
     if request.method != 'POST':

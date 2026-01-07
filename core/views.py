@@ -13277,7 +13277,6 @@ def delete_backup(request, backup_id):
 
 
 @require_app_login
-@csrf_exempt
 def upload_and_restore_backup(request):
     """Upload a backup JSON file and restore from it
     
@@ -13285,15 +13284,11 @@ def upload_and_restore_backup(request):
     The web server (nginx/gunicorn) timeout may need to be increased
     to handle long-running restore operations. Client-side timeout is set to 10 minutes.
     """
-    # Ensure we always return JSON, even for errors
-    try:
-        if request.method != 'POST':
-            return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
-        
-        if request.session.get('app_role') != 'admin':
-            return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
-    except Exception as e:
-        return JsonResponse({'success': False, 'message': f'Error checking permissions: {str(e)}'}, status=500)
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
+    
+    if request.session.get('app_role') != 'admin':
+        return JsonResponse({'success': False, 'message': 'Unauthorized'}, status=403)
     
     try:
         if 'backup_file' not in request.FILES:
@@ -13333,50 +13328,16 @@ def upload_and_restore_backup(request):
         
         # Validate file size (max 500MB)
         max_size = 500 * 1024 * 1024  # 500MB
-        file_size = temp_path.stat().st_size
-        if file_size > max_size:
+        if temp_path.stat().st_size > max_size:
             try:
                 temp_path.unlink()
             except Exception:
                 pass  # Ignore deletion errors
             return JsonResponse({'success': False, 'message': 'Backup file is too large. Maximum size is 500MB.'}, status=400)
         
-        # Check if file is empty
-        if file_size == 0:
-            try:
-                temp_path.unlink()
-            except Exception:
-                pass
-            return JsonResponse({'success': False, 'message': 'Backup file is empty. Please ensure the file was downloaded completely.'}, status=400)
-        
         # Validate file based on extension
         import json
         import zipfile
-        
-        # For ZIP files, verify it's actually a ZIP by checking magic bytes
-        if uploaded_file.name.endswith('.zip'):
-            try:
-                with open(temp_path, 'rb') as f:
-                    magic = f.read(4)
-                    # ZIP files start with PK\x03\x04 or PK\x05\x06 (empty zip) or PK\x07\x08 (spanned)
-                    if not (magic.startswith(b'PK') and len(magic) >= 2):
-                        try:
-                            temp_path.unlink()
-                        except Exception:
-                            pass
-                        return JsonResponse({
-                            'success': False, 
-                            'message': 'Invalid ZIP file. The file does not appear to be a valid ZIP archive. It may be corrupted or not fully downloaded.'
-                        }, status=400)
-            except Exception as e:
-                try:
-                    temp_path.unlink()
-                except Exception:
-                    pass
-                return JsonResponse({
-                    'success': False, 
-                    'message': f'Error reading backup file: {str(e)}. The file may be corrupted.'
-                }, status=400)
         
         if uploaded_file.name.endswith('.json'):
             # Validate JSON file
@@ -13403,63 +13364,31 @@ def upload_and_restore_backup(request):
             test_zip = None
             try:
                 test_zip = zipfile.ZipFile(temp_path, 'r')
-                # Test zip integrity - this can raise BadZipFile if corrupted
-                try:
-                    bad_file = test_zip.testzip()
-                    if bad_file:
-                        raise zipfile.BadZipFile(f'Corrupted file in ZIP: {bad_file}')
-                except zipfile.BadZipFile:
-                    raise  # Re-raise to be caught by outer handler
-                except Exception as test_error:
-                    # testzip() can raise other exceptions
-                    raise zipfile.BadZipFile(f'ZIP integrity check failed: {str(test_error)}')
+                # Test zip integrity
+                test_zip.testzip()
                 
                 file_list = test_zip.namelist()
                 from pathlib import PurePosixPath
                 
                 # Check for JSON file - can be in root OR in database/ folder
-                # Accept JSON files anywhere except in media/ folder
                 json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('media/')]
                 
-                # Check for database folder and files in it
+                # Check for database folder
                 has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
                 database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
                 
-                # Debug: log file list for troubleshooting
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f'Backup ZIP contents ({len(file_list)} files): {file_list[:20]}...')  # Log first 20 files
-                
                 # Must have JSON file (anywhere) OR database folder with files
-                # StockWise backups have database/stockwise_dump.json
-                if not json_files and not database_files:
+                if not json_files:
                     if test_zip:
                         test_zip.close()
                     try:
                         temp_path.unlink()
                     except Exception:
                         pass
-                    # Provide helpful error message with file list info
-                    file_list_preview = ', '.join(file_list[:10]) if file_list else 'empty'
                     return JsonResponse({
                         'success': False, 
-                        'message': f'Invalid backup file. Expected a JSON file (e.g., database/stockwise_dump.json) but found: {file_list_preview}...'
+                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file or database folder.'
                     }, status=400)
-                
-                # If we have database files but no JSON files, that's also valid (old format)
-                # But we need at least one file in the database folder
-                if not json_files and has_database:
-                    if not database_files:
-                        if test_zip:
-                            test_zip.close()
-                        try:
-                            temp_path.unlink()
-                        except Exception:
-                            pass
-                        return JsonResponse({
-                            'success': False, 
-                            'message': 'Invalid backup file. Database folder exists but is empty.'
-                        }, status=400)
                 
                 # If old format, validate database files exist
                 if not json_files and has_database and not database_files:
@@ -13541,15 +13470,7 @@ def upload_and_restore_backup(request):
                     temp_path.unlink()
                 except Exception:
                     pass
-                import traceback
-                error_details = traceback.format_exc()
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f'Backup validation error: {str(e)}\n{error_details}')
-                return JsonResponse({
-                    'success': False, 
-                    'message': f'Error validating backup file: {str(e)}. Please ensure the file is a valid StockWise backup ZIP file.'
-                }, status=400)
+                return JsonResponse({'success': False, 'message': f'Error validating backup file: {str(e)}'}, status=400)
             finally:
                 # Ensure zip file is closed
                 if test_zip:
@@ -13608,7 +13529,21 @@ def upload_and_restore_backup(request):
             stdout_output = stdout_capture.getvalue() if 'stdout_capture' in locals() else ''
             stderr_output = stderr_capture.getvalue() if 'stderr_capture' in locals() else ''
             error_details = stderr_output or stdout_output or str(restore_error)
-            raise Exception(f'Restore command error: {error_details}')
+            
+            # Extract meaningful error message
+            error_msg = str(restore_error)
+            if 'IntegrityError' in error_msg or 'foreign key' in error_msg.lower():
+                error_msg = 'Database constraint violation. The backup may reference data that conflicts with existing records. Try clearing all data first or use a fresh database.'
+            elif 'UNIQUE constraint' in error_msg or 'unique constraint' in error_msg.lower():
+                error_msg = 'Unique constraint violation. Some records in the backup already exist. The restore process will clear existing data first.'
+            elif 'loaddata' in error_msg.lower() or 'fixture' in error_msg.lower():
+                error_msg = f'Error loading backup data: {error_msg}. The backup file may be corrupted or incompatible.'
+            
+            # Include output details if available
+            if stdout_output or stderr_output:
+                error_msg = f'{error_msg}\n\nDetails:\n{stdout_output}\n{stderr_output}'
+            
+            raise Exception(error_msg)
         
         # Fix sequences after restore (important for PostgreSQL in hosting environments)
         try:
@@ -13664,14 +13599,24 @@ def upload_and_restore_backup(request):
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f'Backup restore error: {str(e)}\n{error_trace}')
-        # Return detailed error message for debugging
-        error_msg = str(e)
-        if 'restore_backup' in error_msg.lower() or 'restore command' in error_msg.lower():
-            error_msg = f'Failed to restore backup: {error_msg}. Please ensure the backup file is valid and not corrupted.'
+        
+        # Clean up temp file on error
+        try:
+            if 'temp_path' in locals() and temp_path.exists():
+                temp_path.unlink()
+        except Exception:
+            pass
+        
+        # Return detailed error message
+        error_message = str(e)
+        # Make error message user-friendly
+        if 'Unknown error' in error_message or not error_message:
+            error_message = 'An error occurred during restore. Please check the backup file is valid and try again. If the problem persists, the backup may be corrupted or incompatible with the current database schema.'
+        
         return JsonResponse({
             'success': False, 
-            'message': f'Error restoring backup: {error_msg}'
-        }, status=500)
+            'message': f'Error restoring backup: {error_message}'
+        }, status=400)
 
 
 def auto_backup_before_critical_operation(request, operation_name='Critical Operation'):

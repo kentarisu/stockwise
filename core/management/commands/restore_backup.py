@@ -170,36 +170,63 @@ class Command(BaseCommand):
                     if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("PRAGMA foreign_keys = OFF")
                     elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
+                        # For PostgreSQL, disable triggers to bypass FK constraints
                         cursor.execute("SET session_replication_role = 'replica'")
+                        # Also disable triggers explicitly
+                        cursor.execute("SET CONSTRAINTS ALL DEFERRED")
                     
-                    # Get all table names EXCEPT app users
+                    # Get all table names EXCEPT app users and Django system tables
                     if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
-                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'core_appuser'")
+                        cursor.execute("""
+                            SELECT name FROM sqlite_master 
+                            WHERE type='table' 
+                            AND name NOT LIKE 'sqlite_%' 
+                            AND name NOT LIKE 'django_%'
+                            AND name != 'core_appuser'
+                        """)
                         tables = [row[0] for row in cursor.fetchall()]
-                        for table in tables:
+                        # Delete in reverse dependency order to avoid FK issues
+                        for table in reversed(tables):
                             if table != 'core_appuser':  # Extra safety check
-                                cursor.execute(f"DELETE FROM {table}")
+                                try:
+                                    cursor.execute(f"DELETE FROM {table}")
+                                except Exception as del_error:
+                                    # If DELETE fails, try to truncate (SQLite doesn't support TRUNCATE, but some versions do)
+                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not delete from {table}: {del_error}'))
                     elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("""
                             SELECT tablename FROM pg_tables 
                             WHERE schemaname = 'public' 
                             AND tablename NOT LIKE 'django_%'
                             AND tablename != 'core_appuser'
+                            ORDER BY tablename
                         """)
                         tables = [row[0] for row in cursor.fetchall()]
+                        # Use TRUNCATE with CASCADE to handle foreign keys
                         for table in tables:
                             if table != 'core_appuser':  # Extra safety check
-                                cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
+                                try:
+                                    cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
+                                except Exception as trunc_error:
+                                    # If TRUNCATE fails, try DELETE
+                                    try:
+                                        cursor.execute(f"DELETE FROM {table}")
+                                        self.stdout.write(self.style.WARNING(f'  [WARNING] Used DELETE instead of TRUNCATE for {table}'))
+                                    except Exception as del_error:
+                                        self.stdout.write(self.style.WARNING(f'  [WARNING] Could not clear {table}: {del_error}'))
                     
                     # Re-enable foreign key checks
                     if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("PRAGMA foreign_keys = ON")
                     elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("SET session_replication_role = 'origin'")
+                        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
                     
                     self.stdout.write(self.style.SUCCESS('  [OK] Database cleared (accounts preserved)'))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'  [ERROR] Failed to clear database: {e}'))
+                import traceback
+                traceback.print_exc()
                 raise
             
             # Run migrations to ensure schema is up to date before loading data
@@ -214,26 +241,51 @@ class Command(BaseCommand):
                 # For PostgreSQL, disable constraints temporarily during load
                 from django.db import connection
                 is_postgresql = 'postgresql' in settings.DATABASES['default']['ENGINE']
+                is_sqlite = 'sqlite' in settings.DATABASES['default']['ENGINE'].lower()
                 
                 if is_postgresql:
                     self.stdout.write('  - Disabling PostgreSQL constraints...')
                     with connection.cursor() as cursor:
                         # Disable triggers (includes FK constraints)
                         cursor.execute("SET session_replication_role = 'replica';")
+                        cursor.execute("SET CONSTRAINTS ALL DEFERRED;")
                     self.stdout.write(self.style.SUCCESS('  [OK] Constraints disabled'))
+                elif is_sqlite:
+                    self.stdout.write('  - Disabling SQLite foreign key checks...')
+                    with connection.cursor() as cursor:
+                        cursor.execute("PRAGMA foreign_keys = OFF;")
+                    self.stdout.write(self.style.SUCCESS('  [OK] Foreign keys disabled'))
                 
                 try:
                     # Use verbosity=2 to see more details
                     # --ignorenonexistent to skip missing models
+                    # Note: loaddata will fail if data already exists (unique constraints)
+                    # This is why we clear the database first
                     call_command('loaddata', str(backup_file), verbosity=2, ignorenonexistent=True)
                     self.stdout.write(self.style.SUCCESS('  [OK] JSON data loaded'))
+                except Exception as load_error:
+                    # If loaddata fails, provide helpful error message
+                    error_msg = str(load_error)
+                    if 'IntegrityError' in error_msg or 'UNIQUE constraint' in error_msg:
+                        self.stdout.write(self.style.ERROR(
+                            f'  [ERROR] Data loading failed due to constraint violation: {error_msg}\n'
+                            '  This usually means the database was not fully cleared before restore.\n'
+                            '  Try running the restore again, or manually clear the database first.'
+                        ))
+                    raise
                 finally:
                     # Re-enable constraints for PostgreSQL
                     if is_postgresql:
                         self.stdout.write('  - Re-enabling PostgreSQL constraints...')
                         with connection.cursor() as cursor:
                             cursor.execute("SET session_replication_role = 'origin';")
+                            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE;")
                         self.stdout.write(self.style.SUCCESS('  [OK] Constraints re-enabled'))
+                    elif is_sqlite:
+                        self.stdout.write('  - Re-enabling SQLite foreign key checks...')
+                        with connection.cursor() as cursor:
+                            cursor.execute("PRAGMA foreign_keys = ON;")
+                        self.stdout.write(self.style.SUCCESS('  [OK] Foreign keys re-enabled'))
                 
                 # Verify data was loaded by checking a few key models
                 try:

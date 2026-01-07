@@ -8557,72 +8557,78 @@
                 </div>
                 <div class="row g-2">
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border-left: 4px solid #0ea5e9; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); border-left: 4px solid #0ea5e9; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi bi-calendar-range" style="color: #0ea5e9;"></i>Period
+                                <i class="bi bi-info-circle" style="color: #0ea5e9; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="The time range covered by this analysis. Shows whether the data represents a month, quarter, half year, or year period."></i>
                             </div>
-                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0;">${periodLabel}</div>
+                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600; color: #0ea5e9;">${periodLabel}</div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">The time range covered by this analysis</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(14, 165, 233, 0.1); border-radius: 4px;">The time range covered by this analysis</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi bi-box-seam" style="color: #10b981;"></i>Total Demand
+                                <i class="bi bi-info-circle" style="color: #10b981; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Total quantity sold during this period. This is the sum of all units (boxes or kg) sold. Average daily demand helps you plan inventory levels."></i>
                             </div>
-                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0;">${totalQuantity.toFixed(2)}</div>
+                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600; color: #10b981;">${totalQuantity.toFixed(2)}</div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">
                                 <span style="font-weight: 500;">Unit:</span> ${product.quantity_unit || 'units'} | <span style="font-weight: 500;">Avg:</span> ${avgDailyDemand}/day
                             </div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Total quantity sold: ${totalQuantity.toFixed(2)} ${product.quantity_unit || 'units'} during this period</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">Total quantity sold: ${totalQuantity.toFixed(2)} ${product.quantity_unit || 'units'} during this period</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi bi-currency-exchange" style="color: #f59e0b;"></i>Price Range
+                                <i class="bi bi-info-circle" style="color: #f59e0b; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="The lowest and highest prices during this period. Average price is the mean of all prices. Volatility shows how much prices fluctuated - higher volatility means more price changes."></i>
                             </div>
-                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0;">₱${minPrice.toFixed(2)} - ₱${maxPrice.toFixed(2)}</div>
+                            <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600; color: #f59e0b;">₱${minPrice.toFixed(2)} - ₱${maxPrice.toFixed(2)}</div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">Avg: ₱${avgPrice.toFixed(2)} | Volatility: ${priceVolatility}%</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Lowest to highest price, with average and price variation</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(245, 158, 11, 0.1); border-radius: 4px;">Lowest to highest price, with average and price variation</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, ${priceChange >= 0 ? '#f0fdf4' : '#fef2f2'} 0%, ${priceChange >= 0 ? '#dcfce7' : '#fee2e2'} 100%); border-left: 4px solid ${priceChange >= 0 ? '#10b981' : '#ef4444'}; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, ${priceChange >= 0 ? '#f0fdf4' : '#fef2f2'} 0%, ${priceChange >= 0 ? '#dcfce7' : '#fee2e2'} 100%); border-left: 4px solid ${priceChange >= 0 ? '#10b981' : '#ef4444'}; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi ${priceChange >= 0 ? 'bi-arrow-up-circle' : 'bi-arrow-down-circle'}" style="color: ${priceChange >= 0 ? '#10b981' : '#ef4444'};"></i>Price Trend
+                                <i class="bi bi-info-circle" style="color: ${priceChange >= 0 ? '#10b981' : '#ef4444'}; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Shows how the price changed from the beginning to the end of the period. Positive values mean price increased, negative means decreased. Percentage shows the relative change."></i>
                             </div>
-                            <div class="summary-value ${priceChange >= 0 ? 'text-success' : 'text-danger'}" style="font-size: 1rem; margin: 0.25rem 0;">
+                            <div class="summary-value ${priceChange >= 0 ? 'text-success' : 'text-danger'}" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600;">
                                 <i class="bi ${priceChange >= 0 ? 'bi-arrow-up' : 'bi-arrow-down'}"></i>
                                 ${priceChange >= 0 ? '+' : ''}₱${Math.abs(priceChange).toFixed(2)} (${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}%)
                             </div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${priceChange >= 0 ? 'Increased' : 'Decreased'} over period</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">How the price changed from start to end of the period</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(${priceChange >= 0 ? '16, 185, 129' : '239, 68, 68'}, 0.1); border-radius: 4px;">How the price changed from start to end of the period</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, ${demandTrend === 'increasing' ? '#f0fdf4' : demandTrend === 'decreasing' ? '#fef2f2' : '#f3f4f6'} 0%, ${demandTrend === 'increasing' ? '#dcfce7' : demandTrend === 'decreasing' ? '#fee2e2' : '#e5e7eb'} 100%); border-left: 4px solid ${demandTrend === 'increasing' ? '#10b981' : demandTrend === 'decreasing' ? '#ef4444' : '#6b7280'}; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, ${demandTrend === 'increasing' ? '#f0fdf4' : demandTrend === 'decreasing' ? '#fef2f2' : '#f3f4f6'} 0%, ${demandTrend === 'increasing' ? '#dcfce7' : demandTrend === 'decreasing' ? '#fee2e2' : '#e5e7eb'} 100%); border-left: 4px solid ${demandTrend === 'increasing' ? '#10b981' : demandTrend === 'decreasing' ? '#ef4444' : '#6b7280'}; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi ${demandTrendIcon}" style="color: ${demandTrend === 'increasing' ? '#10b981' : demandTrend === 'decreasing' ? '#ef4444' : '#6b7280'};"></i>Demand Trend
+                                <i class="bi bi-info-circle" style="color: ${demandTrend === 'increasing' ? '#10b981' : demandTrend === 'decreasing' ? '#ef4444' : '#6b7280'}; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="Shows whether sales are increasing, decreasing, or stable. Compares first half vs second half of the period. Volatility indicates how consistent demand is - high volatility means unpredictable sales."></i>
                             </div>
-                            <div class="summary-value ${demandTrendColor}" style="font-size: 1rem; margin: 0.25rem 0;">
+                            <div class="summary-value ${demandTrendColor}" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600;">
                                 <i class="bi ${demandTrendIcon}"></i>
                                 ${demandTrend.charAt(0).toUpperCase() + demandTrend.slice(1)}
                             </div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstHalfQty.toFixed(1)} → ${secondHalfQty.toFixed(1)} units | Volatility: ${demandVolatility}%</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Whether sales are increasing, decreasing, or stable</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(${demandTrend === 'increasing' ? '16, 185, 129' : demandTrend === 'decreasing' ? '239, 68, 68' : '107, 114, 128'}, 0.1); border-radius: 4px;">Whether sales are increasing, decreasing, or stable</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 6px;">
+                        <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 6px; position: relative;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
                                 <i class="bi bi-trophy-fill" style="color: #10b981;"></i>Best Period
+                                <i class="bi bi-info-circle" style="color: #10b981; font-size: 0.85rem; cursor: help;" data-bs-toggle="tooltip" data-bs-placement="top" title="The week within this period that had the highest sales volume. This helps identify peak sales periods for better inventory planning and marketing timing."></i>
                             </div>
-                            <div class="summary-value text-success" style="font-size: 1rem; margin: 0.25rem 0;">${bestPeriod || 'N/A'}</div>
+                            <div class="summary-value text-success" style="font-size: 1rem; margin: 0.25rem 0; font-weight: 600;">${bestPeriod || 'N/A'}</div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${bestPeriodQty > 0 ? bestPeriodQty.toFixed(1) + ' units sold' : 'No data'}</div>
                             ${bestPeriodDateRange ? `<div class="summary-date-range" style="font-size: 0.7rem; color: var(--gray-700); font-weight: 500; margin-top: 0.25rem;">${bestPeriodDateRange}</div>` : ''}
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">The week with the highest sales volume</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic; padding: 0.25rem; background: rgba(16, 185, 129, 0.1); border-radius: 4px;">The week with the highest sales volume</div>
                         </div>
                     </div>
                 </div>
@@ -8639,6 +8645,14 @@
                     </div>
                 </div>
             `;
+            
+            // Initialize tooltips for info icons
+            setTimeout(() => {
+                const tooltipTriggerList = summaryContainer.querySelectorAll('[data-bs-toggle="tooltip"]');
+                tooltipTriggerList.forEach(tooltipTriggerEl => {
+                    new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            }, 100);
         }
 
         // Update dates when page loads

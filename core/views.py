@@ -4031,21 +4031,25 @@ def _apply_report_filters(queryset, filter_type, start_date_str, end_date_str):
     """Apply time filters using local timezone day boundaries."""
     ft = (filter_type or '').lower()
 
-    # Handle custom date range first
-    if start_date_str and end_date_str:
+    # Handle custom date range first (only if both dates are provided and not empty)
+    if start_date_str and end_date_str and start_date_str.strip() and end_date_str.strip():
         try:
             tz = timezone.get_current_timezone()
-            start_date = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'), tz)
-            end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d'), tz).replace(hour=23, minute=59, second=59, microsecond=999999)
+            start_date = timezone.make_aware(datetime.strptime(start_date_str.strip(), '%Y-%m-%d'), tz)
+            end_date = timezone.make_aware(datetime.strptime(end_date_str.strip(), '%Y-%m-%d'), tz).replace(hour=23, minute=59, second=59, microsecond=999999)
+            print(f"[_apply_report_filters] Using custom date range: {start_date} to {end_date}")
             return queryset.filter(recorded_at__range=(start_date, end_date))
-        except ValueError:
-            pass
+        except (ValueError, TypeError) as e:
+            print(f"[_apply_report_filters] Error parsing custom dates: {e}, falling back to filter_type resolution")
 
     # Use resolved local start/end for built-in ranges
     resolved = _resolve_report_range(ft, start_date_str, end_date_str)
     if resolved:
         start_dt, end_dt = resolved
+        print(f"[_apply_report_filters] Using resolved date range for '{ft}': {start_dt} to {end_dt}")
         return queryset.filter(recorded_at__range=(start_dt, end_dt))
+    else:
+        print(f"[_apply_report_filters] WARNING: Could not resolve date range for filter_type='{ft}', start_date='{start_date_str}', end_date='{end_date_str}' - returning unfiltered queryset")
 
     return queryset
 
@@ -4061,14 +4065,17 @@ def _resolve_report_range(filter_type, start_date_str, end_date_str):
         naive = datetime.combine(day, datetime.max.time())
         return timezone.make_aware(naive, tz)
 
-    if start_date_str and end_date_str:
+    # Only use provided dates if they are non-empty strings
+    if start_date_str and end_date_str and start_date_str.strip() and end_date_str.strip():
         try:
-            start = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'), tz)
-            end = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d'), tz).replace(
+            start = timezone.make_aware(datetime.strptime(start_date_str.strip(), '%Y-%m-%d'), tz)
+            end = timezone.make_aware(datetime.strptime(end_date_str.strip(), '%Y-%m-%d'), tz).replace(
                 hour=23, minute=59, second=59, microsecond=999999
             )
+            print(f"[_resolve_report_range] Using provided dates: {start} to {end}")
             return start, end
-        except ValueError:
+        except (ValueError, TypeError) as e:
+            print(f"[_resolve_report_range] Error parsing provided dates: {e}, falling back to filter_type")
             return None
 
     today = timezone.localdate()
@@ -4121,9 +4128,16 @@ def fetch_reports(request):
     try:
         # Start with all completed sales and apply global filters
         base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
+        print(f"[fetch_reports] Base queryset count (all completed sales): {base_queryset.count()}")
+        
         date_range = _resolve_report_range(filter_type, start_date, end_date)
         current_start = current_end = None
+        if date_range:
+            current_start, current_end = date_range
+            print(f"[fetch_reports] Resolved date range: {current_start} to {current_end}")
+        
         sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
+        print(f"[fetch_reports] Sales queryset count after date filter: {sales_queryset.count()}")
 
         previous_queryset = base_queryset.none()
         if date_range:
@@ -4217,6 +4231,7 @@ def fetch_reports(request):
 
         sales_queryset = apply_common_filters(sales_queryset)
         previous_queryset = apply_common_filters(previous_queryset)
+        print(f"[fetch_reports] Sales queryset count after all filters: {sales_queryset.count()}")
 
         # sales_summary (for summary cards)
         agg = sales_queryset.aggregate(
@@ -5473,6 +5488,9 @@ def fetch_reports(request):
 @require_app_login
 def export_report(request):
     try:
+        # Import StockAddition at the top to avoid UnboundLocalError
+        from core.models import StockAddition
+        
         if request.method not in ('POST','GET') or request.session.get('app_role')!='admin':
             return JsonResponse({'success':False,'message':'Forbidden'},status=403)
         getp = (lambda k, d=None: (request.POST.get(k) if request.method=='POST' else request.GET.get(k)) or d)
@@ -5553,21 +5571,19 @@ def export_report(request):
 
         # Use the same comprehensive calculation logic as fetch_reports
         base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
-        # For custom range, resolve dates directly from start_date and end_date
-        if filter_type == 'custom' and start_date and end_date:
-            try:
-                tz = timezone.get_current_timezone()
-                start_dt = timezone.make_aware(datetime.strptime(start_date, '%Y-%m-%d'), tz)
-                end_dt = timezone.make_aware(datetime.strptime(end_date, '%Y-%m-%d'), tz).replace(
-                    hour=23, minute=59, second=59, microsecond=999999
-                )
-                date_range = (start_dt, end_dt)
-            except (ValueError, TypeError) as e:
-                print(f"Error parsing custom dates: {e}")
-                date_range = None
+        
+        # Resolve date range - use the same logic as fetch_reports
+        date_range = _resolve_report_range(filter_type, start_date, end_date)
+        current_start = current_end = None
+        if date_range:
+            current_start, current_end = date_range
+            print(f"[export_report] Resolved date range: {current_start} to {current_end}")
         else:
-            date_range = _resolve_report_range(filter_type, start_date, end_date)
+            print(f"[export_report] WARNING: Could not resolve date range for filter_type='{filter_type}', start_date='{start_date}', end_date='{end_date}'")
+        
+        # Apply date filters to sales queryset
         sales_queryset = _apply_report_filters(base_queryset, filter_type, start_date, end_date)
+        print(f"[export_report] Sales queryset count after date filter: {sales_queryset.count()}")
         
         # Apply filters
         if user_filter and user_filter != 'all':
@@ -5594,21 +5610,30 @@ def export_report(request):
                     Q(transaction_number__icontains=search)
                 ).distinct()
         
-        # Check if there's any data to generate a report - do this early before PDF generation
-        if not sales_queryset.exists():
+        # Apply unit filter to sales_queryset if specified
+        if unit_filter and unit_filter != 'all':
+            _uf = unit_filter.strip().lower()
+            if _uf == 'kg':
+                sales_queryset = sales_queryset.filter(product__quantity_unit__iexact='kg')
+            elif _uf == 'box':
+                sales_queryset = sales_queryset.exclude(product__quantity_unit__iexact='kg')
+        
+        # Check if there's any data to generate a report - allow report generation even if no sales data
+        # (inventory report can still be generated)
+        has_sales_data = sales_queryset.exists()
+        has_inventory_data = Product.objects.filter(status='active').exists()
+        
+        if not has_sales_data and not has_inventory_data:
             return JsonResponse({
                 'success': False,
-                'message': 'No sales data found for the selected filters. Please adjust your date range, user, or product filters and try again.',
+                'message': 'No data found for the selected filters. Please adjust your date range, user, or product filters and try again.',
                 'error': 'No data available',
                 'error_id': timezone.now().strftime('%Y%m%d%H%M%S')
             }, status=400)
         
         # Get previous period for comparison
         previous_queryset = base_queryset.none()
-        current_start = None
-        current_end = None
-        if date_range:
-            current_start, current_end = date_range
+        if date_range and current_start and current_end:
             period_delta = current_end - current_start
             previous_end = current_start - timedelta(seconds=1)
             previous_start = previous_end - period_delta
@@ -6020,11 +6045,17 @@ def export_report(request):
 
                 # Compute additional inventory metrics for the period
                 try:
-                    # Added during period
-                    added_qty = StockAddition.objects.filter(
-                        product_id=product_id,
-                        date_added__range=(current_start, current_end)
-                    ).aggregate(total=Sum('quantity'))['total'] or 0
+                    # Added during period (only if we have valid dates)
+                    if current_start and current_end:
+                        added_qty = StockAddition.objects.filter(
+                            product_id=product_id,
+                            date_added__range=(current_start, current_end)
+                        ).aggregate(total=Sum('quantity'))['total'] or 0
+                    else:
+                        # If no date range, get all additions for this product
+                        added_qty = StockAddition.objects.filter(
+                            product_id=product_id
+                        ).aggregate(total=Sum('quantity'))['total'] or 0
 
                     # Closing stock (end of period)
                     product_obj = Product.objects.filter(product_id=product_id).only('stock', 'low_stock_threshold').first()
@@ -6076,18 +6107,20 @@ def export_report(request):
                     last_sale_at = None
                     last_addition_at = None
 
-                # Persist full summary row
-                ReportProductSummary.objects.create(
-                product_id=s['product__product_id'],
-                period_start=current_start,
-                period_end=current_end,
-                granularity=filter_type,
-                generated_by=generated_by_user,
-                opening_qty=opening_qty,
-                added_qty=Decimal(str(added_qty)),
-                sold_qty=total_quantity,  # Store total quantity (boxes + kg)
-                closing_qty=closing_qty,
-                last_addition_at=last_addition_at,
+                # Persist full summary row (only if we have valid dates)
+                if current_start and current_end:
+                    try:
+                        ReportProductSummary.objects.create(
+                        product_id=s['product__product_id'],
+                        period_start=current_start,
+                        period_end=current_end,
+                        granularity=filter_type,
+                        generated_by=generated_by_user,
+                        opening_qty=opening_qty,
+                        added_qty=Decimal(str(added_qty)),
+                        sold_qty=total_quantity,  # Store total quantity (boxes + kg)
+                        closing_qty=closing_qty,
+                        last_addition_at=last_addition_at,
                 avg_sell_price=Decimal(str(unit_price)) if unit_price else None,
                 revenue=revenue,
                 avg_unit_cost=avg_unit_cost,
@@ -6099,14 +6132,17 @@ def export_report(request):
                 days_of_cover_end=days_of_cover_end,
                 low_stock_threshold=low_stock_threshold,
                 low_stock_flag=low_stock_flag,
-                last_price=Decimal(str(unit_price)) if unit_price else None,
-                suggested_price=None,
-                accepted_price=accepted_price_value,
-                price_action=None,
-                demand_level=None,
-                first_sale_at=first_sale_at,
-                last_sale_at=last_sale_at,
-                )
+                        last_price=Decimal(str(unit_price)) if unit_price else None,
+                        suggested_price=None,
+                        accepted_price=accepted_price_value,
+                        price_action=None,
+                        demand_level=None,
+                        first_sale_at=first_sale_at,
+                        last_sale_at=last_sale_at,
+                        )
+                    except Exception as e:
+                        # Log but don't fail the entire report if summary creation fails
+                        print(f"Warning: Could not create ReportProductSummary for product {s['product__product_id']}: {e}")
             
                 sales_summary_rows.append([
                 product_name[:35],
@@ -7149,14 +7185,49 @@ def export_report(request):
             if not ai_sales_df.empty:
                 pricing_ai.fit(ai_sales_df)
             
+            # Determine period label and date range for summary
+            if date_range and len(date_range) == 2:
+                period_start, period_end = date_range
+                try:
+                    period_days = (period_end.date() - period_start.date()).days + 1
+                    if period_days <= 30:
+                        period_label = "Month"
+                    elif period_days <= 90:
+                        period_label = "Quarter"
+                    elif period_days <= 180:
+                        period_label = "Half Year"
+                    else:
+                        period_label = "Year"
+                    period_date_range = f"{period_start.strftime('%b %d')} - {period_end.strftime('%b %d, %Y')}"
+                except (AttributeError, TypeError) as e:
+                    print(f"Warning: Error calculating period from date_range: {e}")
+                    period_label = "Period"
+                    period_date_range = "N/A"
+                    period_days = 30
+            else:
+                period_label = "Period"
+                period_date_range = "N/A"
+                period_start = analysis_start
+                period_end = analysis_end
+                try:
+                    if analysis_start and analysis_end:
+                        period_days = (analysis_end.date() - analysis_start.date()).days + 1
+                    else:
+                        period_days = 30
+                except (AttributeError, TypeError):
+                    period_days = 30
+            
+            # Create Period Movement Summary table headers
             pricing_rows = [[
                 Paragraph('Product', table_header_style),
-                Paragraph('Current Price', table_header_style),
-                Paragraph('Avg Price', table_header_style),
-                Paragraph('Price Change %', table_header_style),
-                Paragraph('Demand Ratio', table_header_style),
-                Paragraph('R²', table_header_style),
-                Paragraph('Observations', table_header_style)
+                Paragraph('Unit', table_header_style),
+                Paragraph('Period', table_header_style),
+                Paragraph('Total Demand', table_header_style),
+                Paragraph('Price Range', table_header_style),
+                Paragraph('Price Trend', table_header_style),
+                Paragraph('Demand Trend', table_header_style),
+                Paragraph('Best Period', table_header_style),
+                Paragraph('Insights', table_header_style)
             ]]
             
             pricing_data_count = 0
@@ -7172,12 +7243,6 @@ def export_report(request):
                 if not sales.exists():
                     continue
                 
-                # Get AI model metrics
-                ai_model = pricing_ai.models.get(product.product_id, {})
-                elasticity = float(ai_model.get('elasticity', cfg.default_elasticity))
-                r2 = float(ai_model.get('r2', 0.0))
-                n_observations = int(ai_model.get('n', 0))
-                
                 # Calculate price metrics
                 sales_df = pd.DataFrame(list(sales.values('recorded_at', 'quantity', 'price')))
                 if sales_df.empty:
@@ -7187,85 +7252,172 @@ def export_report(request):
                 sales_df['price'] = sales_df['price'].astype(float)
                 sales_df['date'] = pd.to_datetime(sales_df['recorded_at']).dt.date
                 
-                avg_price = float(sales_df['price'].mean())
-                current_price = float(product.price or 0)
+                prices = sales_df['price'].tolist()
+                quantities = sales_df['quantity'].tolist()
                 
-                # Calculate price change
-                price_change_pct = 0.0
-                if current_price > 0 and avg_price > 0:
-                    price_change_pct = ((current_price - avg_price) / avg_price) * 100
+                if len(prices) == 0:
+                    continue
                 
-                # Calculate demand ratio (7-day vs 30-day)
-                recent_cutoff = (analysis_end - timedelta(days=7)).date()
-                older_start = (analysis_end - timedelta(days=30)).date()
-                older_end = (analysis_end - timedelta(days=7)).date()
+                # Calculate metrics
+                total_quantity = sum(quantities) if quantities else 0
+                avg_price = sum(prices) / len(prices) if len(prices) > 0 else 0
+                min_price = min(prices) if prices else 0
+                max_price = max(prices) if prices else 0
+                price_change = prices[-1] - prices[0] if len(prices) > 1 else 0
+                price_change_pct = (price_change / prices[0] * 100) if len(prices) > 1 and prices[0] > 0 else 0
                 
-                recent_sales = sales_df[sales_df['date'] >= recent_cutoff]
-                older_sales = sales_df[
-                    (sales_df['date'] >= older_start) &
-                    (sales_df['date'] < older_end)
-                ]
-                
-                recent_total = float(recent_sales['quantity'].sum()) if len(recent_sales) > 0 else 0.0
-                older_total = float(older_sales['quantity'].sum()) if len(older_sales) > 0 else 0.0
-                recent_avg = recent_total / 7.0
-                older_avg = older_total / 23.0 if len(older_sales) > 0 else 0.0
-                
-                if older_avg > 0:
-                    demand_ratio = recent_avg / older_avg
-                elif recent_avg > 0:
-                    demand_ratio = 2.0
+                # Calculate demand trend (first half vs second half)
+                if len(quantities) > 0:
+                    mid_point = len(quantities) // 2
+                    first_half_qty = sum(quantities[:mid_point]) if mid_point > 0 else 0
+                    second_half_qty = sum(quantities[mid_point:]) if mid_point < len(quantities) else 0
+                    demand_trend = 'increasing' if second_half_qty > first_half_qty else 'decreasing' if second_half_qty < first_half_qty else 'stable'
                 else:
-                    demand_ratio = 1.0
+                    first_half_qty = 0
+                    second_half_qty = 0
+                    demand_trend = 'stable'
+                
+                # Calculate volatility
+                price_volatility = ((max_price - min_price) / avg_price * 100) if avg_price > 0 else 0
+                demand_mean = total_quantity / len(quantities) if len(quantities) > 0 else 0
+                demand_variance = sum((q - demand_mean) ** 2 for q in quantities) / len(quantities) if len(quantities) > 0 else 0
+                demand_volatility = (demand_variance ** 0.5 / demand_mean * 100) if demand_mean > 0 else 0
+                
+                # Calculate average daily demand (ensure period_days is safe)
+                period_days = max(1, int(period_days)) if period_days and period_days > 0 else 30
+                avg_daily_demand = total_quantity / period_days if period_days > 0 else 0
+                
+                # Find best period (weekly)
+                best_period_qty = 0
+                best_period = "N/A"
+                try:
+                    if len(quantities) > 0:
+                        for i in range(0, len(quantities), 7):
+                            week_qty = sum(quantities[i:i+7])
+                            if week_qty > best_period_qty:
+                                best_period_qty = week_qty
+                                week_num = (i // 7) + 1
+                                best_period = f"Week {week_num}"
+                except Exception as e:
+                    print(f"Warning: Could not calculate best period for product {product.product_id}: {e}")
+                    best_period = "N/A"
+                    best_period_qty = 0
                 
                 # Format product name
                 product_name = _fmt_prod(product.name, product.variant, product.quantity_unit)
+                unit = (product.quantity_unit or '').strip()
                 
-                # Add row
+                # Determine price-demand relationship and recommendation
+                if price_change > 0 and demand_trend == 'increasing':
+                    relationship = "Price increase with rising demand"
+                    recommendation = "Maintain or slightly increase price"
+                elif price_change > 0 and demand_trend == 'decreasing':
+                    relationship = "Price increase with falling demand"
+                    recommendation = "Consider reducing price"
+                elif price_change < 0 and demand_trend == 'increasing':
+                    relationship = "Price decrease with rising demand"
+                    recommendation = "Monitor profitability"
+                elif price_change < 0 and demand_trend == 'decreasing':
+                    relationship = "Price decrease with falling demand"
+                    recommendation = "Review market conditions"
+                else:
+                    relationship = "Stable price-demand"
+                    recommendation = "Monitor trends"
+                
+                # Format values for table (clear and descriptive format)
+                try:
+                    # Use clear, full-word formatting
+                    period_display = f"{period_label}<br/><font size=5>{period_date_range}</font>"
+                    demand_display = f"{total_quantity:.1f} {unit}<br/><font size=5>Avg: {avg_daily_demand:.1f}/day</font>"
+                    price_range_display = f"₱{min_price:,.0f} - ₱{max_price:,.0f}<br/><font size=5>Avg: ₱{avg_price:,.0f}</font>"
+                    
+                    # Price trend with clear direction
+                    price_direction = "↑ Increased" if price_change > 0 else "↓ Decreased" if price_change < 0 else "→ Stable"
+                    price_trend_display = f"{price_direction}<br/><font size=5>₱{abs(price_change):,.0f} ({price_change_pct:+.1f}%)</font>"
+                    
+                    # Demand trend with full words
+                    demand_direction = "↑ Increasing" if demand_trend == 'increasing' else "↓ Decreasing" if demand_trend == 'decreasing' else "→ Stable"
+                    demand_trend_display = f"{demand_direction}<br/><font size=5>{first_half_qty:.1f} → {second_half_qty:.1f} units</font>"
+                    
+                    # Best period with full word
+                    best_period_display = f"{best_period}<br/><font size=5>{best_period_qty:.1f} units sold</font>"
+                    
+                    # Insights - keep full text but wrap if needed
+                    insights_display = f"<b>{relationship}</b><br/><font size=5>{recommendation}</font>"
+                except Exception as e:
+                    print(f"Warning: Error formatting display values for product {product.product_id}: {e}")
+                    # Use safe fallback values
+                    period_display = period_label or "N/A"
+                    demand_display = f"{total_quantity:.2f} {unit}"
+                    price_range_display = f"PHP {min_price:,.2f} - PHP {max_price:,.2f}"
+                    price_trend_display = f"{price_change_pct:+.1f}%"
+                    demand_trend_display = demand_trend.capitalize()
+                    best_period_display = best_period
+                    insights_display = relationship
+                
+                # Add row to table (truncate product name to fit)
                 pricing_rows.append([
-                    Paragraph(product_name[:35], cell_style),
-                    Paragraph(f"PHP {current_price:,.2f}", cell_small_style),
-                    Paragraph(f"PHP {avg_price:,.2f}", cell_small_style),
-                    Paragraph(f"{price_change_pct:+.1f}%", cell_small_style),
-                    Paragraph(f"{demand_ratio:.2f}x", cell_small_style),
-                    Paragraph(f"{r2:.3f}", cell_small_style),
-                    Paragraph(str(n_observations), cell_small_style)
+                    Paragraph(product_name[:25], cell_style),
+                    Paragraph(unit.upper() if unit else 'N/A', cell_small_style),
+                    Paragraph(period_display, cell_small_style),
+                    Paragraph(demand_display, cell_small_style),
+                    Paragraph(price_range_display, cell_small_style),
+                    Paragraph(price_trend_display, cell_small_style),
+                    Paragraph(demand_trend_display, cell_small_style),
+                    Paragraph(best_period_display, cell_small_style),
+                    Paragraph(insights_display, cell_small_style)
                 ])
                 pricing_data_count += 1
             
             if pricing_data_count > 0:
+                # Calculate column widths (9 columns) - balanced to fit on page with readable text
+                # Ensure available_width is defined and calculate remaining width safely
+                if 'available_width' not in locals():
+                    available_width = letter[0] - (0.5 * inch * 2)  # 612 - 72 = 540 points
+                
+                # Optimized column widths for clarity and fit
                 pricing_col_widths = [
-                    140,  # Product
-                    70,   # Current Price
-                    70,   # Avg Price
-                    60,   # Price Change %
-                    60,   # Demand Ratio
-                    50,   # R²
-                    60    # Observations
+                    85,   # Product
+                    28,   # Unit
+                    58,   # Period
+                    62,   # Total Demand
+                    68,   # Price Range
+                    58,   # Price Trend
+                    62,   # Demand Trend
+                    58,   # Best Period
+                    101   # Insights (larger to show full text)
                 ]
+                
+                # Verify total width fits
+                total_width = sum(pricing_col_widths)
+                if total_width > available_width:
+                    # Scale down proportionally if needed
+                    scale_factor = (available_width - 10) / total_width
+                    pricing_col_widths = [int(w * scale_factor) for w in pricing_col_widths]
                 pricing_analysis_table = Table(pricing_rows, repeatRows=1, colWidths=pricing_col_widths)
                 pricing_analysis_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
                     ('TEXTCOLOR', (0,0), (-1,0), colors.white),
                     ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0,0), (-1,0), 8),
-                    ('FONTSIZE', (0,1), (-1,-1), 7),
-                    ('ALIGN', (1,1), (6,-1), 'RIGHT'),
+                    ('FONTSIZE', (0,0), (-1,0), 7),  # Header font
+                    ('FONTSIZE', (0,1), (-1,-1), 7),  # Cell font - readable size
+                    ('ALIGN', (2,1), (8,-1), 'LEFT'),
                     ('ALIGN', (0,0), (0,-1), 'LEFT'),
                     ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
-                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#EEF2FF')]),
+                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3E8FF')]),
                     ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                     ('LEFTPADDING', (0,0), (-1,-1), 4),
                     ('RIGHTPADDING', (0,0), (-1,-1), 4),
-                    ('TOPPADDING', (0,0), (-1,-1), 5),
-                    ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                    ('TOPPADDING', (0,0), (-1,-1), 4),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 4),
                     ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
                 elems.append(pricing_analysis_table)
                 elems.append(Spacer(1, 6))
                 elems.append(Paragraph(
-                    "<i>Note: Demand Ratio compares average daily sales in last 7 days vs days 8-30. "
-                    "R² indicates model fit quality (higher is better). Observations = number of sales data points used.</i>",
+                    "<i>Note: Period Movement Summary shows pricing and demand trends for each product. "
+                    "Price Trend shows change from start to end of period. Demand Trend compares first half vs second half. "
+                    "Best Period is the week with highest sales volume.</i>",
                     ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
                 ))
             else:
@@ -7275,6 +7427,188 @@ def export_report(request):
             print(f"Error generating pricing analysis section: {str(e)}")
             print(traceback.format_exc())
             elems.append(Paragraph("Pricing analysis data unavailable.", styles['Normal']))
+
+        elems.append(Spacer(1, 8))
+        
+        # ========== SECTION: INVENTORY REPORT ==========
+        elems.append(Paragraph("INVENTORY REPORT", section_style))
+        elems.append(Spacer(1, 8))
+        
+        try:
+            # Get inventory report data for the selected period
+            # StockAddition is already imported at the top of the function
+            
+            # Get all active products
+            inventory_products = Product.objects.filter(status='active').order_by('name', 'variant', 'quantity_unit')
+            
+            # Apply product filter if specified
+            if fruit_filter and fruit_filter != 'all':
+                inventory_products = inventory_products.filter(
+                    Q(name__istartswith=fruit_filter + ' ') |
+                    Q(name__istartswith=fruit_filter + '(') |
+                    Q(name__iexact=fruit_filter)
+                )
+            
+            # Apply unit filter if specified
+            if unit_filter and unit_filter != 'all':
+                if unit_filter.lower() == 'kg':
+                    inventory_products = inventory_products.filter(quantity_unit__iexact='kg')
+                elif unit_filter.lower() == 'box':
+                    inventory_products = inventory_products.exclude(quantity_unit__iexact='kg')
+            
+            inventory_rows = [[
+                Paragraph('Product', table_header_style),
+                Paragraph('Unit', table_header_style),
+                Paragraph('Current Stock', table_header_style),
+                Paragraph('Sold in Period', table_header_style),
+                Paragraph('Added in Period', table_header_style),
+                Paragraph('Revenue', table_header_style),
+                Paragraph('Profit', table_header_style),
+                Paragraph('Stock Turnover', table_header_style),
+                Paragraph('Days of Supply', table_header_style),
+                Paragraph('Status', table_header_style)
+            ]]
+            
+            inventory_data_count = 0
+            # Only process if there are products
+            if inventory_products.exists():
+                for product in inventory_products[:50]:  # Limit to top 50 products
+                    # Get sales data for the period
+                    product_sales = sales_queryset.filter(product=product) if has_sales_data else sales_queryset.none()
+                    
+                    # Calculate sold quantities - check product's unit directly
+                    unit = (product.quantity_unit or '').strip().lower()
+                    total_sold = product_sales.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+                    
+                    # For display purposes, separate boxes and kg based on product unit
+                    if unit == 'kg':
+                        boxes_sold = Decimal('0')
+                        kg_sold = total_sold
+                    else:
+                        boxes_sold = total_sold
+                        kg_sold = Decimal('0')
+                    
+                    # Calculate added quantities
+                    if current_start and current_end:
+                        additions = StockAddition.objects.filter(
+                            product=product,
+                            date_added__range=(current_start, current_end)
+                        )
+                    else:
+                        additions = StockAddition.objects.filter(product=product)
+                    
+                    # Get total added quantity (unit depends on product, not StockAddition)
+                    total_added = additions.aggregate(total=Sum('quantity'))['total'] or Decimal('0')
+                    
+                    # For display purposes, separate boxes and kg based on product unit (unit already defined above)
+                    if unit == 'kg':
+                        boxes_added = Decimal('0')
+                        kg_added = total_added
+                    else:
+                        boxes_added = total_added
+                        kg_added = Decimal('0')
+                    
+                    # Calculate financial metrics
+                    revenue = product_sales.aggregate(total=Sum('total'))['total'] or Decimal('0')
+                    cogs = total_sold * Decimal(str(product.cost or 0))
+                    profit = revenue - cogs
+                    
+                    # Calculate stock turnover
+                    product_stock = Decimal(str(product.stock or 0))
+                    avg_stock = (product_stock + total_sold) / 2 if total_sold > 0 else product_stock
+                    stock_turnover = float(total_sold / avg_stock) if avg_stock > 0 else 0.0
+                    
+                    # Calculate days of supply
+                    if current_start and current_end:
+                        period_days = max(1, (current_end.date() - current_start.date()).days + 1)
+                    else:
+                        period_days = 30
+                    
+                    avg_daily_sales = float(total_sold / Decimal(str(period_days))) if period_days > 0 and total_sold > 0 else 0.0
+                    days_of_supply = float(product_stock / Decimal(str(avg_daily_sales))) if avg_daily_sales > 0 else float('inf')
+                    
+                    # Format product name
+                    product_name = _fmt_prod(product.name, product.variant, product.quantity_unit)
+                    
+                    # Format quantities based on unit (unit already defined above)
+                    if unit == 'kg':
+                        sold_display = f"{float(kg_sold):.2f} kg" if kg_sold > 0 else "0 kg"
+                        added_display = f"{float(kg_added):.2f} kg" if kg_added > 0 else "0 kg"
+                        stock_display = f"{float(product_stock):.2f} kg"
+                    else:
+                        sold_display = f"{int(boxes_sold)} boxes" if boxes_sold > 0 else "0 boxes"
+                        added_display = f"{int(boxes_added)} boxes" if boxes_added > 0 else "0 boxes"
+                        stock_display = f"{int(product_stock)} boxes"
+                    
+                    # Format days of supply
+                    if days_of_supply == float('inf') or days_of_supply > 999:
+                        days_supply_display = "∞"
+                    else:
+                        days_supply_display = f"{days_of_supply:.1f}"
+                    
+                    # Status
+                    status = product.status.title() if product.status else 'N/A'
+                    
+                    # Add row
+                    inventory_rows.append([
+                        Paragraph(product_name[:30], cell_style),
+                        Paragraph(unit.upper() if unit else 'N/A', cell_small_style),
+                        Paragraph(stock_display, cell_small_style),
+                        Paragraph(sold_display, cell_small_style),
+                        Paragraph(added_display, cell_small_style),
+                        Paragraph(f"PHP {float(revenue):,.2f}", cell_small_style),
+                        Paragraph(f"PHP {float(profit):,.2f}", cell_small_style),
+                        Paragraph(f"{stock_turnover:.2f}x", cell_small_style),
+                        Paragraph(days_supply_display, cell_small_style),
+                        Paragraph(status, cell_small_style)
+                    ])
+                    inventory_data_count += 1
+            
+            if inventory_data_count > 0:
+                inventory_col_widths = [
+                    120,  # Product
+                    40,   # Unit
+                    50,   # Current Stock
+                    60,   # Sold in Period
+                    60,   # Added in Period
+                    55,   # Revenue
+                    55,   # Profit
+                    50,   # Stock Turnover
+                    50,   # Days of Supply
+                    40    # Status
+                ]
+                inventory_table = Table(inventory_rows, repeatRows=1, colWidths=inventory_col_widths)
+                inventory_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
+                    ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0,0), (-1,0), 8),
+                    ('FONTSIZE', (0,1), (-1,-1), 7),
+                    ('ALIGN', (2,1), (8,-1), 'RIGHT'),
+                    ('ALIGN', (0,0), (0,-1), 'LEFT'),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e5e7eb')),
+                    ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3E8FF')]),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('LEFTPADDING', (0,0), (-1,-1), 4),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 4),
+                    ('TOPPADDING', (0,0), (-1,-1), 5),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                    ('WORDWRAP', (0,0), (-1,-1), True),
+                ]))
+                elems.append(inventory_table)
+                elems.append(Spacer(1, 6))
+                elems.append(Paragraph(
+                    "<i>Note: Sold in Period and Added in Period are based on the selected date range. "
+                    "Stock Turnover = (Quantity Sold) / (Average Stock). Days of Supply = Current Stock / Average Daily Sales.</i>",
+                    ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
+                ))
+            else:
+                elems.append(Paragraph("No inventory data available for this period.", styles['Normal']))
+        except Exception as e:
+            import traceback
+            print(f"Error generating inventory report section: {str(e)}")
+            print(traceback.format_exc())
+            elems.append(Paragraph("Inventory report data unavailable.", styles['Normal']))
 
         doc.build(elems)
         pdf = buffer.getvalue()
@@ -7313,6 +7647,10 @@ def export_report(request):
         error_trace = traceback.format_exc()
         print(f"ERROR in export_report: {str(e)}")
         print(error_trace)
+        print(f"ERROR Context - filter_type: {filter_type}, start_date: {start_date}, end_date: {end_date}")
+        print(f"ERROR Context - date_range: {date_range if 'date_range' in locals() else 'not set'}")
+        print(f"ERROR Context - current_start: {current_start if 'current_start' in locals() else 'not set'}")
+        print(f"ERROR Context - current_end: {current_end if 'current_end' in locals() else 'not set'}")
         
         # Provide more user-friendly error messages based on error type
         error_message = 'Something went wrong. Please try again or refresh the page.'
@@ -13689,15 +14027,31 @@ def upload_and_restore_backup(request):
                 file_list = test_zip.namelist()
                 from pathlib import PurePosixPath
                 
-                # Check for JSON file - can be in root OR in database/ folder
+                # Check for JSON file - can be in root OR in database/ folder OR anywhere
+                # Be more lenient to accept older backup formats
                 json_files = [f for f in file_list if f.endswith('.json') and not f.startswith('media/')]
                 
-                # Check for database folder
+                # Check for database folder (old format)
                 has_database = any(('database' in PurePosixPath(f).parts) for f in file_list)
                 database_files = [f for f in file_list if ('database' in PurePosixPath(f).parts) and not f.endswith('/')]
                 
-                # Must have JSON file (anywhere) OR database folder with files
-                if not json_files:
+                # Check for other common backup file patterns (for backward compatibility)
+                has_stockwise_data = any(
+                    'stockwise' in f.lower() or 
+                    'backup' in f.lower() or
+                    'dump' in f.lower() or
+                    f.endswith('.sqlite3') or
+                    f.endswith('.db') or
+                    f.endswith('.sql')
+                    for f in file_list
+                )
+                
+                # More lenient validation: accept if it has ANY of these:
+                # 1. JSON file (anywhere)
+                # 2. Database folder with files
+                # 3. Common backup file patterns
+                # Let the restore command handle the actual structure detection
+                if not json_files and not (has_database and database_files) and not has_stockwise_data:
                     if test_zip:
                         test_zip.close()
                     try:
@@ -13706,51 +14060,36 @@ def upload_and_restore_backup(request):
                         pass
                     return JsonResponse({
                         'success': False, 
-                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file or database folder.'
+                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file, database folder, or recognizable backup files.'
                     }, status=400)
                 
-                # If old format, validate database files exist
-                if not json_files and has_database and not database_files:
-                    if test_zip:
-                        test_zip.close()
-                    try:
-                        temp_path.unlink()
-                    except Exception:
-                        pass
-                    return JsonResponse({
-                        'success': False, 
-                        'message': 'Invalid backup file. Database folder is empty or does not contain a database file.'
-                    }, status=400)
-                
-                # Validate JSON file if present
+                # Validate JSON file if present (but be lenient for older formats)
                 if json_files:
                     json_file = json_files[0]
                     try:
                         json_data = test_zip.read(json_file)
                         import json
-                        json.loads(json_data.decode('utf-8'))  # Validate JSON structure
-                    except json.JSONDecodeError as e:
-                        if test_zip:
-                            test_zip.close()
+                        # Try to parse JSON - if it fails, still allow it (might be old format)
                         try:
-                            temp_path.unlink()
-                        except Exception:
+                            parsed_data = json.loads(json_data.decode('utf-8'))
+                            # Basic validation - should be a list or dict
+                            if not isinstance(parsed_data, (list, dict)):
+                                # Not valid JSON structure, but might be old format - let restore command handle it
+                                pass
+                        except json.JSONDecodeError:
+                            # JSON decode error - might be old format, let restore command try
                             pass
-                        return JsonResponse({
-                            'success': False, 
-                            'message': f'Invalid JSON file in backup: {str(e)}'
-                        }, status=400)
-                    except UnicodeDecodeError as e:
-                        if test_zip:
-                            test_zip.close()
-                        try:
-                            temp_path.unlink()
-                        except Exception:
-                            pass
-                        return JsonResponse({
-                            'success': False,
-                            'message': f'Invalid encoding in JSON file: {str(e)}'
-                        }, status=400)
+                        except UnicodeDecodeError:
+                            # Try different encodings for older backups
+                            try:
+                                json_data.decode('latin-1')
+                            except:
+                                # If all encodings fail, still allow it - restore command will handle
+                                pass
+                    except Exception as e:
+                        # Don't fail validation on JSON errors - let restore command handle it
+                        # Older backups might have different structures
+                        pass
                 
                 # Close zip file before proceeding
                 if test_zip:
@@ -13827,6 +14166,9 @@ def upload_and_restore_backup(request):
                 stdout_output = stdout_capture.getvalue()
                 stderr_output = stderr_capture.getvalue()
                 error_details = stderr_output or stdout_output or str(restore_error)
+                # Provide more detailed error message
+                if 'Unknown error' in str(restore_error) or not error_details:
+                    error_details = f'Restore failed: {str(restore_error)}. Check backup file format and try again.'
                 raise Exception(f'Restore command error: {error_details}')
             finally:
                 # Restore stdout/stderr
@@ -13929,12 +14271,16 @@ def upload_and_restore_backup(request):
         # Return detailed error message
         error_message = str(e)
         # Make error message user-friendly
-        if 'Unknown error' in error_message or not error_message:
-            error_message = 'An error occurred during restore. Please check the backup file is valid and try again. If the problem persists, the backup may be corrupted or incompatible with the current database schema.'
+        if 'Unknown error' in error_message or not error_message or error_message == 'None':
+            # Check if it's an older backup format issue
+            if 'Invalid backup file' in error_trace or 'Missing JSON file' in error_trace:
+                error_message = 'The backup file appears to be from an older StockWise version. The file structure may be different. Try using the incremental restore option, or ensure you are using a backup from a compatible version.'
+            else:
+                error_message = 'An error occurred during restore. The backup file may be from an older version or have a different format. Try using the incremental restore option instead, or ensure the backup file is from a compatible StockWise version.'
         
         return JsonResponse({
             'success': False, 
-            'message': f'Error restoring backup: {error_message}'
+            'message': f'Server error (400): {error_message}'
         }, status=400)
 
 

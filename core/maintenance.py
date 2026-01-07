@@ -222,9 +222,16 @@ class FriendlyErrorMiddleware:
             from django.http import JsonResponse, HttpResponse
             from django.utils import timezone
             import html
-            accepts_json = 'application/json' in (request.META.get('HTTP_ACCEPT', '') or '').lower() or (
-                request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest'
-            ) or (request.path or '').startswith('/api/')
+            # Check if this is an API/AJAX request
+            path = (request.path or '').lower()
+            accepts_json = (
+                'application/json' in (request.META.get('HTTP_ACCEPT', '') or '').lower() or
+                request.headers.get('x-requested-with', '').lower() == 'xmlhttprequest' or
+                path.startswith('/api/') or
+                'backup' in path or  # Backup endpoints should always return JSON
+                'pricing' in path or  # Pricing API endpoints
+                'sms' in path  # SMS API endpoints
+            )
             err_id = timezone.now().strftime('%Y%m%d%H%M%S')
             msg = 'Something went wrong. Please try again or refresh the page.'
             details = 'If the problem persists, check Logs for details.'

@@ -1311,6 +1311,30 @@ def logout_view(request):
 
 from functools import wraps
 
+def ensure_json_response(view_func):
+    """Decorator to ensure view always returns JSON, even on unexpected errors"""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        try:
+            response = view_func(request, *args, **kwargs)
+            # Ensure response is JSON
+            if hasattr(response, '__setitem__'):
+                response['Content-Type'] = 'application/json'
+            return response
+        except Exception as e:
+            import traceback
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Unexpected error in {view_func.__name__}: {str(e)}\n{traceback.format_exc()}')
+            response = JsonResponse({
+                'success': False,
+                'message': f'Server error: {str(e)}'
+            }, status=500)
+            response['Content-Type'] = 'application/json'
+            return response
+    return wrapper
+
+
 def require_app_login(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -4409,8 +4433,12 @@ def fetch_reports(request):
             if total_qty > 0:
                 avg_cost_map[product_id] = total_cost_qty / total_qty
         
+        # Group sales by DATE and PRODUCT for sales_summary_data (not just by product)
         summary = list(
-            sales_queryset.values(
+            sales_queryset.annotate(
+                sale_date=TruncDate('recorded_at')
+            ).values(
+                'sale_date',
                 'product__product_id',
                 'product__name',
                 'product__variant',
@@ -4433,7 +4461,7 @@ def fetch_reports(request):
                 ),
                 revenue=Sum('total'),
                 transaction_count=Count('sale_id', distinct=True)
-            ).order_by('-revenue')
+            ).order_by('-sale_date', '-revenue')
         )
         
         # Calculate COGS using weighted average cost from StockAddition, fallback to product.cost
@@ -4450,7 +4478,6 @@ def fetch_reports(request):
                 avg_cost = Decimal(str(s.get('product__cost') or 0))
             s['cogs'] = float(total_quantity * avg_cost)
 
-        summary_date = end_date if end_date else timezone.localtime().strftime('%Y-%m-%d')
         sales_summary_data = []
         for s in summary:
             product_id = s['product__product_id']
@@ -4529,6 +4556,22 @@ def fetch_reports(request):
                 product_display = f"{product_display} ({unit})"
             product_display = product_display.strip()
 
+            # Format the sale date properly
+            sale_date_obj = s.get('sale_date')
+            if sale_date_obj:
+                if isinstance(sale_date_obj, datetime):
+                    if timezone.is_aware(sale_date_obj):
+                        sale_date_str = timezone.localtime(sale_date_obj).strftime('%Y-%m-%d')
+                    else:
+                        sale_date_str = sale_date_obj.strftime('%Y-%m-%d')
+                elif hasattr(sale_date_obj, 'strftime'):
+                    sale_date_str = sale_date_obj.strftime('%Y-%m-%d')
+                else:
+                    sale_date_str = str(sale_date_obj)
+            else:
+                # Fallback to end_date if sale_date is missing
+                sale_date_str = end_date if end_date else timezone.localtime().strftime('%Y-%m-%d')
+            
             sales_summary_data.append({
                 'product_id': product_id,
                 'product_name': product_display,
@@ -4552,7 +4595,7 @@ def fetch_reports(request):
                 'prev_markup_amount': prev_markup_amount,
                 'markup_trend_pct': markup_trend_pct,
                 'markup_trend_amount': markup_trend_amount,
-                'date': summary_date
+                'date': sale_date_str
             })
 
         slow_movers = []
@@ -4572,12 +4615,50 @@ def fetch_reports(request):
 
         total_current_revenue = sum(Decimal(item.get('revenue') or 0) for item in sales_summary_data)
 
+        # For top products, we need to aggregate across all dates (not per date)
+        # Create a separate aggregated query for top products
+        top_products_summary = list(
+            sales_queryset.values(
+                'product__product_id',
+                'product__name',
+                'product__variant',
+                'product__quantity_unit',
+                'product__cost'
+            ).annotate(
+                boxes_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then=0),
+                        default='quantity',
+                        output_field=models.DecimalField()
+                    )
+                ),
+                kg_sold=Sum(
+                    Case(
+                        When(product__quantity_unit__iexact='kg', then='quantity'),
+                        default=0,
+                        output_field=models.DecimalField()
+                    )
+                ),
+                revenue=Sum('total'),
+                transaction_count=Count('sale_id', distinct=True)
+            ).order_by('-revenue')[:5]
+        )
+        
+        # Calculate COGS for top products
+        for t in top_products_summary:
+            product_id = t['product__product_id']
+            total_quantity = Decimal(str(t.get('boxes_sold') or 0)) + Decimal(str(t.get('kg_sold') or 0))
+            avg_cost = avg_cost_map.get(product_id)
+            if avg_cost is None or avg_cost == 0:
+                avg_cost = Decimal(str(t.get('product__cost') or 0))
+            t['cogs'] = float(total_quantity * avg_cost)
+
         product_map = Product.objects.filter(
-            product_id__in=[s['product__product_id'] for s in summary]
+            product_id__in=[t['product__product_id'] for t in top_products_summary]
         ).in_bulk(field_name='product_id')
 
         # Sort by total quantity (boxes + kg) for ranking
-        top_summary_sorted = sorted(summary, key=lambda x: (x.get('boxes_sold') or 0) + (x.get('kg_sold') or 0), reverse=True)[:5]
+        top_summary_sorted = sorted(top_products_summary, key=lambda x: (x.get('boxes_sold') or 0) + (x.get('kg_sold') or 0), reverse=True)
         top_fruits = []
         for idx, t in enumerate(top_summary_sorted, start=1):
             product_id = t['product__product_id']
@@ -4621,6 +4702,9 @@ def fetch_reports(request):
                 product_display = f"{product_display} ({unit})"
             product_display = product_display.strip()
 
+            # Top products are aggregated across the entire period, so use end_date
+            period_end_date = end_date if end_date else timezone.localtime().strftime('%Y-%m-%d')
+            
             top_fruits.append({
                 'rank': idx,
                 'product_id': product_id,
@@ -4636,7 +4720,7 @@ def fetch_reports(request):
                 'market_share_pct': market_share_pct,
                 'units_change': units_change,
                 'inventory_turnover': inventory_turnover,
-                'date': summary_date
+                'date': period_end_date
             })
 
         abc_analysis = []
@@ -13579,6 +13663,7 @@ def backup_management_view(request):
     return render(request, 'backup_management.html', context)
 
 
+@ensure_json_response
 @require_app_login
 def create_backup(request):
     """Create a new backup via API"""
@@ -13600,16 +13685,58 @@ def create_backup(request):
             backup_dir = Path('/tmp/stockwise_backups')
             backup_dir.mkdir(parents=True, exist_ok=True)
         
-        # Call backup command - capture output
+        # Call backup command - capture output with better error handling
         import io
-        from contextlib import redirect_stdout
-        f = io.StringIO()
-        with redirect_stdout(f):
-            call_command('backup_system', output_dir=str(backup_dir))
-        output = f.getvalue()
+        from contextlib import redirect_stdout, redirect_stderr
+        from io import StringIO
+        import sys
         
-        # Find the latest backup file
-        backup_files = sorted(backup_dir.glob('stockwise_backup_*.zip'), key=os.path.getmtime, reverse=True)
+        stdout_capture = StringIO()
+        stderr_capture = StringIO()
+        
+        try:
+            # Redirect both stdout and stderr to capture all output
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = stdout_capture
+            sys.stderr = stderr_capture
+            
+            # Use simpler database dump method (more reliable, like classmate's system)
+            # This creates a direct database dump instead of JSON format
+            try:
+                # Try database dump method first (simpler and more reliable)
+                call_command('backup_database_dump', output_dir=str(backup_dir), format='zip')
+            except Exception as dump_error:
+                # Fallback to JSON method if dump fails
+                self.stdout.write(self.style.WARNING(f'  [WARNING] Dump method failed: {dump_error}, trying JSON method...'))
+                call_command('backup_system', output_dir=str(backup_dir), verbosity=1)
+            except SystemExit:
+                # call_command can raise SystemExit, check if it's an error
+                stderr_output = stderr_capture.getvalue()
+                if stderr_output:
+                    raise Exception(f'Backup command failed: {stderr_output}')
+            except Exception as cmd_error:
+                stderr_output = stderr_capture.getvalue()
+                stdout_output = stdout_capture.getvalue()
+                error_details = stderr_output or stdout_output or str(cmd_error)
+                raise Exception(f'Backup command error: {error_details}')
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                
+            output = stdout_capture.getvalue()
+        except Exception as cmd_exception:
+            # Re-raise to be caught by outer exception handler
+            raise
+        
+        # Find the latest backup file (supports both dump and JSON formats)
+        backup_files = sorted(
+            list(backup_dir.glob('stockwise_backup_*.zip')) + 
+            list(backup_dir.glob('stockwise_db_dump_*.sql')) +
+            list(backup_dir.glob('stockwise_db_dump_*.sqlite3')),
+            key=os.path.getmtime, 
+            reverse=True
+        )
         if not backup_files:
             return JsonResponse({'success': False, 'message': 'Backup file not found'}, status=500)
         backup_file_path = backup_files[0]
@@ -13651,7 +13778,7 @@ def create_backup(request):
             f'Created system backup: {backup_file_path.name} ({backup_record.get_file_size_mb()} MB)'
         )
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'message': 'Backup created successfully',
             'backup_id': backup_record.backup_id,
@@ -13659,11 +13786,27 @@ def create_backup(request):
             'size_mb': backup_record.get_file_size_mb(),
             'created_at': backup_record.created_at.strftime('%Y-%m-%d %H:%M:%S')
         })
+        response['Content-Type'] = 'application/json'
+        return response
         
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'message': f'Error creating backup: {str(e)}'}, status=500)
+        import logging
+        logger = logging.getLogger(__name__)
+        error_trace = traceback.format_exc()
+        logger.error(f'Backup creation error: {str(e)}\n{error_trace}')
+        
+        # Always return JSON, never HTML
+        error_msg = str(e)
+        if not error_msg or 'Unexpected token' in error_msg:
+            error_msg = 'An error occurred while creating the backup. Please check server logs for details.'
+        
+        response = JsonResponse({
+            'success': False, 
+            'message': f'Error creating backup: {error_msg}'
+        }, status=500)
+        response['Content-Type'] = 'application/json'
+        return response
 
 
 @require_app_login
@@ -13730,6 +13873,7 @@ def download_backup(request, backup_id):
         return response
 
 
+@ensure_json_response
 @require_app_login
 def restore_backup(request, backup_id):
     """Restore from a backup"""
@@ -13762,8 +13906,21 @@ def restore_backup(request, backup_id):
             sys.stdout = stdout_buffer
             sys.stderr = stderr_buffer
             
+            # Try simple dump restore first (more reliable)
+            # Check if it's a dump file
+            backup_path = Path(backup.file_path)
+            is_dump_file = (
+                backup_path.suffix in ['.sql', '.sqlite3', '.db'] or
+                'dump' in backup_path.name.lower()
+            )
+            
             try:
-                call_command('restore_backup', backup.file_path, force=True)
+                if is_dump_file:
+                    # Use simple dump restore
+                    call_command('restore_database_dump', backup.file_path, force=True)
+                else:
+                    # Use JSON restore (current method)
+                    call_command('restore_backup', backup.file_path, force=True)
             finally:
                 # Restore stdout/stderr
                 sys.stdout = old_stdout
@@ -13826,6 +13983,7 @@ def restore_backup(request, backup_id):
         return JsonResponse({'success': False, 'message': f'Error restoring backup: {str(e)}'}, status=500)
 
 
+@ensure_json_response
 @require_app_login
 def restore_backup_incremental(request, backup_id):
     """Incrementally restore from a backup - only restores missing data"""
@@ -13933,6 +14091,7 @@ def delete_backup(request, backup_id):
         return JsonResponse({'success': False, 'message': f'Error deleting backup: {str(e)}'}, status=500)
 
 
+@ensure_json_response
 @require_app_login
 def upload_and_restore_backup(request):
     """Upload a backup JSON file and restore from it
@@ -14153,8 +14312,20 @@ def upload_and_restore_backup(request):
             sys.stdout = stdout_capture
             sys.stderr = stderr_capture
             
+            # Try simple dump restore first if it looks like a dump file
+            uploaded_name = uploaded_file.name.lower()
+            is_dump_file = (
+                uploaded_name.endswith(('.sql', '.sqlite3', '.db')) or
+                'dump' in uploaded_name
+            )
+            
             try:
-                call_command('restore_backup', str(temp_path), force=True)
+                if is_dump_file:
+                    # Use simple dump restore
+                    call_command('restore_database_dump', str(temp_path), force=True)
+                else:
+                    # Use JSON restore (current method)
+                    call_command('restore_backup', str(temp_path), force=True)
             except SystemExit as e:
                 # call_command can raise SystemExit, capture the error output
                 stdout_output = stdout_capture.getvalue()
@@ -14248,11 +14419,13 @@ def upload_and_restore_backup(request):
             if key in request.session:
                 del request.session[key]
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'message': 'System restored successfully from uploaded backup. Please login again.',
             'logout': True  # Flag to indicate app logout happened
         })
+        response['Content-Type'] = 'application/json'
+        return response
         
     except Exception as e:
         import traceback
@@ -14278,10 +14451,12 @@ def upload_and_restore_backup(request):
             else:
                 error_message = 'An error occurred during restore. The backup file may be from an older version or have a different format. Try using the incremental restore option instead, or ensure the backup file is from a compatible StockWise version.'
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': False, 
             'message': f'Server error (400): {error_message}'
         }, status=400)
+        response['Content-Type'] = 'application/json'
+        return response
 
 
 def auto_backup_before_critical_operation(request, operation_name='Critical Operation'):

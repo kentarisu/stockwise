@@ -719,14 +719,6 @@
             background: #059669;
         }
 
-        .btn-restore-incremental {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .btn-restore-incremental:hover {
-            background: #2563eb;
-        }
 
         .btn-delete {
             background: var(--danger);
@@ -1316,10 +1308,6 @@
                                                     <button class="btn-action btn-restore" data-backup-id="{{ backup.backup_id }}" data-action="restore">
                                                         <i class="bi bi-arrow-clockwise"></i>
                                                         Restore
-                                                    </button>
-                                                    <button class="btn-action btn-restore-incremental" data-backup-id="{{ backup.backup_id }}" data-action="restore-incremental" title="Only restore missing data">
-                                                        <i class="bi bi-plus-circle"></i>
-                                                        Restore Missing
                                                     </button>
                                                     <button class="btn-action btn-delete" data-backup-id="{{ backup.backup_id }}" data-action="delete">
                                                         <i class="bi bi-trash"></i>
@@ -2186,70 +2174,9 @@
                 );
             }
 
-            function restoreBackupIncremental(backupId) {
-                showConfirm(
-                    'Incremental Restore',
-                    'This will only restore missing data from the backup.\n\nExisting records will be preserved.\n\nContinue?',
-                    function() {
-                        const modal = new bootstrap.Modal(document.getElementById('restoreProgressModal'));
-                        const bar = document.getElementById('restoreProgressBar');
-                        const pct = document.getElementById('restoreProgressPercent');
-                        const txt = document.getElementById('restoreProgressText');
-                        let p = 0;
-                        let t;
-                        function setProgress(v, label){
-                            p = Math.max(0, Math.min(100, v));
-                            bar.style.width = p + '%';
-                            bar.setAttribute('aria-valuenow', p);
-                            pct.textContent = p + '%';
-                            if (label) txt.textContent = label + ' ' + pct.textContent;
-                        }
-                        function startProgress(){
-                            modal.show();
-                            setProgress(5, 'Preparing…');
-                            t = setInterval(function(){
-                                if (p < 30) setProgress(p + 2, 'Comparing data…');
-                                else if (p < 70) setProgress(p + 3, 'Restoring missing records…');
-                                else if (p < 90) setProgress(p + 2, 'Finalizing…');
-                                else if (p < 95) setProgress(p + 1, 'Almost done…');
-                            }, 300);
-                        }
-                        startProgress();
-                        fetch(`{% url 'restore_backup_incremental' 0 %}`.replace('0', backupId), {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': window.getCookie('csrftoken'),
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            clearInterval(t);
-                            if (data.success) {
-                                setProgress(100, 'Completed');
-                                setTimeout(function(){ modal.hide(); }, 500);
-                                showMessage('success', 'Incremental Restore Complete', data.message || 'Only missing data was restored successfully.', function(){ 
-                                    location.reload();
-                                });
-                            } else {
-                                setProgress(0, 'Failed');
-                                setTimeout(function(){ modal.hide(); }, 500);
-                                showMessage('error', 'Restore Failed', data.message || 'Error during incremental restore.');
-                            }
-                        })
-                        .catch(error => {
-                            clearInterval(t);
-                            setProgress(0, 'Failed');
-                            setTimeout(function(){ modal.hide(); }, 500);
-                            showMessage('error', 'Restore Failed', 'Error during incremental restore: ' + error.message);
-                        });
-                    }
-                );
-            }
-
             // Event delegation for restore and delete buttons
             document.addEventListener('click', function(e) {
-                const btn = e.target.closest('.btn-restore, .btn-restore-incremental, .btn-delete');
+                const btn = e.target.closest('.btn-restore, .btn-delete');
                 if (!btn) return;
                 
                 const backupId = btn.getAttribute('data-backup-id');
@@ -2257,8 +2184,6 @@
                 
                 if (action === 'restore') {
                     restoreBackup(parseInt(backupId));
-                } else if (action === 'restore-incremental') {
-                    restoreBackupIncremental(parseInt(backupId));
                 } else if (action === 'delete') {
                     deleteBackup(parseInt(backupId));
                 }

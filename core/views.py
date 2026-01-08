@@ -4197,19 +4197,9 @@ def fetch_reports(request):
     fruit_filter=request.GET.get('product', request.GET.get('fruit', 'all'))
     unit_filter=request.GET.get('unit', 'all')
 
-    # Debug logging - KEEP THESE FOR DEBUGGING
-    print(f"=== FETCH_REPORTS DEBUG ===")
-    print(f"Filter type: {filter_type}")
-    print(f"Start date: {start_date}")
-    print(f"End date: {end_date}")
-    print(f"Search: {search}")
-    print(f"User filter: {user_filter}")
-    print(f"===========================")
-
     try:
         # Start with all completed sales and apply global filters
         base_queryset = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
-        print(f"[fetch_reports] Base queryset count (all completed sales): {base_queryset.count()}")
         
         date_range = _resolve_report_range(filter_type, start_date, end_date)
         current_start = current_end = None
@@ -4312,7 +4302,6 @@ def fetch_reports(request):
 
         sales_queryset = apply_common_filters(sales_queryset)
         previous_queryset = apply_common_filters(previous_queryset)
-        print(f"[fetch_reports] Sales queryset count after all filters: {sales_queryset.count()}")
 
         # sales_summary (for summary cards)
         agg = sales_queryset.aggregate(
@@ -4395,7 +4384,7 @@ def fetch_reports(request):
         sales_velocity = float(total_items or 0) / float(period_days or 1)
 
         daily_sales = list(
-            sales_queryset.annotate(day=TruncDate('recorded_at'))
+            sales_queryset.annotate(day=TruncDate('recorded_at', tzinfo=timezone.get_current_timezone()))
             .values('day')
             .annotate(total=Count('sale_id'))
             .order_by('-total')
@@ -4493,7 +4482,7 @@ def fetch_reports(request):
         # Group sales by DATE and PRODUCT for sales_summary_data (not just by product)
         summary = list(
             sales_queryset.annotate(
-                sale_date=TruncDate('recorded_at')
+                sale_date=TruncDate('recorded_at', tzinfo=timezone.get_current_timezone())
             ).values(
                 'sale_date',
                 'product__product_id',
@@ -5251,11 +5240,10 @@ def fetch_reports(request):
         # Inventory Report - Get all products with current stock information
         inventory_report = []
         try:
-            print(f"[INVENTORY REPORT] Starting inventory report generation. Filter type: {filter_type}, Start: {start_date}, End: {end_date}")
-            # Get sales for the date range to calculate quantity sold
+            # Apply common filters (User, Product, Search) to the inventory report context
+            sales_queryset_for_inventory = apply_common_filters(sales_queryset_for_inventory)
+            
             date_range = _resolve_report_range(filter_type, start_date, end_date)
-            print(f"[INVENTORY REPORT] Date range resolved: {date_range}")
-            sales_queryset_for_inventory = base_queryset
             if date_range:
                 current_start, current_end = date_range
                 sales_queryset_for_inventory = sales_queryset_for_inventory.filter(
@@ -5374,9 +5362,6 @@ def fetch_reports(request):
                     last_sale_dict[item['product_id']] = item['last_sale_date']
             
             products = Product.objects.all().order_by('name', 'variant')
-            print(f"[INVENTORY REPORT] Found {products.count()} products to process")
-            if products.count() == 0:
-                print("[INVENTORY REPORT] No products found in database")
             for product in products:
                 stock_value_cost = float(product.stock * (product.cost or 0))
                 stock_value_price = float(product.stock * product.price)
@@ -5411,14 +5396,14 @@ def fetch_reports(request):
                 if sales_data['quantity_sold'] == 0 and additions_data['quantity_added'] == 0:
                     beginning_stock = float(product.stock)
                 
-                # Calculate COGS (Cost of Goods Sold) for the period
-                # Use average cost from additions if available, otherwise use product cost
-                avg_cost = float(product.cost or 0)
-                if additions_data['quantity_added'] > 0 and additions_data['total_cost'] > 0:
-                    avg_cost = float(additions_data['total_cost']) / float(additions_data['quantity_added'])
-                cogs = float(sales_data['quantity_sold']) * avg_cost
+                # Calculate COGS (Cost of Goods Sold) using the weighted average cost
+                # This ensures consistency with the Sales Summary report.
+                # Use global weighted average cost if available, otherwise fallback to product.cost
+                avg_cost = avg_cost_map.get(product.product_id)
+                if avg_cost is None or avg_cost == 0:
+                    avg_cost = Decimal(str(product.cost or 0))
                 
-                # Calculate profit from sales
+                cogs = float(sales_data['quantity_sold']) * float(avg_cost)
                 profit_from_sales = sales_data['revenue'] - cogs
                 
                 # Calculate average selling price
@@ -12048,14 +12033,16 @@ def generate_and_store_pricing_recommendations():
     from django.utils import timezone
     import pandas as pd
     
-    # Use local date (not UTC) so the 3-day window matches UI reports
-    end_date = timezone.localdate()
-    # Inclusive 3-day window; if today is Jan 9 => start_date = Jan 7
-    start_date = end_date - timedelta(days=2)
+    tz = timezone.get_current_timezone()
+    today = timezone.localdate()
+    
+    # Fetch 120 days for the AI to learn patterns (elasticity),
+    # but the engine will still report recent stats based on its internal logic.
+    hist_start = timezone.make_aware(datetime.combine(today - timedelta(days=120), datetime.min.time()), tz)
+    end_dt = timezone.make_aware(datetime.combine(today, datetime.max.time()), tz)
     
     sales_data = Sale.objects.filter(
-        recorded_at__date__gte=start_date,
-        recorded_at__date__lte=end_date,
+        recorded_at__range=(hist_start, end_dt),
         status__iexact='completed'
     ).values('recorded_at', 'product__product_id', 'quantity', 'price')
     
@@ -12284,9 +12271,14 @@ def get_pricing_recommendations(request):
             })
         from django.db.models import Count
         from core.models import Sale
-        start = timezone.now() - timedelta(days=3)
+        # Use standardized calendar-based 3-day window instead of rolling 72h
+        tz = timezone.get_current_timezone()
+        today = timezone.localdate()
+        start_dt = timezone.make_aware(datetime.combine(today - timedelta(days=2), datetime.min.time()), tz)
+        end_dt = timezone.make_aware(datetime.combine(today, datetime.max.time()), tz)
+        
         sales_counts = (Sale.objects
-                        .filter(recorded_at__gte=start, status='completed')
+                        .filter(recorded_at__range=(start_dt, end_dt), status='completed')
                         .values('product__product_id')
                         .annotate(c=Count('sale_id')))
         count_map = {row['product__product_id']: row['c'] for row in sales_counts}

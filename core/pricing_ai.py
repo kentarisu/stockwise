@@ -196,25 +196,25 @@ class DemandPricingAI:
             sales = sales_df.copy()
             sales["date"] = pd.to_datetime(sales["date"])
             
-            # Aggregate by day for consistent signal processing
+            # Always convert to Manila time (the store's timezone) BEFORE grouping
+            # This ensures daily totals align with local business days.
+            try:
+                if sales["date"].dt.tz is None:
+                    sales["date"] = sales["date"].dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+                else:
+                    sales["date"] = sales["date"].dt.tz_convert('Asia/Manila')
+            except Exception:
+                pass
+            
+            # Aggregate by day but preserve transaction count
             sales["price"] = sales["price"].astype(float)
             sales["units_sold"] = sales["units_sold"].astype(float)
             sales = sales.groupby(["product_id", sales["date"].dt.date]).agg({
                 "units_sold": "sum",
-                "price": "mean"
-            }).reset_index()
+                "price": "mean",
+                "date": "count" # Number of rows = number of transactions
+            }).rename(columns={"date": "transaction_count"}).reset_index()
             sales["date"] = pd.to_datetime(sales["date"])
-
-            # Always convert to Manila time (the store's timezone) for consistent reporting
-            try:
-                if sales["date"].dt.tz is None:
-                    # If timezone-naive, assume UTC and then convert
-                    sales["date"] = sales["date"].dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
-                else:
-                    # If already timezone-aware (usually UTC), just convert
-                    sales["date"] = sales["date"].dt.tz_convert('Asia/Manila')
-            except Exception:
-                pass
             
             latest_date = sales["date"].max().date()
             sales_for_grouping = sales
@@ -267,16 +267,12 @@ class DemandPricingAI:
             # Technical data volume and model confidence
             total_sales_count = len(hist)
             
-            # --- START FIX: Calculate counts for the PAST 3 DAYS for the reason string ---
-            past_3_days_threshold = latest_date - dt.timedelta(days=2)
-            recent_hist = hist[hist['date'].dt.date >= past_3_days_threshold]
-            recent_sales_count = len(recent_hist)
-            if 'units_sold' in recent_hist.columns:
-                recent_qty_sold = recent_hist['units_sold'].sum()
-            elif 'quantity' in recent_hist.columns:
-                recent_qty_sold = recent_hist['quantity'].sum()
-            else:
-                recent_qty_sold = 0
+            # --- START FIX: Calculate counts for the PAST 3 CALENDAR DAYS (Manila) for the reason string ---
+            # Recent window should be exactly 3 days: [latest_date - 2 days, latest_date]
+            target_start = latest_date - dt.timedelta(days=2)
+            recent_hist = hist[hist['date'].dt.date >= target_start]
+            recent_sales_count = int(recent_hist['transaction_count'].sum()) if not recent_hist.empty else 0
+            recent_qty_sold = recent_hist['units_sold'].sum() if not recent_hist.empty else 0
             # --- END FIX ---
 
             local_max_move = cfg.max_move_pct

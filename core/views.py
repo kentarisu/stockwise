@@ -14325,26 +14325,37 @@ def upload_and_restore_backup(request):
             sys.stdout = stdout_capture
             sys.stderr = stderr_capture
             
-            # Try simple dump restore first if it looks like a dump file
-            # Check both the uploaded filename AND the contents of the ZIP
+            # Check compatible dump file based on current database engine
+            # This prevents trying to restore a SQLite dump into Postgres, which causes errors
+            db_engine = settings.DATABASES['default']['ENGINE'].lower()
+            is_postgres = 'postgresql' in db_engine or 'postgres' in db_engine
+            is_sqlite = 'sqlite' in db_engine
+            
+            def is_compatible_dump(fname):
+                fname = fname.lower()
+                if is_sqlite:
+                    return fname.endswith(('.sqlite3', '.db', '.sqlite'))
+                if is_postgres:
+                    return fname.endswith(('.sql', '.dump', '.pgdump', '.backup'))
+                return False
+
             uploaded_name = uploaded_file.name.lower()
-            is_dump_file = (
-                uploaded_name.endswith(('.sql', '.sqlite3', '.db')) or
-                'dump' in uploaded_name
-            )
+            
+            # Check if the uploaded file itself is a compatible dump
+            is_dump_file = is_compatible_dump(uploaded_name)
             
             # Also check if ZIP contains dump files (for newer backup format)
+            # BUT only if they are compatible with the current DB
             if not is_dump_file and uploaded_name.endswith('.zip'):
                 try:
                     import zipfile
                     with zipfile.ZipFile(temp_path, 'r') as test_zip:
                         file_list = test_zip.namelist()
-                        has_dump = any(
-                            f.endswith('.sqlite3') or f.endswith('.db') or 
-                            f.endswith('.sql') or 'dump' in f.lower()
-                            for f in file_list
-                        )
-                        if has_dump:
+                        
+                        # Only consider it a "dump file restore" if we can find a COMPATIBLE dump
+                        has_compatible_dump = any(is_compatible_dump(f) for f in file_list)
+                        
+                        if has_compatible_dump:
                             is_dump_file = True
                 except Exception:
                     pass  # If we can't check, let restore command handle it

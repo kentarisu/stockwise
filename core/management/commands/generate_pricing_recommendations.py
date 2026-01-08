@@ -46,12 +46,14 @@ class Command(BaseCommand):
         """Generate pricing recommendations and send notifications"""
         try:
             # Get sales data from last 120 days
-            end_date = datetime.now().date()
+            # Use local date to align with UI/reporting windows
+            end_date = timezone.localdate()
             start_date = end_date - timedelta(days=120)
             
             sales_data = Sale.objects.filter(
                 recorded_at__date__gte=start_date,
-                recorded_at__date__lte=end_date
+                recorded_at__date__lte=end_date,
+                status__iexact='completed'
             ).values('recorded_at', 'product__product_id', 'quantity', 'price')
             
             if not sales_data.exists():

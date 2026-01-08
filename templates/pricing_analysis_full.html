@@ -1134,7 +1134,8 @@
         let categorizedData = [];
         let detailCharts = {};
         let dataLoaded = false; // In-memory flag - cleared on page refresh
-        let currentPeriod = 365; // Track current period
+        let totalPeriodDays = 365;
+        let currentPeriodEnd = new Date();
 
         // Check if page was manually refreshed (F5 or Ctrl+R)
         function isManualRefresh() {
@@ -1368,10 +1369,11 @@
                 .then(data => {
                     if (data.success) {
                         analysisData = data.data;
-                        renderAnalysis(data.data, data.categorized);
-
                         dataLoaded = true;
                         currentPeriod = days;
+                        totalPeriodDays = data.period.days;
+                        currentPeriodEnd = new Date(data.period.end);
+                        renderAnalysis(data.data, data.categorized);
 
                         document.getElementById('loadingIndicator').style.display = 'none';
                         document.getElementById('analysisContent').style.display = 'block';
@@ -1813,93 +1815,111 @@
 
         function calculatePeriodSummary(product) {
             const summaryContainer = document.getElementById(`period-summary-${product.product_id}`);
-            if (!summaryContainer || !product.price_history || product.price_history.length === 0) return;
+            if (!summaryContainer || !product.price_history) return;
 
             const priceHistory = product.price_history;
-            const prices = priceHistory.map(p => parseFloat(p.price) || 0).filter(p => p > 0);
-            const quantities = priceHistory.map(p => parseFloat(p.quantity) || 0).filter(q => q >= 0);
+            if (priceHistory.length === 0) return;
 
-            if (prices.length === 0) return;
+            // 1. Create Daily Buckets for the entire requested period
+            // This ensures we count zeros for days with no sales.
+            const totalDays = totalPeriodDays;
+            const endDate = currentPeriodEnd;
+            const startDate = new Date(endDate);
+            startDate.setDate(startDate.getDate() - totalDays + 1);
+            startDate.setHours(0, 0, 0, 0);
 
-            // Calculate metrics
-            const totalQuantity = quantities.reduce((sum, q) => sum + q, 0);
-            const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
-            const minPrice = Math.min(...prices);
-            const maxPrice = Math.max(...prices);
-            const priceChange = prices.length > 1 ? prices[prices.length - 1] - prices[0] : 0;
-            const priceChangePct = prices.length > 1 && prices[0] > 0 ? (priceChange / prices[0] * 100) : 0;
+            const dailyQty = new Array(totalDays).fill(0);
+            const dailyPrice = new Array(totalDays).fill(null);
 
-            // Calculate demand trend
-            const firstHalfQty = quantities.slice(0, Math.floor(quantities.length / 2)).reduce((sum, q) => sum + q, 0);
-            const secondHalfQty = quantities.slice(Math.floor(quantities.length / 2)).reduce((sum, q) => sum + q, 0);
-            const demandTrend = secondHalfQty > firstHalfQty ? 'increasing' : secondHalfQty < firstHalfQty ? 'decreasing' : 'stable';
+            priceHistory.forEach(item => {
+                const itemDate = new Date(item.date);
+                itemDate.setHours(0, 0, 0, 0);
+                const dayDiff = Math.floor((itemDate - startDate) / (1000 * 60 * 60 * 24));
+                if (dayDiff >= 0 && dayDiff < totalDays) {
+                    dailyQty[dayDiff] += parseFloat(item.quantity) || 0;
+                    dailyPrice[dayDiff] = parseFloat(item.price) || null;
+                }
+            });
+
+            // 2. Basic Metrics
+            const totalQuantity = dailyQty.reduce((sum, q) => sum + q, 0);
+            const avgDailyDemand = (totalQuantity / totalDays).toFixed(2);
+
+            const validPrices = priceHistory.map(p => parseFloat(p.price)).filter(p => p > 0);
+            const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
+            const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
+            const avgPrice = validPrices.length > 0 ? (validPrices.reduce((a, b) => a + b, 0) / validPrices.length) : 0;
+
+            const firstPrice = parseFloat(priceHistory[0].price) || 0;
+            const lastPrice = parseFloat(priceHistory[priceHistory.length - 1].price) || 0;
+            const priceChange = lastPrice - firstPrice;
+            const priceChangePct = firstPrice > 0 ? (priceChange / firstPrice * 100) : 0;
+            const priceVolatility = avgPrice > 0 ? ((maxPrice - minPrice) / avgPrice * 100).toFixed(1) : '0.0';
+
+            // 3. Demand Trend (Split by Timeline)
+            const midPoint = Math.floor(totalDays / 2);
+            const firstHalfQty = dailyQty.slice(0, midPoint).reduce((s, q) => s + q, 0);
+            const secondHalfQty = dailyQty.slice(midPoint).reduce((s, q) => s + q, 0);
+
+            let demandTrend = 'stable';
+            if (secondHalfQty > firstHalfQty * 1.05) demandTrend = 'increasing';
+            else if (secondHalfQty < firstHalfQty * 0.95) demandTrend = 'decreasing';
+
             const demandTrendIcon = demandTrend === 'increasing' ? 'bi-arrow-up' : demandTrend === 'decreasing' ? 'bi-arrow-down' : 'bi-arrow-right';
             const demandTrendColor = demandTrend === 'increasing' ? 'text-success' : demandTrend === 'decreasing' ? 'text-danger' : 'text-muted';
 
-            // Get period dates
-            const firstDate = new Date(priceHistory[0].date);
-            const lastDate = new Date(priceHistory[priceHistory.length - 1].date);
-            const periodDays = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)) + 1;
-            const periodLabel = periodDays <= 30 ? 'Month' : periodDays <= 90 ? 'Quarter' : periodDays <= 180 ? 'Half Year' : 'Year';
+            // 4. Best Period (7-day Sliding Window)
+            let bestWeight = -1;
+            let bestWindowStart = 0;
 
-            // Calculate average daily demand
-            const avgDailyDemand = periodDays > 0 ? (totalQuantity / periodDays).toFixed(2) : '0.00';
+            if (totalDays >= 7) {
+                let currentWindowQty = 0;
+                // Init first 7 days
+                for (let i = 0; i < 7; i++) currentWindowQty += dailyQty[i];
+                bestWeight = currentWindowQty;
+                bestWindowStart = 0;
 
-            // Calculate insights and recommendations
-            const priceVolatility = ((maxPrice - minPrice) / avgPrice * 100).toFixed(1);
-            const demandVolatility = quantities.length > 1 ? (() => {
-                const mean = totalQuantity / quantities.length;
-                const variance = quantities.reduce((sum, q) => sum + Math.pow(q - mean, 2), 0) / quantities.length;
-                return (Math.sqrt(variance) / mean * 100).toFixed(1);
-            })() : '0.0';
+                for (let i = 1; i <= totalDays - 7; i++) {
+                    currentWindowQty = currentWindowQty - dailyQty[i - 1] + dailyQty[i + 6];
+                    if (currentWindowQty > bestWeight) {
+                        bestWeight = currentWindowQty;
+                        bestWindowStart = i;
+                    }
+                }
+            } else {
+                bestWeight = totalQuantity;
+                bestWindowStart = 0;
+            }
 
-            // Determine price-demand relationship
+            const bestStartDate = new Date(startDate);
+            bestStartDate.setDate(bestStartDate.getDate() + bestWindowStart);
+            const bestEndDate = new Date(bestStartDate);
+            bestEndDate.setDate(bestEndDate.getDate() + (totalDays >= 7 ? 6 : totalDays - 1));
+
+            const formatDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const bestPeriodRange = `${formatDate(bestStartDate)} - ${formatDate(bestEndDate)}`;
+
+            // 5. Insights Formulation
             let priceDemandRelationship = '';
             let recommendation = '';
             if (priceChange > 0 && demandTrend === 'increasing') {
-                priceDemandRelationship = 'Price increase with rising demand - Premium positioning successful';
-                recommendation = 'Consider maintaining or slightly increasing price as demand is growing. This indicates strong market acceptance.';
+                priceDemandRelationship = 'Resilient Demand: Price increase with rising demand';
+                recommendation = 'Demand is inelastic. Current strategy is working; monitor for potential further optimization.';
             } else if (priceChange > 0 && demandTrend === 'decreasing') {
-                priceDemandRelationship = 'Price increase with falling demand - Price sensitivity detected';
-                recommendation = 'Price may be too high. Consider reducing price to regain demand or focus on value proposition.';
+                priceDemandRelationship = 'Price Sensitivity: Price increase coinciding with falling demand';
+                recommendation = 'Price may have exceeded customer threshold. Consider a small reduction or value-added promotions.';
             } else if (priceChange < 0 && demandTrend === 'increasing') {
-                priceDemandRelationship = 'Price decrease with rising demand - Price reduction effective';
-                recommendation = 'Lower price successfully stimulated demand. Monitor profit margins and consider gradual price optimization.';
+                priceDemandRelationship = 'Elastic Response: Price decrease driving higher volume';
+                recommendation = 'Promotion is effective. Focus on cross-selling to maintain inventory turnover speed.';
             } else if (priceChange < 0 && demandTrend === 'decreasing') {
-                priceDemandRelationship = 'Price decrease with falling demand - Market factors beyond price';
-                recommendation = 'Demand declining despite lower prices. Review product quality, competition, or market conditions.';
+                priceDemandRelationship = 'Warning Sign: Demand falling despite lower prices';
+                recommendation = 'Market factors beyond price are likely at play (e.g., competition or seasonal shifts). Review quality or stock age.';
             } else {
-                priceDemandRelationship = 'Stable price-demand relationship';
-                recommendation = 'Monitor market conditions and competitor pricing for optimization opportunities.';
+                priceDemandRelationship = 'Equilibrium: Stable price-demand interaction';
+                recommendation = 'Market is balanced. Maintain current pricing while optimizing overhead costs.';
             }
 
-            // Calculate best performing period with dates
-            let bestPeriod = '';
-            let bestPeriodQty = 0;
-            let bestPeriodStartDate = null;
-            let bestPeriodEndDate = null;
-            const weeklyGroups = [];
-            for (let i = 0; i < quantities.length; i += 7) {
-                const weekQty = quantities.slice(i, i + 7).reduce((sum, q) => sum + q, 0);
-                const weekStartIdx = i;
-                const weekEndIdx = Math.min(i + 6, quantities.length - 1);
-                const weekStartDate = new Date(priceHistory[weekStartIdx].date);
-                const weekEndDate = new Date(priceHistory[weekEndIdx].date);
-                weeklyGroups.push({ start: i, qty: weekQty, startDate: weekStartDate, endDate: weekEndDate });
-                if (weekQty > bestPeriodQty) {
-                    bestPeriodQty = weekQty;
-                    bestPeriod = `Week ${Math.floor(i / 7) + 1}`;
-                    bestPeriodStartDate = weekStartDate;
-                    bestPeriodEndDate = weekEndDate;
-                }
-            }
-
-            // Format best period date range
-            let bestPeriodDateRange = '';
-            if (bestPeriodStartDate && bestPeriodEndDate) {
-                const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                bestPeriodDateRange = `${formatDate(bestPeriodStartDate)} - ${formatDate(bestPeriodEndDate)}`;
-            }
+            const periodLabel = totalDays <= 30 ? 'Month' : totalDays <= 90 ? 'Quarter' : totalDays <= 180 ? 'Half Year' : 'Year';
 
             summaryContainer.innerHTML = `
                 <div class="row g-3">
@@ -1924,7 +1944,7 @@
                                 <i class="bi bi-calendar-range" style="color: #0ea5e9;"></i>Period
                             </div>
                             <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0;">${periodLabel}</div>
-                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${formatDate(startDate)} - ${formatDate(endDate)}</div>
                             <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">The time range covered by this analysis</div>
                         </div>
                     </div>
@@ -1937,7 +1957,7 @@
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">
                                 <span style="font-weight: 500;">Unit:</span> ${product.quantity_unit || 'units'} | <span style="font-weight: 500;">Avg:</span> ${avgDailyDemand}/day
                             </div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Total quantity sold: ${totalQuantity.toFixed(2)} ${product.quantity_unit || 'units'} during this period</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Total quantity sold over the full ${totalDays} days</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
@@ -1947,7 +1967,7 @@
                             </div>
                             <div class="summary-value" style="font-size: 1rem; margin: 0.25rem 0;">₱${minPrice.toFixed(2)} - ₱${maxPrice.toFixed(2)}</div>
                             <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">Avg: ₱${avgPrice.toFixed(2)} | Volatility: ${priceVolatility}%</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Lowest to highest price, with average and price variation</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Lowest to highest price observed in this period</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
@@ -1959,8 +1979,7 @@
                                 <i class="bi ${priceChange >= 0 ? 'bi-arrow-up' : 'bi-arrow-down'}"></i>
                                 ${priceChange >= 0 ? '+' : ''}₱${Math.abs(priceChange).toFixed(2)} (${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(1)}%)
                             </div>
-                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${priceChange >= 0 ? 'Increased' : 'Decreased'} over period</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">How the price changed from start to end of the period</div>
+                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${priceChange >= 0 ? 'Increased' : 'Decreased'} from start to finish</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
@@ -1972,30 +1991,29 @@
                                 <i class="bi ${demandTrendIcon}"></i>
                                 ${demandTrend.charAt(0).toUpperCase() + demandTrend.slice(1)}
                             </div>
-                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstHalfQty.toFixed(1)} → ${secondHalfQty.toFixed(1)} units | Volatility: ${demandVolatility}%</div>
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Whether sales are increasing, decreasing, or stable</div>
+                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstHalfQty.toFixed(1)} → ${secondHalfQty.toFixed(1)} units</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Comparison of 1st half vs 2nd half of period</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
                         <div class="summary-item highlighted-box" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 0.75rem; border-radius: 6px;">
                             <div class="summary-label" style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="bi bi-trophy-fill" style="color: #10b981;"></i>Best Period
+                                <i class="bi bi-trophy-fill" style="color: #10b981;"></i>Best 7-Day Window
                             </div>
-                            <div class="summary-value text-success" style="font-size: 1rem; margin: 0.25rem 0;">${bestPeriod || 'N/A'}</div>
-                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${bestPeriodQty > 0 ? bestPeriodQty.toFixed(1) + ' units sold' : 'No data'}</div>
-                            ${bestPeriodDateRange ? `<div class="summary-date-range" style="font-size: 0.7rem; color: var(--gray-700); font-weight: 500; margin-top: 0.25rem;">${bestPeriodDateRange}</div>` : ''}
-                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">The week with the highest sales volume</div>
+                            <div class="summary-value text-success" style="font-size: 1rem; margin: 0.25rem 0;">${bestWeight.toFixed(1)} Units</div>
+                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600); font-weight: 500;">${bestPeriodRange}</div>
+                            <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">The consecutive 7-day period with highest volume</div>
                         </div>
                     </div>
                 </div>
+                <!-- Usage Section -->
                 <div class="row g-2 mt-2">
                     <div class="col-12">
                         <div class="summary-item p-2" style="background: var(--gray-100); border-radius: 6px; border-left: 3px solid var(--primary);">
                             <div class="summary-label mb-1">How to Use This Data:</div>
                             <ul style="font-size: 0.75rem; color: var(--gray-700); margin-bottom: 0; padding-left: 1.2rem;">
-                                <li><strong>Pricing Strategy:</strong> ${priceChange > 0 && demandTrend === 'increasing' ? 'Your price increases are working well. Consider maintaining current pricing strategy.' : priceChange > 0 && demandTrend === 'decreasing' ? 'Price increases are reducing demand. Consider price optimization or value enhancement.' : priceChange < 0 && demandTrend === 'increasing' ? 'Lower prices are driving demand. Monitor profitability and consider gradual price increases.' : 'Monitor both price and demand trends to find optimal pricing point.'}</li>
-                                <li><strong>Inventory Planning:</strong> With average daily demand of ${avgDailyDemand} ${product.quantity_unit || 'units'}, plan stock levels accordingly. ${demandTrend === 'increasing' ? 'Demand is growing - consider increasing stock levels.' : demandTrend === 'decreasing' ? 'Demand is declining - adjust stock levels to avoid overstocking.' : 'Demand is stable - maintain current stock levels.'}</li>
-                                <li><strong>Future Decisions:</strong> ${priceVolatility > 20 ? 'High price volatility detected. Consider price stabilization for better customer trust.' : 'Price stability is good. Focus on demand optimization.'} ${demandVolatility > 30 ? 'High demand volatility - implement flexible inventory management.' : 'Stable demand allows for predictable inventory planning.'}</li>
+                                <li><strong>Pricing Strategy:</strong> ${priceChange > 0 && demandTrend === 'increasing' ? 'Inelastic demand found. Current price growth is sustainable.' : priceChange > 0 && demandTrend === 'decreasing' ? 'Price sensitivity detected. Further increases may harm volume.' : priceChange < 0 && demandTrend === 'increasing' ? 'Price elasticity confirmed. Lower prices are effectively driving growth.' : 'Monitor equilibrium. Focus on value-added services if price-fixing.'}</li>
+                                <li><strong>Inventory Planning:</strong> Based on the average of ${avgDailyDemand}/day, ensure stock levels cover ${Math.ceil(avgDailyDemand * 7)} units for next week.</li>
                             </ul>
                         </div>
                     </div>

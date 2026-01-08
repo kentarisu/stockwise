@@ -8300,18 +8300,87 @@
             const minPrice = Math.min(...allPrices);
             const maxPrice = Math.max(...allPrices);
             
-            // Calculate price change (first vs last average)
-            const firstHalfPrices = allPrices.slice(0, Math.floor(allPrices.length / 2));
-            const secondHalfPrices = allPrices.slice(Math.floor(allPrices.length / 2));
-            const firstHalfAvg = firstHalfPrices.reduce((sum, p) => sum + p, 0) / firstHalfPrices.length;
-            const secondHalfAvg = secondHalfPrices.reduce((sum, p) => sum + p, 0) / secondHalfPrices.length;
-            const priceChange = secondHalfAvg - firstHalfAvg;
-            const priceChangePct = firstHalfAvg > 0 ? (priceChange / firstHalfAvg * 100) : 0;
+            // Calculate price change per product, then aggregate
+            // This ensures we track individual product changes, not just average prices across all products
+            let totalPriceChange = 0;
+            let totalPriceChangePct = 0;
+            let productsWithPriceData = 0;
             
-            // Calculate demand trend
-            const firstHalfQty = allQuantities.slice(0, Math.floor(allQuantities.length / 2)).reduce((sum, q) => sum + q, 0);
-            const secondHalfQty = allQuantities.slice(Math.floor(allQuantities.length / 2)).reduce((sum, q) => sum + q, 0);
-            const demandTrend = secondHalfQty > firstHalfQty ? 'increasing' : secondHalfQty < firstHalfQty ? 'decreasing' : 'stable';
+            allProducts.forEach(product => {
+                if (product.price_history && product.price_history.length > 0) {
+                    const prices = product.price_history.map(item => parseFloat(item.price) || 0).filter(p => p > 0);
+                    if (prices.length >= 2) {
+                        // Calculate first half vs second half average for this product
+                        const firstHalf = prices.slice(0, Math.floor(prices.length / 2));
+                        const secondHalf = prices.slice(Math.floor(prices.length / 2));
+                        if (firstHalf.length > 0 && secondHalf.length > 0) {
+                            const firstHalfAvg = firstHalf.reduce((sum, p) => sum + p, 0) / firstHalf.length;
+                            const secondHalfAvg = secondHalf.reduce((sum, p) => sum + p, 0) / secondHalf.length;
+                            const productPriceChange = secondHalfAvg - firstHalfAvg;
+                            const productPriceChangePct = firstHalfAvg > 0 ? (productPriceChange / firstHalfAvg * 100) : 0;
+                            
+                            totalPriceChange += productPriceChange;
+                            totalPriceChangePct += productPriceChangePct;
+                            productsWithPriceData++;
+                        }
+                    }
+                }
+            });
+            
+            // Calculate weighted average price change across all products
+            const priceChange = productsWithPriceData > 0 ? totalPriceChange / productsWithPriceData : 0;
+            const priceChangePct = productsWithPriceData > 0 ? totalPriceChangePct / productsWithPriceData : 0;
+            
+            // Calculate demand trend per product, then aggregate
+            // This ensures we track individual product demand changes, not just total quantities across all products
+            let productsWithIncreasingDemand = 0;
+            let productsWithDecreasingDemand = 0;
+            let productsWithStableDemand = 0;
+            let totalFirstHalfQty = 0;
+            let totalSecondHalfQty = 0;
+            let productsWithDemandData = 0;
+            
+            allProducts.forEach(product => {
+                if (product.price_history && product.price_history.length > 0) {
+                    const quantities = product.price_history.map(item => parseFloat(item.quantity) || 0).filter(q => q >= 0);
+                    if (quantities.length >= 2) {
+                        // Calculate first half vs second half for this product
+                        const firstHalf = quantities.slice(0, Math.floor(quantities.length / 2));
+                        const secondHalf = quantities.slice(Math.floor(quantities.length / 2));
+                        if (firstHalf.length > 0 && secondHalf.length > 0) {
+                            const firstHalfQty = firstHalf.reduce((sum, q) => sum + q, 0);
+                            const secondHalfQty = secondHalf.reduce((sum, q) => sum + q, 0);
+                            
+                            totalFirstHalfQty += firstHalfQty;
+                            totalSecondHalfQty += secondHalfQty;
+                            productsWithDemandData++;
+                            
+                            // Determine trend for this product
+                            if (secondHalfQty > firstHalfQty) {
+                                productsWithIncreasingDemand++;
+                            } else if (secondHalfQty < firstHalfQty) {
+                                productsWithDecreasingDemand++;
+                            } else {
+                                productsWithStableDemand++;
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Determine overall demand trend based on majority of products
+            // If majority increased, show increasing; if majority decreased, show decreasing; otherwise stable
+            let demandTrend = 'stable';
+            if (productsWithDemandData > 0) {
+                if (productsWithIncreasingDemand > productsWithDecreasingDemand && productsWithIncreasingDemand > productsWithStableDemand) {
+                    demandTrend = 'increasing';
+                } else if (productsWithDecreasingDemand > productsWithIncreasingDemand && productsWithDecreasingDemand > productsWithStableDemand) {
+                    demandTrend = 'decreasing';
+                } else {
+                    // Use total quantity comparison as tiebreaker
+                    demandTrend = totalSecondHalfQty > totalFirstHalfQty ? 'increasing' : totalSecondHalfQty < totalFirstHalfQty ? 'decreasing' : 'stable';
+                }
+            }
             const demandTrendIcon = demandTrend === 'increasing' ? 'bi-arrow-up' : demandTrend === 'decreasing' ? 'bi-arrow-down' : 'bi-arrow-right';
             const demandTrendColor = demandTrend === 'increasing' ? 'text-success' : demandTrend === 'decreasing' ? 'text-danger' : 'text-muted';
             
@@ -8463,7 +8532,7 @@
                                 <i class="bi ${demandTrendIcon}"></i>
                                 ${demandTrend.charAt(0).toUpperCase() + demandTrend.slice(1)}
                             </div>
-                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${firstHalfQty.toFixed(1)} → ${secondHalfQty.toFixed(1)} units | Volatility: ${demandVolatility}%</div>
+                            <div class="summary-subtext" style="font-size: 0.7rem; color: var(--gray-600);">${totalFirstHalfQty.toFixed(1)} → ${totalSecondHalfQty.toFixed(1)} units | Volatility: ${demandVolatility}%</div>
                             <div class="summary-description" style="font-size: 0.65rem; color: var(--gray-500); margin-top: 0.25rem; font-style: italic;">Whether overall sales are increasing, decreasing, or stable across all products</div>
                         </div>
                     </div>

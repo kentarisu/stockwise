@@ -41,6 +41,7 @@ path('api/products/<int:product_id>/delete/', views.product_delete, name='delete
 	path('api/products/list/', views.fetch_products, name='fetch_products'),
 	path('api/products/<int:product_id>/details/', views.get_product_details, name='get_product_details'),
 	path('api/products/active/', views.get_active_products, name='get_active_products'),
+	path('api/spell-check/', views.check_spelling, name='check_spelling'),
 	path('api/products/get_id/', views.get_product_id, name='get_product_id'),
 	# Stock details API for modal (FIFO batches)
 	path('api/products/<int:product_id>/stock/', views.stock_details, name='stock_details_api'),

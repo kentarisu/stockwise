@@ -3399,13 +3399,14 @@
                 return matches.sort((a, b) => a.distance - b.distance).slice(0, maxResults);
             }
             
-            // Check spelling and show suggestions
-            function checkSpelling(inputValue, fieldType, displayElement) {
+            // Check spelling and show suggestions (combines dictionary and existing products)
+            function checkSpelling(inputValue, fieldType, displayElement, onSuggestionsReady) {
                 if (!inputValue || inputValue.length < 2) {
                     displayElement.hide().empty();
                     return;
                 }
                 
+                // First check against existing products/variants/suppliers (fuzzy matching)
                 let dictionary = [];
                 if (fieldType === 'name') {
                     dictionary = productNamesCache;
@@ -3415,27 +3416,183 @@
                     dictionary = suppliersCache;
                 }
                 
-                if (dictionary.length === 0) return;
-                
-                const matches = findClosestMatches(inputValue, dictionary);
-                
-                if (matches.length > 0) {
-                    const suggestions = matches.map(m => m.word).join(', ');
-                    displayElement.html(`<i class="bi bi-info-circle"></i> Did you mean: <strong>${suggestions}</strong>?`).show();
-                } else {
-                    displayElement.hide().empty();
+                let existingMatches = [];
+                if (dictionary.length > 0) {
+                    existingMatches = findClosestMatches(inputValue, dictionary);
                 }
+                
+                // Then check against dictionary using API (silently fail if unavailable)
+                $.ajax({
+                    url: '{% url "check_spelling" %}',
+                    method: 'GET',
+                    data: {
+                        text: inputValue,
+                        type: fieldType
+                    },
+                    timeout: 3000,
+                    // Suppress global error notifications for this request
+                    error: function(xhr, status, error) {
+                        // Silently fallback to existing matches only if API fails
+                        // Don't show error notifications for spell check failures
+                        if (existingMatches.length > 0) {
+                            const suggestions = existingMatches.map(m => m.word).join(', ');
+                            displayElement.html(`<i class="bi bi-info-circle text-info"></i> Did you mean: <strong>${suggestions}</strong>?`).show();
+                        } else {
+                            displayElement.hide().empty();
+                        }
+                    }
+                })
+                .done(function(resp) {
+                    if (!resp || !resp.success) {
+                        // Fallback to existing matches only
+                        if (existingMatches.length > 0) {
+                            const suggestions = existingMatches.map(m => m.word).join(', ');
+                            displayElement.html(`<i class="bi bi-info-circle text-info"></i> Did you mean: <strong>${suggestions}</strong>?`).show();
+                        } else {
+                            displayElement.hide().empty();
+                        }
+                        return;
+                    }
+                    
+                    let messages = [];
+                    let hasErrors = false;
+                    let allSuggestions = [];
+                    
+                    // Collect dictionary-based spelling suggestions
+                    if (resp.has_errors && resp.misspelled_words && resp.misspelled_words.length > 0) {
+                        hasErrors = true;
+                        resp.misspelled_words.forEach(word => {
+                            if (resp.dictionary_suggestions && resp.dictionary_suggestions[word]) {
+                                allSuggestions.push(...resp.dictionary_suggestions[word]);
+                            }
+                        });
+                    }
+                    
+                    // Add existing product suggestions to the list
+                    if (resp.existing_suggestions && resp.existing_suggestions.length > 0) {
+                        allSuggestions.push(...resp.existing_suggestions);
+                    } else if (existingMatches.length > 0) {
+                        existingMatches.forEach(m => {
+                            if (!allSuggestions.includes(m.word)) {
+                                allSuggestions.push(m.word);
+                            }
+                        });
+                    }
+                    
+                    // Show combined suggestions as "Did you mean"
+                    if (allSuggestions.length > 0) {
+                        // Remove duplicates and limit to top 5
+                        const uniqueSuggestions = [...new Set(allSuggestions)].slice(0, 5);
+                        messages.push(`<i class="bi bi-info-circle text-info"></i> Did you mean: <strong>${uniqueSuggestions.join(', ')}</strong>?`);
+                    }
+                    
+                    if (messages.length > 0) {
+                        displayElement.html(messages.join('<br>')).show();
+                        if (hasErrors) {
+                            displayElement.removeClass('text-muted').addClass('text-warning');
+                        } else {
+                            displayElement.removeClass('text-warning').addClass('text-muted');
+                        }
+                    } else {
+                        displayElement.hide().empty();
+                    }
+                    
+                    // Callback with suggestions for auto-correct
+                    if (onSuggestionsReady && allSuggestions.length > 0) {
+                        onSuggestionsReady(allSuggestions);
+                    }
+                });
             }
             
-            // Product name spell check
+            // Product name spell check with auto-correct
             let nameCheckTimeout;
+            let autoCorrectTimeout;
+            let lastInputValue = '';
+            let isAutoCorrecting = false;
+            
             $('#productNameDisplay').on('input', function() {
+                const $input = $(this);
+                const value = $input.val();
+                const cursorPos = $input[0].selectionStart;
+                
                 clearTimeout(nameCheckTimeout);
-                const value = $(this).val().trim();
+                clearTimeout(autoCorrectTimeout);
+                
+                // If user is actively typing, don't auto-correct
+                if (value !== lastInputValue) {
+                    lastInputValue = value;
+                }
+                
                 nameCheckTimeout = setTimeout(() => {
-                    checkSpelling(value, 'name', $('#nameSpellCheck'));
+                    checkSpelling(value.trim(), 'name', $('#nameSpellCheck'), function(suggestions) {
+                        // Auto-correct if there's a single clear suggestion and user paused
+                        if (suggestions && suggestions.length === 1 && !isAutoCorrecting) {
+                            const suggestion = suggestions[0].toLowerCase();
+                            const currentValue = value.trim().toLowerCase();
+                            
+                            // Only auto-correct if very close match (1-2 character difference)
+                            const distance = _calculateEditDistance(currentValue, suggestion);
+                            if (distance <= 2 && distance > 0 && currentValue.length >= 3) {
+                                // Wait a bit more before auto-correcting
+                                autoCorrectTimeout = setTimeout(() => {
+                                    if ($input.val().trim().toLowerCase() === currentValue && !isAutoCorrecting) {
+                                        isAutoCorrecting = true;
+                                        // Replace the first word with the suggestion, preserve rest
+                                        const words = value.split(/\s+/);
+                                        words[0] = suggestion.charAt(0).toUpperCase() + suggestion.slice(1);
+                                        const corrected = words.join(' ');
+                                        $input.val(corrected);
+                                        
+                                        // Trigger input event to update other handlers
+                                        $input.trigger('input');
+                                        
+                                        // Show a brief confirmation
+                                        const $spellCheck = $('#nameSpellCheck');
+                                        const originalHtml = $spellCheck.html();
+                                        $spellCheck.html(`<i class="bi bi-check-circle text-success"></i> Auto-corrected to: <strong>${suggestion}</strong>`).show();
+                                        setTimeout(() => {
+                                            if ($spellCheck.html() === $spellCheck.html()) {
+                                                $spellCheck.html(originalHtml);
+                                            }
+                                        }, 2000);
+                                        
+                                        setTimeout(() => { isAutoCorrecting = false; }, 100);
+                                    }
+                                }, 1500);
+                            }
+                        }
+                    });
                 }, 500);
             });
+            
+            // Helper function for edit distance
+            function _calculateEditDistance(s1, s2) {
+                if (s1.length === 0) return s2.length;
+                if (s2.length === 0) return s1.length;
+                
+                const matrix = [];
+                for (let i = 0; i <= s2.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= s1.length; j++) {
+                    matrix[0][j] = j;
+                }
+                
+                for (let i = 1; i <= s2.length; i++) {
+                    for (let j = 1; j <= s1.length; j++) {
+                        if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                return matrix[s2.length][s1.length];
+            }
             
             // Variant spell check (load variants when product name changes)
             $('#productNameDisplay').on('blur', function() {

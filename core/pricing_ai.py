@@ -69,7 +69,7 @@ class DemandPricingAI:
     def fit(self, sales_df: pd.DataFrame):
         """
         Fit simple elasticity models per product using OLS on:
-        ln(q+eps) = a + b*ln(p) + month_dummies + weekday_dummies
+        ln(q+eps) = a + b*ln(p) + weekday_dummies
         """
         self.models = {}
         sales = sales_df.copy()
@@ -82,7 +82,6 @@ class DemandPricingAI:
         sales["ln_p"] = np.log(sales["price"].clip(lower=1e-6))
         sales["ln_q"] = np.log((sales["units_sold"] + 1e-6))
 
-        sales["month"] = sales["date"].dt.month
         sales["wday"] = sales["date"].dt.weekday  # 0=Mon
 
         for pid, g in sales.groupby("product_id"):
@@ -95,13 +94,12 @@ class DemandPricingAI:
                 }
                 continue
 
-            # Build design matrix X = [1, ln_p, month dummies, weekday dummies]
+            # Build design matrix X = [1, ln_p, weekday dummies]
             X_base = np.c_[np.ones(len(g)), g["ln_p"].values]
 
-            # Month dummies (1..12) and weekday dummies (0..6)
-            month_dummies = pd.get_dummies(g["month"], prefix="m", drop_first=True)
+            # Weekday dummies (0..6)
             wday_dummies = pd.get_dummies(g["wday"], prefix="d", drop_first=True)
-            X = np.c_[X_base, month_dummies.values, wday_dummies.values]
+            X = np.c_[X_base, wday_dummies.values]
             y = g["ln_q"].values.reshape(-1, 1)
 
             # OLS via normal equations with ridge-like stability
@@ -185,8 +183,21 @@ class DemandPricingAI:
         catalog["cost"] = catalog["cost"].astype(float)
 
         proposals = []
-        sales_df["date"] = pd.to_datetime(sales_df["date"])
-        latest_date = sales_df["date"].max().date() if not sales_df.empty else today()
+        if not sales_df.empty:
+            sales_df["date"] = pd.to_datetime(sales_df["date"])
+            # Always convert to Manila time (the store's timezone) for consistent reporting
+            try:
+                if sales_df["date"].dt.tz is None:
+                    # If timezone-naive, assume UTC and then convert
+                    sales_df["date"] = sales_df["date"].dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+                else:
+                    # If already timezone-aware (usually UTC), just convert
+                    sales_df["date"] = sales_df["date"].dt.tz_convert('Asia/Manila')
+            except Exception:
+                pass
+            latest_date = sales_df["date"].max().date()
+        else:
+            latest_date = today()
 
         for pid, hist in sales_df.groupby("product_id"):
             hist = hist.sort_values("date")
@@ -230,9 +241,21 @@ class DemandPricingAI:
             if nobs < cfg.min_obs_per_product:
                 e = cfg.default_elasticity
 
-            # Price search (bounded grid around current price)
+            # Technical data volume and model confidence
             total_sales_count = len(hist)
-            # Dynamic aggressiveness caps based on recent data volume and model confidence
+            
+            # --- START FIX: Calculate counts for the PAST 3 DAYS for the reason string ---
+            past_3_days_threshold = latest_date - dt.timedelta(days=2)
+            recent_hist = hist[hist['date'].dt.date >= past_3_days_threshold]
+            recent_sales_count = len(recent_hist)
+            if 'units_sold' in recent_hist.columns:
+                recent_qty_sold = recent_hist['units_sold'].sum()
+            elif 'quantity' in recent_hist.columns:
+                recent_qty_sold = recent_hist['quantity'].sum()
+            else:
+                recent_qty_sold = 0
+            # --- END FIX ---
+
             local_max_move = cfg.max_move_pct
             if total_sales_count < 6:
                 local_max_move = min(local_max_move, 0.06)
@@ -271,14 +294,13 @@ class DemandPricingAI:
                 candidates.append((p_new, revenue, stock_ok, daily_pred))
 
             if not candidates:
-                total_sales_count = len(hist)
-                reason = f"Current price is optimal. {total_sales_count} sales recorded. Any price change would violate margin requirements or stock constraints."
+                reason = f"Current price is optimal. {recent_sales_count} sales recently ({int(recent_qty_sold)} boxes). Any price change would violate margin requirements or stock constraints."
                 proposals.append({
                     "product_id": pid, "name": name, "current_price": current_price,
                     "suggested_price": current_price, "change_pct": 0.0, "action": "HOLD",
                     "reason": reason,
                     "elasticity": e, "r2": r2, "confidence": "LOW" if r2 < 0.3 else "MED",
-                    "sales_count": total_sales_count, "total_qty_sold": 0,
+                    "sales_count": recent_sales_count, "total_qty_sold": int(recent_qty_sold),
                 })
                 continue
 
@@ -298,21 +320,19 @@ class DemandPricingAI:
                 days_cover = self._days_of_cover(on_hand, base_daily)
 
             # Calculate actual sales statistics for user-friendly reason
-            total_qty_sold = hist['quantity'].sum() if 'quantity' in hist.columns else nobs
-            
             # Generate user-friendly reason
             if action == "INCREASE":
                 if ratio >= 1.2:
-                    reason = f"Strong demand: {total_sales_count} sales in past 3 days ({int(total_qty_sold)} boxes sold). Customers are buying frequently - you can increase price to boost profit margin."
+                    reason = f"Strong demand: {recent_sales_count} sales in past 3 days ({int(recent_qty_sold)} boxes sold). Customers are buying frequently - you can increase price to boost profit margin."
                 else:
-                    reason = f"Good sales: {total_sales_count} transactions in past 3 days ({int(total_qty_sold)} boxes). Price increase of {abs(change_pct*100):.1f}% can improve your profit while maintaining demand."
+                    reason = f"Good sales: {recent_sales_count} transactions in past 3 days ({int(recent_qty_sold)} boxes). Price increase of {abs(change_pct*100):.1f}% can improve your profit while maintaining demand."
             elif action == "DECREASE":
                 if ratio <= 0.8:
-                    reason = f"Low demand: Only {total_sales_count} sales in past 3 days ({int(total_qty_sold)} boxes). Lowering price by {abs(change_pct*100):.1f}% can attract more customers and increase total revenue."
+                    reason = f"Low demand: Only {recent_sales_count} sales in past 3 days ({int(recent_qty_sold)} boxes). Lowering price by {abs(change_pct*100):.1f}% can attract more customers and increase total revenue."
                 else:
-                    reason = f"Moderate sales: {total_sales_count} transactions in past 3 days. Small price decrease of {abs(change_pct*100):.1f}% can boost sales volume and overall revenue."
+                    reason = f"Moderate sales: {recent_sales_count} transactions in past 3 days ({int(recent_qty_sold)} boxes). Small price decrease of {abs(change_pct*100):.1f}% can boost sales volume and overall revenue."
             else:
-                reason = f"Optimal pricing: {total_sales_count} sales in past 3 days. Current price is well-balanced for demand and profit."
+                reason = f"Optimal pricing: {recent_sales_count} sales in past 3 days ({int(recent_qty_sold)} boxes). Current price is well-balanced for demand and profit."
             
             # Add technical details for reference (optional)
             technical_info = f" [Data: n={nobs}, confidence={'HIGH' if r2 >= 0.6 else 'MED' if r2 >= 0.3 else 'LOW'}]"
@@ -328,8 +348,8 @@ class DemandPricingAI:
                 "elasticity": round(e, 3),
                 "r2": round(r2, 3),
                 "confidence": "HIGH" if r2 >= 0.6 else ("MED" if r2 >= 0.3 else "LOW"),
-                "sales_count": total_sales_count,
-                "total_qty_sold": int(total_qty_sold),
+                "sales_count": recent_sales_count,
+                "total_qty_sold": int(recent_qty_sold),
             })
 
         proposals_df = pd.DataFrame(proposals).sort_values(["action", "change_pct"], ascending=[True, False])

@@ -117,15 +117,72 @@ def _normalize_quantity(size: str, unit: str):
     except Exception:
         return ''
 
+def _to_singular(word):
+    """Convert word to singular form."""
+    if not word:
+        return word
+    word_lower = word.lower().strip()
+    if word_lower.endswith('ies') and len(word_lower) > 4:
+        return word[:-3] + 'y'
+    elif word_lower.endswith('es') and len(word_lower) > 3:
+        return word[:-2]
+    elif word_lower.endswith('s') and len(word_lower) > 2:
+        return word[:-1]
+    return word
+
+def _to_plural(word):
+    """Convert word to plural form."""
+    if not word:
+        return word
+    word_lower = word.lower().strip()
+    if word_lower.endswith('y') and len(word_lower) > 1:
+        return word[:-1] + 'ies'
+    elif word_lower.endswith(('s', 'sh', 'ch', 'x', 'z')):
+        return word + 'es'
+    else:
+        return word + 's'
+
 def _exists_duplicate_product(name: str, variant: str, size: str, unit: str, exclude_id: int = None):
     n, v = _normalize_name_variant(name, variant)
     q = _normalize_quantity(size, unit)
     if not n or not q:
         return False
     full = f"{n} ({v})" if v else n
+    
+    # Extract base fruit name (first word)
+    base_name = n.split()[0] if n else ''
+    base_singular = _to_singular(base_name)
+    base_plural = _to_plural(base_singular)
+    
+    # Check for exact matches
     qs = Product.objects.filter(is_built_in=False, quantity_unit__iexact=q).filter(
         Q(name__iexact=full) | (Q(name__iexact=n) & Q(variant__iexact=v))
     )
+    
+    # Also check for singular/plural variants
+    if base_singular and base_plural and base_name:
+        # Check if any existing product has the same base name in singular or plural form
+        existing_products = Product.objects.filter(is_built_in=False, quantity_unit__iexact=q)
+        if exclude_id:
+            existing_products = existing_products.exclude(product_id=exclude_id)
+            
+        for product in existing_products:
+            existing_name = product.name.split()[0] if product.name else ''
+            if not existing_name:
+                continue
+            existing_singular = _to_singular(existing_name)
+            existing_plural = _to_plural(existing_singular)
+            
+            # Check if base names match (ignoring singular/plural)
+            if (existing_singular.lower() == base_singular.lower() or 
+                existing_plural.lower() == base_singular.lower() or
+                existing_singular.lower() == base_plural.lower() or
+                existing_plural.lower() == base_plural.lower()):
+                # If variant also matches, it's a duplicate
+                existing_variant = product.variant or ''
+                if (not v and not existing_variant) or (v and existing_variant and v.lower() == existing_variant.lower()):
+                    return True
+    
     if exclude_id:
         qs = qs.exclude(product_id=exclude_id)
     return qs.exists()
@@ -9190,6 +9247,179 @@ def get_product_details(request, product_id):
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 
+def _simple_edit_distance(s1, s2):
+    """Calculate simple edit distance between two strings."""
+    if len(s1) < len(s2):
+        return _simple_edit_distance(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    
+    previous_row = range(len(s2) + 1)
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+@require_app_login
+@require_GET
+def check_spelling(request):
+    """Check spelling of product names, variants, or suppliers using fruit-only dictionary (singular and plural forms)."""
+    try:
+        from spellchecker import SpellChecker
+        
+        text = request.GET.get('text', '').strip()
+        field_type = request.GET.get('type', 'name').lower()  # 'name', 'variant', or 'supplier'
+        
+        if not text or len(text) < 2:
+            return JsonResponse({
+                'success': True,
+                'has_errors': False,
+                'suggestions': []
+            })
+        
+        # Custom fruit dictionary (singular and plural forms, common fruits)
+        fruit_singular = [
+            'apple', 'apricot', 'avocado', 'banana', 'blackberry', 'blueberry', 'cantaloupe',
+            'cherry', 'coconut', 'cranberry', 'date', 'dragonfruit', 'durian', 'elderberry',
+            'fig', 'grape', 'grapefruit', 'guava', 'honeydew', 'kiwi', 'lemon', 'lime',
+            'lychee', 'mango', 'melon', 'nectarine', 'orange', 'papaya', 'passionfruit',
+            'peach', 'pear', 'persimmon', 'pineapple', 'plum', 'pomegranate', 'pomelo',
+            'quince', 'raspberry', 'strawberry', 'tangerine', 'watermelon', 'jackfruit',
+            'starfruit', 'rambutan', 'longan', 'mangosteen', 'soursop', 'custardapple',
+            'sugarapple', 'sweetsop', 'breadfruit', 'plantain', 'sapodilla', 'santol',
+            'lanzones', 'duhat', 'atis', 'chico', 'guyabano', 'calamansi', 'kalamansi',
+            'dalandan', 'dalanghita', 'suha', 'marang', 'langka', 'lansones'
+        ]
+        
+        # Generate plural forms
+        fruit_plurals = []
+        for fruit in fruit_singular:
+            if fruit.endswith('y'):
+                fruit_plurals.append(fruit[:-1] + 'ies')
+            elif fruit.endswith(('s', 'sh', 'ch', 'x', 'z')):
+                fruit_plurals.append(fruit + 'es')
+            else:
+                fruit_plurals.append(fruit + 's')
+        
+        # Combine singular and plural forms
+        fruit_dictionary = set(fruit_singular + fruit_plurals)
+        
+        # Initialize spell checker with custom dictionary
+        spell = SpellChecker()
+        # Replace the default dictionary with our fruit dictionary
+        spell.word_frequency.load_words(fruit_dictionary)
+        
+        # Split text into words (handle multi-word inputs)
+        words = text.split()
+        misspelled_words = []
+        suggestions_dict = {}
+        
+        # Check each word
+        for word in words:
+            # Remove punctuation for checking but keep original
+            clean_word = ''.join(c for c in word if c.isalnum())
+            if len(clean_word) < 2:
+                continue
+            
+            # Convert to lowercase for checking
+            word_lower = clean_word.lower()
+            
+            # Check if word is in fruit dictionary (both singular and plural forms are valid)
+            is_valid = word_lower in fruit_dictionary
+            
+            if not is_valid:
+                # Find closest fruit matches (both singular and plural forms)
+                misspelled_words.append(clean_word)
+                # Use edit distance to find closest fruits
+                suggestions = []
+                for fruit in fruit_dictionary:
+                    # Calculate edit distance between input and fruit
+                    distance = _simple_edit_distance(word_lower, fruit)
+                    
+                    # Allow suggestions if distance is reasonable (up to 3 edits for short words, 4 for longer)
+                    max_distance = 3 if len(word_lower) <= 5 else 4
+                    if distance <= max_distance:
+                        suggestions.append((fruit, distance))
+                
+                # Sort by distance and get top 5 (prefer singular forms)
+                suggestions.sort(key=lambda x: (x[1], not x[0].endswith('s')))  # Prefer singular
+                if suggestions:
+                    # Get top suggestions, but prioritize singular forms
+                    top_suggestions = []
+                    singular_added = set()
+                    for fruit, _ in suggestions[:5]:
+                        # Extract base form (singular)
+                        base = fruit
+                        if fruit.endswith('ies'):
+                            base = fruit[:-3] + 'y'
+                        elif fruit.endswith('es'):
+                            base = fruit[:-2]
+                        elif fruit.endswith('s'):
+                            base = fruit[:-1]
+                        
+                        # Add singular form first if not already added
+                        if base in fruit_dictionary and base not in singular_added:
+                            top_suggestions.append(base)
+                            singular_added.add(base)
+                        # Also add the fruit itself if it's different
+                        if fruit not in top_suggestions and len(top_suggestions) < 5:
+                            top_suggestions.append(fruit)
+                    
+                    suggestions_dict[clean_word] = top_suggestions[:5]
+        
+        # Also check against existing products/variants/suppliers in database
+        existing_suggestions = []
+        if field_type == 'name':
+            # Check against existing product names (both singular and plural forms are valid)
+            existing_products = Product.objects.filter(
+                name__icontains=text
+            ).values_list('name', flat=True)[:10]
+            for prod_name in existing_products:
+                # Extract first word (fruit name)
+                first_word = prod_name.split()[0] if prod_name else ''
+                if first_word and first_word.lower() in fruit_dictionary:
+                    if first_word not in existing_suggestions:
+                        existing_suggestions.append(first_word)
+        elif field_type == 'variant':
+            # Variants - include as-is
+            existing_variants = Product.objects.filter(
+                variant__icontains=text
+            ).exclude(variant__isnull=True).exclude(variant='').values_list('variant', flat=True).distinct()[:5]
+            existing_suggestions = list(existing_variants)
+        elif field_type == 'supplier':
+            # Suppliers - include as-is
+            existing_suppliers = Product.objects.filter(
+                supplier__icontains=text
+            ).exclude(supplier__isnull=True).exclude(supplier='').values_list('supplier', flat=True).distinct()[:5]
+            existing_suggestions = list(existing_suppliers)
+        
+        return JsonResponse({
+            'success': True,
+            'has_errors': len(misspelled_words) > 0,
+            'misspelled_words': misspelled_words,
+            'dictionary_suggestions': suggestions_dict,
+            'existing_suggestions': existing_suggestions[:3]  # Limit to 3
+        })
+        
+    except ImportError:
+        # Fallback if pyspellchecker is not installed
+        return JsonResponse({
+            'success': False,
+            'message': 'Spell checking library not available'
+        }, status=503)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
 @require_app_login
 @require_GET
 def fetch_active_products(request):
@@ -11818,12 +12048,15 @@ def generate_and_store_pricing_recommendations():
     from django.utils import timezone
     import pandas as pd
     
-    end_date = datetime.now().date()
-    start_date = end_date - timedelta(days=3)
+    # Use local date (not UTC) so the 3-day window matches UI reports
+    end_date = timezone.localdate()
+    # Inclusive 3-day window; if today is Jan 9 => start_date = Jan 7
+    start_date = end_date - timedelta(days=2)
     
     sales_data = Sale.objects.filter(
         recorded_at__date__gte=start_date,
-        recorded_at__date__lte=end_date
+        recorded_at__date__lte=end_date,
+        status__iexact='completed'
     ).values('recorded_at', 'product__product_id', 'quantity', 'price')
     
     if not sales_data.exists():

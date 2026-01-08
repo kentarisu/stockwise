@@ -24,3 +24,4 @@ psycopg2-binary==2.9.9
 qrcode==7.4.2
 Pillow==10.4.0
 matplotlib==3.8.2
+pyspellchecker==0.8.1

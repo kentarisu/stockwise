@@ -73,12 +73,11 @@ The system uses log-log regression to estimate constant elasticity:
 
 Mathematical Model:
 ```
-ln(Quantity) = Î²â‚€ + Î²â‚Â·ln(Price) + Î£(month_dummies) + Î£(weekday_dummies) + error
+ln(Quantity) = Î²â‚€ + Î²â‚Â·ln(Price) + Î£(weekday_dummies) + error
 ```
 
 Where:
 - Î²â‚ = Elasticity (the coefficient we're estimating)
-- month_dummies: Captures seasonal patterns (12 months)
 - weekday_dummies: Captures day-of-week effects (7 days)
 
 Why Log-Log?
@@ -91,7 +90,7 @@ Estimation Method: Ordinary Least Squares (OLS) with ridge regularization
 Î² = (X^TÂ·X + Î»I)^(-1) Â· X^TÂ·y
 
 Where:
-- X = design matrix [1, ln_p, month_dummies, weekday_dummies]
+- X = design matrix [1, ln_p, weekday_dummies]
 - y = ln(quantity)
 - Î» = 1e-6 (small regularization constant)
 ```
@@ -204,8 +203,7 @@ Training Phase (runs daily):
    ln_quantity = ln(quantity + 1e-6)
    ln_price = ln(price)
 
-3. Add seasonal features
-   month = EXTRACT(MONTH FROM recorded_at)
+3. Add weekday features
    weekday = EXTRACT(DOW FROM recorded_at)
 
 4. Fit OLS regression per product
@@ -413,7 +411,7 @@ PDF Business Reports Include:
  9. Future Enhancements
 
 1. Competitor Price Monitoring: Web scraping of competitor wholesale prices
-2. Seasonal Forecasting: Advanced time series models (ARIMA, Prophet)
+2. Advanced Forecasting: Time series models (ARIMA, Prophet) for demand prediction
 3. Bundle Pricing: Optimize prices for product combinations
 4. Customer Segmentation: Different prices for different buyer types (restaurants vs. retailers)
 5. A/B Testing: Randomly test price variants to validate elasticity
@@ -432,7 +430,7 @@ The StockWise Demand-Driven Pricing Recommendation System applies econometric mo
 
 The system provides actionable pricing recommendations that help wholesale businesses maximize revenue while maintaining profitability and customer relationships.
 
-Key Innovation: Product-specific elasticity estimation with seasonality controls, multi-constraint optimization, and confidence-based recommendations - all within a human-in-the-loop framework that preserves business owner control.
+Key Innovation: Product-specific elasticity estimation with multi-constraint optimization and confidence-based recommendations - all within a human-in-the-loop framework that preserves business owner control.
 
 Research Contribution: Demonstrates practical application of classical econometric techniques to small-to-medium wholesale businesses, making advanced pricing analytics accessible beyond enterprise-level operations.
 

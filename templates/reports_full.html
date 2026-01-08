@@ -4767,6 +4767,25 @@
                     }
                 }
                 populateInventoryReportTable(response.data.inventory_report || []);
+                // Ensure inventory report tab renders even if not currently active
+                if (response.data.inventory_report && response.data.inventory_report.length > 0) {
+                    console.log('[REPORTS] Inventory report has data, ensuring it renders');
+                    // Force render if tab exists, regardless of visibility
+                    setTimeout(() => {
+                        const inventoryTab = document.getElementById('inventory-report-tab');
+                        if (inventoryTab) {
+                            // Check if tab is currently active, if not, render anyway
+                            const isActive = inventoryTab.classList.contains('active') || inventoryTab.getAttribute('aria-selected') === 'true';
+                            if (!isActive) {
+                                console.log('[REPORTS] Inventory tab not active, but data exists - data will render when tab is clicked');
+                            }
+                        }
+                        // Always try to render - renderInventoryReportPage checks for tbody existence
+                        if (document.getElementById('inventoryReportBody')) {
+                            renderInventoryReportPage();
+                        }
+                    }, 200);
+                }
                 renderABCAnalysis(response.data.abc_analysis || []);
                 renderSlowMovers(response.data.slow_movers || []);
                 renderDeadStock(response.data.dead_stock || []);

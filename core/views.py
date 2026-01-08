@@ -5240,6 +5240,8 @@ def fetch_reports(request):
         # Inventory Report - Get all products with current stock information
         inventory_report = []
         try:
+            # Initialize sales queryset for inventory report
+            sales_queryset_for_inventory = Sale.objects.filter(status__iexact='completed').select_related('user', 'product')
             # Apply common filters (User, Product, Search) to the inventory report context
             sales_queryset_for_inventory = apply_common_filters(sales_queryset_for_inventory)
             

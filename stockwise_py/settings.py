@@ -130,6 +130,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'core.middleware.JSONErrorMiddleware',  # Ensure API errors are JSON
     'core.maintenance.AuditMiddleware',
     'core.maintenance.FriendlyErrorMiddleware',
     'django.middleware.common.CommonMiddleware',

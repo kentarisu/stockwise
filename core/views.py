@@ -14219,17 +14219,21 @@ def upload_and_restore_backup(request):
                     for f in file_list
                 )
                 
-                if not json_files and not (has_database and database_files) and not has_stockwise_data and not has_db_files:
-                    if test_zip:
-                        test_zip.close()
-                    try:
-                        temp_path.unlink()
-                    except Exception:
-                        pass
-                    return JsonResponse({
-                        'success': False, 
-                        'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file, database folder, or recognizable backup files.'
-                    }, status=400)
+                # Relaxed validation: If it's a valid ZIP, let the restore command handle it.
+                # The restore command has more comprehensive logic to detect various backup formats.
+                # We only reject if it's definitely NOT a zip file (handled by zipfile.ZipFile above).
+                
+                # if not json_files and not (has_database and database_files) and not has_stockwise_data and not has_db_files:
+                #     if test_zip:
+                #         test_zip.close()
+                #     try:
+                #         temp_path.unlink()
+                #     except Exception:
+                #         pass
+                #     return JsonResponse({
+                #         'success': False, 
+                #         'message': 'Invalid backup file. This does not appear to be a StockWise backup file. Missing JSON file, database folder, or recognizable backup files.'
+                #     }, status=400)
                 
                 # Validate JSON file if present (but be lenient for older formats)
                 if json_files:

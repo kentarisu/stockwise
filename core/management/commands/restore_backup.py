@@ -378,13 +378,18 @@ class Command(BaseCommand):
                     self.stdout.write(f'  - Verification: {product_count} products, {sale_count} sales, {stock_count} stock additions restored')
                     
                     # Warn if counts are unexpectedly low
+                    # Fail if main tables are empty - a successful restore should presumably have data
+                    if product_count == 0 and sale_count == 0 and stock_count == 0:
+                        self.stdout.write(self.style.ERROR(
+                            '  [ERROR] No data was restored! The database is empty after restore.'
+                        ))
+                        extra_info = ""
+                        if backup_object_count == 0:
+                            extra_info = " The backup file appears to be empty."
+                        raise Exception(f'Restore failed: No data was loaded.{extra_info}')
+                    
                     if backup_object_count > 0:
-                        if product_count == 0 and sale_count == 0 and stock_count == 0:
-                            self.stdout.write(self.style.ERROR(
-                                '  [ERROR] No data was restored! The backup file may be empty or corrupted.'
-                            ))
-                            raise Exception('Restore failed: No data was loaded from backup file')
-                        elif product_count == 0:
+                        if product_count == 0:
                             self.stdout.write(self.style.WARNING('  [WARNING] No products were restored'))
                         elif sale_count == 0:
                             self.stdout.write(self.style.WARNING('  [WARNING] No sales were restored'))

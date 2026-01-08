@@ -1,9 +1,9 @@
 """
-Add sales for today's date with realistic data
+Add sales for a specific date (or today) with realistic data
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from datetime import datetime, time
+from datetime import datetime, time, date
 from decimal import Decimal
 import random
 from core.models import Product, Sale, AppUser
@@ -15,19 +15,18 @@ def round_to_5(value):
     return round(value / 5) * 5
 
 
-def random_time_today():
-    """Generate a random time for today during business hours"""
-    today = timezone.now().date()
+def random_time_for_date(date_obj):
+    """Generate a random time for a specific date during business hours"""
     hour = random.randint(8, 18)  # Business hours 8 AM - 6 PM
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
     return timezone.make_aware(
-        datetime.combine(today, time(hour=hour, minute=minute, second=second))
+        datetime.combine(date_obj, time(hour=hour, minute=minute, second=second))
     )
 
 
 class Command(BaseCommand):
-    help = 'Add sales for today with realistic data'
+    help = 'Add sales for a specific date (or today) with realistic data'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -36,10 +35,28 @@ class Command(BaseCommand):
             default=20,
             help='Number of sales to generate (default: 20)',
         )
+        parser.add_argument(
+            '--date',
+            type=str,
+            default=None,
+            help='Date to add sales for (YYYY-MM-DD format). Defaults to today if not specified.',
+        )
 
     def handle(self, *args, **options):
         count = options['count']
-        self.stdout.write(self.style.SUCCESS(f'Adding {count} sales for today...'))
+        date_str = options['date']
+        
+        # Parse date or use today
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                self.stdout.write(self.style.ERROR(f'Invalid date format: {date_str}. Use YYYY-MM-DD format.'))
+                return
+        else:
+            target_date = timezone.now().date()
+        
+        self.stdout.write(self.style.SUCCESS(f'Adding {count} sales for {target_date}...'))
         
         # Get all active products with stock
         products = list(Product.objects.filter(status='active', stock__gt=0))
@@ -79,10 +96,10 @@ class Command(BaseCommand):
             is_kg = (product.quantity_unit or '').lower() == 'kg'
             if is_kg:
                 max_qty = min(int(product.stock), random.randint(1, 5))
-                quantity = round(random.uniform(1.0, max(1.0, max_qty)), 2)
+                quantity = Decimal(str(round(random.uniform(1.0, max(1.0, max_qty)), 2)))
             else:
                 max_qty = min(int(product.stock), random.randint(1, 15))
-                quantity = random.randint(1, max_qty)
+                quantity = Decimal(str(random.randint(1, max_qty)))
             
             if quantity <= 0:
                 continue
@@ -92,7 +109,7 @@ class Command(BaseCommand):
             sale_price = max(5.0, round_to_5(current_price))
             
             # Calculate total
-            total = Decimal(str(quantity)) * Decimal(str(int(sale_price)))
+            total = quantity * Decimal(str(int(sale_price)))
             
             try:
                 # Create sale record
@@ -106,17 +123,17 @@ class Command(BaseCommand):
                     customer_name=customer,
                     transaction_number=transaction_number,
                     user=admin_user,
-                    recorded_at=random_time_today(),
+                    recorded_at=random_time_for_date(target_date),
                     status='completed'
                 )
                 
                 # Deduct stock using FIFO
                 try:
-                    deduct_stock_fifo(product.product_id, quantity)
+                    deduct_stock_fifo(product.product_id, float(quantity))
                     product.refresh_from_db(fields=['stock'])
                 except Exception as e:
                     # Fallback to simple deduction
-                    product.stock = max(Decimal('0'), product.stock - Decimal(str(quantity)))
+                    product.stock = max(Decimal('0'), product.stock - quantity)
                     product.save(update_fields=['stock'])
                 
                 sales_created += 1
@@ -126,6 +143,6 @@ class Command(BaseCommand):
                 continue
         
         self.stdout.write(self.style.SUCCESS(
-            f'[OK] Created {sales_created} sales for today!'
+            f'[OK] Created {sales_created} sales for {target_date}!'
         ))
 

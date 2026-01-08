@@ -1,0 +1,9 @@
+INFO 2026-01-08 18:38:18,975 sms_service SMS Service initialized with sender_name='kaprets', api_token=CONFIGURED
+Generating report...
+[_apply_report_filters] Using resolved date range for 'daily': 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[export_report] Resolved date range: 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[_apply_report_filters] Using resolved date range for 'daily': 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[export_report] Sales queryset count after date filter: 0
+Response status: 400
+FAILURE: Request failed.
+b'{"success": false, "message": "No sales data found for the selected filters. Please adjust your date range, user, or product filters and try again.", "error": "No data available", "error_id": "20260108103819"}'

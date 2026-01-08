@@ -1,0 +1,46 @@
+INFO 2026-01-08 18:37:44,269 sms_service SMS Service initialized with sender_name='kaprets', api_token=CONFIGURED
+Traceback (most recent call last):
+  File "C:\Users\Orly\stockwise\core\views.py", line 1368, in wrapper
+    user = AppUser.objects.get(user_id=int(current_user_id))
+  File "C:\Users\Orly\OOPFINAL\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\OOPFINAL\venv\Lib\site-packages\django\db\models\query.py", line 633, in get
+    raise self.model.DoesNotExist(
+        "%s matching query does not exist." % self.model._meta.object_name
+    )
+core.models.AppUser.DoesNotExist: AppUser matching query does not exist.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Orly\OOPFINAL\venv\Lib\site-packages\django\contrib\messages\api.py", line 27, in add_message
+    messages = request._messages
+               ^^^^^^^^^^^^^^^^^
+AttributeError: 'WSGIRequest' object has no attribute '_messages'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Orly\stockwise\test_pdf_graph.py", line 30, in test_pdf_generation
+    response = export_report(request)
+  File "C:\Users\Orly\stockwise\core\views.py", line 1386, in wrapper
+    messages.error(request, 'Your account is no longer available. Please contact the admin.')
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\OOPFINAL\venv\Lib\site-packages\django\contrib\messages\api.py", line 121, in error
+    add_message(
+    ~~~~~~~~~~~^
+        request,
+        ^^^^^^^^
+    ...<3 lines>...
+        fail_silently=fail_silently,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Orly\OOPFINAL\venv\Lib\site-packages\django\contrib\messages\api.py", line 35, in add_message
+    raise MessageFailure(
+    ...<2 lines>...
+    )
+django.contrib.messages.api.MessageFailure: You cannot add messages without installing django.contrib.messages.middleware.MessageMiddleware
+Generating report...
+EXCEPTION: You cannot add messages without installing django.contrib.messages.middleware.MessageMiddleware

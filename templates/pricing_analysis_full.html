@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -10,7 +11,8 @@
     <title>StockWise - Pricing Analysis</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -18,7 +20,8 @@
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive-enhancements.css' %}">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+        rel="stylesheet" />
 
     <style>
         :root {
@@ -109,7 +112,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 1rem;
+            font-size: 1.15rem;
             font-weight: 700;
             text-decoration: none;
             color: var(--gray-900);
@@ -118,7 +121,7 @@
         }
 
         .header-brand i {
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             color: var(--primary);
         }
 
@@ -134,7 +137,7 @@
         }
 
         .header-left h1 {
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: var(--gray-900);
             margin: 0;
@@ -143,7 +146,7 @@
 
         .header-subtitle {
             color: var(--gray-500);
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             margin-top: var(--space-xs);
             line-height: 1.3;
         }
@@ -173,8 +176,8 @@
             display: flex;
             flex-direction: column;
             justify-content: space-around;
-            width: 1.25rem;
-            height: 1.25rem;
+            width: 0.875rem;
+            height: 0.875rem;
             background: transparent;
             border: none;
             cursor: pointer;
@@ -274,8 +277,8 @@
                 margin-right: 0;
             }
 
-            .sidebar:not(.active) .nav-link > span,
-            .sidebar:not(.active) .nav-link > :not(i) {
+            .sidebar:not(.active) .nav-link>span,
+            .sidebar:not(.active) .nav-link> :not(i) {
                 display: none;
             }
 
@@ -313,6 +316,7 @@
                 margin-top: 0;
                 padding: calc(var(--header-height) + 0.75rem) 0.75rem 0.75rem;
             }
+
             .main-content.sidebar-open {
                 margin-left: 0 !important;
             }
@@ -482,11 +486,11 @@
         .period-summary-section {
             font-size: 0.8rem;
         }
-        
+
         .summary-item {
             padding: 0.5rem;
         }
-        
+
         .summary-label {
             font-size: 0.7rem;
             color: var(--gray-600);
@@ -495,19 +499,19 @@
             letter-spacing: 0.03em;
             margin-bottom: 0.25rem;
         }
-        
+
         .summary-value {
             font-size: 0.9rem;
             font-weight: 600;
             color: var(--gray-800);
             margin-bottom: 0.15rem;
         }
-        
+
         .summary-subtext {
             font-size: 0.7rem;
             color: var(--gray-500);
         }
-        
+
         .chart-section {
             margin-bottom: var(--space-md);
             flex-grow: 1;
@@ -523,10 +527,25 @@
             white-space: nowrap;
         }
 
-        .badge-success { background: #d1fae5; color: #065f46; }
-        .badge-warning { background: #fef3c7; color: #92400e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .badge-info { background: #dbeafe; color: #1e40af; }
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
 
         .chart-container {
             position: relative;
@@ -554,9 +573,17 @@
             font-size: 0.95rem;
         }
 
-        .demand-up { color: var(--success); }
-        .demand-down { color: var(--danger); }
-        .demand-stable { color: var(--gray-800); }
+        .demand-up {
+            color: var(--success);
+        }
+
+        .demand-down {
+            color: var(--danger);
+        }
+
+        .demand-stable {
+            color: var(--gray-800);
+        }
 
         /* Ensure metric values with icons align properly */
         .metric-value.demand-indicator {
@@ -676,8 +703,13 @@
 
         /* Spinning animation */
         @keyframes fa-spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .fa-spin {
@@ -735,7 +767,7 @@
         }
 
         /* Ensure consistent spacing in product cards */
-        .pricing-card > *:last-child {
+        .pricing-card>*:last-child {
             margin-bottom: 0;
         }
 
@@ -776,7 +808,7 @@
         }
 
         .nav-section-title {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.04em;
@@ -793,18 +825,15 @@
         .nav-link {
             display: flex !important;
             align-items: center;
-            padding: 0.5rem var(--space-sm);
+            padding: var(--space-sm);
             color: var(--gray-600) !important;
             text-decoration: none;
             transition: all 0.2s ease;
             border-radius: 0;
-            font-size: 0.8rem !important;
+            font-size: 0.85rem;
             font-weight: 500;
             position: relative;
             gap: 0.5rem;
-            width: 100%;
-            opacity: 1 !important;
-            visibility: visible !important;
         }
 
         .nav-link:hover {
@@ -819,24 +848,13 @@
         }
 
         .nav-link i {
-            font-size: 0.9rem !important;
+            font-size: 1.1rem;
             margin-right: 0.4rem;
-            width: 1rem;
+            width: 1.2rem;
             text-align: center;
             flex-shrink: 0;
-            display: inline-block !important;
-            color: inherit !important;
-            opacity: 1 !important;
-            visibility: visible !important;
         }
 
-        .nav-link span {
-            display: inline-block !important;
-            color: inherit !important;
-            opacity: 1 !important;
-            visibility: visible !important;
-            font-size: 0.8rem !important;
-        }
 
         .nav-list {
             list-style: none;
@@ -873,6 +891,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Unified Header -->
@@ -894,7 +913,8 @@
             </div>
             <div class="header-right">
                 <div class="d-flex align-items-center gap-2 me-3">
-                    <select id="categoryFilter" class="form-select form-select-sm" style="width: auto; min-width: 150px;">
+                    <select id="categoryFilter" class="form-select form-select-sm"
+                        style="width: auto; min-width: 150px;">
                         <option value="all">All Categories</option>
                     </select>
                     <select id="periodSelect" class="form-select form-select-sm" style="width: auto; min-width: 200px;">
@@ -908,13 +928,20 @@
                     </button>
                 </div>
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item logout-link" href="#" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
+                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}"
+                        alt="User" class="user-avatar" data-bs-toggle="dropdown"
+                        onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i
+                                    class="bi bi-person me-2"></i>Profile</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item logout-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#logoutConfirmModal"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
             </div>
         </header>
 
@@ -927,41 +954,31 @@
                     <h2 class="nav-section-title">Main</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'dashboard' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'dashboard' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-speedometer2" aria-hidden="true"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'products_inventory' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'products_inventory' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-basket" aria-hidden="true"></i>
                                 <span>Inventory</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'add_product_page' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'add_product_page' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-plus-square" aria-hidden="true"></i>
                                 <span>Product Registration</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'record_sale_main' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'record_sale_main' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-receipt" aria-hidden="true"></i>
                                 <span>Record Transaction</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'sales' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'sales' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-cart" aria-hidden="true"></i>
                                 <span>Sales</span>
                             </a>
@@ -974,17 +991,13 @@
                     <h2 class="nav-section-title">Reports</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'reports' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'reports' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-graph-up" aria-hidden="true"></i>
                                 <span>Reports</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'pricing_analysis' %}" 
-                               class="nav-link active"
-                               aria-current="page">
+                            <a href="{% url 'pricing_analysis' %}" class="nav-link active" aria-current="page">
                                 <i class="bi bi-currency-exchange" aria-hidden="true"></i>
                                 <span>Pricing Analysis</span>
                             </a>
@@ -998,42 +1011,33 @@
                     <ul class="nav-list" role="list">
                         {% if app_role == 'admin' %}
                         <li class="nav-item">
-                            <a href="{% url 'sms_settings' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'sms_settings' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-chat-dots" aria-hidden="true"></i>
                                 <span>SMS Notification</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'action_logs' %}" 
-                               class="nav-link"
-                               aria-current="false">
-                               <i class="bi bi-journal-text" aria-hidden="true"></i>
+                            <a href="{% url 'action_logs' %}" class="nav-link" aria-current="false">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
                                 <span>Logs</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'backup_management' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'backup_management' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-database" aria-hidden="true"></i>
                                 <span>Backups</span>
                             </a>
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a href="{% url 'profile' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'profile' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-person" aria-hidden="true"></i>
                                 <span>Profile</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="#" 
-                               class="nav-link logout-link" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"
-                               aria-current="false">
+                            <a href="#" class="nav-link logout-link" data-bs-toggle="modal"
+                                data-bs-target="#logoutConfirmModal" aria-current="false">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 <span>Logout</span>
                             </a>
@@ -1046,65 +1050,66 @@
         <!-- Main Content -->
         <main class="main-content sidebar-open">
             <div class="content-area">
-            <div id="loadingIndicator" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2 text-muted">Loading pricing analysis data...</p>
-            </div>
-
-            <div id="analysisContent" style="display: none;">
-                <!-- Summary Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon primary">
-                            <i class="bi bi-box-seam"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="totalProducts">0</div>
-                            <div class="stat-label">Total Products</div>
-                            <div class="stat-subtitle">Unique products with variants being analyzed</div>
+                <div id="loadingIndicator" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
-                        </div>
-                    <div class="stat-card">
-                        <div class="stat-icon warning">
-                            <i class="bi bi-arrow-left-right"></i>
-                    </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="totalPriceChanges">0</div>
-                            <div class="stat-label">Price Changes</div>
-                            <div class="stat-subtitle">Manual price adjustments recorded in period</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon danger">
-                            <i class="bi bi-exclamation-triangle"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="avgMarginError">0%</div>
-                            <div class="stat-label">Avg Margin Error</div>
-                            <div class="stat-subtitle">Price prediction uncertainty (lower is better)</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon success">
-                            <i class="bi bi-cash-stack"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="totalRevenue">₱0</div>
-                            <div class="stat-label">Total Revenue</div>
-                            <div class="stat-subtitle">Total sales revenue from all products in period</div>
-                        </div>
-                    </div>
+                    <p class="mt-2 text-muted">Loading pricing analysis data...</p>
                 </div>
 
-                <!-- Product Analysis Cards -->
-                <div id="productCards"></div>
-            </div>
+                <div id="analysisContent" style="display: none;">
+                    <!-- Summary Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon primary">
+                                <i class="bi bi-box-seam"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="totalProducts">0</div>
+                                <div class="stat-label">Total Products</div>
+                                <div class="stat-subtitle">Unique products with variants being analyzed</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon warning">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="totalPriceChanges">0</div>
+                                <div class="stat-label">Price Changes</div>
+                                <div class="stat-subtitle">Manual price adjustments recorded in period</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon danger">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="avgMarginError">0%</div>
+                                <div class="stat-label">Avg Margin Error</div>
+                                <div class="stat-subtitle">Price prediction uncertainty (lower is better)</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon success">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="totalRevenue">₱0</div>
+                                <div class="stat-label">Total Revenue</div>
+                                <div class="stat-subtitle">Total sales revenue from all products in period</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Analysis Cards -->
+                    <div id="productCards"></div>
+                </div>
             </div>
 
             <!-- Details Modal -->
-            <div class="modal fade details-modal" id="productDetailsModal" tabindex="-1" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
+            <div class="modal fade details-modal" id="productDetailsModal" tabindex="-1"
+                aria-labelledby="productDetailsModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl">
                     <div class="modal-content">
                         <div class="modal-header">
@@ -1153,7 +1158,7 @@
         // Save current state to localStorage
         function saveState() {
             if (typeof Storage === 'undefined') return;
-            
+
             const state = {
                 period: parseInt(document.getElementById('periodSelect')?.value || 365),
                 category: document.getElementById('categoryFilter')?.value || 'all',
@@ -1162,7 +1167,7 @@
                 categorizedData: categorizedData,
                 timestamp: Date.now()
             };
-            
+
             try {
                 localStorage.setItem('pricing_analysis_state', JSON.stringify(state));
             } catch (e) {
@@ -1173,10 +1178,10 @@
         // Load state from localStorage
         function loadState() {
             if (typeof Storage === 'undefined') return null;
-            
+
             const saved = localStorage.getItem('pricing_analysis_state');
             if (!saved) return null;
-            
+
             try {
                 const state = JSON.parse(saved);
                 // Check if data is not too old (e.g., 1 hour)
@@ -1199,25 +1204,25 @@
         function updatePeriodSelectDates() {
             const periodSelect = document.getElementById('periodSelect');
             if (!periodSelect) return;
-            
+
             const today = new Date();
             const options = periodSelect.options;
-            
+
             // Format date helper
             function formatDate(date) {
                 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
             }
-            
+
             // Update each option with date range
             for (let i = 0; i < options.length; i++) {
                 const days = parseInt(options[i].value);
                 const startDate = new Date(today);
                 startDate.setDate(today.getDate() - days);
-                
+
                 const startStr = formatDate(startDate);
                 const endStr = formatDate(today);
-                
+
                 // Update option text with date range
                 const baseText = options[i].text.split(' (')[0]; // Remove existing date if any
                 options[i].text = `${baseText} (${startStr} - ${endStr})`;
@@ -1225,37 +1230,37 @@
         }
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             updatePeriodSelectDates();
-            
+
             // Initialize Select2 on category filter for searchable dropdown with custom matcher
             $('#categoryFilter').select2({
                 theme: 'bootstrap-5',
                 placeholder: 'Select a category',
                 width: '100%',
                 minimumResultsForSearch: 0, // Always show search box
-                matcher: function(params, data) {
+                matcher: function (params, data) {
                     // If there are no search terms, return all data
                     if ($.trim(params.term) === '') {
                         return data;
                     }
-                    
+
                     // Skip if there is no 'text' property
                     if (typeof data.text === 'undefined') {
                         return null;
                     }
-                    
+
                     const searchTerm = params.term.toLowerCase();
                     const optionText = data.text.toLowerCase();
                     const filterType = $(data.element).attr('data-filter-type');
                     const productName = $(data.element).attr('data-product');
                     const variantName = $(data.element).attr('data-variant');
-                    
+
                     // Check if the search term matches
                     if (optionText.indexOf(searchTerm) > -1) {
                         return data;
                     }
-                    
+
                     // For variant options, also check product and variant names separately
                     if (filterType === 'variant') {
                         if ((productName && productName.toLowerCase().indexOf(searchTerm) > -1) ||
@@ -1263,35 +1268,35 @@
                             return data;
                         }
                     }
-                    
+
                     // Return null if no match
                     return null;
                 }
             });
 
             // Event handlers
-        document.getElementById('periodSelect').addEventListener('change', function() {
+            document.getElementById('periodSelect').addEventListener('change', function () {
                 loadAnalysisData(parseInt(this.value), true); // Force reload when user changes period
-        });
+            });
 
             // Refresh button handler
-            document.getElementById('refreshDataBtn').addEventListener('click', function() {
+            document.getElementById('refreshDataBtn').addEventListener('click', function () {
                 const period = parseInt(document.getElementById('periodSelect').value);
                 const btn = this;
                 const icon = btn.querySelector('i');
-                
+
                 // Add spinning animation
                 icon.style.animation = 'fa-spin 1s infinite linear';
                 btn.disabled = true;
-                
+
                 // Clear state and force reload
                 clearState();
                 dataLoaded = false;
-                
+
                 // Wait for animation then reload
                 setTimeout(() => {
                     loadAnalysisData(period, true);
-                    
+
                     // Stop spinning after data loads
                     setTimeout(() => {
                         icon.style.animation = '';
@@ -1301,14 +1306,14 @@
             });
 
             // Use jQuery event for Select2 compatibility
-            $('#categoryFilter').on('change', function() {
-            filterByCategory(this.value);
+            $('#categoryFilter').on('change', function () {
+                filterByCategory(this.value);
                 saveState(); // Save state when category changes
             });
 
             // Check if this is a manual refresh or navigation
             const wasManuallyRefreshed = isManualRefresh();
-            
+
             if (wasManuallyRefreshed) {
                 // Manual refresh: clear state and load fresh data
                 console.log('Manual refresh detected - loading fresh data');
@@ -1318,7 +1323,7 @@
                 // Navigation: try to restore previous state
                 console.log('Navigation detected - attempting to restore state');
                 const savedState = loadState();
-                
+
                 if (savedState && savedState.dataLoaded && savedState.analysisData && savedState.categorizedData) {
                     // Restore from saved state
                     console.log('Restoring from saved state');
@@ -1326,15 +1331,15 @@
                     categorizedData = savedState.categorizedData;
                     dataLoaded = true;
                     currentPeriod = savedState.period;
-                    
+
                     // Set period select value
                     document.getElementById('periodSelect').value = savedState.period;
-                    
+
                     // Render with saved data
                     renderAnalysis(savedState.analysisData, savedState.categorizedData);
                     document.getElementById('loadingIndicator').style.display = 'none';
                     document.getElementById('analysisContent').style.display = 'block';
-                    
+
                     // Restore category filter after a short delay to ensure Select2 and options are ready
                     if (savedState.category) {
                         setTimeout(() => {
@@ -1354,7 +1359,7 @@
             if (dataLoaded && !forceReload && currentPeriod === days) {
                 return;
             }
-            
+
             document.getElementById('loadingIndicator').style.display = 'block';
             document.getElementById('analysisContent').style.display = 'none';
 
@@ -1364,13 +1369,13 @@
                     if (data.success) {
                         analysisData = data.data;
                         renderAnalysis(data.data, data.categorized);
-                        
+
                         dataLoaded = true;
                         currentPeriod = days;
-                        
+
                         document.getElementById('loadingIndicator').style.display = 'none';
                         document.getElementById('analysisContent').style.display = 'block';
-                        
+
                         // Save state after successful load
                         saveState();
                     } else {
@@ -1392,7 +1397,7 @@
                 const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
                 return nameA.localeCompare(nameB);
             });
-            
+
             // Sort categorized data alphabetically by product name
             if (categorized && Array.isArray(categorized)) {
                 categorized.forEach(category => {
@@ -1423,13 +1428,13 @@
                     return varA.localeCompare(varB);
                 });
             }
-            
+
             analysisData = data;
             categorizedData = categorized || [];
-            
+
             // Update summary
             document.getElementById('totalProducts').textContent = data.length;
-            
+
             let totalChanges = 0;
             let totalMarginError = 0;
             let marginErrorCount = 0;
@@ -1445,7 +1450,7 @@
             });
 
             document.getElementById('totalPriceChanges').textContent = totalChanges;
-            document.getElementById('avgMarginError').textContent = 
+            document.getElementById('avgMarginError').textContent =
                 marginErrorCount > 0 ? (totalMarginError / marginErrorCount).toFixed(2) + '%' : 'N/A';
             document.getElementById('totalRevenue').textContent = '₱' + totalRevenue.toLocaleString('en-US', {
                 minimumFractionDigits: 2,
@@ -1463,7 +1468,7 @@
             const filter = $('#categoryFilter');
             // Keep "All Categories" option
             filter.html('<option value="all">All Categories</option>');
-            
+
             if (categorized && categorized.length > 0) {
                 // Sort categories by product name and variant
                 const sortedCategories = [...categorized].sort((a, b) => {
@@ -1471,7 +1476,7 @@
                     if (nameCompare !== 0) return nameCompare;
                     return a.variant.localeCompare(b.variant);
                 });
-                
+
                 // Add an option for each product name (all variants combined)
                 const productsMap = {};
                 categorized.forEach(category => {
@@ -1483,7 +1488,7 @@
                     }
                     productsMap[productName].count += category.products.length;
                 });
-                
+
                 Object.keys(productsMap).sort().forEach(productName => {
                     const count = productsMap[productName].count;
                     const productText = count === 1 ? 'product' : 'products';
@@ -1493,7 +1498,7 @@
                         .text(`${productName} (${count} ${productText})`);
                     filter.append(option);
                 });
-                
+
                 // Add individual variant options for granular filtering
                 sortedCategories.forEach(category => {
                     const count = category.products.length;
@@ -1507,7 +1512,7 @@
                     filter.append(option);
                 });
             }
-            
+
             // Trigger Select2 to refresh the dropdown
             filter.trigger('change.select2');
         }
@@ -1536,7 +1541,7 @@
             } else if (categoryValue.includes('|')) {
                 // Variant-specific filter: "ProductName|VariantName"
                 const [productName, variantName] = categoryValue.split('|');
-                categoriesToShow = categorizedData.filter(cat => 
+                categoriesToShow = categorizedData.filter(cat =>
                     cat.category === productName && cat.variant === variantName
                 );
             } else {
@@ -1558,7 +1563,7 @@
                 productsMap[productName].variants.push(category.variant);
                 productsMap[productName].allProducts.push(...category.products);
             });
-            
+
             // Create sections for each product (with all variants combined)
             Object.keys(productsMap).sort().forEach(productName => {
                 const productGroup = productsMap[productName];
@@ -1570,16 +1575,16 @@
         function createProductCategorySection(productGroup) {
             const section = document.createElement('div');
             section.className = 'category-section';
-            
+
             const categoryHeader = document.createElement('div');
             categoryHeader.className = 'category-header';
-            
+
             // Get unique variants
             const uniqueVariants = [...new Set(productGroup.variants.filter(v => v && v !== 'Standard'))];
-            const variantText = uniqueVariants.length > 0 
-                ? ` (${uniqueVariants.join(', ')})` 
+            const variantText = uniqueVariants.length > 0
+                ? ` (${uniqueVariants.join(', ')})`
                 : '';
-            
+
             categoryHeader.innerHTML = `
                 <h4>
                     <i class="bi bi-box-seam"></i>
@@ -1590,20 +1595,20 @@
                     ${uniqueVariants.length > 0 ? `across ${uniqueVariants.length} variant${uniqueVariants.length !== 1 ? 's' : ''}` : ''}
                 </small>
             `;
-            
+
             section.appendChild(categoryHeader);
-            
+
             // Create products grid
             const productsGrid = document.createElement('div');
             productsGrid.className = 'row g-4';
-            
+
             // Sort products alphabetically by variant and quantity_unit
             productGroup.allProducts.sort((a, b) => {
                 const nameA = `${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
                 const nameB = `${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
                 return nameA.localeCompare(nameB);
             });
-            
+
             productGroup.allProducts.forEach(product => {
                 const col = document.createElement('div');
                 col.className = 'col-md-6 col-lg-6';
@@ -1611,11 +1616,11 @@
                 col.appendChild(card);
                 productsGrid.appendChild(col);
             });
-            
+
             section.appendChild(productsGrid);
             return section;
         }
-        
+
         // Keep old function for backward compatibility if needed
         function createCategorySection(category) {
             return createProductCategorySection({
@@ -1628,10 +1633,10 @@
         function createProductCard(product, compact = false) {
             const card = document.createElement('div');
             card.className = compact ? 'pricing-card product-card-compact' : 'pricing-card';
-            
+
             const productLabel = `${product.product_name}${product.variant ? ' (' + product.variant + ')' : ''} (${product.quantity_unit})`;
             const chartHeight = compact ? '200px' : '300px';
-            
+
             card.innerHTML = `
                 <!-- Product Header -->
                 <div class="product-card-header">
@@ -1691,7 +1696,7 @@
                     </div>
                     <div class="metric-item">
                         <div class="metric-label">Total Revenue</div>
-                        <div class="metric-value">₱${(product.total_revenue || 0).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
+                        <div class="metric-value">₱${(product.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                     </div>
                 </div>
 
@@ -1789,7 +1794,7 @@
                 if (ctx) {
                     charts[product.product_id] = createPriceChart(ctx, product);
                 }
-                
+
                 // Calculate and display period summary
                 if (product.price_history && product.price_history.length > 0) {
                     calculatePeriodSummary(product);
@@ -1809,13 +1814,13 @@
         function calculatePeriodSummary(product) {
             const summaryContainer = document.getElementById(`period-summary-${product.product_id}`);
             if (!summaryContainer || !product.price_history || product.price_history.length === 0) return;
-            
+
             const priceHistory = product.price_history;
             const prices = priceHistory.map(p => parseFloat(p.price) || 0).filter(p => p > 0);
             const quantities = priceHistory.map(p => parseFloat(p.quantity) || 0).filter(q => q >= 0);
-            
+
             if (prices.length === 0) return;
-            
+
             // Calculate metrics
             const totalQuantity = quantities.reduce((sum, q) => sum + q, 0);
             const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
@@ -1823,23 +1828,23 @@
             const maxPrice = Math.max(...prices);
             const priceChange = prices.length > 1 ? prices[prices.length - 1] - prices[0] : 0;
             const priceChangePct = prices.length > 1 && prices[0] > 0 ? (priceChange / prices[0] * 100) : 0;
-            
+
             // Calculate demand trend
             const firstHalfQty = quantities.slice(0, Math.floor(quantities.length / 2)).reduce((sum, q) => sum + q, 0);
             const secondHalfQty = quantities.slice(Math.floor(quantities.length / 2)).reduce((sum, q) => sum + q, 0);
             const demandTrend = secondHalfQty > firstHalfQty ? 'increasing' : secondHalfQty < firstHalfQty ? 'decreasing' : 'stable';
             const demandTrendIcon = demandTrend === 'increasing' ? 'bi-arrow-up' : demandTrend === 'decreasing' ? 'bi-arrow-down' : 'bi-arrow-right';
             const demandTrendColor = demandTrend === 'increasing' ? 'text-success' : demandTrend === 'decreasing' ? 'text-danger' : 'text-muted';
-            
+
             // Get period dates
             const firstDate = new Date(priceHistory[0].date);
             const lastDate = new Date(priceHistory[priceHistory.length - 1].date);
             const periodDays = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)) + 1;
             const periodLabel = periodDays <= 30 ? 'Month' : periodDays <= 90 ? 'Quarter' : periodDays <= 180 ? 'Half Year' : 'Year';
-            
+
             // Calculate average daily demand
             const avgDailyDemand = periodDays > 0 ? (totalQuantity / periodDays).toFixed(2) : '0.00';
-            
+
             // Calculate insights and recommendations
             const priceVolatility = ((maxPrice - minPrice) / avgPrice * 100).toFixed(1);
             const demandVolatility = quantities.length > 1 ? (() => {
@@ -1847,7 +1852,7 @@
                 const variance = quantities.reduce((sum, q) => sum + Math.pow(q - mean, 2), 0) / quantities.length;
                 return (Math.sqrt(variance) / mean * 100).toFixed(1);
             })() : '0.0';
-            
+
             // Determine price-demand relationship
             let priceDemandRelationship = '';
             let recommendation = '';
@@ -1867,7 +1872,7 @@
                 priceDemandRelationship = 'Stable price-demand relationship';
                 recommendation = 'Monitor market conditions and competitor pricing for optimization opportunities.';
             }
-            
+
             // Calculate best performing period with dates
             let bestPeriod = '';
             let bestPeriodQty = 0;
@@ -1883,19 +1888,19 @@
                 weeklyGroups.push({ start: i, qty: weekQty, startDate: weekStartDate, endDate: weekEndDate });
                 if (weekQty > bestPeriodQty) {
                     bestPeriodQty = weekQty;
-                    bestPeriod = `Week ${Math.floor(i/7) + 1}`;
+                    bestPeriod = `Week ${Math.floor(i / 7) + 1}`;
                     bestPeriodStartDate = weekStartDate;
                     bestPeriodEndDate = weekEndDate;
                 }
             }
-            
+
             // Format best period date range
             let bestPeriodDateRange = '';
             if (bestPeriodStartDate && bestPeriodEndDate) {
                 const formatDate = (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 bestPeriodDateRange = `${formatDate(bestPeriodStartDate)} - ${formatDate(bestPeriodEndDate)}`;
             }
-            
+
             summaryContainer.innerHTML = `
                 <div class="row g-3">
                     <div class="col-12">
@@ -2008,7 +2013,7 @@
             ctx.scale(dpr, dpr);
             canvas.style.width = rect.width + 'px';
             canvas.style.height = rect.height + 'px';
-            
+
             const priceData = product.price_history || [];
             const labels = priceData.map(p => new Date(p.date).toLocaleDateString());
             const prices = priceData.map(p => p.price);
@@ -2082,13 +2087,13 @@
                             },
                             // Sort tooltip items alphabetically
                             callbacks: {
-                                label: function(context) {
+                                label: function (context) {
                                     const value = context.parsed.y !== null ? context.parsed.y : 'N/A';
                                     const prefix = context.dataset.label === 'Price (₱)' ? '₱' : '';
                                     return context.dataset.label + ': ' + prefix + (typeof value === 'number' ? value.toFixed(2) : value);
                                 },
                                 // Sort tooltip items alphabetically by dataset label
-                                afterBody: function(context) {
+                                afterBody: function (context) {
                                     // Sort context items by dataset label alphabetically
                                     const sorted = context.slice().sort((a, b) => {
                                         const labelA = a.dataset.label || '';
@@ -2099,12 +2104,12 @@
                                     return [];
                                 },
                                 // Override the filter to maintain order
-                                filter: function(tooltipItem) {
+                                filter: function (tooltipItem) {
                                     return tooltipItem.parsed.y !== null;
                                 }
                             },
                             // Sort tooltip items
-                            itemSort: function(a, b) {
+                            itemSort: function (a, b) {
                                 const labelA = a.dataset.label || '';
                                 const labelB = b.dataset.label || '';
                                 return labelA.localeCompare(labelB);
@@ -2236,11 +2241,11 @@
             const modal = new bootstrap.Modal(document.getElementById('productDetailsModal'));
             const content = document.getElementById('productDetailsContent');
             const title = document.getElementById('productDetailsModalLabel');
-            
+
             title.textContent = `${product.product_name}${product.variant ? ' (' + product.variant + ')' : ''} (${product.quantity_unit}) - Full Details`;
-            
+
             const productLabel = `${product.product_name}${product.variant ? ' (' + product.variant + ')' : ''} (${product.quantity_unit})`;
-            
+
             content.innerHTML = `
                 <div class="row mb-4">
                     <div class="col-md-6">
@@ -2258,7 +2263,7 @@
                                 <div class="col-6"><strong>Total Sales:</strong></div>
                                 <div class="col-6">${product.total_sales}</div>
                                 <div class="col-6"><strong>Total Revenue:</strong></div>
-                                <div class="col-6">₱${product.total_revenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="col-6">₱${product.total_revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                             </div>
                         </div>
                     </div>
@@ -2369,7 +2374,7 @@
         }
 
         // Sidebar toggle functionality - Match Dashboard
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const sidebar = document.getElementById('sidebar');
             const burgerMenuBtn = document.getElementById('burgerMenuBtn');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -2402,7 +2407,7 @@
 
             // Burger menu button toggle
             if (burgerMenuBtn && sidebar) {
-                burgerMenuBtn.addEventListener('click', function() {
+                burgerMenuBtn.addEventListener('click', function () {
                     const isOpen = sidebar.classList.contains('active');
                     if (isOpen) {
                         closeSidebar();
@@ -2414,13 +2419,13 @@
 
             // Close sidebar when clicking overlay (mobile only)
             if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', function() {
+                sidebarOverlay.addEventListener('click', function () {
                     closeSidebar();
                 });
             }
 
             // Handle window resize
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 if (window.innerWidth > 768) {
                     if (sidebarOverlay) sidebarOverlay.classList.remove('active');
                     document.body.style.overflow = '';
@@ -2430,7 +2435,8 @@
     </script>
 
     <!-- Logout Modal - Match Dashboard -->
-    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2455,6 +2461,5 @@
         </div>
     </div>
 </body>
+
 </html>
-
-

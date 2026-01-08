@@ -1,0 +1,11 @@
+INFO 2026-01-08 21:41:15,095 sms_service SMS Service initialized with sender_name='kaprets', api_token=CONFIGURED
+Created dummy sales data
+Generating report...
+[_apply_report_filters] Using resolved date range for 'daily': 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[export_report] Resolved date range: 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[_apply_report_filters] Using resolved date range for 'daily': 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+[export_report] Sales queryset count after date filter: 1
+[_apply_report_filters] Using resolved date range for 'daily': 2026-01-08 00:00:00+08:00 to 2026-01-08 23:59:59.999999+08:00
+Response status: 200
+SUCCESS: Valid PDF generated.
+Saved to test_report_with_pg_num.pdf

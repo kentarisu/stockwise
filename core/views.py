@@ -5791,18 +5791,142 @@ def export_report(request):
         # Build PDF with portrait letter size (8.5" x 11")
         buffer = BytesIO()
         # Letter portrait is 8.5" x 11" = 612 x 792 points
-        from reportlab.platypus import PageTemplate, Frame, PageBreak
+        from reportlab.platypus import PageTemplate, Frame, PageBreak, KeepTogether
         from reportlab.lib.units import inch
         
-        # Compact margins for more content
-        doc = SimpleDocTemplate(buffer, pagesize=letter, 
-                              leftMargin=0.5*inch, rightMargin=0.5*inch, 
-                              topMargin=0.5*inch, bottomMargin=0.5*inch,
-                              showBoundary=0)
-        
+        # Initialize styles first (needed for footer function)
         styles = getSampleStyleSheet()
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+        
+        # Prepare footer content
+        if start_date and end_date:
+            try:
+                s_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                e_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                period_text = f"{s_dt.strftime('%B %d, %Y')} - {e_dt.strftime('%B %d, %Y')}"
+            except Exception:
+                period_text = f"{start_date} to {end_date}"
+        elif current_start and current_end:
+            period_text = f"{timezone.localtime(current_start).strftime('%B %d, %Y')} - {timezone.localtime(current_end).strftime('%B %d, %Y')}"
+        else:
+            period_text = filter_type.replace('_', ' ').title()
+        generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
+        
+        # Determine period type
+        if date_range:
+            period_start, period_end = date_range
+            days_diff = (period_end.date() - period_start.date()).days + 1
+            if days_diff <= 7:
+                period_type = "Weekly"
+            elif days_diff <= 31:
+                period_type = "Monthly"
+            elif days_diff <= 93:
+                period_type = "Quarterly"
+            elif days_diff <= 366:
+                period_type = "Yearly"
+            else:
+                period_type = "Custom Range"
+        else:
+            filter_lower = (filter_type or '').lower()
+            if filter_lower in ('weekly', 'week'):
+                period_type = "Weekly"
+            elif filter_lower in ('monthly', 'month'):
+                period_type = "Monthly"
+            elif filter_lower in ('quarter', 'quarterly'):
+                period_type = "Quarterly"
+            elif filter_lower in ('year', 'yearly'):
+                period_type = "Yearly"
+            else:
+                period_type = "Custom Range"
+        
+        # Custom Canvas for Page X of Y numbering
+        from reportlab.pdfgen import canvas
+        
+        class PageNumCanvas(canvas.Canvas):
+            def __init__(self, *args, **kwargs):
+                canvas.Canvas.__init__(self, *args, **kwargs)
+                self._saved_page_states = []
+
+            def showPage(self):
+                self._saved_page_states.append(dict(self.__dict__))
+                self._startPage()
+
+            def save(self):
+                """Save the document and draw page numbers on all pages."""
+                num_pages = len(self._saved_page_states)
+                for state in self._saved_page_states:
+                    self.__dict__.update(state)
+                    self.draw_page_number(num_pages)
+                    canvas.Canvas.showPage(self)
+                try:
+                    canvas.Canvas.save(self)
+                except Exception as e:
+                    # Catch save errors to avoid crashing if already saved
+                    print(f"Canvas save warning: {e}")
+
+            def draw_page_number(self, page_count):
+                self.saveState()
+                self.setFont('Helvetica', 9)
+                self.setFillColor(colors.HexColor('#6b7280'))
+                # Draw page number in top right corner
+                # Only show current/total
+                page_text = f"{self._pageNumber}/{page_count}"
+                # Position matches previous header function: 7.5*inch, 10.5*inch
+                self.drawRightString(7.5*inch, 10.5*inch, page_text)
+                self.restoreState()
+        
+        # Header function (only for other static content if needed, page num moved to canvas)
+        def header(canvas, doc):
+            # Page number is now handled by PageNumCanvas
+            pass
+        
+        # Footer function
+        def footer(canvas, doc):
+            canvas.saveState()
+            
+            # Larger footer text
+            footer_style = ParagraphStyle(
+                'Footer',
+                parent=styles['Normal'],
+                fontSize=9,  # Increased from 7 to 9 for better readability
+                textColor=colors.HexColor('#6b7280'),
+                alignment=TA_CENTER,
+                fontName='Helvetica'
+            )
+            
+            # Footer content
+            footer_parts = [
+                f"Period: {period_text}",
+                f"Generated: {generated_time}",
+                f"Prepared by: Francis Hernia",
+                f"Printed by: StockWise"
+            ]
+            footer_text = " | ".join(footer_parts)
+            
+            # Draw footer line
+            canvas.setStrokeColor(colors.HexColor('#e5e7eb'))
+            canvas.setLineWidth(0.5)
+            canvas.line(0.5*inch, 0.5*inch, 7.5*inch, 0.5*inch)
+            
+            # Footer text (full width now, no page number)
+            footer_para = Paragraph(footer_text, footer_style)
+            w, h = footer_para.wrap(7*inch, 0.4*inch)
+            footer_para.drawOn(canvas, 0.5*inch, 0.3*inch)
+            
+            canvas.restoreState()
+        
+        
+        # Compact margins for more content (extra bottom margin for footer, extra top for header)
+        doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                              leftMargin=0.5*inch, rightMargin=0.5*inch, 
+                              topMargin=0.6*inch, bottomMargin=0.7*inch,  # Extra space for header and footer
+                              showBoundary=0)
+        
+        # Add header and footer to all pages
+        frame = Frame(0.5*inch, 0.7*inch, 7*inch, 10.2*inch, id='normal')
+        template = PageTemplate(id='report', frames=[frame], onPage=header, onPageEnd=footer)
+        doc.addPageTemplates([template])
         
         elems = []
 
@@ -5823,6 +5947,12 @@ def export_report(request):
         # Calculate available width (portrait letter width minus margins)
         # Letter portrait: 612 points wide, minus 0.5 inch (36 points) on each side
         available_width = letter[0] - (0.5 * inch * 2)  # 612 - 72 = 540 points
+        
+        # Helper function to center tables - REDEFINED to return as-is to prevent LayoutError
+        def center_table(table):
+            """Wrap a table to center it on the page"""
+            # Deprecated: wrapper table prevents splitting. Usage should be replaced by hAlign='CENTER' on the table itself.
+            return table
 
         # Custom styles for better appearance (adjusted for portrait)
         title_style = ParagraphStyle(
@@ -5845,46 +5975,25 @@ def export_report(request):
         alignment=TA_CENTER,
         fontName='Helvetica'
         )
-    
+        
         # Title - professional style
         title_text = "FruitMaster Marketing Sales Report"
         elems.append(Paragraph(title_text, title_style))
         
-        # Report metadata - compact formatting
-        if start_date and end_date:
-            try:
-                s_dt = datetime.strptime(start_date, '%Y-%m-%d')
-                e_dt = datetime.strptime(end_date, '%Y-%m-%d')
-                period_text = f"{s_dt.strftime('%B %d, %Y')} - {e_dt.strftime('%B %d, %Y')}"
-            except Exception:
-                period_text = f"{start_date} to {end_date}"
-        elif current_start and current_end:
-            period_text = f"{timezone.localtime(current_start).strftime('%B %d, %Y')} - {timezone.localtime(current_end).strftime('%B %d, %Y')}"
-        else:
-            period_text = filter_type.replace('_', ' ').title()
-        generated_time = timezone.localtime().strftime('%b %d, %Y %I:%M %p')
-    
-        # Add filter info if applied
-        filter_info = []
-        if user_filter and user_filter != 'all':
-            try:
-                user_obj = AppUser.objects.get(user_id=int(user_filter))
-                filter_info.append(f"User: {user_obj.username}")
-            except:
-                pass
-        if fruit_filter and fruit_filter != 'all':
-            filter_info.append(f"Product: {fruit_filter}")
+        # Period type label under title - make it more descriptive
+        period_type_label = f"{period_type} Sales Report"
+        period_type_style = ParagraphStyle(
+            'PeriodType',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#6b7280'),
+            spaceAfter=8,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        elems.append(Paragraph(period_type_label, period_type_style))
         
-        meta_parts = [
-            f"<b>Period:</b> {period_text}",
-            f"<b>Generated:</b> {generated_time}",
-            f"<b>Prepared by:</b> Francis Hernia"
-        ]
-        if filter_info:
-            meta_parts.append(f"<b>Filters:</b> {', '.join(filter_info)}")
-    
-        meta = " | ".join(meta_parts)
-        elems.append(Paragraph(meta, subtitle_style))
+        # Add a small spacer at the top if needed, or just start with Executive Summary
         elems.append(Spacer(1, 12))
 
         # ========== SECTION 1: SALES SUMMARY ==========
@@ -5895,12 +6004,14 @@ def export_report(request):
         spaceAfter=6,
         spaceBefore=8,
         fontSize=12,
+        alignment=TA_LEFT,  # Left-align section titles (table section titles)
         fontName='Helvetica-Bold'
         )
     
         # Executive Summary Section with comprehensive metrics
-        elems.append(Paragraph("EXECUTIVE SUMMARY", section_style))
-        elems.append(Spacer(1, 8))
+        exec_summary_content = []
+        exec_summary_content.append(Paragraph(f"{period_type.upper()} EXECUTIVE SUMMARY", section_style))
+        exec_summary_content.append(Spacer(1, 8))
     
         avg_order = round((total_revenue / transaction_count) if transaction_count > 0 else 0, 2)
         card_style = ParagraphStyle('Card', fontSize=7, textColor=colors.HexColor('#374151'), alignment=TA_CENTER, leading=10)
@@ -5948,13 +6059,17 @@ def export_report(request):
         ('BACKGROUND', (1,2), (1,2), colors.HexColor('#f0fdf4')),
         ('BACKGROUND', (2,2), (2,2), colors.HexColor('#eef2ff')),
         ]))
-        elems.append(summary_grid)
-        elems.append(Spacer(1, 10))
+        # Add summary grid to section content
+        exec_summary_content.append(center_table(summary_grid))
+        exec_summary_content.append(Spacer(1, 10))
+        # Keep section title and table together
+        elems.append(KeepTogether(exec_summary_content))
 
 
         # ========== SECTION 2: SALES SUMMARY BY PRODUCT ==========
-        elems.append(Paragraph("SALES SUMMARY BY PRODUCT", section_style))
-        elems.append(Spacer(1, 8))
+        sales_summary_content = []
+        sales_summary_content.append(Paragraph(f"{period_type.upper()} SALES SUMMARY BY PRODUCT", section_style))
+        sales_summary_content.append(Spacer(1, 8))
     
         # Check if there's any data to generate a report
         if not sales_queryset.exists():
@@ -6243,7 +6358,7 @@ def export_report(request):
             
             # Column widths optimized with line-break headers to prevent overlap
             col_widths = [110, 40, 45, 45, 50, 50, 45, 55, 55, 50]
-            sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1)
+            sales_summary_table = Table(sales_summary_rows, colWidths=col_widths, repeatRows=1, hAlign='CENTER')
             sales_summary_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#10B981')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6260,15 +6375,20 @@ def export_report(request):
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
                 ('WORDWRAP', (0,0), (-1,-1), True),
             ]))
-            elems.append(sales_summary_table)
+            # Add table to section content
+            sales_summary_content.append(center_table(sales_summary_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(sales_summary_content))
         else:
-            elems.append(Paragraph("No product data available.", styles['Normal']))
+            sales_summary_content.append(Paragraph("No product data available.", styles['Normal']))
+            elems.append(KeepTogether(sales_summary_content))
         
         elems.append(Spacer(1, 8))
     
         # ========== SECTION 3: TOP PRODUCTS (Enhanced) ==========
-        elems.append(Paragraph("TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
-        elems.append(Spacer(1, 8))
+        top_products_content = []
+        top_products_content.append(Paragraph(f"{period_type.upper()} TOP PRODUCTS - PERFORMANCE ANALYSIS", section_style))
+        top_products_content.append(Spacer(1, 8))
     
         # Get top products with comprehensive metrics - use total quantity (boxes + kg)
         top_summary_sorted = sorted(summary, key=lambda x: (Decimal(str(x.get('boxes_sold') or 0)) + Decimal(str(x.get('kg_sold') or 0))), reverse=True)[:10] if summary else []
@@ -6329,7 +6449,7 @@ def export_report(request):
             
                 top_rows.append([
                 Paragraph(str(idx), cell_small_style),
-                Paragraph(product_name[:30], cell_style),
+                Paragraph(product_name, cell_style),
                 Paragraph(qty_display, cell_small_style),
                 Paragraph(f"PHP {avg_price:,.2f}", cell_small_style),
                 Paragraph(f"PHP {float(revenue):,.2f}", cell_small_style),
@@ -6341,7 +6461,7 @@ def export_report(request):
         
             # Column widths for top products (portrait, removed separate quantity column)
             top_col_widths = [25, 130, 45, 50, 60, 55, 45, 55, 45]
-            top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1)
+            top_table = Table(top_rows, colWidths=top_col_widths, repeatRows=1, hAlign='CENTER')
             top_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6359,15 +6479,20 @@ def export_report(request):
                 ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                 ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
-            elems.append(top_table)
+            # Add table to section content
+            top_products_content.append(center_table(top_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(top_products_content))
         else:
-            elems.append(Paragraph("No product data available.", styles['Normal']))
+            top_products_content.append(Paragraph("No product data available.", styles['Normal']))
+            elems.append(KeepTogether(top_products_content))
     
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 4: LOW STOCK INVENTORY (Enhanced) ==========
-        elems.append(Paragraph("LOW STOCK ANALYSIS", section_style))
-        elems.append(Spacer(1, 8))
+        low_stock_content = []
+        low_stock_content.append(Paragraph(f"{period_type.upper()} LOW STOCK ANALYSIS", section_style))
+        low_stock_content.append(Spacer(1, 8))
     
         # Get low stock items with comprehensive analytics
         low_q = list(Product.objects.filter(stock__lte=10, status='active').order_by('stock')[:20])
@@ -6451,7 +6576,7 @@ def export_report(request):
                 Paragraph('Current Stock', table_header_style),
                 Paragraph('Stock Value', table_header_style),
                 Paragraph('Avg Daily Sales', table_header_style),
-                Paragraph('Days of Supply', table_header_style),
+                Paragraph('Days Till Supply Last', table_header_style),
                 Paragraph('Reorder Point', table_header_style),
                 Paragraph('Reorder Qty', table_header_style),
                 Paragraph('Lead Time', table_header_style),
@@ -6463,7 +6588,7 @@ def export_report(request):
                 days_supply_str = f"{item['days_of_supply']:.1f}" if item['days_of_supply'] is not None else 'N/A'
                 label = _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))
                 low_rows.append([
-                    Paragraph(label[:30], cell_style),
+                    Paragraph(label, cell_style),
                 Paragraph(item['stock_display'], cell_small_style),
                 Paragraph(f"PHP {item['stock_value']:,.0f}", cell_small_style),
                 Paragraph(f"{item['average_daily_sales']:.1f}", cell_small_style),
@@ -6478,7 +6603,7 @@ def export_report(request):
             
             # Column widths fit portrait letter exactly (540pt)
             low_col_widths = [110, 45, 50, 50, 45, 45, 40, 40, 60, 30, 25]
-            low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1)
+            low_table = Table(low_rows, colWidths=low_col_widths, repeatRows=1, hAlign='CENTER')
             low_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EF4444')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6496,15 +6621,20 @@ def export_report(request):
                 ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                 ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
-            elems.append(low_table)
+            # Add table to section content
+            low_stock_content.append(center_table(low_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(low_stock_content))
         else:
-            elems.append(Paragraph("All products have sufficient stock.", styles['Normal']))
+            low_stock_content.append(Paragraph("All products have sufficient stock.", styles['Normal']))
+            elems.append(KeepTogether(low_stock_content))
     
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 5: DETAILED TRANSACTIONS ==========
-        elems.append(Paragraph("DETAILED TRANSACTIONS", section_style))
-        elems.append(Spacer(1, 8))
+        transactions_content = []
+        transactions_content.append(Paragraph(f"{period_type.upper()} DETAILED TRANSACTIONS", section_style))
+        transactions_content.append(Spacer(1, 8))
 
         # Group transactions by transaction_number (same as display logic)
         sale_rows = sales_q.order_by('-recorded_at','transaction_number','sale_id')[:500]
@@ -6592,7 +6722,7 @@ def export_report(request):
         ])
     
         # Column widths optimized for portrait letter - 6 columns with better spacing
-        table = Table(rows, repeatRows=1, colWidths=[80, 80, 85, 180, 60, 55])
+        table = Table(rows, repeatRows=1, colWidths=[80, 80, 85, 180, 60, 55], hAlign='CENTER')
         table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#6366f1')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6609,10 +6739,11 @@ def export_report(request):
         ('BOTTOMPADDING', (0,0), (-1,-1), 5),
         ('WORDWRAP', (0,0), (-1,-1), True),
         ]))
-        elems.append(table)
+        # Add table to section content
+        transactions_content.append(center_table(table))
     
         # Add summary footer - simplified
-        elems.append(Spacer(1, 10))
+        transactions_content.append(Spacer(1, 10))
         total_boxes_all = sum(float(tx.get('total_boxes', 0) or 0) for tx in tx_data)
         total_kg_all = sum(float(tx.get('total_kg', 0) or 0) for tx in tx_data)
         total_quantity_display = _format_quantity_display(total_boxes_all, total_kg_all)
@@ -6629,25 +6760,30 @@ def export_report(request):
             Paragraph(f'<b>PHP {total_all:,.2f}</b>', footer_style)
         ]
         ]
-        footer_table = Table(footer_data, colWidths=[70, 60, 90, 220, 45, 55])
+        footer_table = Table(footer_data, colWidths=[80, 80, 85, 180, 60, 55], hAlign='CENTER')
         footer_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f3f4f6')),
         ('FONTNAME', (3,0), (5,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 9),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
         ('ALIGN', (3,0), (5,0), 'RIGHT'),
         ('GRID', (3,0), (5,0), 1, colors.HexColor('#6366f1')),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
         ]))
-        elems.append(footer_table)
-        elems.append(Spacer(1, 8))
+        # Add footer table to section content
+        transactions_content.append(center_table(footer_table))
+        transactions_content.append(Spacer(1, 8))
+        # Keep section title and table together
+        elems.append(KeepTogether(transactions_content))
 
         # ========== SECTION 6: ABC ANALYSIS ==========
-        elems.append(Paragraph("ABC ANALYSIS - PRODUCT CATEGORIZATION", section_style))
-        elems.append(Spacer(1, 8))
+        # Keep section title and table together
+        abc_section_content = []
+        abc_section_content.append(Paragraph(f"{period_type.upper()} ABC ANALYSIS - PRODUCT CATEGORIZATION", section_style))
+        abc_section_content.append(Spacer(1, 8))
     
         # Calculate ABC analysis
         total_current_revenue_for_abc = sum(Decimal(item['revenue'] or 0) for item in summary)
@@ -6686,13 +6822,13 @@ def export_report(request):
             for item in abc_data:
                 abc_rows.append([
                     item['category'],
-                    str(item['product_name'])[:25],
+                    Paragraph(str(item['product_name']), cell_style),
                     f"PHP {item['revenue']:,.2f}",
                     f"{item['revenue_share_pct']:.2f}%",
                     f"{item['cumulative_pct']:.2f}%"
                 ])
             
-            abc_table = Table(abc_rows, repeatRows=1, colWidths=[30, 130, 80, 80, 80])
+            abc_table = Table(abc_rows, repeatRows=1, colWidths=[30, 130, 80, 80, 80], hAlign='CENTER')
             abc_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6710,15 +6846,20 @@ def export_report(request):
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
                 ('WORDWRAP', (0,0), (-1,-1), True),
             ]))
-            elems.append(abc_table)
+            # Add table to section content (center it)
+            abc_section_content.append(center_table(abc_table))
+            # Keep section title and table together (prevent page break between them)
+            elems.append(KeepTogether(abc_section_content))
         else:
-            elems.append(Paragraph("No ABC analysis data available.", styles['Normal']))
+            abc_section_content.append(Paragraph("No ABC analysis data available.", styles['Normal']))
+            elems.append(KeepTogether(abc_section_content))
     
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 7: SLOW MOVERS ==========
-        elems.append(Paragraph("SLOW MOVERS - LOW SALES PERFORMANCE", section_style))
-        elems.append(Spacer(1, 8))
+        slow_movers_content = []
+        slow_movers_content.append(Paragraph(f"{period_type.upper()} SLOW MOVERS - LOW SALES PERFORMANCE", section_style))
+        slow_movers_content.append(Spacer(1, 8))
     
         # Calculate slow movers
         slow_movers_data = []
@@ -6760,13 +6901,13 @@ def export_report(request):
             slow_rows = [['Product', 'Quantity Sold', 'Revenue', 'Avg Daily Sales']]
             for item in slow_movers_data:
                 slow_rows.append([
-                    _fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit'))[:30],
+                    Paragraph(_fmt_prod(item.get('product_name'), item.get('variant'), item.get('unit')), cell_style),
                     item['quantity_display'],
                     f"PHP {item['revenue']:,.2f}",
                     f"{item['avg_daily_sales']:.2f}"
                 ])
             
-            slow_table = Table(slow_rows, repeatRows=1, colWidths=[180, 70, 90, 80])
+            slow_table = Table(slow_rows, repeatRows=1, colWidths=[180, 70, 90, 80], hAlign='CENTER')
             slow_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6782,15 +6923,20 @@ def export_report(request):
                 ('TOPPADDING', (0,0), (-1,-1), 4),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ]))
-            elems.append(slow_table)
+            # Add table to section content
+            slow_movers_content.append(center_table(slow_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(slow_movers_content))
         else:
-            elems.append(Paragraph("No slow movers identified.", styles['Normal']))
+            slow_movers_content.append(Paragraph("No slow movers identified.", styles['Normal']))
+            elems.append(KeepTogether(slow_movers_content))
     
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 8: DEAD STOCK ==========
-        elems.append(Paragraph("DEAD STOCK - AGING INVENTORY", section_style))
-        elems.append(Spacer(1, 8))
+        dead_stock_content = []
+        dead_stock_content.append(Paragraph(f"{period_type.upper()} DEAD STOCK - AGING INVENTORY", section_style))
+        dead_stock_content.append(Spacer(1, 8))
     
         # Calculate dead stock
         dead_stock_data = []
@@ -6837,14 +6983,14 @@ def export_report(request):
             dead_rows = [['Product', 'Current Stock', 'Stock Value', 'Last Sale Date', 'Days Idle']]
             for item in dead_stock_data:
                 dead_rows.append([
-                    _fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit'))[:30],
+                    Paragraph(_fmt_prod(item.get('product_name'), item.get('variant'), item.get('quantity_unit')), cell_style),
                     item['stock_display'],
                     f"PHP {item['stock_value']:,.2f}",
                     item['last_sale'],
                     str(item['days_idle'])
                 ])
             
-            dead_table = Table(dead_rows, repeatRows=1, colWidths=[150, 70, 90, 90, 70])
+            dead_table = Table(dead_rows, repeatRows=1, colWidths=[150, 70, 90, 90, 70], hAlign='CENTER')
             dead_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6860,15 +7006,20 @@ def export_report(request):
                 ('TOPPADDING', (0,0), (-1,-1), 4),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ]))
-            elems.append(dead_table)
+            # Add table to section content
+            dead_stock_content.append(center_table(dead_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(dead_stock_content))
         else:
-            elems.append(Paragraph("No dead stock identified. All products have recent sales activity.", styles['Normal']))
+            dead_stock_content.append(Paragraph("No dead stock identified. All products have recent sales activity.", styles['Normal']))
+            elems.append(KeepTogether(dead_stock_content))
     
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 9: SPOILED STOCK ==========
-        elems.append(Paragraph("SPOILED STOCK - WASTE TRACKING", section_style))
-        elems.append(Spacer(1, 8))
+        spoiled_stock_content = []
+        spoiled_stock_content.append(Paragraph(f"{period_type.upper()} SPOILED STOCK - WASTE TRACKING", section_style))
+        spoiled_stock_content.append(Spacer(1, 8))
         
         # Calculate spoiled stock data using direct StockAddition query
         spoilage_list_pdf = []
@@ -6954,13 +7105,13 @@ def export_report(request):
             for item in spoilage_list_pdf:
                 loss_amount = item.get('loss_amount', 0)
                 spoilage_rows.append([
-                    item['product_name'][:40],
+                    Paragraph(item['product_name'], cell_style),
                     item['spoiled_quantity'],
                     f"{loss_amount:,.2f}",
                     item['deduction_date']
                 ])
             
-            spoilage_table = Table(spoilage_rows, repeatRows=1, colWidths=[200, 100, 100, 140])
+            spoilage_table = Table(spoilage_rows, repeatRows=1, colWidths=[200, 100, 100, 140], hAlign='CENTER')
             spoilage_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f59e0b')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -6978,15 +7129,20 @@ def export_report(request):
                 ('TOPPADDING', (0,0), (-1,-1), 4),
                 ('BOTTOMPADDING', (0,0), (-1,-1), 4),
             ]))
-            elems.append(spoilage_table)
+            # Add table to section content
+            spoiled_stock_content.append(center_table(spoilage_table))
+            # Keep section title and table together
+            elems.append(KeepTogether(spoiled_stock_content))
         else:
-            elems.append(Paragraph("No spoiled stock recorded for this period.", styles['Normal']))
+            spoiled_stock_content.append(Paragraph("No spoiled stock recorded for this period.", styles['Normal']))
+            elems.append(KeepTogether(spoiled_stock_content))
         
         elems.append(Spacer(1, 8))
 
         # ========== SECTION 10: VOIDED TRANSACTIONS ==========
-        elems.append(Paragraph("VOIDED TRANSACTIONS", section_style))
-        elems.append(Spacer(1, 8))
+        voided_content = []
+        voided_content.append(Paragraph(f"{period_type.upper()} VOIDED TRANSACTIONS", section_style))
+        voided_content.append(Spacer(1, 8))
     
         # Get voided transactions
         voided_queryset = Sale.objects.filter(status__iexact='voided').select_related('user', 'product')
@@ -7077,17 +7233,17 @@ def export_report(request):
                 customer_name = tx.get('customer_name', 'N/A') or 'N/A'
                 or_no = tx.get('or_no', 'N/A') or 'N/A'
                 voided_rows.append([
-                    Paragraph(str(transaction_no)[:20], cell_small_style),
-                    Paragraph(str(or_no)[:15], cell_small_style),
+                    Paragraph(str(transaction_no), cell_small_style),
+                    Paragraph(str(or_no), cell_small_style),
                     Paragraph(tx['voided_at'], cell_small_style),
-                    Paragraph(str(customer_name)[:20], cell_small_style),
+                    Paragraph(str(customer_name), cell_small_style),
                     Paragraph(products_html, cell_style),
                     Paragraph(quantity_display, cell_small_style),
-                    Paragraph(void_reason[:30], cell_small_style),
+                    Paragraph(void_reason, cell_small_style),
                     Paragraph(f"PHP {tx['total']:,.2f}", cell_small_style)
                 ])
             
-            voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 55, 75, 160, 50, 80, 50])
+            voided_table = Table(voided_rows, repeatRows=1, colWidths=[70, 60, 55, 75, 160, 50, 80, 50], hAlign='CENTER')
             voided_table.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#ef4444')),
                 ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -7104,25 +7260,31 @@ def export_report(request):
                 ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                 ('WORDWRAP', (0,0), (-1,-1), True),
             ]))
-            elems.append(voided_table)
+            # Center and keep table together (prevent page break in middle of table)
+            # Add table to section content
+            voided_content.append(center_table(voided_table))
             
             # Add voided summary
             total_voided_amount = sum(float(tx['total']) for tx in voided_data_pdf)
             total_voided_boxes = sum(float(tx.get('total_boxes', 0) or 0) for tx in voided_data_pdf)
             total_voided_kg = sum(float(tx.get('total_kg', 0) or 0) for tx in voided_data_pdf)
             voided_quantity_display = _format_quantity_display(total_voided_boxes, total_voided_kg)
-            elems.append(Spacer(1, 8))
+            voided_content.append(Spacer(1, 8))
             voided_summary = Paragraph(
                 f"<b>Total Voided:</b> {len(voided_data_pdf)} transactions, {voided_quantity_display}, PHP {total_voided_amount:,.2f}",
                 ParagraphStyle('Summary', fontSize=9, textColor=colors.HexColor('#6b7280'), fontName='Helvetica-Bold')
             )
-            elems.append(voided_summary)
+            voided_content.append(voided_summary)
         else:
-            elems.append(Paragraph("No voided transactions in this period.", styles['Normal']))
+            voided_content.append(Paragraph("No voided transactions in this period.", styles['Normal']))
+        
+        # Keep section title and table together
+        elems.append(KeepTogether(voided_content))
 
         elems.append(Spacer(1, 10))
-        elems.append(Paragraph("ACCEPTED PRICING CHANGES", section_style))
-        elems.append(Spacer(1, 8))
+        pricing_changes_content = []
+        pricing_changes_content.append(Paragraph(f"{period_type.upper()} ACCEPTED PRICING CHANGES", section_style))
+        pricing_changes_content.append(Spacer(1, 8))
 
         try:
             from core.models import PricingRecommendation
@@ -7181,7 +7343,7 @@ def export_report(request):
                     
                     rows.append([
                         Paragraph(date_str, cell_small_style),
-                        Paragraph(name[:30], cell_style),
+                        Paragraph(name, cell_style),
                         Paragraph(f"PHP {float(pr.current_price or 0):,.2f}", cell_small_style),
                         Paragraph(f"PHP {float(pr.suggested_price or 0):,.2f}", cell_small_style),
                         Paragraph(change_label, cell_small_style),
@@ -7190,7 +7352,7 @@ def export_report(request):
                     ])
 
                 price_col_widths = [60, 120, 70, 70, 50, 60, available_width - (60+120+70+70+50+60) - 10]
-                pricing_table = Table(rows, repeatRows=1, colWidths=price_col_widths)
+                pricing_table = Table(rows, repeatRows=1, colWidths=price_col_widths, hAlign='CENTER')
                 pricing_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#3b82f6')),
                     ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -7207,17 +7369,25 @@ def export_report(request):
                     ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                     ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
-                elems.append(pricing_table)
+                # Add table to section content
+                pricing_changes_content.append(center_table(pricing_table))
+                # Keep section title and table together
+                elems.append(KeepTogether(pricing_changes_content))
             else:
-                elems.append(Paragraph("No accepted pricing changes in this period.", styles['Normal']))
+                pricing_changes_content.append(Paragraph("No accepted pricing changes in this period.", styles['Normal']))
+                elems.append(KeepTogether(pricing_changes_content))
         except Exception:
             elems.append(Paragraph("Accepted pricing data unavailable.", styles['Normal']))
 
         elems.append(Spacer(1, 8))
         
         # ========== SECTION: PRICING ANALYSIS ==========
-        elems.append(Paragraph("PRICING ANALYSIS", section_style))
-        elems.append(Spacer(1, 8))
+        # Separate content for title+table vs graph
+        pricing_table_content = []
+        pricing_table_content.append(Paragraph(f"{period_type.upper()} PRICING ANALYSIS", section_style))
+        pricing_table_content.append(Spacer(1, 4))  # Reduced spacer to keep title closer to table
+        
+        pricing_graph_content = []  # For graph section
         
         try:
             # Get pricing analysis data for the report period
@@ -7441,7 +7611,7 @@ def export_report(request):
                 
                 # Add row to table (truncate product name to fit)
                 pricing_rows.append([
-                    Paragraph(product_name[:25], cell_style),
+                    Paragraph(product_name, cell_style),
                     Paragraph(unit.upper() if unit else 'N/A', cell_small_style),
                     Paragraph(period_display, cell_small_style),
                     Paragraph(demand_display, cell_small_style),
@@ -7478,7 +7648,7 @@ def export_report(request):
                     # Scale down proportionally if needed
                     scale_factor = (available_width - 10) / total_width
                     pricing_col_widths = [int(w * scale_factor) for w in pricing_col_widths]
-                pricing_analysis_table = Table(pricing_rows, repeatRows=1, colWidths=pricing_col_widths)
+                pricing_analysis_table = Table(pricing_rows, repeatRows=1, colWidths=pricing_col_widths, hAlign='CENTER')
                 pricing_analysis_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
                     ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -7496,7 +7666,29 @@ def export_report(request):
                     ('BOTTOMPADDING', (0,0), (-1,-1), 4),
                     ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
-                elems.append(pricing_analysis_table)
+                # For very long tables, we can't keep the entire table with the title on one page
+                # But we can ensure the title stays with the table header (first row)
+                # Since the table has repeatRows=1, the header will repeat on each page automatically
+                
+                # Center the table first
+                centered_table = center_table(pricing_analysis_table)
+                
+                # Add content to elems directly without full KeepTogether wrapper (which caused issues with long tables)
+                # Instead, use keepWithNext on the title to ensure it stays with the start of the table
+                
+                # Create specific style for this section title that enforces keeping with next element
+                pricing_title_style = ParagraphStyle(
+                    'PricingSectionHeader', 
+                    parent=section_style,
+                    keepWithNext=True,  # Force title to stay with next element (the table)
+                    spaceAfter=10       # Add space explicitly here since we won't use a Spacer flowable
+                )
+                
+                elems.append(Paragraph(f"{period_type.upper()} PRICING ANALYSIS", pricing_title_style))
+                
+                # Add table directly (it can split if needed, but title will stick to start)
+                elems.append(centered_table)
+                
                 elems.append(Spacer(1, 6))
                 elems.append(Paragraph(
                     "<i>Note: Period Movement Summary shows pricing and demand trends for each product. "
@@ -7504,19 +7696,314 @@ def export_report(request):
                     "Best Period is the week with highest sales volume.</i>",
                     ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
                 ))
+                
+                # Add Pricing Analysis Graph to PDF (separate from table)
+                try:
+                    pricing_graph_content.append(Spacer(1, 12))
+                    pricing_graph_content.append(Paragraph("Pricing Analysis Graph", section_style))
+                    pricing_graph_content.append(Spacer(1, 6))
+                    
+                    # Generate the graph using matplotlib - styled to match Chart.js as closely as possible
+                    matplotlib_available = False
+                    try:
+                        import matplotlib
+                        matplotlib.use('Agg')  # Use non-interactive backend
+                        import matplotlib.pyplot as plt
+                        import matplotlib.dates as mdates
+                        from matplotlib.colors import hsv_to_rgb
+                        import numpy as np
+                        matplotlib_available = True
+                    except ImportError as import_err:
+                        matplotlib_available = False
+                        import traceback
+                        error_msg = f"Matplotlib import error: {str(import_err)}"
+                        print(error_msg)
+                        print(traceback.format_exc())
+                        pricing_graph_content.append(Paragraph(f"Graph generation unavailable (matplotlib import failed: {str(import_err)}).", styles['Normal']))
+                    except Exception as e:
+                        matplotlib_available = False
+                        import traceback
+                        error_msg = f"Matplotlib setup error: {str(e)}"
+                        print(error_msg)
+                        print(traceback.format_exc())
+                        pricing_graph_content.append(Paragraph(f"Graph generation unavailable (error: {str(e)}).", styles['Normal']))
+                    
+                    if matplotlib_available:
+                        # Get pricing data for graph (same as web page) - use same logic as get_pricing_analysis_data
+                        graph_products = pricing_products  # Use all products like the web page
+                        
+                        if graph_products.exists():
+                            # Prepare data for graph - match web chart exactly using same data structure
+                            fig, ax1 = plt.subplots(figsize=(10, 6))
+                            ax2 = ax1.twinx()
+                            
+                            # Generate colors matching the web chart EXACTLY (HSL color scheme: hsl(hue, 70%, 50%))
+                            # Web uses: const hue = (index * 360 / total) % 360; return `hsl(${hue}, 70%, 50%)`;
+                            def generate_color(index, total):
+                                hue_deg = (index * 360 / total) % 360
+                                hue = hue_deg / 360.0
+                                saturation = 0.7  # 70%
+                                lightness = 0.5   # 50%
+                                rgb = hsv_to_rgb([hue, saturation, lightness])
+                                return tuple(rgb)
+                            
+                            # Collect all dates and create price_history like web chart
+                            all_dates = set()
+                            product_data = []
+                            
+                            for idx, product in enumerate(graph_products):
+                                sales = Sale.objects.filter(
+                                    product=product,
+                                    recorded_at__gte=analysis_start,
+                                    recorded_at__lte=analysis_end,
+                                    status='completed'
+                                ).order_by('recorded_at')
+                                
+                                if not sales.exists():
+                                    continue
+                                
+                                # Create price_history structure like web chart (list of {date, price, quantity})
+                                price_history = []
+                                for sale in sales:
+                                    sale_date = sale.recorded_at.date()
+                                    all_dates.add(sale_date)
+                                    price_history.append({
+                                        'date': sale_date.isoformat(),
+                                        'price': float(sale.price),
+                                        'quantity': float(sale.quantity)
+                                    })
+                                
+                                if price_history:
+                                    # Group by date and calculate average price per day (like web chart)
+                                    daily_data = {}
+                                    for item in price_history:
+                                        date_key = item['date']
+                                        if date_key not in daily_data:
+                                            daily_data[date_key] = {'prices': [], 'quantities': []}
+                                        daily_data[date_key]['prices'].append(item['price'])
+                                        daily_data[date_key]['quantities'].append(item['quantity'])
+                                    
+                                    # Create sorted date list and price/quantity arrays
+                                    sorted_date_keys = sorted(daily_data.keys())
+                                    # Convert ISO date strings back to date objects
+                                    from datetime import date
+                                    dates = [date.fromisoformat(d) for d in sorted_date_keys]
+                                    price_data = [np.mean(daily_data[d]['prices']) for d in sorted_date_keys]
+                                    quantity_data = [sum(daily_data[d]['quantities']) for d in sorted_date_keys]
+                                    
+                                    # Product label format: "ProductName (Variant) (Unit)" - match web exactly
+                                    product_label = f"{product.name}"
+                                    if product.variant:
+                                        product_label += f" ({product.variant})"
+                                    product_label += f" ({product.quantity_unit})"
+                                    
+                                    color = generate_color(idx, len(graph_products))
+                                    product_data.append({
+                                        'label': product_label,
+                                        'dates': dates,
+                                        'prices': price_data,
+                                        'quantities': quantity_data,
+                                        'color': color
+                                    })
+                        
+                            if product_data:
+                                # Sort dates
+                                sorted_dates = sorted(all_dates)
+                                
+                                # Plot price lines (left y-axis) - match Chart.js style exactly
+                                for pdata in product_data:
+                                    if len(pdata['dates']) > 0:
+                                        # Match Chart.js styling: borderWidth=2, pointRadius=3, tension=0.4, spanGaps=true
+                                        # Use interpolation for smooth curves like Chart.js tension
+                                        ax1.plot(pdata['dates'], pdata['prices'], 
+                                                label=pdata['label'], 
+                                                color=pdata['color'],
+                                                linewidth=2,
+                                                marker='o',
+                                                markersize=3,
+                                                markeredgewidth=0,
+                                                markeredgecolor=pdata['color'],
+                                                markerfacecolor=pdata['color'],
+                                                alpha=1.0,  # Full opacity like Chart.js
+                                                linestyle='-',
+                                                antialiased=True,
+                                                zorder=2)  # Ensure lines are above grid
+                                
+                                # Format x-axis - match Chart.js date formatting
+                                # Chart.js uses format like "Jan 2", "Jan 3", etc.
+                                from matplotlib.ticker import FuncFormatter as TickFuncFormatter
+                                
+                                def format_date(x, p):
+                                    date_val = mdates.num2date(x)
+                                    return date_val.strftime('%b %d')
+                                
+                                ax1.xaxis.set_major_formatter(TickFuncFormatter(format_date))
+                                # Show reasonable number of date labels
+                                if len(sorted_dates) > 30:
+                                    ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
+                                elif len(sorted_dates) > 10:
+                                    ax1.xaxis.set_major_locator(mdates.WeekdayLocator())
+                                else:
+                                    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+                                
+                                plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=11)
+                                
+                                # Format y-axes - match Chart.js exactly
+                                ax1.set_ylabel('Price (₱)', fontsize=12, fontweight='bold', color='#1f2937')
+                                ax1.tick_params(axis='y', labelcolor='#1f2937', labelsize=11)
+                                
+                                # Format y-axis ticks to show ₱ symbol (match Chart.js callback)
+                                ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'₱{x:.0f}'))
+                                
+                                # Grid styling - match Chart.js: color: 'rgba(0, 0, 0, 0.05)'
+                                ax1.grid(True, alpha=0.05, linestyle='-', linewidth=0.5, color='black')
+                                ax1.set_axisbelow(True)
+                                
+                                # Remove right y-axis (Chart.js shows it but we only need price axis)
+                                ax2.set_visible(False)
+                                
+                                # Set title - match Chart.js title styling
+                                period_text = f"{analysis_start.strftime('%b %d, %Y')} - {analysis_end.strftime('%b %d, %Y')}"
+                                ax1.set_title(f'Pricing Analysis: Price Trends Over Time\n{period_text}', 
+                                            fontsize=13, fontweight='bold', pad=15, color='#1f2937')
+                                
+                                # Set background to white
+                                ax1.set_facecolor('white')
+                                fig.patch.set_facecolor('white')
+                                
+                                # Adjust layout
+                                plt.tight_layout()
+                                
+                                # Save to BytesIO with high DPI for quality
+                                img_buffer = BytesIO()
+                                plt.savefig(img_buffer, format='png', dpi=200, bbox_inches='tight', 
+                                          facecolor='white', edgecolor='none', transparent=False)
+                                img_buffer.seek(0)
+                                plt.close()
+                                
+                                # Add image to PDF
+                                from reportlab.platypus import Image
+                                img = Image(img_buffer, width=7*inch, height=4.2*inch)  # Maintain aspect ratio
+                                pricing_graph_content.append(img)
+                                pricing_graph_content.append(Spacer(1, 6))
+                                
+                                # Create legend table matching web chart style exactly
+                                # Sort products alphabetically like web chart
+                                sorted_products = sorted(product_data, key=lambda x: x['label'].lower())
+                                
+                                # Create legend with colored boxes and product names (matching web: 14px square + text)
+                                from reportlab.lib.units import mm
+                                
+                                legend_rows = []
+                                products_per_row = 5
+                                
+                                for i in range(0, len(sorted_products), products_per_row):
+                                    row_products = sorted_products[i:i+products_per_row]
+                                    legend_row = []
+                                    
+                                    for pdata in row_products:
+                                        # Convert matplotlib color (tuple) to ReportLab color
+                                        r, g, b = pdata['color']
+                                        reportlab_color = colors.Color(r, g, b)
+                                        
+                                        product_name = pdata['label']
+                                        
+                                        # Create a cell with colored square + product name
+                                        # Use a table cell with colored left border (thick) to simulate square
+                                        product_text = Paragraph(
+                                            product_name,
+                                            ParagraphStyle('Legend', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#374151'), leading=9)
+                                        )
+                                        
+                                        legend_row.append(product_text)
+                                    
+                                    # Pad row if needed
+                                    while len(legend_row) < products_per_row:
+                                        legend_row.append(Paragraph('', styles['Normal']))
+                                    
+                                    legend_rows.append(legend_row)
+                                
+                                if legend_rows:
+                                    # Calculate column widths (equal distribution)
+                                    available_width = 7*inch - 0.3*inch  # Account for margins
+                                    col_width = available_width / products_per_row
+                                    
+                                    # Create legend table
+                                    legend_table = Table(legend_rows, colWidths=[col_width] * products_per_row)
+                                    
+                                    # Build table style with colored left borders (thick to simulate squares)
+                                    table_style = TableStyle([
+                                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                                        ('LEFTPADDING', (0, 0), (-1, -1), 8),  # Extra padding for colored border
+                                        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                                        ('TOPPADDING', (0, 0), (-1, -1), 3),
+                                        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                                        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+                                    ])
+                                    
+                                    # Add thick colored left borders to simulate colored squares
+                                    product_idx = 0
+                                    for row_idx, row in enumerate(legend_rows):
+                                        for col_idx in range(len(row)):
+                                            if product_idx < len(sorted_products):
+                                                pdata = sorted_products[product_idx]
+                                                r, g, b = pdata['color']
+                                                reportlab_color = colors.Color(r, g, b)
+                                                
+                                                # Add thick colored left border (5mm = ~14px) to simulate square
+                                                table_style.add('LINEBEFORE', (col_idx, row_idx), (col_idx, row_idx), 5*mm, reportlab_color)
+                                                product_idx += 1
+                                    
+                                    legend_table.setStyle(table_style)
+                                    
+                                    pricing_graph_content.append(Spacer(1, 4))
+                                    pricing_graph_content.append(Paragraph("Product Legend:", 
+                                        ParagraphStyle('LegendTitle', parent=styles['Normal'], fontSize=8, fontName='Helvetica-Bold', textColor=colors.HexColor('#374151'))))
+                                    pricing_graph_content.append(Spacer(1, 2))
+                                    # Center and keep legend table together
+                                    pricing_graph_content.append(center_table(legend_table))
+                                    pricing_graph_content.append(Spacer(1, 4))
+                                
+                                # Add legend note
+                                pricing_graph_content.append(Paragraph(
+                                    "<i>Note: Graph shows price trends for all products over the selected period. Each colored line represents a different product. "
+                                    "The graph matches the interactive chart displayed on the Reports page.</i>",
+                                    ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
+                                ))
+                            else:
+                                pricing_graph_content.append(Paragraph("No pricing data available for graph generation.", styles['Normal']))
+                        else:
+                            pricing_graph_content.append(Paragraph("No products available for graph generation.", styles['Normal']))
+                        
+                except Exception as graph_error:
+                    import traceback
+                    error_msg = f"Error generating pricing analysis graph: {str(graph_error)}"
+                    error_trace = traceback.format_exc()
+                    print(error_msg)
+                    print(error_trace)
+                    # Log the error but still try to show something
+                    pricing_graph_content.append(Paragraph(f"Pricing analysis graph unavailable. Error: {str(graph_error)}", styles['Normal']))
+                
+                # Add graph content to elems (separate from table)
+                if pricing_graph_content:
+                    elems.extend(pricing_graph_content)
+                    
             else:
-                elems.append(Paragraph("No pricing analysis data available for this period.", styles['Normal']))
+                pricing_table_content.append(Paragraph("No pricing analysis data available for this period.", styles['Normal']))
+                elems.append(KeepTogether(pricing_table_content))
         except Exception as e:
             import traceback
             print(f"Error generating pricing analysis section: {str(e)}")
             print(traceback.format_exc())
-            elems.append(Paragraph("Pricing analysis data unavailable.", styles['Normal']))
+            pricing_table_content.append(Paragraph("Pricing analysis data unavailable.", styles['Normal']))
+            elems.append(KeepTogether(pricing_table_content))
 
         elems.append(Spacer(1, 8))
         
         # ========== SECTION: INVENTORY REPORT ==========
-        elems.append(Paragraph("INVENTORY REPORT", section_style))
-        elems.append(Spacer(1, 8))
+        inventory_content = []
+        inventory_content.append(Paragraph(f"{period_type.upper()} INVENTORY REPORT", section_style))
+        inventory_content.append(Spacer(1, 8))
         
         try:
             # Get inventory report data for the selected period
@@ -7549,7 +8036,7 @@ def export_report(request):
                 Paragraph('Revenue', table_header_style),
                 Paragraph('Profit', table_header_style),
                 Paragraph('Stock Turnover', table_header_style),
-                Paragraph('Days of Supply', table_header_style),
+                Paragraph('Days Till Supply Last', table_header_style),
                 Paragraph('Status', table_header_style)
             ]]
             
@@ -7602,7 +8089,7 @@ def export_report(request):
                     avg_stock = (product_stock + total_sold) / 2 if total_sold > 0 else product_stock
                     stock_turnover = float(total_sold / avg_stock) if avg_stock > 0 else 0.0
                     
-                    # Calculate days of supply
+                    # Calculate days till supply last
                     if current_start and current_end:
                         period_days = max(1, (current_end.date() - current_start.date()).days + 1)
                     else:
@@ -7624,7 +8111,7 @@ def export_report(request):
                         added_display = f"{int(boxes_added)} boxes" if boxes_added > 0 else "0 boxes"
                         stock_display = f"{int(product_stock)} boxes"
                     
-                    # Format days of supply
+                    # Format days till supply last
                     if days_of_supply == float('inf') or days_of_supply > 999:
                         days_supply_display = "∞"
                     else:
@@ -7658,10 +8145,10 @@ def export_report(request):
                     55,   # Revenue
                     55,   # Profit
                     50,   # Stock Turnover
-                    50,   # Days of Supply
+                    50,   # Days Till Supply Last
                     40    # Status
                 ]
-                inventory_table = Table(inventory_rows, repeatRows=1, colWidths=inventory_col_widths)
+                inventory_table = Table(inventory_rows, repeatRows=1, colWidths=inventory_col_widths, hAlign='CENTER')
                 inventory_table.setStyle(TableStyle([
                     ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#8b5cf6')),
                     ('TEXTCOLOR', (0,0), (-1,0), colors.white),
@@ -7679,22 +8166,27 @@ def export_report(request):
                     ('BOTTOMPADDING', (0,0), (-1,-1), 5),
                     ('WORDWRAP', (0,0), (-1,-1), True),
                 ]))
-                elems.append(inventory_table)
-                elems.append(Spacer(1, 6))
-                elems.append(Paragraph(
+                # Center and keep table together (prevent page break in middle of table)
+                inventory_content.append(center_table(inventory_table))
+                inventory_content.append(Spacer(1, 6))
+                inventory_content.append(Paragraph(
                     "<i>Note: Sold in Period and Added in Period are based on the selected date range. "
-                    "Stock Turnover = (Quantity Sold) / (Average Stock). Days of Supply = Current Stock / Average Daily Sales.</i>",
+                    "Stock Turnover = (Quantity Sold) / (Average Stock). Days Till Supply Last = Current Stock / Average Daily Sales.</i>",
                     ParagraphStyle('Note', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#6b7280'), fontStyle='italic')
                 ))
+                # Keep section title and table together
+                elems.append(KeepTogether(inventory_content))
             else:
-                elems.append(Paragraph("No inventory data available for this period.", styles['Normal']))
+                inventory_content.append(Paragraph("No inventory data available for this period.", styles['Normal']))
+                elems.append(KeepTogether(inventory_content))
         except Exception as e:
             import traceback
             print(f"Error generating inventory report section: {str(e)}")
             print(traceback.format_exc())
-            elems.append(Paragraph("Inventory report data unavailable.", styles['Normal']))
+            inventory_content.append(Paragraph("Inventory report data unavailable.", styles['Normal']))
+            elems.append(KeepTogether(inventory_content))
 
-        doc.build(elems)
+        doc.build(elems, onFirstPage=footer, onLaterPages=footer, canvasmaker=PageNumCanvas)
         pdf = buffer.getvalue()
         buffer.close()
 

@@ -506,6 +506,16 @@
             padding: 0.5rem;
             box-shadow: var(--shadow);
             margin-bottom: 1.5rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .dashboard-tabs-actions {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
         }
 
         .dashboard-tabs {
@@ -1928,81 +1938,16 @@
 
                 </div>
 
-                <!-- Quick Actions -->
-                <div class="modern-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i class="bi bi-lightning-charge"></i>
-                            Quick Actions
-                        </h3>
-                        <button type="button" class="btn-filter-action" id="dashboardRefreshBtn" aria-label="Refresh dashboard">
-                            <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="dashboardRefreshSpinner"></span>
-                            <span class="refresh-text">Refresh</span>
-                        </button>
-                    </div>
-                    <div class="action-buttons">
-                        <div class="action-grid">
-                            <a href="{% url 'add_product_page' %}" class="action-btn">
-                                <i class="bi bi-plus-circle"></i>
-                                <div class="action-btn-content">
-                                    <h6>Product Registration</h6>
-                                    <p>Add new items to inventory</p>
-                                </div>
-                            </a>
-                            <a href="{% url 'record_sale' %}" class="action-btn">
-                                <i class="bi bi-cart-plus"></i>
-                                <div class="action-btn-content">
-                                    <h6>Record Transaction</h6>
-                                    <p>Process a new transaction</p>
-                                </div>
-                            </a>
-                            <a href="{% url 'add_stock_page' %}" class="action-btn">
-                                <i class="bi bi-box-arrow-in-down"></i>
-                                <div class="action-btn-content">
-                                    <h6>Add Stock</h6>
-                                    <p>Restock existing products</p>
-                                </div>
-                            </a>
-                            <a href="{% url 'sales' %}" class="action-btn">
-                                <i class="bi bi-receipt"></i>
-                                <div class="action-btn-content">
-                                    <h6>Sales</h6>
-                                    <p>View and manage sales</p>
-                                </div>
-                            </a>
-                            {% if app_role == 'admin' %}
-                            <a href="{% url 'sms_settings' %}" class="action-btn">
-                                <i class="bi bi-chat-dots"></i>
-                                <div class="action-btn-content">
-                                    <h6>SMS Notification</h6>
-                                    <p>Update SMS sender info</p>
-                                </div>
-                            </a>
-                            <a href="{% url 'reports' %}" class="action-btn">
-                                <i class="bi bi-file-earmark-text"></i>
-                                <div class="action-btn-content">
-                                    <h6>View Reports</h6>
-                                    <p>Reports and insights</p>
-                                </div>
-                            </a>
-                            <a href="{% url 'pricing_analysis' %}" class="action-btn">
-                                <i class="bi bi-currency-dollar"></i>
-                                <div class="action-btn-content">
-                                    <h6>Pricing Analysis</h6>
-                                    <p>Analyze pricing trends</p>
-                                </div>
-                            </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-
                 <!-- Dashboard Section Tabs -->
                 <div class="dashboard-tabs-container">
                     <ul class="nav nav-pills dashboard-tabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview-content" type="button" role="tab" aria-controls="overview-content" aria-selected="true">
+                            <button class="nav-link active" id="quick-actions-tab" data-bs-toggle="pill" data-bs-target="#quick-actions-content" type="button" role="tab" aria-controls="quick-actions-content" aria-selected="true">
+                                <i class="bi bi-lightning-charge"></i> Quick Actions
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview-content" type="button" role="tab" aria-controls="overview-content" aria-selected="false">
                                 <i class="bi bi-grid-3x3-gap"></i> Overview
                             </button>
                         </li>
@@ -2014,11 +1959,84 @@
                         </li>
                         {% endif %}
                     </ul>
+                    <div class="dashboard-tabs-actions">
+                        <button type="button" class="btn-filter-action" id="dashboardRefreshBtn" aria-label="Refresh dashboard">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="dashboardRefreshSpinner"></span>
+                            <span class="refresh-text">Refresh</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="tab-content dashboard-tab-content">
+                    <!-- Quick Actions Tab -->
+                    <div class="tab-pane fade show active" id="quick-actions-content" role="tabpanel" aria-labelledby="quick-actions-tab">
+                        <div class="modern-card">
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-lightning-charge"></i>
+                                    Quick Actions
+                                </h3>
+                            </div>
+                            <div class="action-buttons">
+                                <div class="action-grid">
+                                    <a href="{% url 'add_product_page' %}" class="action-btn">
+                                        <i class="bi bi-plus-circle"></i>
+                                        <div class="action-btn-content">
+                                            <h6>Product Registration</h6>
+                                            <p>Add new items to inventory</p>
+                                        </div>
+                                    </a>
+                                    <a href="{% url 'record_sale' %}" class="action-btn">
+                                        <i class="bi bi-cart-plus"></i>
+                                        <div class="action-btn-content">
+                                            <h6>Record Transaction</h6>
+                                            <p>Process a new transaction</p>
+                                        </div>
+                                    </a>
+                                    <a href="{% url 'add_stock_page' %}" class="action-btn">
+                                        <i class="bi bi-box-arrow-in-down"></i>
+                                        <div class="action-btn-content">
+                                            <h6>Add Stock</h6>
+                                            <p>Restock existing products</p>
+                                        </div>
+                                    </a>
+                                    <a href="{% url 'sales' %}" class="action-btn">
+                                        <i class="bi bi-receipt"></i>
+                                        <div class="action-btn-content">
+                                            <h6>Sales</h6>
+                                            <p>View and manage sales</p>
+                                        </div>
+                                    </a>
+                                    {% if app_role == 'admin' %}
+                                    <a href="{% url 'sms_settings' %}" class="action-btn">
+                                        <i class="bi bi-chat-dots"></i>
+                                        <div class="action-btn-content">
+                                            <h6>SMS Notification</h6>
+                                            <p>Update SMS sender info</p>
+                                        </div>
+                                    </a>
+                                    <a href="{% url 'reports' %}" class="action-btn">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        <div class="action-btn-content">
+                                            <h6>View Reports</h6>
+                                            <p>Reports and insights</p>
+                                        </div>
+                                    </a>
+                                    <a href="{% url 'pricing_analysis' %}" class="action-btn">
+                                        <i class="bi bi-currency-dollar"></i>
+                                        <div class="action-btn-content">
+                                            <h6>Pricing Analysis</h6>
+                                            <p>Analyze pricing trends</p>
+                                        </div>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Overview Tab -->
-                    <div class="tab-pane fade show active" id="overview-content" role="tabpanel" aria-labelledby="overview-tab">
+                    <div class="tab-pane fade" id="overview-content" role="tabpanel" aria-labelledby="overview-tab">
                 <div class="row g-3">
                     <div class="col-lg-6">
                         <div class="modern-card">

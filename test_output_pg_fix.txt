@@ -1,0 +1,1 @@
+C:\Users\Orly\OOPFINAL\venv\Scripts\python.exe: can't open file 'C:\\Users\\Orly\\stockwise\\test_pdf_graph.py': [Errno 2] No such file or directory

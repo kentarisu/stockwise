@@ -4206,7 +4206,7 @@
                                             <li><strong>Current Stock:</strong> How many units you have right now.</li>
                                             <li><strong>Stock Value:</strong> How much money your current stock is worth.</li>
                                             <li><strong>Avg Daily Sales:</strong> Average number of units sold per day.</li>
-                                            <li><strong>Days of Supply:</strong> How many days until you run out (based on current sales speed).</li>
+                                            <li><strong>Days Till Supply Last:</strong> How many days until you run out (based on current sales speed).</li>
                                             <li><strong>Reorder Point:</strong> When stock reaches this number, it's time to order more.</li>
                                             <li><strong>Reorder Qty:</strong> How many units you should order to restock.</li>
                                             <li><strong>Lead Time:</strong> How many days it takes for your order to arrive after you place it.</li>
@@ -4497,7 +4497,7 @@
                                                     <th>Revenue</th>
                                                     <th>Profit</th>
                                                     <th>Stock Value</th>
-                                                    <th>Days Supply</th>
+                                                    <th>Days Till Supply Last</th>
                                                     <th>Status</th>
                                                     <th></th>
                                                 </tr>
@@ -4521,7 +4521,7 @@
                                             <li><strong>Revenue:</strong> Total sales revenue generated in the period.</li>
                                             <li><strong>Profit:</strong> Net profit (revenue - COGS) for the period. Green for positive, red for negative.</li>
                                             <li><strong>Stock Value:</strong> Current inventory value at selling price.</li>
-                                            <li><strong>Days Supply:</strong> Estimated days until stock runs out based on average daily sales. Color-coded: <span class="text-danger fw-bold">Red</span> (&lt;7 days), <span class="text-warning fw-semibold">Yellow</span> (7-14 days), <span class="text-success">Green</span> (&gt;14 days).</li>
+                                            <li><strong>Days Till Supply Last:</strong> Estimated days until stock runs out based on average daily sales. Color-coded: <span class="text-danger fw-bold">Red</span> (&lt;7 days), <span class="text-warning fw-semibold">Yellow</span> (7-14 days), <span class="text-success">Green</span> (&gt;14 days).</li>
                                             <li><strong>Status:</strong> Product status (Active, Inactive, etc.).</li>
                                             <li><strong>View Details:</strong> Click the <i class="bi bi-eye"></i> icon to see comprehensive information including:
                                                 <ul>
@@ -6231,7 +6231,8 @@
                 const url = window.URL.createObjectURL(blob);
                 const printWindow = window.open(url);
                 
-                printWindow.onload = function() {
+                if (printWindow) {
+                    printWindow.onload = function() {
                     printWindow.print();
                     // Clean up after printing
                 setTimeout(() => {
@@ -6240,6 +6241,23 @@
                     if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Report ready. Print dialog opened.', 'success', 6000); }
                 }, 1000);
             };
+                } else {
+                    // Fallback for when popup is blocked
+                    printBtn.prop('disabled', false).html(originalText);
+                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { 
+                        window.modernInventorySystem.showNotification('Pop-up blocked. Please allow pop-ups to print, or check your downloads.', 'warning', 8000); 
+                    }
+                    // Try to trigger download instead since open failed
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'report.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                }
                 
             } catch (error) {
                 // For print report, show error notification since it doesn't use modal
@@ -6705,12 +6723,17 @@
                             }
                         }
                         
-                        // Show error message
+                        // Show error message with retry option
                         errorMessage.textContent = errorMsg;
                         loadingDiv.classList.add('d-none');
                         errorDiv.classList.remove('d-none');
                         frame.classList.add('d-none');
                         exportBtn.classList.add('d-none');
+                        
+                        // Store the query params for retry
+                        if (frame) {
+                            frame.dataset.retryQuery = q.toString();
+                        }
                     } else {
                         // It's a PDF - load it in the iframe
                         loadingDiv.classList.add('d-none');
@@ -6721,19 +6744,51 @@
                     }
                 } catch (error) {
                     // Network or other error
-                    errorMessage.textContent = 'Failed to load report. Please check your connection and try again.';
+                    const errorDetails = error.message || 'Unknown error occurred';
+                    errorMessage.textContent = `Failed to load report: ${errorDetails}. Please check your connection and try again.`;
                     loadingDiv.classList.add('d-none');
                     errorDiv.classList.remove('d-none');
                     frame.classList.add('d-none');
                     exportBtn.classList.add('d-none');
+                    
+                    // Store the query params for retry
+                    if (frame) {
+                        frame.dataset.retryQuery = q.toString();
+                    }
                 }
-                document.getElementById('exportPdfBtn').onclick = function(){
-                    const unitFilter = $('#unitFilter').val() || 'all';
-                    const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, unit:unitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
-                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Exporting PDF...', 'info', 4000); }
-                    window.open('/api/reports/export/?'+dl.toString(), '_blank');
-                    if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('PDF opened in a new tab.', 'success', 6000); }
-                };
+                // Export PDF button handler
+                const exportBtnElement = document.getElementById('exportPdfBtn');
+                if (exportBtnElement) {
+                    exportBtnElement.onclick = function(){
+                        const unitFilter = $('#unitFilter').val() || 'all';
+                        const dl = new URLSearchParams({ report_type:'comprehensive', filter:filterType, start_date:s, end_date:e, search:'', user:userFilter, product:fruitFilter, unit:unitFilter, accepted_prices: JSON.stringify(acceptedPrices) });
+                        if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('Exporting PDF...', 'info', 4000); }
+                        window.open('/api/reports/export/?'+dl.toString(), '_blank');
+                        if (window.modernInventorySystem && typeof window.modernInventorySystem.showNotification === 'function') { window.modernInventorySystem.showNotification('PDF opened in a new tab.', 'success', 6000); }
+                    };
+                }
+                
+                // Retry button handler - re-trigger the generate report click
+                const retryBtn = document.getElementById('retryReportBtn');
+                if (retryBtn) {
+                    retryBtn.onclick = function() {
+                        // Hide error and show loading
+                        const errorDiv = document.getElementById('reportPreviewError');
+                        const loadingDiv = document.getElementById('reportPreviewLoading');
+                        const frame = document.getElementById('reportPreviewFrame');
+                        const exportBtn = document.getElementById('exportPdfBtn');
+                        if (errorDiv) errorDiv.classList.add('d-none');
+                        if (loadingDiv) loadingDiv.classList.remove('d-none');
+                        if (frame) frame.classList.add('d-none');
+                        if (exportBtn) exportBtn.classList.add('d-none');
+                        
+                        // Re-trigger the report generation by clicking the generate button
+                        const generateBtn = document.getElementById('generateReport');
+                        if (generateBtn) {
+                            generateBtn.click();
+                        }
+                    };
+                }
             });
 
             const reportsRefreshBtn = document.getElementById('reportsRefreshBtn');
@@ -7531,7 +7586,7 @@
                                 <span class="meta-value" id="lsCurrentStock">-</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">Days of Supply</span>
+                                <span class="meta-label">Days Till Supply Last</span>
                                 <span class="meta-value" id="lsDaysSupply">-</span>
                             </div>
                             <div class="meta-item">
@@ -7578,7 +7633,7 @@
                                 <li><strong>Current Stock:</strong> How many boxes you have in stock right now.</li>
                                 <li><strong>Stock Value:</strong> Total worth of your current stock (Current Stock × Unit Cost).</li>
                                 <li><strong>Avg. Daily Sales:</strong> How many boxes you typically sell per day.</li>
-                                <li><strong>Days of Supply:</strong> How many days your stock will last at current sales speed (Current Stock ÷ Avg Daily Sales).</li>
+                                <li><strong>Days Till Supply Last:</strong> How many days your stock will last at current sales speed (Current Stock ÷ Avg Daily Sales).</li>
                                 <li><strong>Reorder Point:</strong> When your stock hits this number, place a new order.</li>
                                 <li><strong>Reorder Qty:</strong> The recommended number of boxes to order.</li>
                                 <li><strong>Lead Time:</strong> How many days between ordering and receiving the products.</li>
@@ -8708,16 +8763,23 @@
           </div>
           <p class="mt-3 text-muted">Generating report preview...</p>
         </div>
-        <div id="reportPreviewError" class="alert alert-warning d-none mb-3" role="alert">
+        <div id="reportPreviewError" class="alert alert-danger d-none mb-3" role="alert">
           <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Unable to Generate Report</h6>
-          <p id="reportPreviewErrorMessage" class="mb-2"></p>
+          <p id="reportPreviewErrorMessage" class="mb-3"></p>
           <hr>
+          <div class="d-flex gap-2 mb-3">
+            <button type="button" class="btn btn-primary btn-sm" id="retryReportBtn">
+              <i class="bi bi-arrow-clockwise me-1"></i> Try Again
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          </div>
           <p class="mb-0 small text-muted"><strong>What you can do:</strong></p>
           <ul class="mb-0 small text-muted">
             <li>Try adjusting your date range to include dates with sales data</li>
             <li>Change the user filter to "All Users"</li>
             <li>Change the product filter to "All Products"</li>
             <li>Check if there are any completed sales in the selected period</li>
+            <li>Refresh the page and try again</li>
           </ul>
         </div>
         <iframe id="reportPreviewFrame" src="" class="w-100 h-100 border-0 d-none" title="Report Preview"></iframe>
@@ -8843,7 +8905,7 @@
                                 <strong id="invDetailTurnover">0.00x</strong>
                             </div>
                             <div class="report-card">
-                                <span>Days of Supply</span>
+                                <span>Days Till Supply Last</span>
                                 <strong id="invDetailDaysSupply">-</strong>
                             </div>
                             <div class="report-card">

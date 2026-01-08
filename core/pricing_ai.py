@@ -76,9 +76,18 @@ class DemandPricingAI:
         sales["date"] = pd.to_datetime(sales["date"])
         sales["units_sold"] = sales["units_sold"].clip(lower=0)
 
-        # Prepare features - convert Decimal to float for numpy operations
+        # Prepare features - convert Decimal to float and aggregate by day
         sales["price"] = sales["price"].astype(float)
         sales["units_sold"] = sales["units_sold"].astype(float)
+        
+        # Aggregate by date and product to get daily totals
+        # This removes noise from individual transaction sizes
+        sales = sales.groupby(["product_id", sales["date"].dt.date]).agg({
+            "units_sold": "sum",
+            "price": "mean"
+        }).reset_index()
+        sales["date"] = pd.to_datetime(sales["date"])
+
         sales["ln_p"] = np.log(sales["price"].clip(lower=1e-6))
         sales["ln_q"] = np.log((sales["units_sold"] + 1e-6))
 
@@ -184,22 +193,36 @@ class DemandPricingAI:
 
         proposals = []
         if not sales_df.empty:
-            sales_df["date"] = pd.to_datetime(sales_df["date"])
+            sales = sales_df.copy()
+            sales["date"] = pd.to_datetime(sales["date"])
+            
+            # Aggregate by day for consistent signal processing
+            sales["price"] = sales["price"].astype(float)
+            sales["units_sold"] = sales["units_sold"].astype(float)
+            sales = sales.groupby(["product_id", sales["date"].dt.date]).agg({
+                "units_sold": "sum",
+                "price": "mean"
+            }).reset_index()
+            sales["date"] = pd.to_datetime(sales["date"])
+
             # Always convert to Manila time (the store's timezone) for consistent reporting
             try:
-                if sales_df["date"].dt.tz is None:
+                if sales["date"].dt.tz is None:
                     # If timezone-naive, assume UTC and then convert
-                    sales_df["date"] = sales_df["date"].dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
+                    sales["date"] = sales["date"].dt.tz_localize('UTC').dt.tz_convert('Asia/Manila')
                 else:
                     # If already timezone-aware (usually UTC), just convert
-                    sales_df["date"] = sales_df["date"].dt.tz_convert('Asia/Manila')
+                    sales["date"] = sales["date"].dt.tz_convert('Asia/Manila')
             except Exception:
                 pass
-            latest_date = sales_df["date"].max().date()
+            
+            latest_date = sales["date"].max().date()
+            sales_for_grouping = sales
         else:
             latest_date = today()
+            sales_for_grouping = sales_df
 
-        for pid, hist in sales_df.groupby("product_id"):
+        for pid, hist in sales_for_grouping.groupby("product_id"):
             hist = hist.sort_values("date")
 
             # Current catalog info

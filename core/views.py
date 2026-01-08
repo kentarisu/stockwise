@@ -11998,33 +11998,15 @@ def get_pricing_recommendations(request):
                 batch_created_at = ''
             actionable_count = len([r for r in recommendations if r['action'] in ['INCREASE', 'DECREASE']])
             
-            # For silent dashboard loads, suppress showing until an actual SMS was sent today
-            if is_silent:
-                try:
-                    from core.models import SMSNotificationSettings, SMS, ActionLog
-                    sms_settings = SMSNotificationSettings.get_settings()
-                    now_local = timezone.localtime()
-                    phh, pmm = [int(x) for x in str(getattr(sms_settings, 'pricing_time', '08:00')).split(':')]
-                    scheduled_dt = now_local.replace(hour=phh, minute=pmm, second=0, microsecond=0)
-                    user_id = request.session.get('app_user_id') or request.session.get('user_id')
-                    last_sms = SMS.objects.filter(user_id=user_id, message_type='pricing_alert').order_by('-sent_at').first()
-                    last_manual_log = ActionLog.objects.filter(
-                        user_id=user_id,
-                        action='Manual pricing notification sent',
-                        created_at__date=now_local.date()
-                    ).order_by('-created_at').first()
-                    allow_show = False
-                    if last_sms and timezone.localtime(last_sms.sent_at).date() == now_local.date():
-                        allow_show = True
-                    if last_manual_log:
-                        allow_show = True
-                    if not allow_show:
-                        return JsonResponse({
-                            'success': False,
-                            'message': 'Recommendations not available yet. They will appear after the next SMS send.'
-                        })
-                except Exception:
-                    pass
+            # NOTE:
+            # Previously, for silent dashboard loads we hid recommendations until a pricing SMS
+            # had actually been sent that day. This caused hosting environments (where SMS
+            # schedulers might not have run yet) to show "No recommendations" even when valid
+            # PricingRecommendation rows existed.
+            #
+            # We now always return the stored recommendations for silent loads as long as they
+            # are valid (expires_at > now). The 3‑day SMS sending cadence is still enforced
+            # separately by the scheduler (send_notifications) and action logs.
             return JsonResponse({
                 'success': True, 
                 'recommendations': recommendations,

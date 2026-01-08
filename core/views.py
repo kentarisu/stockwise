@@ -11242,70 +11242,73 @@ def get_notification_stats(request):
         today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         week_ago_start = today_start - timedelta(days=7)
-        
-        # Get SMS statistics using timezone-aware datetime filtering
-        # Debug: Check what's in the database
-        all_sms = SMS.objects.filter(sent_at__gte=week_ago_start)
-        print(f"DEBUG: Total SMS records this week: {all_sms.count()}")
-        print(f"DEBUG: Today's date range (local): {today_start} to {today_end}")
-        print(f"DEBUG: Current time (local): {now}")
-        for sms in all_sms:
-            sms_local = timezone.localtime(sms.sent_at)
-            sms_date = sms_local.date()
-            is_today = today_start <= sms.sent_at < today_end
-            print(f"DEBUG: SMS ID {sms.sms_id}: type={sms.message_type}, sent_at={sms.sent_at} (local: {sms_local}, date: {sms_date}), is_today={is_today}, product={sms.product.product_id if sms.product else 'None'}")
+        month_ago_start = today_start - timedelta(days=30)
+        yesterday_start = today_start - timedelta(days=1)
+        yesterday_end = today_start
         
         # Count messages sent today (using timezone-aware datetime range)
         messages_today = SMS.objects.filter(sent_at__gte=today_start, sent_at__lt=today_end).count()
+        messages_yesterday = SMS.objects.filter(sent_at__gte=yesterday_start, sent_at__lt=yesterday_end).count()
+        messages_week = SMS.objects.filter(sent_at__gte=week_ago_start).count()
+        messages_month = SMS.objects.filter(sent_at__gte=month_ago_start).count()
         
         # Get last sent date/time for each message type
+        # Only count actual SMS records - no fallback to ActionLog
         last_sales = SMS.objects.filter(message_type='sales_summary_daily').order_by('-sent_at').first()
         last_stock = SMS.objects.filter(message_type='stock_alert').order_by('-sent_at').first()
         last_pricing = SMS.objects.filter(message_type='pricing_alert').order_by('-sent_at').first()
-        if not last_pricing:
-            try:
-                from core.models import ActionLog
-                last_log = ActionLog.objects.filter(action='Automatic SMS: Pricing Recommendations').order_by('-created_at').first()
-                if last_log:
-                    class _Tmp:
-                        sent_at = last_log.created_at
-                    last_pricing = _Tmp()
-            except Exception:
-                pass
         
         def format_datetime(sms_obj):
             if sms_obj:
                 local_time = timezone.localtime(sms_obj.sent_at)
                 return {
                     'date': local_time.strftime('%b %d, %Y'),
-                    'time': local_time.strftime('%I:%M %p')
+                    'time': local_time.strftime('%I:%M %p'),
+                    'full': local_time.strftime('%b %d, %Y %I:%M %p')
                 }
             return None
         
+        # Detailed breakdowns by type and period
+        def get_type_counts(message_type, start, end):
+            return SMS.objects.filter(
+                message_type=message_type,
+                sent_at__gte=start,
+                sent_at__lt=end
+            ).count()
+        
         stats = {
+            # Overall counts
             'messages_today': messages_today,
-            'messages_week': SMS.objects.filter(sent_at__gte=week_ago_start).count(),
-            'stock_alerts': SMS.objects.filter(
-                message_type='stock_alert',
-                sent_at__gte=today_start,
-                sent_at__lt=today_end
-            ).count(),
-            'sales_summaries': SMS.objects.filter(
-                message_type='sales_summary_daily',
-                sent_at__gte=today_start,
-                sent_at__lt=today_end
-            ).count(),
-            'pricing_alerts': SMS.objects.filter(
-                message_type='pricing_alert',
-                sent_at__gte=today_start,
-                sent_at__lt=today_end
-            ).count(),
+            'messages_yesterday': messages_yesterday,
+            'messages_week': messages_week,
+            'messages_month': messages_month,
+            
+            # Today's breakdown
+            'stock_alerts_today': get_type_counts('stock_alert', today_start, today_end),
+            'sales_summaries_today': get_type_counts('sales_summary_daily', today_start, today_end),
+            'pricing_alerts_today': get_type_counts('pricing_alert', today_start, today_end),
+            
+            # This week's breakdown
+            'stock_alerts_week': get_type_counts('stock_alert', week_ago_start, today_end),
+            'sales_summaries_week': get_type_counts('sales_summary_daily', week_ago_start, today_end),
+            'pricing_alerts_week': get_type_counts('pricing_alert', week_ago_start, today_end),
+            
+            # This month's breakdown
+            'stock_alerts_month': get_type_counts('stock_alert', month_ago_start, today_end),
+            'sales_summaries_month': get_type_counts('sales_summary_daily', month_ago_start, today_end),
+            'pricing_alerts_month': get_type_counts('pricing_alert', month_ago_start, today_end),
+            
+            # Last sent timestamps
             'last_sales': format_datetime(last_sales),
             'last_stock': format_datetime(last_stock),
-            'last_pricing': format_datetime(last_pricing)
+            'last_pricing': format_datetime(last_pricing),
+            
+            # Legacy fields for backward compatibility
+            'stock_alerts': get_type_counts('stock_alert', today_start, today_end),
+            'sales_summaries': get_type_counts('sales_summary_daily', today_start, today_end),
+            'pricing_alerts': get_type_counts('pricing_alert', today_start, today_end),
         }
         
-        print(f"DEBUG: Stats being returned: {stats}")
         return JsonResponse({'success': True, 'stats': stats})
         
     except Exception as e:
@@ -14209,8 +14212,14 @@ def upload_and_restore_backup(request):
                 # 1. JSON file (anywhere)
                 # 2. Database folder with files
                 # 3. Common backup file patterns
+                # 4. Any file that looks like a database file (.sqlite3, .db, .sql)
                 # Let the restore command handle the actual structure detection
-                if not json_files and not (has_database and database_files) and not has_stockwise_data:
+                has_db_files = any(
+                    f.endswith('.sqlite3') or f.endswith('.db') or f.endswith('.sql')
+                    for f in file_list
+                )
+                
+                if not json_files and not (has_database and database_files) and not has_stockwise_data and not has_db_files:
                     if test_zip:
                         test_zip.close()
                     try:
@@ -14313,11 +14322,28 @@ def upload_and_restore_backup(request):
             sys.stderr = stderr_capture
             
             # Try simple dump restore first if it looks like a dump file
+            # Check both the uploaded filename AND the contents of the ZIP
             uploaded_name = uploaded_file.name.lower()
             is_dump_file = (
                 uploaded_name.endswith(('.sql', '.sqlite3', '.db')) or
                 'dump' in uploaded_name
             )
+            
+            # Also check if ZIP contains dump files (for newer backup format)
+            if not is_dump_file and uploaded_name.endswith('.zip'):
+                try:
+                    import zipfile
+                    with zipfile.ZipFile(temp_path, 'r') as test_zip:
+                        file_list = test_zip.namelist()
+                        has_dump = any(
+                            f.endswith('.sqlite3') or f.endswith('.db') or 
+                            f.endswith('.sql') or 'dump' in f.lower()
+                            for f in file_list
+                        )
+                        if has_dump:
+                            is_dump_file = True
+                except Exception:
+                    pass  # If we can't check, let restore command handle it
             
             try:
                 if is_dump_file:

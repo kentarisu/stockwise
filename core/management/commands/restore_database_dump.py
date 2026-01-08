@@ -206,22 +206,83 @@ class Command(BaseCommand):
         
         self.stdout.write('  - Restoring SQLite database...')
         
-        # Close all database connections first
+        # Close all database connections first - CRITICAL for SQLite
         from django.db import connections
         connections.close_all()
+        
+        # Wait a moment to ensure file handles are released (Windows issue)
+        import time
+        time.sleep(0.5)
         
         # Backup current database
         if db_path.exists():
             backup_path = db_path.parent / f'{db_path.name}.backup_{dump_file.stem}'
             import shutil
-            shutil.copy2(db_path, backup_path)
-            self.stdout.write(f'  - Current database backed up to: {backup_path}')
+            try:
+                shutil.copy2(db_path, backup_path)
+                self.stdout.write(f'  - Current database backed up to: {backup_path}')
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f'  [WARNING] Could not backup current database: {e}'))
+        
+        # Verify dump file exists and has content
+        if not dump_file.exists():
+            raise Exception(f'Dump file not found: {dump_file}')
+        
+        dump_size = dump_file.stat().st_size
+        if dump_size == 0:
+            raise Exception(f'Dump file is empty: {dump_file}')
+        
+        self.stdout.write(f'  - Dump file size: {dump_size / (1024*1024):.2f} MB')
         
         # Copy dump file to database location
         import shutil
-        shutil.copy2(dump_file, db_path)
-        
-        self.stdout.write(self.style.SUCCESS('  [OK] SQLite database restored'))
+        try:
+            # Remove existing database file if it exists (after closing connections)
+            if db_path.exists():
+                try:
+                    db_path.unlink()
+                except PermissionError:
+                    # On Windows, file might still be locked - wait and retry
+                    time.sleep(1)
+                    db_path.unlink()
+            
+            # Copy the dump file
+            shutil.copy2(dump_file, db_path)
+            
+            # Verify the copy worked
+            if not db_path.exists():
+                raise Exception('Failed to copy dump file to database location')
+            
+            restored_size = db_path.stat().st_size
+            if restored_size != dump_size:
+                raise Exception(f'File size mismatch after restore: expected {dump_size}, got {restored_size}')
+            
+            # Verify database is valid by trying to open it
+            try:
+                import sqlite3
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+                tables = cursor.fetchall()
+                conn.close()
+                
+                if not tables:
+                    self.stdout.write(self.style.WARNING('  [WARNING] Restored database appears to be empty'))
+                else:
+                    self.stdout.write(f'  - Verified database contains tables')
+            except Exception as verify_error:
+                self.stdout.write(self.style.WARNING(f'  [WARNING] Could not verify database: {verify_error}'))
+            
+            self.stdout.write(self.style.SUCCESS('  [OK] SQLite database restored'))
+        except Exception as e:
+            # If restore failed, try to restore backup
+            if 'backup_path' in locals() and backup_path.exists():
+                try:
+                    shutil.copy2(backup_path, db_path)
+                    self.stdout.write(self.style.WARNING('  [WARNING] Restored original database from backup'))
+                except Exception:
+                    pass
+            raise Exception(f'Failed to restore SQLite database: {str(e)}')
     
     def _is_binary_file(self, file_path):
         """Check if file is binary (custom pg_dump format)"""

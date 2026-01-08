@@ -11,6 +11,7 @@ import shutil
 import os
 import sys
 import json
+from collections import Counter
 from core.models import AppUser
 
 
@@ -176,6 +177,9 @@ class Command(BaseCommand):
                         cursor.execute("SET CONSTRAINTS ALL DEFERRED")
                     
                     # Get all table names EXCEPT app users and Django system tables
+                    cleared_tables = []
+                    failed_tables = []
+                    
                     if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("""
                             SELECT name FROM sqlite_master 
@@ -190,9 +194,20 @@ class Command(BaseCommand):
                             if table != 'core_appuser':  # Extra safety check
                                 try:
                                     cursor.execute(f"DELETE FROM {table}")
+                                    # Verify deletion worked
+                                    cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                                    remaining = cursor.fetchone()[0]
+                                    if remaining > 0:
+                                        # Try again with a more aggressive approach
+                                        cursor.execute(f"DELETE FROM {table}")
+                                        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                                        remaining = cursor.fetchone()[0]
+                                        if remaining > 0:
+                                            failed_tables.append(f"{table} ({remaining} rows remaining)")
+                                    else:
+                                        cleared_tables.append(table)
                                 except Exception as del_error:
-                                    # If DELETE fails, try to truncate (SQLite doesn't support TRUNCATE, but some versions do)
-                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not delete from {table}: {del_error}'))
+                                    failed_tables.append(f"{table} ({str(del_error)})")
                     elif 'postgresql' in settings.DATABASES['default']['ENGINE'].lower():
                         cursor.execute("""
                             SELECT tablename FROM pg_tables 
@@ -207,13 +222,20 @@ class Command(BaseCommand):
                             if table != 'core_appuser':  # Extra safety check
                                 try:
                                     cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
+                                    cleared_tables.append(table)
                                 except Exception as trunc_error:
                                     # If TRUNCATE fails, try DELETE
                                     try:
                                         cursor.execute(f"DELETE FROM {table}")
-                                        self.stdout.write(self.style.WARNING(f'  [WARNING] Used DELETE instead of TRUNCATE for {table}'))
+                                        # Verify deletion
+                                        cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                                        remaining = cursor.fetchone()[0]
+                                        if remaining > 0:
+                                            failed_tables.append(f"{table} ({remaining} rows remaining)")
+                                        else:
+                                            cleared_tables.append(table)
                                     except Exception as del_error:
-                                        self.stdout.write(self.style.WARNING(f'  [WARNING] Could not clear {table}: {del_error}'))
+                                        failed_tables.append(f"{table} ({str(del_error)})")
                     
                     # Re-enable foreign key checks
                     if 'sqlite' in settings.DATABASES['default']['ENGINE'].lower():
@@ -222,7 +244,13 @@ class Command(BaseCommand):
                         cursor.execute("SET session_replication_role = 'origin'")
                         cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
                     
-                    self.stdout.write(self.style.SUCCESS('  [OK] Database cleared (accounts preserved)'))
+                    if failed_tables:
+                        self.stdout.write(self.style.WARNING(
+                            f'  [WARNING] Some tables could not be fully cleared: {", ".join(failed_tables)}'
+                        ))
+                        # Don't fail, but warn - loaddata might still work
+                    else:
+                        self.stdout.write(self.style.SUCCESS(f'  [OK] Database cleared ({len(cleared_tables)} tables, accounts preserved)'))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'  [ERROR] Failed to clear database: {e}'))
                 import traceback
@@ -256,11 +284,65 @@ class Command(BaseCommand):
                         cursor.execute("PRAGMA foreign_keys = OFF;")
                     self.stdout.write(self.style.SUCCESS('  [OK] Foreign keys disabled'))
                 
+                # Count objects in backup file before loading
+                try:
+                    with open(backup_file, 'r', encoding='utf-8') as f:
+                        backup_data = json.load(f)
+                        if isinstance(backup_data, list):
+                            backup_object_count = len(backup_data)
+                            # Count by model type
+                            model_counts = Counter(entry.get('model', 'unknown') for entry in backup_data)
+                            self.stdout.write(f'  - Backup contains {backup_object_count} objects')
+                            for model, count in model_counts.most_common(5):
+                                self.stdout.write(f'    • {model}: {count}')
+                        else:
+                            backup_object_count = 0
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not count backup objects: {e}'))
+                    backup_object_count = 0
+                
+                # Get counts before loading to verify clearing worked
+                try:
+                    from core.models import Product, Sale, StockAddition
+                    pre_load_products = Product.objects.count()
+                    pre_load_sales = Sale.objects.count()
+                    pre_load_stock = StockAddition.objects.count()
+                    if pre_load_products > 0 or pre_load_sales > 0 or pre_load_stock > 0:
+                        self.stdout.write(self.style.WARNING(
+                            f'  [WARNING] Database not fully cleared: {pre_load_products} products, '
+                            f'{pre_load_sales} sales, {pre_load_stock} stock additions still exist'
+                        ))
+                        # Try to clear again
+                        self.stdout.write('  - Attempting to clear remaining data...')
+                        with connection.cursor() as cursor:
+                            if is_sqlite:
+                                cursor.execute("PRAGMA foreign_keys = OFF")
+                                for table in ['core_product', 'core_sale', 'core_stockaddition']:
+                                    try:
+                                        cursor.execute(f"DELETE FROM {table}")
+                                    except Exception:
+                                        pass
+                                cursor.execute("PRAGMA foreign_keys = ON")
+                            elif is_postgresql:
+                                cursor.execute("SET session_replication_role = 'replica'")
+                                for table in ['core_product', 'core_sale', 'core_stockaddition']:
+                                    try:
+                                        cursor.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
+                                    except Exception:
+                                        try:
+                                            cursor.execute(f"DELETE FROM {table}")
+                                        except Exception:
+                                            pass
+                                cursor.execute("SET session_replication_role = 'origin'")
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not verify pre-load state: {e}'))
+                
                 try:
                     # Use verbosity=2 to see more details
                     # --ignorenonexistent to skip missing models
                     # Note: loaddata will fail if data already exists (unique constraints)
                     # This is why we clear the database first
+                    self.stdout.write('  - Loading data from backup file...')
                     call_command('loaddata', str(backup_file), verbosity=2, ignorenonexistent=True)
                     self.stdout.write(self.style.SUCCESS('  [OK] JSON data loaded'))
                 except Exception as load_error:
@@ -294,7 +376,21 @@ class Command(BaseCommand):
                     sale_count = Sale.objects.count()
                     stock_count = StockAddition.objects.count()
                     self.stdout.write(f'  - Verification: {product_count} products, {sale_count} sales, {stock_count} stock additions restored')
+                    
+                    # Warn if counts are unexpectedly low
+                    if backup_object_count > 0:
+                        if product_count == 0 and sale_count == 0 and stock_count == 0:
+                            self.stdout.write(self.style.ERROR(
+                                '  [ERROR] No data was restored! The backup file may be empty or corrupted.'
+                            ))
+                            raise Exception('Restore failed: No data was loaded from backup file')
+                        elif product_count == 0:
+                            self.stdout.write(self.style.WARNING('  [WARNING] No products were restored'))
+                        elif sale_count == 0:
+                            self.stdout.write(self.style.WARNING('  [WARNING] No sales were restored'))
                 except Exception as e:
+                    if 'No data was restored' in str(e):
+                        raise
                     self.stdout.write(self.style.WARNING(f'  [WARNING] Could not verify restored data: {e}'))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f'  [ERROR] Failed to load JSON data: {e}'))
@@ -697,78 +793,36 @@ class Command(BaseCommand):
             _ensure_accounts()
             
             # 2. Restore media files (if present in old format)
-            # Skip media restoration if we can't write to the media directory (common in hosting)
             if not options.get('no_media', False):
                 media_files = [f for f in file_list if f.startswith('media/')]
                 if media_files:
                     self.stdout.write('Restoring media files...')
-                    try:
-                        # Use MEDIA_ROOT from settings (not legacy uploads path)
-                        media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
+                    # Use MEDIA_ROOT from settings (not legacy uploads path)
+                    media_root = Path(getattr(settings, 'MEDIA_ROOT', Path(settings.BASE_DIR) / 'media'))
+                    media_root.mkdir(parents=True, exist_ok=True)
+                    
+                    # Backup current media files if they exist
+                    if media_root.exists() and any(media_root.iterdir()):
+                        backup_media = media_root.parent / f'media_backup_{Path(backup_file).stem}'
+                        if backup_media.exists():
+                            shutil.rmtree(backup_media)
+                        shutil.copytree(media_root, backup_media)
+                        self.stdout.write(f'  - Current media files backed up to: {backup_media}')
+                    
+                    # Extract media files
+                    media_count = 0
+                    for media_file in media_files:
+                        # Get relative path within media directory
+                        relative_path = media_file.replace('media/', '')
+                        target_path = media_root / relative_path
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Try to create media directory, but don't fail if we can't (hosting environments)
-                        try:
-                            media_root.mkdir(parents=True, exist_ok=True)
-                        except (PermissionError, OSError) as perm_error:
-                            self.stdout.write(self.style.WARNING(
-                                f'  [WARNING] Cannot create media directory {media_root}: {perm_error}\n'
-                                '  Media files will be skipped. Database restore completed successfully.'
-                            ))
-                            # Skip media restoration but continue
-                            media_files = []
-                        
-                        if media_files:
-                            # Backup current media files if they exist
-                            if media_root.exists() and any(media_root.iterdir()):
-                                try:
-                                    backup_media = media_root.parent / f'media_backup_{Path(backup_file).stem}'
-                                    if backup_media.exists():
-                                        shutil.rmtree(backup_media)
-                                    shutil.copytree(media_root, backup_media)
-                                    self.stdout.write(f'  - Current media files backed up to: {backup_media}')
-                                except Exception as backup_error:
-                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not backup current media: {backup_error}'))
-                            
-                            # Extract media files
-                            media_count = 0
-                            media_errors = 0
-                            for media_file in media_files:
-                                try:
-                                    # Get relative path within media directory
-                                    relative_path = media_file.replace('media/', '')
-                                    target_path = media_root / relative_path
-                                    
-                                    # Try to create parent directories
-                                    try:
-                                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                                    except (PermissionError, OSError):
-                                        # Skip this file if we can't create its directory
-                                        media_errors += 1
-                                        continue
-                                    
-                                    with backup_zip.open(media_file) as source:
-                                        with open(target_path, 'wb') as target:
-                                            target.write(source.read())
-                                    media_count += 1
-                                except (PermissionError, OSError) as file_error:
-                                    media_errors += 1
-                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Could not restore {media_file}: {file_error}'))
-                                    continue
-                                except Exception as file_error:
-                                    media_errors += 1
-                                    self.stdout.write(self.style.WARNING(f'  [WARNING] Error restoring {media_file}: {file_error}'))
-                                    continue
-                            
-                            if media_count > 0:
-                                self.stdout.write(self.style.SUCCESS(f'  [OK] {media_count} media files restored to {media_root}'))
-                            if media_errors > 0:
-                                self.stdout.write(self.style.WARNING(f'  [WARNING] {media_errors} media files could not be restored (permission issues)'))
-                    except Exception as media_error:
-                        # Don't fail the entire restore if media restoration fails
-                        self.stdout.write(self.style.WARNING(
-                            f'  [WARNING] Media restoration failed: {media_error}\n'
-                            '  Database restore completed successfully. Media files were skipped.'
-                        ))
+                        with backup_zip.open(media_file) as source:
+                            with open(target_path, 'wb') as target:
+                                target.write(source.read())
+                        media_count += 1
+                    
+                    self.stdout.write(self.style.SUCCESS(f'  [OK] {media_count} media files restored to {media_root}'))
                 else:
                     self.stdout.write(self.style.WARNING('No media files found in backup'))
             

@@ -1636,6 +1636,14 @@
         </div>
 
         <!-- Notification Types -->
+        {% comment %}
+        NOTE: The three notification cards below (Daily Sales Summary, Low Stock Alerts,
+        and Demand-Driven Pricing Recommendation) are intentionally hidden from the UI.
+        They are kept for reference and for internal/testing use only. Automatic SMS
+        sending still works based on the scheduler configuration.
+        {% endcomment %}
+        
+        {% comment %}
         <div class="row g-0">
             <!-- Daily Sales Summary -->
             <div class="col-lg-4">
@@ -1813,6 +1821,7 @@
                 </div>
             </div>
         </div>
+        {% endcomment %}
 
         
 
@@ -1823,69 +1832,164 @@
                 Notification Statistics
             </h5>
             
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon primary">
-                        <i class="bi bi-envelope-paper"></i>
+            <!-- Overall Statistics -->
+            <div class="mb-4">
+                <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-2"></i>Overall Statistics</h6>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="bi bi-envelope-paper"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-messages-today">0</div>
+                            <div class="stat-label">Today</div>
+                            <div class="stat-subtitle">SMS sent today</div>
+                            <div class="stat-comparison" id="stat-today-comparison" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.3rem; display: none;">
+                                <i class="bi bi-arrow-up text-success"></i> <span id="stat-today-change">0</span> from yesterday
+                            </div>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Messages Sent Today</div>
-                        <div class="stat-subtitle">SMS notifications sent today</div>
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="bi bi-calendar-week"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-messages-week">0</div>
+                            <div class="stat-label">This Week</div>
+                            <div class="stat-subtitle">Total SMS this week</div>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon success">
-                        <i class="bi bi-calendar-week"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Messages This Week</div>
-                        <div class="stat-subtitle">Total SMS sent this week</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon info">
-                        <i class="bi bi-graph-up"></i>
-                    </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Sales Summaries</div>
-                        <div class="stat-subtitle">Daily sales summaries sent</div>
-                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
+                    <div class="stat-card">
+                        <div class="stat-icon info">
+                            <i class="bi bi-calendar-month"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-messages-month">0</div>
+                            <div class="stat-label">This Month</div>
+                            <div class="stat-subtitle">Total SMS this month</div>
                         </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon warning">
-                        <i class="bi bi-exclamation-triangle"></i>
+            </div>
+
+            <!-- Breakdown by Notification Type -->
+            <div class="mb-4">
+                <h6 class="text-muted mb-3"><i class="bi bi-list-ul me-2"></i>Breakdown by Notification Type</h6>
+                
+                <!-- Sales Summaries -->
+                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #0d6efd;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1"><i class="bi bi-graph-up me-2 text-info"></i>Sales Summaries</h6>
+                            <small class="text-muted">Daily sales summaries sent</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="h5 mb-0" id="stat-sales-today">0</div>
+                            <small class="text-muted">Today</small>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Low Stock Alerts</div>
-                        <div class="stat-subtitle">Low stock notifications sent</div>
-                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
+                    <div class="row mt-2">
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-sales-week">0</div>
+                                <small class="text-muted">This Week</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-sales-month">0</div>
+                                <small class="text-muted">This Month</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="stat-datetime-sales" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                    <i class="bi bi-clock me-1"></i><span class="stat-date-sales"></span><br>
+                                    <span class="stat-time-sales"></span>
+                                </div>
+                                <small class="text-muted" id="stat-sales-last-label" style="display: none;">Last Sent</small>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon pricing">
-                        <i class="bi bi-tags"></i>
+
+                <!-- Low Stock Alerts -->
+                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ffc107;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Low Stock Alerts</h6>
+                            <small class="text-muted">Real-time stock notifications</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="h5 mb-0" id="stat-stock-today">0</div>
+                            <small class="text-muted">Today</small>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value">0</div>
-                        <div class="stat-label">Pricing Alerts</div>
-                        <div class="stat-subtitle">Pricing recommendations sent</div>
-                        <div class="stat-datetime" style="font-size: 0.65rem; color: var(--gray-400); margin-top: 0.2rem; display: none;">
-                            <i class="bi bi-clock me-1"></i><span class="stat-prefix">Last sent:</span> <span class="stat-date"></span> <span class="stat-time"></span>
+                    <div class="row mt-2">
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-stock-week">0</div>
+                                <small class="text-muted">This Week</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-stock-month">0</div>
+                                <small class="text-muted">This Month</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="stat-datetime-stock" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                    <i class="bi bi-clock me-1"></i><span class="stat-date-stock"></span><br>
+                                    <span class="stat-time-stock"></span>
+                                </div>
+                                <small class="text-muted" id="stat-stock-last-label" style="display: none;">Last Sent</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pricing Alerts -->
+                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #6f42c1;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1"><i class="bi bi-tags me-2" style="color: #6f42c1;"></i>Pricing Recommendations</h6>
+                            <small class="text-muted">AI-powered pricing alerts</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="h5 mb-0" id="stat-pricing-today">0</div>
+                            <small class="text-muted">Today</small>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-pricing-week">0</div>
+                                <small class="text-muted">This Week</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="fw-bold" id="stat-pricing-month">0</div>
+                                <small class="text-muted">This Month</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-center">
+                                <div class="stat-datetime-pricing" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                    <i class="bi bi-clock me-1"></i><span class="stat-date-pricing"></span><br>
+                                    <span class="stat-time-pricing"></span>
+                                </div>
+                                <small class="text-muted" id="stat-pricing-last-label" style="display: none;">Last Sent</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
+        {% comment %}
         <!-- Scheduler Status -->
         <div class="settings-card">
             <h5 class="mb-4">
@@ -1901,6 +2005,7 @@
                 <div class="py-2">Click "Check Status" to view last sent times and next schedules.</div>
             </div>
         </div>
+        {% endcomment %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -2276,42 +2381,74 @@
                 method: 'GET',
                 success: function(response) {
                     if (response.stats) {
-                        $('.stat-card').eq(0).find('.stat-value').text(response.stats.messages_today || 0);
-                        $('.stat-card').eq(1).find('.stat-value').text(response.stats.messages_week || 0);
-                        $('.stat-card').eq(2).find('.stat-value').text(response.stats.sales_summaries || 0);
-                        $('.stat-card').eq(3).find('.stat-value').text(response.stats.stock_alerts || 0);
-                        $('.stat-card').eq(4).find('.stat-value').text(response.stats.pricing_alerts || 0);
+                        const stats = response.stats;
                         
-                        // Update date/time for each notification type
-                        // Stock alerts (index 2)
-                        if (response.stats.last_sales) {
-                            const salesCard = $('.stat-card').eq(2);
-                            salesCard.find('.stat-datetime').show();
-                            salesCard.find('.stat-date').text(response.stats.last_sales.date);
-                            salesCard.find('.stat-time').text(response.stats.last_sales.time);
+                        // Overall Statistics
+                        $('#stat-messages-today').text(stats.messages_today || 0);
+                        $('#stat-messages-week').text(stats.messages_week || 0);
+                        $('#stat-messages-month').text(stats.messages_month || 0);
+                        
+                        // Today vs Yesterday comparison
+                        const today = stats.messages_today || 0;
+                        const yesterday = stats.messages_yesterday || 0;
+                        if (yesterday > 0) {
+                            const change = today - yesterday;
+                            const changePercent = Math.round((change / yesterday) * 100);
+                            if (change !== 0) {
+                                $('#stat-today-comparison').show();
+                                const $changeEl = $('#stat-today-change');
+                                if (change > 0) {
+                                    $changeEl.text('+' + change + ' (' + Math.abs(changePercent) + '%)').parent().find('i').removeClass('bi-arrow-down text-danger').addClass('bi-arrow-up text-success');
+                                } else {
+                                    $changeEl.text(change + ' (' + Math.abs(changePercent) + '%)').parent().find('i').removeClass('bi-arrow-up text-success').addClass('bi-arrow-down text-danger');
+                                }
+                            } else {
+                                $('#stat-today-comparison').hide();
+                            }
                         } else {
-                            $('.stat-card').eq(2).find('.stat-datetime').hide();
+                            $('#stat-today-comparison').hide();
                         }
                         
-                        // Stock alerts (index 3)
-                        if (response.stats.last_stock) {
-                            const stockCard = $('.stat-card').eq(3);
-                            stockCard.find('.stat-datetime').show();
-                            stockCard.find('.stat-date').text(response.stats.last_stock.date);
-                            stockCard.find('.stat-time').text(response.stats.last_stock.time);
+                        // Sales Summaries Breakdown
+                        $('#stat-sales-today').text(stats.sales_summaries_today || 0);
+                        $('#stat-sales-week').text(stats.sales_summaries_week || 0);
+                        $('#stat-sales-month').text(stats.sales_summaries_month || 0);
+                        if (stats.last_sales) {
+                            $('.stat-datetime-sales').show();
+                            $('#stat-sales-last-label').show();
+                            $('.stat-date-sales').text(stats.last_sales.date);
+                            $('.stat-time-sales').text(stats.last_sales.time);
                         } else {
-                            $('.stat-card').eq(3).find('.stat-datetime').hide();
+                            $('.stat-datetime-sales').hide();
+                            $('#stat-sales-last-label').hide();
                         }
                         
-                        // Pricing alerts (index 4)
-                        if (response.stats.last_pricing) {
-                            const pricingCard = $('.stat-card').eq(4);
-                            pricingCard.find('.stat-datetime').show();
-                            pricingCard.find('.stat-date').text(response.stats.last_pricing.date);
-                            pricingCard.find('.stat-time').text(response.stats.last_pricing.time);
-                            pricingCard.find('.stat-prefix').text('Last sent:');
+                        // Low Stock Alerts Breakdown
+                        $('#stat-stock-today').text(stats.stock_alerts_today || 0);
+                        $('#stat-stock-week').text(stats.stock_alerts_week || 0);
+                        $('#stat-stock-month').text(stats.stock_alerts_month || 0);
+                        if (stats.last_stock) {
+                            $('.stat-datetime-stock').show();
+                            $('#stat-stock-last-label').show();
+                            $('.stat-date-stock').text(stats.last_stock.date);
+                            $('.stat-time-stock').text(stats.last_stock.time);
                         } else {
-                            $('.stat-card').eq(4).find('.stat-datetime').hide();
+                            $('.stat-datetime-stock').hide();
+                            $('#stat-stock-last-label').hide();
+                        }
+                        
+                        // Pricing Alerts Breakdown
+                        $('#stat-pricing-today').text(stats.pricing_alerts_today || 0);
+                        $('#stat-pricing-week').text(stats.pricing_alerts_week || 0);
+                        $('#stat-pricing-month').text(stats.pricing_alerts_month || 0);
+                        if (stats.last_pricing) {
+                            $('.stat-datetime-pricing').show();
+                            $('#stat-pricing-last-label').show();
+                            $('.stat-date-pricing').text(stats.last_pricing.date);
+                            $('.stat-time-pricing').text(stats.last_pricing.time);
+                        } else {
+                            $('.stat-datetime-pricing').hide();
+                            $('#stat-pricing-last-label').hide();
                         }
                     }
                 },

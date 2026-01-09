@@ -3775,25 +3775,56 @@
                                     const batchSubtotal = safeNum(batch.subtotal, 0);
                                     subtotal += batchSubtotal; // Add to subtotal from actual batch prices
                                     const qtyUnit = isKiloRow ? ' kg' : ''; // Only show 'kg' for kilogram products
+                                    // Use batch_id from fifo_breakdown if available, otherwise fallback to addition_id
+                                    const batchIdDisplay = batch.batch_id || `Batch #${batch.addition_id}`;
+                                    
+                                    // For box products, compute the range of box IDs from the base batch_id
+                                    let batchIdColumn = '';
+                                    if (!isKiloRow && batch.batch_id) {
+                                        try {
+                                            const baseBatchId = batch.batch_id;
+                                            const qty = parseInt(batchQty) || 1;
+                                            
+                                            // Extract prefix and start sequence from batch_id (format: PREFIX + 2-digit seq)
+                                            if (baseBatchId.length >= 2) {
+                                                const prefix = baseBatchId.slice(0, -2);
+                                                const startSeq = parseInt(baseBatchId.slice(-2)) || 1;
+                                                
+                                                if (qty === 1) {
+                                                    // Single box - show just the batch_id
+                                                    batchIdColumn = baseBatchId;
+                                                } else {
+                                                    // Multiple boxes - show range
+                                                    const endSeq = ((startSeq - 1 + qty - 1) % 99) + 1;
+                                                    const endBatchId = `${prefix}${endSeq.toString().padStart(2, '0')}`;
+                                                    batchIdColumn = `${baseBatchId} to ${endBatchId}`;
+                                                }
+                                            } else {
+                                                batchIdColumn = baseBatchId;
+                                            }
+                                        } catch (e) {
+                                            // Fallback to base batch_id if calculation fails
+                                            batchIdColumn = batch.batch_id;
+                                        }
+                                    } else if (isKiloRow) {
+                                        batchIdColumn = 'N/A';
+                                    } else {
+                                        // Fallback for older sales without batch_id
+                                        batchIdColumn = batchIdDisplay;
+                                    }
+                                    
                                     if (allKilo) {
                                         breakdownTr.innerHTML = `
-                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
+                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</small></td>
                                             <td class="text-end"><small>${batchQty}${qtyUnit}</small></td>
                                             <td class="text-end"><small>${currency(batch.price)}</small></td>
                                             <td class="text-end"><small>${currency(batchSubtotal)}</small></td>
                                         `;
                                     } else {
-                                        const batchArr = Array.isArray(it.batch_ids) ? it.batch_ids
-                                                        : Array.isArray(it.batches) ? it.batches
-                                                        : Array.isArray(it.boxes) ? (it.boxes.map(b=>b.batch_id||b.batch||b))
-                                                        : null;
-                                        const batchHtml = batchArr && batchArr.length
-                                            ? batchArr.join(', ')
-                                            : `Batch #${batch.addition_id}`;
                                         breakdownTr.innerHTML = `
-                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size} - Batch #${batch.addition_id} (${dateStr})</small></td>
+                                            <td style="padding-left: 2rem;"><small>└─ #${safeText(it.product_id||'', '')} ${safeText(prodName)}${variant}${size}</small></td>
                                             <td class="text-end"><small>${batchQty}${qtyUnit}</small></td>
-                                            <td><small>${batchHtml}</small></td>
+                                            <td><small>${batchIdColumn}</small></td>
                                             <td class="text-end"><small>${currency(batch.price)}</small></td>
                                             <td class="text-end"><small>${currency(batchSubtotal)}</small></td>
                                         `;

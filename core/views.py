@@ -10119,6 +10119,16 @@ def get_sale_details(request, sale_id):
                     try:
                         fifo_breakdown = json.loads(row.fifo_breakdown)
                         print(f"DEBUG get_sale_details: Using stored FIFO breakdown for sale {row.sale_id}, has {len(fifo_breakdown)} batches")
+                        # Enhance stored breakdown: add batch_id if missing (for older sales)
+                        for batch_entry in fifo_breakdown:
+                            if 'addition_id' in batch_entry and 'batch_id' not in batch_entry:
+                                try:
+                                    addition = StockAddition.objects.filter(addition_id=batch_entry['addition_id']).first()
+                                    if addition:
+                                        batch_entry['batch_id'] = addition.batch_id or ''
+                                        print(f"DEBUG get_sale_details: Added batch_id {addition.batch_id} to stored breakdown entry")
+                                except Exception as e:
+                                    print(f"DEBUG get_sale_details: Could not fetch batch_id for addition_id {batch_entry.get('addition_id')}: {e}")
                     except (json.JSONDecodeError, TypeError) as e:
                         print(f"DEBUG get_sale_details: Error parsing stored FIFO breakdown: {e}")
                         fifo_breakdown = None
@@ -11122,6 +11132,7 @@ def calculate_fifo_pricing(product_id, quantity, sale_date=None, exclude_sale_id
         
         batch_entry = {
             'addition_id': batch.addition_id,
+            'batch_id': batch.batch_id or '',  # Include batch_id in the breakdown
             'quantity': float(allocate_amount),
             'price': float(batch_price),
             'date_added': batch.date_added.isoformat() if hasattr(batch.date_added, 'isoformat') else str(batch.date_added),
@@ -11156,6 +11167,7 @@ def calculate_fifo_pricing(product_id, quantity, sale_date=None, exclude_sale_id
                 first_batch = batches.first()
                 fallback_breakdown = [{
                     'addition_id': first_batch.addition_id,
+                    'batch_id': first_batch.batch_id or '',  # Include batch_id in fallback breakdown
                     'date_added': first_batch.date_added.isoformat() if hasattr(first_batch.date_added, 'isoformat') else str(first_batch.date_added),
                     'quantity': float(quantity),
                     'price': float(fallback_price),
@@ -13888,6 +13900,16 @@ def transaction_details(request, sale_id):
                             import json
                             fifo_breakdown = json.loads(sale.fifo_breakdown) if isinstance(sale.fifo_breakdown, str) else sale.fifo_breakdown
                             print(f"DEBUG transaction_details: Using stored FIFO breakdown for sale {sale.sale_id}: {len(fifo_breakdown)} batches")
+                            # Enhance stored breakdown: add batch_id if missing (for older sales)
+                            for batch_entry in fifo_breakdown:
+                                if 'addition_id' in batch_entry and 'batch_id' not in batch_entry:
+                                    try:
+                                        addition = StockAddition.objects.filter(addition_id=batch_entry['addition_id']).first()
+                                        if addition:
+                                            batch_entry['batch_id'] = addition.batch_id or ''
+                                            print(f"DEBUG transaction_details: Added batch_id {addition.batch_id} to stored breakdown entry")
+                                    except Exception as e:
+                                        print(f"DEBUG transaction_details: Could not fetch batch_id for addition_id {batch_entry.get('addition_id')}: {e}")
                         except (json.JSONDecodeError, TypeError) as e:
                             print(f"DEBUG transaction_details: Failed to parse stored fifo_breakdown for sale {sale.sale_id}: {e}")
                             fifo_breakdown = None

@@ -1990,7 +1990,9 @@
               const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
               const batchQty = (u === 'kg' && batch.quantity % 1 !== 0) ? batch.quantity.toFixed(2) : batch.quantity;
               const qtyUnit = u === 'kg' ? ' kg' : '';
-              html += `<tr><td><strong>${d} - Batch #${batch.addition_id} (${dateStr})</strong></td><td class="text-end"><strong>${batchQty}${qtyUnit}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.price)}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.subtotal)}</strong></td></tr>`;
+              // Use batch_id from fifo_breakdown if available, otherwise fallback to addition_id
+              const batchIdDisplay = batch.batch_id || `Batch #${batch.addition_id}`;
+              html += `<tr><td><strong>${d} - ${batchIdDisplay} (${dateStr})</strong></td><td class="text-end"><strong>${batchQty}${qtyUnit}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.price)}</strong></td><td class="text-end"><strong>₱${formatCurrency(batch.subtotal)}</strong></td></tr>`;
             });
           } else {
             // Fallback: if no FIFO breakdown, show single row with product details

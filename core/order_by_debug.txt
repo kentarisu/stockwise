@@ -1,0 +1,9 @@
+1577: recent_stock_additions = StockAddition.objects.select_related('product').defer('spoiled').order_by('-created_at')[:2]
+3822: latest_batch = StockAddition.objects.filter(product=product).defer('spoiled').order_by('-date_added', '-addition_id').first()
+3873: latest_batch = StockAddition.objects.filter(product=product).defer('spoiled').order_by('-date_added', '-addition_id').first()
+4810: additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
+6559: additions = StockAddition.objects.filter(product_id__in=low_ids).order_by('-date_added')
+9502: earliest_batch = StockAddition.objects.filter(product_id=product_id).order_by('date_added', 'addition_id').first()
+10266: earliest_addition = StockAddition.objects.filter(product=product).defer('spoiled').order_by('date_added', 'addition_id').first()
+10989: batches = StockAddition.objects.filter(**batch_filter).order_by('date_added', 'addition_id')
+10996: batches = StockAddition.objects.filter(**batch_filter, remaining_quantity__gt=0).order_by('date_added', 'addition_id')

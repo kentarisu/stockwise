@@ -11214,20 +11214,25 @@ def update_product_price_from_fifo_batches(product_id):
 
 def deduct_stock_fifo(product_id, quantity):
     """Deduct stock using FIFO method (strict FIFO by date_added, then addition_id)"""
+    from decimal import Decimal
+    
+    # Convert quantity to Decimal for proper type handling with Decimal fields
+    remaining_to_deduct = Decimal(str(quantity)) if not isinstance(quantity, Decimal) else quantity
+    
     # Get batches with remaining stock, ordered by date_added then addition_id for strict FIFO
     batches = StockAddition.objects.filter(
         product_id=product_id,
         remaining_quantity__gt=0
     ).order_by('date_added', 'addition_id')
     
-    remaining_to_deduct = quantity
-    
     for batch in batches:
         if remaining_to_deduct <= 0:
             break
         
-        deduct_amount = min(remaining_to_deduct, batch.remaining_quantity)
-        batch.remaining_quantity -= deduct_amount
+        # Ensure both values are Decimal for proper comparison and subtraction
+        batch_remaining = Decimal(str(batch.remaining_quantity))
+        deduct_amount = min(remaining_to_deduct, batch_remaining)
+        batch.remaining_quantity = batch_remaining - deduct_amount
         batch.save()
         
         remaining_to_deduct -= deduct_amount

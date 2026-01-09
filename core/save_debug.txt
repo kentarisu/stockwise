@@ -1,0 +1,44 @@
+2231: remaining_quantity=stock,
+2242: remaining_quantity=stock,
+2344: available = Decimal(str(addition.remaining_quantity or 0))
+2359: addition.remaining_quantity = new_remaining
+2439: remaining_quantity__gt=0
+2640: remaining_quantity=quantity_decimal,
+2654: remaining_quantity=quantity_decimal,
+2823: remaining_quantity=quantity_decimal,
+2837: remaining_quantity=quantity_decimal,
+3067: remaining_quantity=quantity_decimal,
+3078: remaining_quantity=quantity_decimal,
+3824: latest_batch.remaining_quantity = models.F('remaining_quantity') + trans_sale.quantity
+3833: remaining_quantity=trans_sale.quantity,
+3843: remaining_quantity=trans_sale.quantity,
+3869: remaining_quantity=models.F('remaining_quantity') + Decimal(str(cnt))
+3876: remaining_quantity=models.F('remaining_quantity') + Decimal(str(leftover))
+3885: remaining_quantity=Decimal(str(leftover)),
+3895: remaining_quantity=Decimal(str(leftover)),
+9143: remaining_quantity__gt=0
+9493: available_total = all_batches.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+9523: remaining_boxes = int(b.remaining_quantity or 0)
+9550: remaining_boxes = int(b.remaining_quantity or 0)
+10257: available_total = all_additions.aggregate(total=Sum('remaining_quantity'))['total'] or 0
+10283: remaining_quantity = float(b.remaining_quantity or 0)
+10311: remaining_boxes = int(remaining_quantity)
+10505: remaining_quantity=stock,
+10515: remaining_quantity=stock,
+10719: remaining_quantity__gt=0
+10734: remaining_quantity=stock_difference,
+10744: remaining_quantity=stock_difference,
+10760: StockAddition.objects.filter(product=product).update(remaining_quantity=0)
+10795: total_remaining = StockAddition.objects.filter(product=product).aggregate(total=models.Sum('remaining_quantity'))['total'] or 0
+10996: batches = StockAddition.objects.filter(**batch_filter, remaining_quantity__gt=0).order_by('date_added', 'addition_id')
+11078: available = Decimal(str(batch.remaining_quantity))
+11193: remaining_quantity__gt=0
+11220: remaining_quantity__gt=0
+11229: deduct_amount = min(remaining_to_deduct, batch.remaining_quantity)
+11230: batch.remaining_quantity -= deduct_amount
+11242: ).aggregate(total=models.Sum('remaining_quantity'))['total'] or Decimal('0')
+12506: remaining_quantity__gt=0
+12525: remaining_boxes = int(batch.remaining_quantity or 0)
+12556: total_boxes = sum(item['remaining_quantity'] for item in batch_data)
+12949: remaining_quantity__gt=0
+13094: StockAddition.objects.filter(product=product, remaining_quantity__gt=0).update(price=new_price)

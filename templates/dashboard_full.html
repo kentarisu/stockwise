@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -12,11 +13,12 @@
     {% load static %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive-enhancements.css' %}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+
     <style>
         :root {
             --primary: #6366f1;
@@ -243,7 +245,8 @@
         @media (min-width: 769px) {
             .sidebar {
                 transform: translateX(0);
-                width: var(--sidebar-width); /* Start expanded by default */
+                width: var(--sidebar-width);
+                /* Start expanded by default */
             }
 
             .sidebar:not(.active) {
@@ -264,8 +267,8 @@
                 margin-right: 0;
             }
 
-            .sidebar:not(.active) .nav-link > span,
-            .sidebar:not(.active) .nav-link > :not(i) {
+            .sidebar:not(.active) .nav-link>span,
+            .sidebar:not(.active) .nav-link> :not(i) {
                 display: none;
             }
 
@@ -374,7 +377,7 @@
 
         .btn-filter-action:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            box-shadow: 0 12px 24px -18px rgba(79, 70, 229, 0.8);
             color: #fff;
         }
 
@@ -511,7 +514,7 @@
             align-items: center;
             justify-content: space-between;
         }
-        
+
         .dashboard-tabs-actions {
             display: flex;
             align-items: center;
@@ -565,6 +568,7 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -1252,7 +1256,7 @@
             white-space: nowrap;
         }
 
-        
+
 
         #pricingRecommendationsOffcanvas .pagination-container {
             margin-top: 0.2rem !important;
@@ -1261,6 +1265,7 @@
             border: 0 !important;
             border-radius: 0 !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination .page-link {
             padding: 0.06rem 0.22rem !important;
             font-size: 0.58rem !important;
@@ -1272,18 +1277,23 @@
             align-items: center !important;
             justify-content: center !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination .page-item {
             margin: 0 1px !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination {
             flex-wrap: nowrap !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination-container .d-flex {
             gap: 0.25rem !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination-info {
             font-size: 0.62rem !important;
         }
+
         #pricingRecommendationsOffcanvas .pagination .label-text {
             display: none !important;
         }
@@ -1337,14 +1347,19 @@
                 max-width: 85vw;
             }
 
-            .sidebar.active { transform: translateX(0); }
+            .sidebar.active {
+                transform: translateX(0);
+            }
 
             .main-content {
                 margin-left: 0 !important;
                 margin-top: 0;
                 padding: calc(var(--header-height) + 0.75rem) 0.75rem 0.75rem;
             }
-            .main-content.sidebar-open { margin-left: 0 !important; }
+
+            .main-content.sidebar-open {
+                margin-left: 0 !important;
+            }
 
             .content-area {
                 padding: 0.75rem;
@@ -1353,16 +1368,53 @@
                 gap: 0.75rem;
             }
 
-            .header { padding: 0.75rem 1rem; min-height: var(--header-height); }
-            .header-brand span { display: none; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
+            .header {
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
 
-            .header-left { gap: 0; display: flex; align-items: center; flex: 1; min-width: 0; }
-            .header-brand span { display: none; }
-            .header-brand i { font-size: 1.5rem; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
+            .header-brand span {
+                display: none;
+            }
 
-            .burger-menu-btn { display: flex !important; width: 0.55rem !important; height: 0.55rem !important; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; justify-content: center !important; gap: 2px !important; }
+            .header-title-section {
+                padding-left: 3rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-left {
+                gap: 0;
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-brand span {
+                display: none;
+            }
+
+            .header-brand i {
+                font-size: 1.5rem;
+            }
+
+            .header-title-section {
+                padding-left: 3rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.55rem !important;
+                height: 0.55rem !important;
+                padding: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                justify-content: center !important;
+                gap: 2px !important;
+            }
 
             .header-left h1 {
                 font-size: 1.125rem;
@@ -1372,49 +1424,195 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .header-subtitle { display: none; }
-            .header-right { gap: 0.5rem; flex-shrink: 0; }
-            .table-header { justify-content: space-between; gap: 0.5rem; flex-wrap: nowrap; }
-            .table-title { justify-content: flex-start; }
-            .table-header .btn-filter-action { margin-left: auto; }
-            .btn-filter-action { padding: 0.3rem 0.65rem; font-size: 0.8rem; height: 28px; min-width: 84px; width: auto; }
-            .burger-menu-btn { display: flex !important; width: 0.55rem !important; height: 0.55rem !important; margin-right: 0.5rem !important; }
-            .burger-menu-btn span { height: 1px !important; }
-            .pricing-recommendations-btn { width: 1.5rem; height: 1.5rem; font-size: 0.85rem; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; }
 
-            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
-            .stat-card { padding: 0.5rem 0.375rem !important; }
-            .stat-icon { width: 28px !important; height: 28px !important; font-size: 0.75rem !important; }
-            .stat-value { font-size: 0.875rem !important; }
-            .stat-label { font-size: 0.65rem !important; }
+            .header-subtitle {
+                display: none;
+            }
 
-            .action-buttons { grid-template-columns: 1fr; padding: 0.75rem; }
-            .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-items: stretch; gap: 0.5rem; }
-            .action-btn { padding: 0.625rem 0.75rem; font-size: 0.8125rem; max-width: none; width: 100%; }
-            .action-btn i { font-size: 1rem; }
-            .action-btn-content h6 { font-size: 0.95rem; }
-            .action-btn-content p { font-size: 0.75rem; }
-            .modern-card { padding: var(--space-sm); margin-bottom: var(--space-sm); }
+            .header-right {
+                gap: 0.5rem;
+                flex-shrink: 0;
+            }
+
+            .table-header {
+                justify-content: space-between;
+                gap: 0.5rem;
+                flex-wrap: nowrap;
+            }
+
+            .table-title {
+                justify-content: flex-start;
+            }
+
+            .table-header .btn-filter-action {
+                margin-left: auto;
+            }
+
+            .btn-filter-action {
+                padding: 0.3rem 0.65rem;
+                font-size: 0.8rem;
+                height: 28px;
+                min-width: 84px;
+                width: auto;
+            }
+
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.55rem !important;
+                height: 0.55rem !important;
+                margin-right: 0.5rem !important;
+            }
+
+            .burger-menu-btn span {
+                height: 1px !important;
+            }
+
+            .pricing-recommendations-btn {
+                width: 1.5rem;
+                height: 1.5rem;
+                font-size: 0.85rem;
+                padding: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+            }
+
+            .stat-card {
+                padding: 0.5rem 0.375rem !important;
+            }
+
+            .stat-icon {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 0.75rem !important;
+            }
+
+            .stat-value {
+                font-size: 0.875rem !important;
+            }
+
+            .stat-label {
+                font-size: 0.65rem !important;
+            }
+
+            .action-buttons {
+                grid-template-columns: 1fr;
+                padding: 0.75rem;
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                justify-items: stretch;
+                gap: 0.5rem;
+            }
+
+            .action-btn {
+                padding: 0.625rem 0.75rem;
+                font-size: 0.8125rem;
+                max-width: none;
+                width: 100%;
+            }
+
+            .action-btn i {
+                font-size: 1rem;
+            }
+
+            .action-btn-content h6 {
+                font-size: 0.95rem;
+            }
+
+            .action-btn-content p {
+                font-size: 0.75rem;
+            }
+
+            .modern-card {
+                padding: var(--space-sm);
+                margin-bottom: var(--space-sm);
+            }
         }
 
         @media (max-width: 480px) {
             :root {
                 --header-height: 68px;
             }
-            #pricingRecommendationsOffcanvas { width: 300px !important; max-width: 85vw !important; }
-            .burger-menu-btn { width: 0.65rem !important; height: 0.65rem !important; }
-            .pricing-recommendations-btn { width: 1.4rem; height: 1.4rem; font-size: 0.8rem; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; }
-            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0.5rem !important; }
-            .stat-card { padding: 0.5rem 0.375rem !important; }
-            .stat-icon { width: 28px !important; height: 28px !important; font-size: 0.75rem !important; }
-            .stat-value { font-size: 0.875rem !important; }
-            .stat-label { font-size: 0.65rem !important; }
-            .content-area { padding: 0.625rem; }
-            .modern-card { padding: 0.625rem; margin-bottom: 0.625rem; }
-            .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-items: stretch; gap: 0.5rem; }
-            .action-btn { padding: 0.5rem 0.625rem; font-size: 0.75rem; max-width: none; }
-            .action-btn i { font-size: 0.95rem; }
-            .table-header .btn-filter-action { padding: 0.25rem 0.5rem; font-size: 0.78rem; height: 26px; min-width: 80px; }
+
+            #pricingRecommendationsOffcanvas {
+                width: 300px !important;
+                max-width: 85vw !important;
+            }
+
+            .burger-menu-btn {
+                width: 0.65rem !important;
+                height: 0.65rem !important;
+            }
+
+            .pricing-recommendations-btn {
+                width: 1.4rem;
+                height: 1.4rem;
+                font-size: 0.8rem;
+                padding: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 0.5rem !important;
+            }
+
+            .stat-card {
+                padding: 0.5rem 0.375rem !important;
+            }
+
+            .stat-icon {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 0.75rem !important;
+            }
+
+            .stat-value {
+                font-size: 0.875rem !important;
+            }
+
+            .stat-label {
+                font-size: 0.65rem !important;
+            }
+
+            .content-area {
+                padding: 0.625rem;
+            }
+
+            .modern-card {
+                padding: 0.625rem;
+                margin-bottom: 0.625rem;
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                justify-items: stretch;
+                gap: 0.5rem;
+            }
+
+            .action-btn {
+                padding: 0.5rem 0.625rem;
+                font-size: 0.75rem;
+                max-width: none;
+            }
+
+            .action-btn i {
+                font-size: 0.95rem;
+            }
+
+            .table-header .btn-filter-action {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.78rem;
+                height: 26px;
+                min-width: 80px;
+            }
         }
 
         /* Unified sizing overrides */
@@ -1491,6 +1689,7 @@
         }
 
         @media (min-width: 769px) {
+
             .main-content,
             .main-content.sidebar-open {
                 margin-left: var(--sidebar-width);
@@ -1615,6 +1814,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Unified Header -->
@@ -1632,21 +1832,31 @@
                 <div class="header-title-section">
                     <h1>Dashboard</h1>
                     <p class="header-subtitle">Welcome back! Here's what's happening with your business today.</p>
-            </div>
+                </div>
             </div>
             <div class="header-right">
                 {% if app_role == 'admin' %}
-                <button type="button" class="btn btn-outline-primary position-relative pricing-recommendations-btn" data-bs-toggle="offcanvas" data-bs-target="#pricingRecommendationsOffcanvas" aria-controls="pricingRecommendationsOffcanvas" id="pricingRecommendationsTrigger" title="Pricing Recommendations">
+                <button type="button" class="btn btn-outline-primary position-relative pricing-recommendations-btn"
+                    data-bs-toggle="offcanvas" data-bs-target="#pricingRecommendationsOffcanvas"
+                    aria-controls="pricingRecommendationsOffcanvas" id="pricingRecommendationsTrigger"
+                    title="Pricing Recommendations">
                     <i class="bi bi-lightbulb"></i>
                     <span class="badge bg-danger pricing-card-badge d-none" id="pricingRecommendationBadge">0</span>
                 </button>
                 {% endif %}
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown" onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}"
+                        alt="User" class="user-avatar" data-bs-toggle="dropdown"
+                        onerror="this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E'">
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item logout-link" href="#" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i
+                                    class="bi bi-person me-2"></i>Profile</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item logout-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#logoutConfirmModal"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -1656,47 +1866,41 @@
         <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <!-- Sidebar -->
         <nav class="sidebar active" id="sidebar" role="navigation" aria-label="Main navigation">
-            
+
             <div class="sidebar-nav">
                 <div class="nav-section">
                     <h2 class="nav-section-title">Main</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'dashboard' %}" 
-                               class="nav-link active"
-                               aria-current="page">
+                            <a href="{% url 'dashboard' %}" class="nav-link active" aria-current="page">
                                 <i class="bi bi-speedometer2" aria-hidden="true"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'products_inventory' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'products_inventory' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-basket" aria-hidden="true"></i>
                                 <span>Inventory</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'add_product_page' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'add_product_page' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'add_product_page' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'add_product_page' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-plus-square" aria-hidden="true"></i>
                                 <span>Product Registration</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'record_sale_main' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'record_sale_main' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'record_sale_main' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'record_sale_main' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'record_sale_main' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'record_sale_main' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-receipt" aria-hidden="true"></i>
                                 <span>Record Transaction</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'sales' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'sales' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-cart" aria-hidden="true"></i>
                                 <span>Sales</span>
                             </a>
@@ -1709,17 +1913,15 @@
                     <h2 class="nav-section-title">Reports</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'reports' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'reports' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-graph-up" aria-hidden="true"></i>
                                 <span>Reports</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'pricing_analysis' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'pricing_analysis' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'pricing_analysis' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'pricing_analysis' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-currency-exchange" aria-hidden="true"></i>
                                 <span>Pricing Analysis</span>
                             </a>
@@ -1733,42 +1935,37 @@
                     <ul class="nav-list" role="list">
                         {% if app_role == 'admin' %}
                         <li class="nav-item">
-                            <a href="{% url 'sms_settings' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'sms_settings' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-chat-dots" aria-hidden="true"></i>
                                 <span>SMS Notification</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'action_logs' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
-                               <i class="bi bi-journal-text" aria-hidden="true"></i>
+                            <a href="{% url 'action_logs' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                                <i class="bi bi-journal-text" aria-hidden="true"></i>
                                 <span>Logs</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'backup_management' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'backup_management' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-database" aria-hidden="true"></i>
                                 <span>Backups</span>
                             </a>
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a href="{% url 'profile' %}" 
-                               class="nav-link"
-                               aria-current="false">
+                            <a href="{% url 'profile' %}" class="nav-link" aria-current="false">
                                 <i class="bi bi-person" aria-hidden="true"></i>
                                 <span>Profile</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="#" 
-                               class="nav-link logout-link" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"
-                               aria-current="false">
+                            <a href="#" class="nav-link logout-link" data-bs-toggle="modal"
+                                data-bs-target="#logoutConfirmModal" aria-current="false">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 <span>Logout</span>
                             </a>
@@ -1789,62 +1986,49 @@
                             <i class="bi bi-box-seam"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">{{ total_products }}</div>
-                        <div class="stat-label">Total Products</div>
-                        <div class="stat-subtitle">All products including variants ready for sale</div>
-                        <div class="stat-change {% if products_change >= 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if products_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                            {% if products_change >= 0 %}+{% endif %}{{ products_change }}% vs {{ last_month_date|date:"M d, Y" }}
+                            <div class="stat-value">{{ total_products }}</div>
+                            <div class="stat-label">Total Products</div>
+                            <div class="stat-subtitle">All products including variants ready for sale</div>
+                            <div class="stat-change {% if products_change >= 0 %}positive{% else %}negative{% endif %}">
+                                <i
+                                    class="bi bi-{% if products_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                                {% if products_change >= 0 %}+{% endif %}{{ products_change }}% vs {{                                 last_month_date|date:"M d, Y" }}
                             </div>
                         </div>
                     </a>
 
                     <a href="{% url 'products_inventory' %}?tab=low-stock" class="stat-card clickable">
-                        <div class="stat-icon warning">
-                            <i class="bi bi-exclamation-triangle"></i>
+                        <div class="stat-icon danger" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+                            <i class="bi bi-exclamation-octagon"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">
-                            {% if low_stock_boxes != 0 and low_stock_kilos != 0 %}
-                                {{ low_stock_boxes }} {% if low_stock_boxes == 1 %}product{% else %}products{% endif %} (boxes) • {{ low_stock_kilos }} {% if low_stock_kilos == 1 %}product{% else %}products{% endif %} (kg)
-                            {% elif low_stock_boxes != 0 %}
-                                {{ low_stock_boxes }} {% if low_stock_boxes == 1 %}product{% else %}products{% endif %}
-                            {% elif low_stock_kilos != 0 %}
-                                {{ low_stock_kilos }} {% if low_stock_kilos == 1 %}product{% else %}products{% endif %}
-                            {% else %}
-                                0
-                            {% endif %}
-                        </div>
-                        <div class="stat-label">Low Stock Alerts</div>
-                        <div class="stat-subtitle">Products with stock ≤10 units</div>
-                        <div class="stat-change {% if low_stock_change <= 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if low_stock_change <= 0 %}arrow-down{% else %}arrow-up{% endif %}"></i>
-                            {% if low_stock_change >= 0 %}+{% endif %}{{ low_stock_change }}% vs {{ yesterday|date:"M d, Y" }}
+                            <div class="stat-value">{{ critical_stock }}</div>
+                            <div class="stat-label">Critical Stock Items</div>
+                            <div class="stat-subtitle">
+                                {% if low_stock > 0 %}{{ low_stock }} low{% endif %}
+                                {% if low_stock > 0 and out_of_stock > 0 %} • {% endif %}
+                                {% if out_of_stock > 0 %}{{ out_of_stock }} out{% endif %}
+                                {% if low_stock == 0 and out_of_stock == 0 %}No stock issues{% endif %}
+                            </div>
+                            <div class="stat-change negative">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Action required
                             </div>
                         </div>
                     </a>
 
-                    <a href="{% url 'products_inventory' %}?tab=out-of-stock" class="stat-card clickable">
-                        <div class="stat-icon danger">
+                    <a href="{% url 'sales' %}?tab=voided" class="stat-card clickable">
+                        <div class="stat-icon secondary" style="background: linear-gradient(135deg, #6b7280, #374151);">
                             <i class="bi bi-x-circle"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">
-                            {% if out_of_stock_boxes != 0 and out_of_stock_kilos != 0 %}
-                                {{ out_of_stock_boxes }} {% if out_of_stock_boxes == 1 %}product{% else %}products{% endif %} (boxes) • {{ out_of_stock_kilos }} {% if out_of_stock_kilos == 1 %}product{% else %}products{% endif %} (kg)
-                            {% elif out_of_stock_boxes != 0 %}
-                                {{ out_of_stock_boxes }} {% if out_of_stock_boxes == 1 %}product{% else %}products{% endif %}
-                            {% elif out_of_stock_kilos != 0 %}
-                                {{ out_of_stock_kilos }} {% if out_of_stock_kilos == 1 %}product{% else %}products{% endif %}
-                            {% else %}
-                                0
-                            {% endif %}
-                        </div>
-                        <div class="stat-label">Out of Stock</div>
-                        <div class="stat-subtitle">Products with zero stock</div>
-                        <div class="stat-change negative">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            As of {{ today|date:"M d, Y" }}
+                            <div class="stat-value">{{ total_voided }}</div>
+                            <div class="stat-label">Total Voided</div>
+                            <div class="stat-subtitle">All-time voided transactions</div>
+                            <div class="stat-change {% if total_voided == 0 %}positive{% else %}negative{% endif %}">
+                                <i
+                                    class="bi bi-{% if total_voided == 0 %}check-circle{% else %}info-circle{% endif %}"></i>
+                                {% if total_voided == 0 %}Clean record{% else %}Review recommended{% endif %}
                             </div>
                         </div>
                     </a>
@@ -1854,12 +2038,12 @@
                             <i class="bi bi-cart-check"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">{{ today_sales }}</div>
-                        <div class="stat-label">Transactions Today</div>
-                        <div class="stat-subtitle">Completed sales today</div>
-                        <div class="stat-change {% if sales_change >= 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if sales_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                            {% if sales_change >= 0 %}+{% endif %}{{ sales_change }}% vs {{ yesterday|date:"M d, Y" }}
+                            <div class="stat-value">{{ today_sales }}</div>
+                            <div class="stat-label">Transactions Today</div>
+                            <div class="stat-subtitle">Completed sales today</div>
+                            <div class="stat-change {% if sales_change >= 0 %}positive{% else %}negative{% endif %}">
+                                <i class="bi bi-{% if sales_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                                {% if sales_change >= 0 %}+{% endif %}{{ sales_change }}% vs {{ yesterday|date:"M d, Y"                                 }}
                             </div>
                         </div>
                     </a>
@@ -1869,22 +2053,22 @@
                             <i class="bi bi-graph-up"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">
-                            {% if weekly_boxes_count_formatted != '0' and weekly_kilos_count_formatted != '0' %}
+                            <div class="stat-value">
+                                {% if weekly_boxes_count_formatted != '0' and weekly_kilos_count_formatted != '0' %}
                                 {{ weekly_boxes_count_formatted }} boxes • {{ weekly_kilos_count_formatted }} kg
-                            {% elif weekly_boxes_count_formatted != '0' %}
+                                {% elif weekly_boxes_count_formatted != '0' %}
                                 {{ weekly_boxes_count_formatted }} boxes
-                            {% elif weekly_kilos_count_formatted != '0' %}
+                                {% elif weekly_kilos_count_formatted != '0' %}
                                 {{ weekly_kilos_count_formatted }} kg
-                            {% else %}
+                                {% else %}
                                 0
-                            {% endif %}
-                        </div>
-                        <div class="stat-label">Quantity Units Sold This Week</div>
-                        <div class="stat-subtitle">Total units sold in the last 7 days</div>
-                        <div class="stat-change positive">
-                            <i class="bi bi-calendar-week"></i>
-                            {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
+                                {% endif %}
+                            </div>
+                            <div class="stat-label">Quantity Units Sold This Week</div>
+                            <div class="stat-subtitle">Total units sold in the last 7 days</div>
+                            <div class="stat-change positive">
+                                <i class="bi bi-calendar-week"></i>
+                                {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
                             </div>
                         </div>
                     </a>
@@ -1894,12 +2078,13 @@
                             <i class="bi bi-currency-dollar"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">₱{{ today_revenue_formatted }}</div>
-                        <div class="stat-label">Revenue Today</div>
-                        <div class="stat-subtitle">Total money earned today</div>
-                        <div class="stat-change {% if revenue_change >= 0 %}positive{% else %}negative{% endif %}">
-                            <i class="bi bi-{% if revenue_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                            {% if revenue_change >= 0 %}+{% endif %}{{ revenue_change }}% vs {{ yesterday|date:"M d, Y" }}
+                            <div class="stat-value">₱{{ today_revenue_formatted }}</div>
+                            <div class="stat-label">Revenue Today</div>
+                            <div class="stat-subtitle">Total money earned today</div>
+                            <div class="stat-change {% if revenue_change >= 0 %}positive{% else %}negative{% endif %}">
+                                <i
+                                    class="bi bi-{% if revenue_change >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                                {% if revenue_change >= 0 %}+{% endif %}{{ revenue_change }}% vs {{ yesterday|date:"M d,                                 Y" }}
                             </div>
                         </div>
                     </a>
@@ -1910,12 +2095,12 @@
                             <i class="bi bi-calendar-week"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">₱{{ weekly_revenue_formatted }}</div>
-                        <div class="stat-label">Weekly Revenue</div>
-                        <div class="stat-subtitle">Total money earned in the last 7 days</div>
-                        <div class="stat-change positive">
-                            <i class="bi bi-calendar-week"></i>
-                            {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
+                            <div class="stat-value">₱{{ weekly_revenue_formatted }}</div>
+                            <div class="stat-label">Weekly Revenue</div>
+                            <div class="stat-subtitle">Total money earned in the last 7 days</div>
+                            <div class="stat-change positive">
+                                <i class="bi bi-calendar-week"></i>
+                                {{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}
                             </div>
                         </div>
                     </a>
@@ -1925,12 +2110,12 @@
                             <i class="bi bi-boxes"></i>
                         </div>
                         <div class="stat-content">
-                        <div class="stat-value">₱{{ total_inventory_value_formatted }}</div>
-                        <div class="stat-label">Inventory Value</div>
-                        <div class="stat-subtitle">Worth of all boxes at cost price</div>
-                        <div class="stat-change positive">
-                            <i class="bi bi-boxes"></i>
-                            As of {{ today|date:"M d, Y" }}
+                            <div class="stat-value">₱{{ total_inventory_value_formatted }}</div>
+                            <div class="stat-label">Inventory Value</div>
+                            <div class="stat-subtitle">Worth of all boxes at cost price</div>
+                            <div class="stat-change positive">
+                                <i class="bi bi-boxes"></i>
+                                As of {{ today|date:"M d, Y" }}
                             </div>
                         </div>
                     </a>
@@ -1942,26 +2127,34 @@
                 <div class="dashboard-tabs-container">
                     <ul class="nav nav-pills dashboard-tabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="quick-actions-tab" data-bs-toggle="pill" data-bs-target="#quick-actions-content" type="button" role="tab" aria-controls="quick-actions-content" aria-selected="true">
+                            <button class="nav-link active" id="quick-actions-tab" data-bs-toggle="pill"
+                                data-bs-target="#quick-actions-content" type="button" role="tab"
+                                aria-controls="quick-actions-content" aria-selected="true">
                                 <i class="bi bi-lightning-charge"></i> Quick Actions
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview-content" type="button" role="tab" aria-controls="overview-content" aria-selected="false">
+                            <button class="nav-link" id="overview-tab" data-bs-toggle="pill"
+                                data-bs-target="#overview-content" type="button" role="tab"
+                                aria-controls="overview-content" aria-selected="false">
                                 <i class="bi bi-grid-3x3-gap"></i> Overview
                             </button>
                         </li>
                         {% if app_role == 'admin' %}
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pricing-tab" data-bs-toggle="pill" data-bs-target="#pricing-content" type="button" role="tab" aria-controls="pricing-content" aria-selected="false">
+                            <button class="nav-link" id="pricing-tab" data-bs-toggle="pill"
+                                data-bs-target="#pricing-content" type="button" role="tab"
+                                aria-controls="pricing-content" aria-selected="false">
                                 <i class="bi bi-graph-up-arrow"></i> Pricing Analysis
                             </button>
                         </li>
                         {% endif %}
                     </ul>
                     <div class="dashboard-tabs-actions">
-                        <button type="button" class="btn-filter-action" id="dashboardRefreshBtn" aria-label="Refresh dashboard">
-                            <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="dashboardRefreshSpinner"></span>
+                        <button type="button" class="btn-filter-action" id="dashboardRefreshBtn"
+                            aria-label="Refresh dashboard">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"
+                                id="dashboardRefreshSpinner"></span>
                             <span class="refresh-text">Refresh</span>
                         </button>
                     </div>
@@ -1969,7 +2162,8 @@
 
                 <div class="tab-content dashboard-tab-content">
                     <!-- Quick Actions Tab -->
-                    <div class="tab-pane fade show active" id="quick-actions-content" role="tabpanel" aria-labelledby="quick-actions-tab">
+                    <div class="tab-pane fade show active" id="quick-actions-content" role="tabpanel"
+                        aria-labelledby="quick-actions-tab">
                         <div class="modern-card">
                             <div class="table-header">
                                 <h3 class="table-title">
@@ -2037,186 +2231,192 @@
 
                     <!-- Overview Tab -->
                     <div class="tab-pane fade" id="overview-content" role="tabpanel" aria-labelledby="overview-tab">
-                <div class="row g-3">
-                    <div class="col-lg-6">
-                        <div class="modern-card">
-                            <div class="table-header">
-                                <h3 class="table-title">
-                                    <i class="bi bi-trophy"></i>
-                                    Top Selling Products
-                                </h3>
-                                <span class="badge bg-success">{{ week_start|date:"M d, Y" }} - {{ today|date:"M d, Y" }}</span>
-                            </div>
-                            <div>
-                                {% if top_products %}
-                                    {% for product in top_products %}
-                                    <div class="overview-item">
-                                        <div class="overview-rank">{{ forloop.counter }}</div>
-                                        <div class="overview-content">
-                                            <h6>{{ product.product__name }}</h6>
-                                            <p>{% if product.product__quantity_unit|lower == 'kg' %}{{ product.quantity|floatformat:2|default:"0.00" }} kg{% else %}{{ product.quantity|floatformat:0|default:"0" }} {% if product.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
-                                            <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
-                                        </div>
-                                        <div class="overview-value">
-                                            <i class="bi bi-graph-up"></i>
-                                        </div>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="modern-card">
+                                    <div class="table-header">
+                                        <h3 class="table-title">
+                                            <i class="bi bi-trophy"></i>
+                                            Top Selling Products
+                                        </h3>
+                                        <span class="badge bg-success">{{ week_start|date:"M d, Y" }} - {{ today|date:"M                                             d, Y" }}</span>
                                     </div>
-                                    {% endfor %}
-                                {% else %}
-                                <div class="empty-state-custom">
-                                    <p class="text-muted mb-0">No sales data available</p>
+                                    <div>
+                                        {% if top_products %}
+                                        {% for product in top_products %}
+                                        <div class="overview-item">
+                                            <div class="overview-rank">{{ forloop.counter }}</div>
+                                            <div class="overview-content">
+                                                <h6>{{ product.product__name }}</h6>
+                                                <p>{% if product.product__quantity_unit|lower == 'kg' %}{{                                                     product.quantity|floatformat:2|default:"0.00" }} kg{% else %}{{                                                     product.quantity|floatformat:0|default:"0" }} {% if product.quantity                                                     == 1 %}box{% else %}boxes{% endif %}{% endif %} sold</p>
+                                                <small class="text-muted">Since {{ week_start|date:"M d" }}</small>
+                                            </div>
+                                            <div class="overview-value">
+                                                <i class="bi bi-graph-up"></i>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                        {% else %}
+                                        <div class="empty-state-custom">
+                                            <p class="text-muted mb-0">No sales data available</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                {% endif %}
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="modern-card">
-                            <div class="table-header">
-                                <h3 class="table-title">
-                                    <i class="bi bi-clock-history"></i>
-                                    Recent Activity
-                                </h3>
-                                <div class="text-muted text-muted-custom">Last updated: {{ now|date:"M d, g:i A" }}</div>
-                            </div>
-                            <div class="activity-container">
-                                {% for sale in recent_sales %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-custom">
-                                        <i class="bi bi-cart-check"></i>
+                            <div class="col-lg-6">
+                                <div class="modern-card">
+                                    <div class="table-header">
+                                        <h3 class="table-title">
+                                            <i class="bi bi-clock-history"></i>
+                                            Recent Activity
+                                        </h3>
+                                        <div class="text-muted text-muted-custom">Last updated: {{ now|date:"M d, g:i A"                                             }}</div>
                                     </div>
-                                    <div class="activity-content">
-                                        <h6>New sale recorded</h6>
+                                    <div class="activity-container">
+                                        {% for sale in recent_sales %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-custom">
+                                                <i class="bi bi-cart-check"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>New sale recorded</h6>
                                                 <p>
-                                                    ₱{{ sale.formatted_total }} - 
+                                                    ₱{{ sale.formatted_total }} -
                                                     {% if sale.product.formatted_name %}
-                                                        {{ sale.product.formatted_name }}
+                                                    {{ sale.product.formatted_name }}
                                                     {% else %}
-                                                        {{ sale.product.name }}
-                                                        {% if sale.product.variant %} ({{ sale.product.variant }}){% endif %}
-                                                        {% if sale.product.quantity_unit %} ({{ sale.product.quantity_unit }}){% endif %}
+                                                    {{ sale.product.name }}
+                                                    {% if sale.product.variant %} ({{ sale.product.variant }}){% endif                                                     %}
+                                                    {% if sale.product.quantity_unit %} ({{ sale.product.quantity_unit                                                     }}){% endif %}
                                                     {% endif %}
-                                                     x{% if sale.product.quantity_unit|lower == 'kg' %}{{ sale.quantity|floatformat:2|default:"0.00" }}{% else %}{{ sale.quantity|floatformat:0|default:"0" }}{% endif %} {% if sale.product.quantity_unit|lower == 'kg' %}kg{% else %}{% if sale.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}
+                                                    x{% if sale.product.quantity_unit|lower == 'kg' %}{{                                                     sale.quantity|floatformat:2|default:"0.00" }}{% else %}{{                                                     sale.quantity|floatformat:0|default:"0" }}{% endif %}
+                                                    {% if sale.product.quantity_unit|lower == 'kg' %}kg{% else %}{% if                                                     sale.quantity == 1 %}box{% else %}boxes{% endif %}{% endif %}
                                                 </p>
-                                        <small class="text-muted">By: {{ sale.user.username|default:"Unknown" }}</small>
-                                    </div>
-                                    <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
-                                </div>
-                                {% endfor %}
-                                {% for stock in recent_stock_additions %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-blue">
-                                        <i class="bi bi-box-arrow-in-down"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h6>Stock added</h6>
+                                                <small class="text-muted">By: {{ sale.user.username|default:"Unknown"                                                     }}</small>
+                                            </div>
+                                            <span class="activity-time">{{ sale.recorded_at|date:"M d, g:i A" }}</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% for stock in recent_stock_additions %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-blue">
+                                                <i class="bi bi-box-arrow-in-down"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>Stock added</h6>
                                                 <p>
                                                     {{ stock.product.name }}
-                                                    {% if stock.product.variant %} ({{ stock.product.variant }}){% endif %}
-                                                    {% if stock.product.quantity_unit %} ({{ stock.product.quantity_unit }}){% endif %}
-                                                     - Added 
+                                                    {% if stock.product.variant %} ({{ stock.product.variant }}){% endif                                                     %}
+                                                    {% if stock.product.quantity_unit %} ({{ stock.product.quantity_unit                                                     }}){% endif %}
+                                                    - Added
                                                     {% if stock.product.quantity_unit|lower == 'kg' %}
-                                                        {{ stock.quantity|floatformat:2|default:"0.00" }}
+                                                    {{ stock.quantity|floatformat:2|default:"0.00" }}
                                                     {% else %}
-                                                        {{ stock.quantity|floatformat:0|default:"0" }}
+                                                    {{ stock.quantity|floatformat:0|default:"0" }}
                                                     {% endif %}
-                                                     
+
                                                     {% if stock.product.quantity_unit|lower == 'kg' %}
-                                                        kg
+                                                    kg
                                                     {% else %}
-                                                        {% if stock.quantity == 1 %}box{% else %}boxes{% endif %}
+                                                    {% if stock.quantity == 1 %}box{% else %}boxes{% endif %}
                                                     {% endif %}
                                                 </p>
-                                    </div>
-                                    <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
-                                </div>
-                                {% endfor %}
-                                {% for product in low_stock_products %}
-                                <div class="activity-item">
-                                    <div class="activity-icon activity-icon-yellow">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h6>Low stock alert</h6>
+                                            </div>
+                                            <span class="activity-time">{{ stock.created_at|date:"M d, g:i A" }}</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% for product in low_stock_products %}
+                                        <div class="activity-item">
+                                            <div class="activity-icon activity-icon-yellow">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                            </div>
+                                            <div class="activity-content">
+                                                <h6>Low stock alert</h6>
                                                 <p>
                                                     {{ product.name }}
                                                     {% if product.variant %} ({{ product.variant }}){% endif %}
-                                                    {% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif %}
-                                                     - Only 
+                                                    {% if product.quantity_unit %} ({{ product.quantity_unit }}){% endif                                                     %}
+                                                    - Only
                                                     {% if product.quantity_unit|lower == 'kg' %}
-                                                        {{ product.stock|floatformat:2|default:"0.00" }}
+                                                    {{ product.stock|floatformat:2|default:"0.00" }}
                                                     {% else %}
-                                                        {{ product.stock|floatformat:0|default:"0" }}
+                                                    {{ product.stock|floatformat:0|default:"0" }}
                                                     {% endif %}
-                                                     
+
                                                     {% if product.quantity_unit|lower == 'kg' %}
-                                                        kg
+                                                    kg
                                                     {% else %}
-                                                        {% if product.stock == 1 %}box{% else %}boxes{% endif %}
+                                                    {% if product.stock == 1 %}box{% else %}boxes{% endif %}
                                                     {% endif %}
-                                                     left
+                                                    left
                                                 </p>
+                                            </div>
+                                            <span class="activity-time">Now</span>
+                                        </div>
+                                        {% endfor %}
+                                        {% if not recent_sales and not recent_stock_additions and not low_stock_products                                         %}
+                                        <div class="empty-state-custom">
+                                            <p class="text-muted mb-0">No recent activity</p>
+                                        </div>
+                                        {% endif %}
                                     </div>
-                                    <span class="activity-time">Now</span>
                                 </div>
-                                {% endfor %}
-                                {% if not recent_sales and not recent_stock_additions and not low_stock_products %}
-                                <div class="empty-state-custom">
-                                    <p class="text-muted mb-0">No recent activity</p>
-                                </div>
-                                {% endif %}
-                                    </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {% if app_role == 'admin' %}
+
+                    {% if app_role == 'admin' %}
                     <!-- Pricing Analysis Tab -->
                     <div class="tab-pane fade" id="pricing-content" role="tabpanel" aria-labelledby="pricing-tab">
                         <div class="modern-card">
-                    <div class="table-header">
-                        <h3 class="table-title">
-                            <i class="bi bi-graph-up-arrow"></i>
-                            Pricing Analysis - All Products
-                        </h3>
-                        <div class="d-flex align-items-center gap-2">
-                            <select id="pricingGraphPeriod" class="form-select form-select-sm pricing-period-select" aria-label="Select time period for pricing graph" style="min-width: 200px;">
-                                <option value="30">Last 30 Days</option>
-                                <option value="90">Last 90 Days</option>
-                                <option value="180">Last 6 Months</option>
-                                <option value="365" selected>Last Year</option>
-                            </select>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="refreshPricingGraph">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-3">
-                        <div class="row g-3 mb-3">
-                            <div class="col-12">
-                                <div class="pricing-legend-container">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <small class="text-muted fw-semibold">
-                                            <i class="bi bi-info-circle"></i> Product Legend (Click to show only that product)
-                                        </small>
-                                        <small class="text-muted" id="productCountInfo"></small>
-                                    </div>
-                                    <div class="d-flex flex-wrap align-items-center gap-2" id="pricingLegend">
-                                        <div class="text-muted small">
-                                            <i class="bi bi-hourglass-split"></i> Loading product data...
+                            <div class="table-header">
+                                <h3 class="table-title">
+                                    <i class="bi bi-graph-up-arrow"></i>
+                                    Pricing Analysis - All Products
+                                </h3>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select id="pricingGraphPeriod"
+                                        class="form-select form-select-sm pricing-period-select"
+                                        aria-label="Select time period for pricing graph" style="min-width: 200px;">
+                                        <option value="30">Last 30 Days</option>
+                                        <option value="90">Last 90 Days</option>
+                                        <option value="180">Last 6 Months</option>
+                                        <option value="365" selected>Last Year</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                        id="refreshPricingGraph">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-12">
+                                        <div class="pricing-legend-container">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <small class="text-muted fw-semibold">
+                                                    <i class="bi bi-info-circle"></i> Product Legend (Click to show only
+                                                    that product)
+                                                </small>
+                                                <small class="text-muted" id="productCountInfo"></small>
+                                            </div>
+                                            <div class="d-flex flex-wrap align-items-center gap-2" id="pricingLegend">
+                                                <div class="text-muted small">
+                                                    <i class="bi bi-hourglass-split"></i> Loading product data...
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                <div class="chart-wrapper" style="position: relative; height: 450px;">
+                                    <canvas id="pricingAnalysisChart"></canvas>
+                                </div>
                             </div>
                         </div>
-                        <div class="chart-wrapper" style="position: relative; height: 450px;">
-                            <canvas id="pricingAnalysisChart"></canvas>
-                                </div>
-                        </div>
                     </div>
-                </div>
-                {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </main>
@@ -2224,27 +2424,32 @@
 
     {% if app_role == 'admin' %}
     <!-- Pricing Recommendations Offcanvas -->
-    <div class="offcanvas offcanvas-end offcanvas-pricing" tabindex="-1" id="pricingRecommendationsOffcanvas" aria-labelledby="pricingRecommendationsOffcanvasLabel">
+    <div class="offcanvas offcanvas-end offcanvas-pricing" tabindex="-1" id="pricingRecommendationsOffcanvas"
+        aria-labelledby="pricingRecommendationsOffcanvasLabel">
         <div class="offcanvas-header table-header offcanvas-header-custom">
             <div class="d-flex align-items-center gap-2 flex-1">
                 <i class="bi bi-lightbulb icon-primary"></i>
                 <div class="flex-1">
-                    <h5 class="offcanvas-title table-title offcanvas-title-custom" id="pricingRecommendationsOffcanvasLabel">Pricing Recommendations</h5>
+                    <h5 class="offcanvas-title table-title offcanvas-title-custom"
+                        id="pricingRecommendationsOffcanvasLabel">Pricing Recommendations</h5>
                     <p class="offcanvas-subtitle-custom">Smart pricing suggestions based on sales trends</p>
                 </div>
             </div>
-            <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-custom" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
         </div>
         <div class="offcanvas-body offcanvas-body-padding">
             <!-- Tabs -->
             <ul class="nav nav-tabs nav-tabs-custom" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active nav-link-custom nav-link-active-custom" id="unreadTab" data-bs-toggle="tab" data-bs-target="#unreadRecommendations" type="button" role="tab">
+                    <button class="nav-link active nav-link-custom nav-link-active-custom" id="unreadTab"
+                        data-bs-toggle="tab" data-bs-target="#unreadRecommendations" type="button" role="tab">
                         Unread <span class="badge bg-danger ms-1 badge-custom" id="unreadBadge">0</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link nav-link-custom nav-link-inactive-custom" id="readTab" data-bs-toggle="tab" data-bs-target="#readRecommendations" type="button" role="tab">
+                    <button class="nav-link nav-link-custom nav-link-inactive-custom" id="readTab" data-bs-toggle="tab"
+                        data-bs-target="#readRecommendations" type="button" role="tab">
                         Read <span class="badge bg-secondary ms-1 badge-custom" id="readBadge">0</span>
                     </button>
                 </li>
@@ -2256,9 +2461,11 @@
                 <div class="tab-pane fade show active" id="unreadRecommendations" role="tabpanel">
                     <div class="pricing-empty-state d-none empty-state-offcanvas" id="unreadEmpty">
                         <i class="bi bi-check-circle icon-large"></i>
-                        <span class="text-gray-custom">All caught up! No new pricing recommendations at this time.</span>
+                        <span class="text-gray-custom">All caught up! No new pricing recommendations at this
+                            time.</span>
                     </div>
-                    <ul class="recommendation-list d-none recommendation-list-reset" id="pricingRecommendationList"></ul>
+                    <ul class="recommendation-list d-none recommendation-list-reset" id="pricingRecommendationList">
+                    </ul>
                     <div id="pagination-unreadRecommendations"></div>
                 </div>
 
@@ -2266,7 +2473,8 @@
                 <div class="tab-pane fade" id="readRecommendations" role="tabpanel">
                     <div class="pricing-empty-state d-none empty-state-offcanvas" id="readEmpty">
                         <i class="bi bi-check-circle icon-large"></i>
-                        <span class="text-gray-custom">Nothing in Read yet. Viewing recommendations adds them here.</span>
+                        <span class="text-gray-custom">Nothing in Read yet. Viewing recommendations adds them
+                            here.</span>
                     </div>
                     <ul class="recommendation-list d-none recommendation-list-reset" id="readRecommendationList"></ul>
                     <div id="pagination-readRecommendations"></div>
@@ -2283,11 +2491,11 @@
         const sidebar = document.querySelector('.sidebar');
         const burgerMenuBtn = document.getElementById('burgerMenuBtn');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
-        window.getCookie = function(name) {
+        window.getCookie = function (name) {
             const m = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]+)'));
             return m ? decodeURIComponent(m[2]) : '';
         };
-        window.showOffcanvasMessage = function(text, type = 'danger') {
+        window.showOffcanvasMessage = function (text, type = 'danger') {
             const oc = document.getElementById('pricingRecommendationsOffcanvas');
             if (!oc) return;
             let box = oc.querySelector('#pricingMessageBox');
@@ -2305,8 +2513,8 @@
             box.textContent = text;
             setTimeout(() => { box?.remove(); }, 4000);
         };
-        
-        document.addEventListener('DOMContentLoaded', function() {
+
+        document.addEventListener('DOMContentLoaded', function () {
             const getCookie = (name) => {
                 const m = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]+)'));
                 return m ? decodeURIComponent(m[2]) : '';
@@ -2364,7 +2572,7 @@
 
             // Burger menu button toggle
             if (burgerMenuBtn && sidebar) {
-                burgerMenuBtn.addEventListener('click', function() {
+                burgerMenuBtn.addEventListener('click', function () {
                     const isOpen = sidebar.classList.contains('active');
                     if (isOpen) {
                         closeSidebar();
@@ -2376,7 +2584,7 @@
 
             // Close sidebar when clicking overlay (mobile only)
             if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', function() {
+                sidebarOverlay.addEventListener('click', function () {
                     if (window.innerWidth <= 768) {
                         closeSidebar();
                     }
@@ -2391,14 +2599,14 @@
                     if (link.classList.contains('logout-link') || (link.href && link.href.includes('logout')) || link.getAttribute('data-bs-target') === '#logoutConfirmModal') {
                         return;
                     }
-                    link.addEventListener('click', function() {
+                    link.addEventListener('click', function () {
                         closeSidebar();
                     });
                 });
             }
 
             // Handle window resize
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 const mainContent = document.querySelector('.main-content');
                 if (window.innerWidth > 768) {
                     // Desktop: keep sidebar state but remove mobile-specific styles
@@ -2416,7 +2624,7 @@
             });
 
             // Handle escape key to close sidebar
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && sidebar && sidebar.classList.contains('active')) {
                     closeSidebar();
                 }
@@ -2432,7 +2640,7 @@
             const dashboardRefreshBtn = document.getElementById('dashboardRefreshBtn');
             const dashboardRefreshSpinner = document.getElementById('dashboardRefreshSpinner');
             if (dashboardRefreshBtn) {
-                dashboardRefreshBtn.addEventListener('click', function(e) {
+                dashboardRefreshBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     if (dashboardRefreshSpinner) dashboardRefreshSpinner.classList.remove('d-none');
@@ -2444,13 +2652,13 @@
             const pricingOffcanvas = document.getElementById('pricingRecommendationsOffcanvas');
             const pricingTrigger = document.getElementById('pricingRecommendationsTrigger');
             const badgeEl = document.getElementById('pricingRecommendationBadge');
-            
+
             console.log('Pricing recommendations init:', {
                 offcanvas: !!pricingOffcanvas,
                 trigger: !!pricingTrigger,
                 badge: !!badgeEl
             });
-            
+
             if (!pricingOffcanvas || !pricingTrigger) {
                 console.warn('Pricing recommendations elements not found, exiting');
                 return;
@@ -2469,7 +2677,7 @@
             const digestKey = 'dashboardPricingDigest';
             const readRecommendationsKey = 'readPricingRecommendations';
             const pricingBatchKey = 'pricing_batch_ts';
-            
+
             // Pagination settings
             const ITEMS_PER_PAGE = 10;
             let unreadPage = 1;
@@ -2541,7 +2749,7 @@
             };
             const clearReadRecommendations = () => {
                 if (!isLocalStorageAvailable) return;
-                try { localStorage.setItem(readRecommendationsKey, JSON.stringify([])); } catch (_) {}
+                try { localStorage.setItem(readRecommendationsKey, JSON.stringify([])); } catch (_) { }
             };
             const removeReadRecommendation = (productId, suggestedPrice) => {
                 if (!isLocalStorageAvailable) return;
@@ -2549,7 +2757,7 @@
                     let items = getReadRecommendations();
                     items = items.filter(i => !(String(i.product_id) === String(productId) && Number(i.suggested_price) === Number(suggestedPrice)));
                     localStorage.setItem(readRecommendationsKey, JSON.stringify(items));
-                } catch (_) {}
+                } catch (_) { }
             };
 
             const handleBatchResetIfNeeded = (batchCreatedAt) => {
@@ -2564,7 +2772,7 @@
                         localStorage.setItem('pricing_recs_updated', String(Date.now()));
                     }
                     if (curr) localStorage.setItem(pricingBatchKey, curr);
-                } catch (_) {}
+                } catch (_) { }
             };
 
             // Client-side rejection cooldown to prevent resurfacing for N days
@@ -2662,9 +2870,9 @@
 
             const isRecommendationRead = (productId, action, suggestedPrice) => {
                 const readItems = getReadRecommendations();
-                return readItems.some(item => 
-                    item.product_id === productId && 
-                    item.action === action && 
+                return readItems.some(item =>
+                    item.product_id === productId &&
+                    item.action === action &&
                     Number(item.suggested_price) === Number(suggestedPrice)
                 );
             };
@@ -2680,23 +2888,23 @@
                         return; // Already has listener
                     }
                     btn.dataset.listenerAttached = 'true';
-                    
-                    btn.addEventListener('click', async function(e) {
+
+                    btn.addEventListener('click', async function (e) {
                         e.stopPropagation();
                         const productId = this.getAttribute('data-product-id');
                         const suggestedPrice = parseFloat(this.getAttribute('data-suggested-price'));
                         const listItem = this.closest('.recommendation-item');
-                        
+
                         // Check if already processed
                         if (this.disabled || this.classList.contains('processing')) {
                             return;
                         }
-                        
+
                         // Disable button during processing
                         this.disabled = true;
                         this.classList.add('processing');
                         this.innerHTML = '<i class="bi bi-hourglass-split"></i> Updating...';
-                        
+
                         try {
                             const formData = new FormData();
                             formData.append('product_id', productId);
@@ -2705,7 +2913,7 @@
                             formData.append('action', listItem.getAttribute('data-action') || '');
                             formData.append('change_pct', listItem.getAttribute('data-change-pct') || '');
                             formData.append('reason', listItem.getAttribute('data-reason') || '');
-                            
+
                             const response = await fetch("{% url 'apply_pricing_recommendation' %}", {
                                 method: 'POST',
                                 headers: {
@@ -2721,7 +2929,7 @@
                             } catch (_) {
                                 data = { success: false, message: 'Unexpected response format' };
                             }
-                            
+
                             if (data.success) {
                                 // Get the recommendation data before removing
                                 const recommendationData = {
@@ -2734,11 +2942,11 @@
                                     reason: listItem.getAttribute('data-reason') || '',
                                     created_at_display: listItem.getAttribute('data-created-at-display') || ''
                                 };
-                                
+
                                 // Record decision in Read tab
                                 saveReadRecommendation(recommendationData, 'accepted');
                                 setAcceptanceCooldown(productId, 3);
-                                
+
                                 // Remove from unread list immediately
                                 if (!isReadTab) {
                                     // Remove from allUnreadItems array
@@ -2747,7 +2955,7 @@
                                         const removeKey = listItem.dataset.recommendationId ? `id_${listItem.dataset.recommendationId}` : `${productId}_${suggestedPrice}`;
                                         return itemKey !== removeKey;
                                     });
-                                    
+
                                     // Remove the item from DOM immediately
                                     listItem.style.opacity = '0.5';
                                     listItem.style.transition = 'opacity 0.3s';
@@ -2762,7 +2970,7 @@
                                     listItem.style.transition = 'opacity 0.3s';
                                     setTimeout(() => listItem.remove(), 300);
                                 }
-                                
+
                                 // Show success message
                                 showOffcanvasMessage(data.message || 'Price updated successfully!', 'success');
                                 console.log('✅', data.message);
@@ -2775,52 +2983,52 @@
                             this.innerHTML = '<i class="bi bi-check-circle"></i> Accept';
                             showOffcanvasMessage('Failed to update price: ' + (error?.message || 'Request failed'), 'danger');
                         }
-            });
-        });
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const headerEl = document.querySelector('.header');
-            const mainEl = document.querySelector('.main-content');
-            if (!headerEl || !mainEl) return;
-            let scheduled = false;
-            const adjust = () => {
-                if (scheduled) return;
-                scheduled = true;
-                requestAnimationFrame(() => {
-                    scheduled = false;
-                    const extra = window.innerWidth <= 768 ? 8 : 0;
-                    const h = headerEl.getBoundingClientRect().height;
-                    const val = (h + extra) + 'px';
-                    if (mainEl.style.paddingTop !== val) {
-                        mainEl.style.paddingTop = val;
-                    }
+                    });
                 });
-            };
-            adjust();
-            try {
-                const ro = new ResizeObserver(adjust);
-                ro.observe(headerEl);
-            } catch(_) {}
-            window.addEventListener('resize', adjust, { passive: true });
-        });
-                
+
+                document.addEventListener('DOMContentLoaded', function () {
+                    const headerEl = document.querySelector('.header');
+                    const mainEl = document.querySelector('.main-content');
+                    if (!headerEl || !mainEl) return;
+                    let scheduled = false;
+                    const adjust = () => {
+                        if (scheduled) return;
+                        scheduled = true;
+                        requestAnimationFrame(() => {
+                            scheduled = false;
+                            const extra = window.innerWidth <= 768 ? 8 : 0;
+                            const h = headerEl.getBoundingClientRect().height;
+                            const val = (h + extra) + 'px';
+                            if (mainEl.style.paddingTop !== val) {
+                                mainEl.style.paddingTop = val;
+                            }
+                        });
+                    };
+                    adjust();
+                    try {
+                        const ro = new ResizeObserver(adjust);
+                        ro.observe(headerEl);
+                    } catch (_) { }
+                    window.addEventListener('resize', adjust, { passive: true });
+                });
+
                 // Reject button handlers
                 document.querySelectorAll('.reject-recommendation-btn').forEach(btn => {
-                    btn.addEventListener('click', async function() {
+                    btn.addEventListener('click', async function () {
                         const productId = this.getAttribute('data-product-id');
                         const listItem = this.closest('.recommendation-item');
                         const suggestedPrice = parseFloat(listItem.getAttribute('data-suggested-price'));
-                        
+
                         // Disable button during request
                         this.disabled = true;
                         this.classList.add('processing');
                         const originalText = this.innerHTML;
                         this.innerHTML = '<i class="bi bi-hourglass-split"></i> Rejecting...';
-                        
+
                         try {
                             const formData = new FormData();
                             formData.append('product_id', productId);
-                            
+
                             const response = await fetch("{% url 'reject_pricing_recommendation' %}", {
                                 method: 'POST',
                                 headers: {
@@ -2836,7 +3044,7 @@
                             } catch (_) {
                                 data = { success: false, message: 'Unexpected response format' };
                             }
-                            
+
                             if (data.success) {
                                 // Get the recommendation data
                                 const recommendationData = {
@@ -2849,12 +3057,12 @@
                                     reason: listItem.getAttribute('data-reason') || '',
                                     created_at_display: listItem.getAttribute('data-created-at-display') || ''
                                 };
-                                
+
                                 // Record decision in Read tab
                                 saveReadRecommendation(recommendationData, 'rejected');
                                 // Prevent resurfacing for a short period
                                 setRejectionCooldown(productId, 3);
-                                
+
                                 // Remove from unread list immediately
                                 if (!isReadTab) {
                                     // Remove from allUnreadItems array
@@ -2863,7 +3071,7 @@
                                         const removeKey = listItem.dataset.recommendationId ? `id_${listItem.dataset.recommendationId}` : `${productId}_${suggestedPrice}`;
                                         return itemKey !== removeKey;
                                     });
-                                    
+
                                     // Remove the item from DOM immediately
                                     listItem.style.opacity = '0.5';
                                     listItem.style.transition = 'opacity 0.3s';
@@ -2878,7 +3086,7 @@
                                     listItem.style.transition = 'opacity 0.3s';
                                     setTimeout(() => listItem.remove(), 300);
                                 }
-                                
+
                                 console.log('❌ Recommendation rejected for product:', productId);
                             } else {
                                 throw new Error(data.message || 'Failed to reject recommendation');
@@ -2926,7 +3134,7 @@
                 const changeLabel = typeof item.change_pct === 'number'
                     ? `${item.change_pct > 0 ? '+' : ''}${item.change_pct.toFixed(1)}%`
                     : '—';
-                
+
                 // Clean up reason text - remove technical data and make it user-friendly
                 let reasonText = item.reason || 'Optimize margin while staying competitive.';
                 // Remove technical data like [Data: n=14, confidence=LOW]
@@ -2959,7 +3167,7 @@
                         hour: 'numeric',
                         minute: '2-digit'
                     })));
-                const statusBadge = isReadTab ? 
+                const statusBadge = isReadTab ?
                     `<span class="badge ${item.status === 'accepted' ? 'bg-success' : 'bg-secondary'} ms-2" style="font-size: 0.7rem;">
                         ${item.status === 'accepted' ? 'Accepted' : 'Rejected'}
                     </span>` : '';
@@ -2979,7 +3187,7 @@
                         titleLabel = `${titleLabel} (${unitTxt})`;
                     }
                 }
-                
+
                 return `
                     <li class="recommendation-item" 
                         data-product-id="${item.product_id}" 
@@ -3040,7 +3248,7 @@
                 const pageItems = filtered.slice(startIndex, endIndex);
                 const startNumber = startIndex + 1;
                 const endNumber = Math.min(endIndex, totalItems);
-                
+
                 if (unreadListEl) {
                     if (pageItems.length === 0) {
                         unreadListEl.classList.add('d-none');
@@ -3050,21 +3258,21 @@
                     } else {
                         unreadListEl.classList.remove('d-none');
                         if (unreadEmptyEl) unreadEmptyEl.classList.add('d-none');
-                        
-                        
-                        unreadListEl.innerHTML = pageItems.map(item => 
+
+
+                        unreadListEl.innerHTML = pageItems.map(item =>
                             renderRecommendationItem(item, false)
                         ).join('');
-                        
+
                         attachRecommendationHandlers(false);
                     }
                 }
-                
+
                 // Render pagination
                 const paginationContainer = document.getElementById('pagination-unreadRecommendations');
                 if (paginationContainer && totalItems > 0) {
                     let html = '';
-                    if(totalPages > 1 || totalItems > 0) {
+                    if (totalPages > 1 || totalItems > 0) {
                         html = `<div class="pagination-container mt-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="pagination-info">
@@ -3082,25 +3290,25 @@
                                                 <i class="bi bi-chevron-left"></i> <span class="label-text">Previous</span>
                                             </a>
                                         </li>`;
-                        
+
                         // Show up to 5 page numbers
                         const pageNumbers = [];
-                        if(totalPages <= 5) {
-                            for(let i = 1; i <= totalPages; i++) pageNumbers.push(i);
-                        } else if(unreadPage <= 3) {
-                            for(let i = 1; i <= 5; i++) pageNumbers.push(i);
-                        } else if(unreadPage >= totalPages - 2) {
-                            for(let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
+                        if (totalPages <= 5) {
+                            for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+                        } else if (unreadPage <= 3) {
+                            for (let i = 1; i <= 5; i++) pageNumbers.push(i);
+                        } else if (unreadPage >= totalPages - 2) {
+                            for (let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
                         } else {
-                            for(let i = unreadPage - 2; i <= unreadPage + 2; i++) pageNumbers.push(i);
+                            for (let i = unreadPage - 2; i <= unreadPage + 2; i++) pageNumbers.push(i);
                         }
-                        
+
                         pageNumbers.forEach(pageNum => {
                             html += `<li class="page-item ${pageNum === unreadPage ? 'active' : ''}">
                                 <a class="page-link" href="#" data-page="${pageNum}" data-tab="unread">${pageNum}</a>
                             </li>`;
                         });
-                        
+
                         html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
                                 <a class="page-link" href="#" data-page="${unreadPage + 1}" data-tab="unread" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
                                     <span class="label-text">Next</span> <i class="bi bi-chevron-right"></i>
@@ -3117,32 +3325,32 @@
             </div>`;
                     }
                     paginationContainer.innerHTML = html;
-                    
+
                     // Add event listeners
                     paginationContainer.querySelectorAll('.page-link').forEach(link => {
                         link.addEventListener('click', (e) => {
                             e.preventDefault();
                             // Skip if parent is disabled
-                            if(link.closest('.page-item.disabled')) return;
+                            if (link.closest('.page-item.disabled')) return;
                             const page = parseInt(link.dataset.page);
-                            if(page && page >= 1 && page <= totalPages && page !== unreadPage) {
+                            if (page && page >= 1 && page <= totalPages && page !== unreadPage) {
                                 unreadPage = page;
                                 renderUnreadRecommendations();
                             }
                         });
                     });
                 }
-                
+
                 updateBadgeCount();
             };
 
             const loadReadRecommendations = () => {
                 allReadItems = getReadRecommendations();
                 let filtered = allReadItems;
-                
+
                 // Sort by timestamp descending (newest first)
                 filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                
+
                 const totalItems = filtered.length;
                 const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
                 const hasPrevious = readPage > 1;
@@ -3152,7 +3360,7 @@
                 const pageItems = filtered.slice(startIndex, endIndex);
                 const startNumber = startIndex + 1;
                 const endNumber = Math.min(endIndex, totalItems);
-                
+
                 if (readListEl) {
                     if (pageItems.length === 0) {
                         readListEl.classList.add('d-none');
@@ -3162,18 +3370,18 @@
                     } else {
                         readListEl.classList.remove('d-none');
                         if (readEmptyEl) readEmptyEl.classList.add('d-none');
-                        
-                        readListEl.innerHTML = pageItems.map(item => 
+
+                        readListEl.innerHTML = pageItems.map(item =>
                             renderRecommendationItem(item, true)
                         ).join('');
                     }
                 }
-                
+
                 // Render pagination
                 const paginationContainer = document.getElementById('pagination-readRecommendations');
                 if (paginationContainer && totalItems > 0) {
                     let html = '';
-                    if(totalPages > 1 || totalItems > 0) {
+                    if (totalPages > 1 || totalItems > 0) {
                         html = `<div class="pagination-container mt-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="pagination-info">
@@ -3191,25 +3399,25 @@
                                                 <i class="bi bi-chevron-left"></i> <span class="label-text">Previous</span>
                                             </a>
                                         </li>`;
-                        
+
                         // Show up to 5 page numbers
                         const pageNumbers = [];
-                        if(totalPages <= 5) {
-                            for(let i = 1; i <= totalPages; i++) pageNumbers.push(i);
-                        } else if(readPage <= 3) {
-                            for(let i = 1; i <= 5; i++) pageNumbers.push(i);
-                        } else if(readPage >= totalPages - 2) {
-                            for(let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
+                        if (totalPages <= 5) {
+                            for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+                        } else if (readPage <= 3) {
+                            for (let i = 1; i <= 5; i++) pageNumbers.push(i);
+                        } else if (readPage >= totalPages - 2) {
+                            for (let i = totalPages - 4; i <= totalPages; i++) pageNumbers.push(i);
                         } else {
-                            for(let i = readPage - 2; i <= readPage + 2; i++) pageNumbers.push(i);
+                            for (let i = readPage - 2; i <= readPage + 2; i++) pageNumbers.push(i);
                         }
-                        
+
                         pageNumbers.forEach(pageNum => {
                             html += `<li class="page-item ${pageNum === readPage ? 'active' : ''}">
                                 <a class="page-link" href="#" data-page="${pageNum}" data-tab="read">${pageNum}</a>
                             </li>`;
                         });
-                        
+
                         html += `<li class="page-item ${!hasNext ? 'disabled' : ''}">
                                 <a class="page-link" href="#" data-page="${readPage + 1}" data-tab="read" ${!hasNext ? 'tabindex="-1" aria-disabled="true"' : ''}>
                                     <span class="label-text">Next</span> <i class="bi bi-chevron-right"></i>
@@ -3226,29 +3434,29 @@
             </div>`;
                     }
                     paginationContainer.innerHTML = html;
-                    
+
                     // Add event listeners
                     paginationContainer.querySelectorAll('.page-link').forEach(link => {
                         link.addEventListener('click', (e) => {
                             e.preventDefault();
                             // Skip if parent is disabled
-                            if(link.closest('.page-item.disabled')) return;
+                            if (link.closest('.page-item.disabled')) return;
                             const page = parseInt(link.dataset.page);
-                            if(page && page >= 1 && page <= totalPages && page !== readPage) {
+                            if (page && page >= 1 && page <= totalPages && page !== readPage) {
                                 readPage = page;
                                 loadReadRecommendations();
                             }
                         });
                     });
                 }
-                
+
                 updateBadgeCount();
             };
 
             const SHOW_ALL_RECS = false;
             const renderRecommendations = (items) => {
                 console.log('renderRecommendations called with', items.length, 'items');
-                
+
                 if (!items.length) {
                     allUnreadItems = [];
                     renderUnreadRecommendations();
@@ -3259,10 +3467,10 @@
                 // Filter out read recommendations
                 // Exclude acted-on items from suppression logic
                 const readItems = getReadRecommendations();
-                const readKeys = new Set(readItems.map(item => 
+                const readKeys = new Set(readItems.map(item =>
                     item.recommendation_id ? `id_${item.recommendation_id}` : `${item.product_id}_${item.suggested_price}`
                 ));
-                
+
                 // Add date to each item and filter out read ones
                 const today = new Date().toISOString().split('T')[0];
                 allUnreadItems = items
@@ -3277,13 +3485,13 @@
                         const acceptCooled = isAcceptUnderCooldown(item.product_id);
                         return SHOW_ALL_RECS ? !isRead : (!isRead && !cooled && !acceptCooled);
                     });
-                
+
                 // Reset pagination
                 unreadPage = 1;
-                
+
                 // Render unread recommendations
                 renderUnreadRecommendations();
-                
+
                 // Load read recommendations
                 loadReadRecommendations();
             };
@@ -3294,9 +3502,9 @@
                 if (recommendationsLoaded) {
                     return; // Already loaded
                 }
-                
+
                 recommendationsLoaded = true;
-                
+
                 fetch("{% url 'get_pricing_recommendations' %}?silent=true", {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
@@ -3344,75 +3552,75 @@
                         if (badgeEl) badgeEl.classList.add('d-none');
                     });
             };
-            
-            // Load recommendations when offcanvas is shown
-                if (pricingOffcanvas) {
-                    pricingOffcanvas.addEventListener('shown.bs.offcanvas', function() {
-                        loadPricingRecommendations();
-                    });
-                    pricingOffcanvas.addEventListener('hidden.bs.offcanvas', function() {
-                        recommendationsLoaded = false;
-                    });
-                }
 
-                window.addEventListener('storage', function(e) {
-                    try {
-                        if (e.key === 'pricing_recs_updated') {
-                            recommendationsLoaded = false;
-                            if (pricingOffcanvas && pricingOffcanvas.classList.contains('show')) {
-                                loadPricingRecommendations();
-                            }
-                        }
-                    } catch (_) {}
+            // Load recommendations when offcanvas is shown
+            if (pricingOffcanvas) {
+                pricingOffcanvas.addEventListener('shown.bs.offcanvas', function () {
+                    loadPricingRecommendations();
                 });
-            
+                pricingOffcanvas.addEventListener('hidden.bs.offcanvas', function () {
+                    recommendationsLoaded = false;
+                });
+            }
+
+            window.addEventListener('storage', function (e) {
+                try {
+                    if (e.key === 'pricing_recs_updated') {
+                        recommendationsLoaded = false;
+                        if (pricingOffcanvas && pricingOffcanvas.classList.contains('show')) {
+                            loadPricingRecommendations();
+                        }
+                    }
+                } catch (_) { }
+            });
+
             // Tab event handlers
             const unreadTab = document.getElementById('unreadTab');
             const readTab = document.getElementById('readTab');
-            
+
             if (readTab) {
-                readTab.addEventListener('shown.bs.tab', function() {
+                readTab.addEventListener('shown.bs.tab', function () {
                     loadReadRecommendations();
                 });
             }
-            
-            
+
+
             // Reset pagination when switching tabs
             const unreadTabEl = document.getElementById('unreadTab');
             const readTabEl = document.getElementById('readTab');
-            
+
             if (unreadTabEl) {
-                unreadTabEl.addEventListener('shown.bs.tab', function() {
+                unreadTabEl.addEventListener('shown.bs.tab', function () {
                     unreadPage = 1;
                     renderUnreadRecommendations();
                 });
             }
-            
+
             if (readTabEl) {
-                readTabEl.addEventListener('shown.bs.tab', function() {
+                readTabEl.addEventListener('shown.bs.tab', function () {
                     readPage = 1;
                     loadReadRecommendations();
                 });
             }
         });
-        
+
         // Pricing Analysis Graph
         let pricingChart = null;
-        
+
         function generateColor(index, total) {
             const hue = (index * 360 / total) % 360;
             return `hsl(${hue}, 70%, 50%)`;
         }
-        
+
         function loadPricingGraph(days = 365) {
             const canvas = document.getElementById('pricingAnalysisChart');
             if (!canvas) return;
-            
+
             const legendContainer = document.getElementById('pricingLegend');
             if (legendContainer) {
                 legendContainer.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split"></i> Loading...</div>';
             }
-            
+
             fetch(`/api/pricing-analysis/data/?days=${days}&all_products=true`)
                 .then(response => {
                     if (!response.ok) {
@@ -3422,7 +3630,7 @@
                 })
                 .then(data => {
                     console.log('Pricing API Response:', data); // Debug log
-                    
+
                     if (!data.success) {
                         console.error('Pricing API Error:', data.message, data.traceback);
                         if (legendContainer) {
@@ -3436,10 +3644,10 @@
                         }
                         return;
                     }
-                    
+
                     // Flatten categorized data to get all products
                     let allProducts = [];
-                    
+
                     // Check if we have categorized data (new format) or flat data (old format)
                     // Try categorized first, then fall back to flat data
                     if (data.categorized && Array.isArray(data.categorized) && data.categorized.length > 0) {
@@ -3455,7 +3663,7 @@
                             }
                         });
                     }
-                    
+
                     // Also check flat data array as fallback
                     if (allProducts.length === 0 && data.data && Array.isArray(data.data)) {
                         data.data.forEach(product => {
@@ -3465,7 +3673,7 @@
                             }
                         });
                     }
-                    
+
                     // Debug: log if no products found
                     if (allProducts.length === 0) {
                         console.log('No products with price history found.');
@@ -3476,7 +3684,7 @@
                             dataLength: data.data?.length || 0,
                             sampleProduct: data.data?.[0] || data.categorized?.[0]?.products?.[0]
                         });
-                        
+
                         if (legendContainer) {
                             let message = '<div class="text-warning small"><i class="bi bi-info-circle"></i> ';
                             if (data.data && data.data.length > 0) {
@@ -3489,31 +3697,31 @@
                         }
                         return;
                     }
-                    
+
                     if (allProducts.length === 0) {
                         if (legendContainer) {
                             legendContainer.innerHTML = '<div class="text-muted small"><i class="bi bi-info-circle"></i> No products with pricing data</div>';
                         }
                         return;
                     }
-                    
+
                     // Sort products alphabetically first
                     allProducts.sort((a, b) => {
                         const nameA = `${a.product_name || ''} ${a.variant || ''} ${a.quantity_unit || ''}`.toLowerCase();
                         const nameB = `${b.product_name || ''} ${b.variant || ''} ${b.quantity_unit || ''}`.toLowerCase();
                         return nameA.localeCompare(nameB);
                     });
-                    
+
                     // Show all products (no limit unless user applies a filter)
                     const totalProductCount = allProducts.length;
-                    
+
                     // Update product count info
                     const countInfo = document.getElementById('productCountInfo');
                     if (countInfo) {
                         countInfo.textContent = `Showing all ${totalProductCount} products`;
                         countInfo.className = 'text-muted small';
                     }
-                    
+
                     // Collect all unique dates from all products
                     const allDates = new Set();
                     allProducts.forEach(product => {
@@ -3523,27 +3731,27 @@
                             });
                         }
                     });
-                    
+
                     // Sort dates chronologically
                     const sortedDates = Array.from(allDates).sort((a, b) => {
                         return new Date(a) - new Date(b);
                     });
-                    
+
                     // Format dates for display
                     const sortedLabels = sortedDates.map(date => {
                         const d = new Date(date);
                         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     });
-                    
+
                     // Prepare datasets
                     const datasets = [];
                     const colors = [];
-                    
+
                     allProducts.forEach((product, index) => {
                         const productLabel = `${product.product_name}${product.variant ? ' (' + product.variant + ')' : ''} (${product.quantity_unit})`;
                         const color = generateColor(index, allProducts.length);
                         colors.push({ label: productLabel, color: color });
-                        
+
                         // Create price and quantity maps for this product
                         const priceMap = new Map();
                         const quantityMap = new Map();
@@ -3555,17 +3763,17 @@
                                 }
                             });
                         }
-                        
+
                         // Map prices to sorted dates
                         const priceData = sortedDates.map(date => {
                             return priceMap.has(date) ? priceMap.get(date) : null;
                         });
-                        
+
                         // Map quantities to sorted dates (for single product view)
                         const quantityData = sortedDates.map(date => {
                             return quantityMap.has(date) ? quantityMap.get(date) : null;
                         });
-                        
+
                         datasets.push({
                             label: productLabel,
                             data: priceData,
@@ -3581,12 +3789,12 @@
                             quantityData: quantityData // Store quantity data for single product view
                         });
                     });
-                    
+
                     // Destroy existing chart
                     if (pricingChart) {
                         pricingChart.destroy();
                     }
-                    
+
                     // Enable HD rendering for crisp graphs
                     const dpr = window.devicePixelRatio || 1;
                     const rect = canvas.getBoundingClientRect();
@@ -3596,7 +3804,7 @@
                     ctx.scale(dpr, dpr);
                     canvas.style.width = rect.width + 'px';
                     canvas.style.height = rect.height + 'px';
-                    
+
                     // Create new chart
                     pricingChart = new Chart(ctx, {
                         type: 'line',
@@ -3616,21 +3824,21 @@
                                     mode: 'index',
                                     intersect: false,
                                     callbacks: {
-                                        title: function(context) {
+                                        title: function (context) {
                                             return context[0].label;
                                         },
-                                        label: function(context) {
+                                        label: function (context) {
                                             if (context.dataset.label === 'Quantity Sold') {
                                                 return context.dataset.label + ': ' + (context.parsed.y !== null ? context.parsed.y.toFixed(2) : 'N/A');
                                             }
                                             return context.dataset.label + ': ₱' + context.parsed.y.toFixed(2);
                                         },
-                                        filter: function(tooltipItem) {
+                                        filter: function (tooltipItem) {
                                             return tooltipItem.parsed.y !== null;
                                         }
                                     },
                                     // Sort tooltip items alphabetically
-                                    itemSort: function(a, b) {
+                                    itemSort: function (a, b) {
                                         const labelA = a.dataset.label || '';
                                         const labelB = b.dataset.label || '';
                                         return labelA.localeCompare(labelB);
@@ -3659,7 +3867,7 @@
                                         font: {
                                             size: 11
                                         },
-                                        callback: function(value) {
+                                        callback: function (value) {
                                             return '₱' + value.toFixed(0);
                                         }
                                     },
@@ -3708,33 +3916,33 @@
                             }
                         }
                     });
-                    
+
                     // Create custom legend with Bootstrap 5 styling (sorted alphabetically)
                     if (legendContainer) {
                         legendContainer.innerHTML = '';
                         const legendRow = document.createElement('div');
                         legendRow.className = 'row g-2';
-                        
+
                         // Sort colors array alphabetically by label
                         const sortedColors = colors.slice().sort((a, b) => {
                             return a.label.localeCompare(b.label);
                         });
-                        
+
                         // Store legend items for updating all at once
                         const legendItems = [];
-                        
+
                         sortedColors.forEach((item, index) => {
                             // Find original index in datasets
                             const originalIndex = colors.findIndex(c => c.label === item.label);
                             const legendCol = document.createElement('div');
                             legendCol.className = 'col-auto';
-                            
+
                             const legendItem = document.createElement('div');
                             legendItem.className = 'd-flex align-items-center gap-2 p-2 border rounded';
                             legendItem.style.cursor = 'pointer';
                             legendItem.style.transition = 'all 0.2s ease';
                             legendItem.title = 'Click to show only this product';
-                            
+
                             const colorBox = document.createElement('div');
                             colorBox.style.width = '14px';
                             colorBox.style.height = '14px';
@@ -3742,17 +3950,17 @@
                             colorBox.style.borderRadius = '3px';
                             colorBox.style.flexShrink = '0';
                             colorBox.style.border = '1px solid rgba(0,0,0,0.1)';
-                            
+
                             const labelText = document.createElement('span');
                             labelText.className = 'small';
                             labelText.textContent = item.label;
                             labelText.style.fontSize = '0.75rem';
                             labelText.style.color = 'var(--gray-700)';
                             labelText.style.fontWeight = '500';
-                            
+
                             legendItem.appendChild(colorBox);
                             legendItem.appendChild(labelText);
-                            
+
                             // Store reference for updating all legend items
                             legendItems.push({
                                 item: legendItem,
@@ -3760,24 +3968,24 @@
                                 labelText: labelText,
                                 originalIndex: originalIndex
                             });
-                            
+
                             // Show only clicked product on click
-                            legendItem.addEventListener('click', function() {
+                            legendItem.addEventListener('click', function () {
                                 const clickedMeta = pricingChart.getDatasetMeta(originalIndex);
-                                const isCurrentlySolo = clickedMeta.hidden === false && 
+                                const isCurrentlySolo = clickedMeta.hidden === false &&
                                     sortedColors.every((otherItem, otherIdx) => {
                                         if (otherIdx === index) return true;
                                         const otherOriginalIdx = colors.findIndex(c => c.label === otherItem.label);
                                         return pricingChart.getDatasetMeta(otherOriginalIdx).hidden === true;
                                     });
-                                
+
                                 if (isCurrentlySolo) {
                                     // If this product is already solo, show all products and remove quantity dataset
                                     sortedColors.forEach((otherItem, otherIndex) => {
                                         const otherOriginalIndex = colors.findIndex(c => c.label === otherItem.label);
                                         const otherMeta = pricingChart.getDatasetMeta(otherOriginalIndex);
                                         const otherLegendItem = legendItems[otherIndex];
-                                        
+
                                         otherMeta.hidden = false;
                                         otherLegendItem.item.style.opacity = '1';
                                         otherLegendItem.labelText.style.textDecoration = 'none';
@@ -3785,7 +3993,7 @@
                                         otherLegendItem.item.style.borderColor = '';
                                         otherLegendItem.item.style.borderWidth = '';
                                     });
-                                    
+
                                     // Remove quantity sold dataset if it exists
                                     const quantityDatasetIndex = pricingChart.data.datasets.findIndex(ds => ds.label === 'Quantity Sold');
                                     if (quantityDatasetIndex !== -1) {
@@ -3797,7 +4005,7 @@
                                         const otherOriginalIndex = colors.findIndex(c => c.label === otherItem.label);
                                         const otherMeta = pricingChart.getDatasetMeta(otherOriginalIndex);
                                         const otherLegendItem = legendItems[otherIndex];
-                                        
+
                                         if (otherOriginalIndex === originalIndex) {
                                             // Show the clicked product
                                             otherMeta.hidden = false;
@@ -3806,15 +4014,15 @@
                                             otherLegendItem.colorBox.style.opacity = '1';
                                             otherLegendItem.item.style.borderColor = 'var(--primary)';
                                             otherLegendItem.item.style.borderWidth = '2px';
-                                            
+
                                             // Add or update quantity sold dataset for single product view
                                             const selectedProduct = allProducts[originalIndex];
                                             if (selectedProduct && selectedProduct.price_history) {
                                                 // Check if quantity dataset already exists
                                                 const quantityDatasetIndex = pricingChart.data.datasets.findIndex(ds => ds.label === 'Quantity Sold');
-                                                
+
                                                 const quantityData = pricingChart.data.datasets[originalIndex].quantityData || [];
-                                                
+
                                                 if (quantityDatasetIndex === -1) {
                                                     // Add quantity sold dataset
                                                     pricingChart.data.datasets.push({
@@ -3846,29 +4054,29 @@
                                         }
                                     });
                                 }
-                                
+
                                 pricingChart.update();
                             });
-                            
+
                             // Add hover effect
-                            legendItem.addEventListener('mouseenter', function() {
+                            legendItem.addEventListener('mouseenter', function () {
                                 if (!pricingChart.getDatasetMeta(index).hidden) {
                                     legendItem.style.backgroundColor = 'var(--primary-light)';
                                     legendItem.style.borderColor = 'var(--primary)';
                                 }
                             });
-                            
-                            legendItem.addEventListener('mouseleave', function() {
+
+                            legendItem.addEventListener('mouseleave', function () {
                                 if (!pricingChart.getDatasetMeta(index).hidden) {
                                     legendItem.style.backgroundColor = '';
                                     legendItem.style.borderColor = '';
                                 }
                             });
-                            
+
                             legendCol.appendChild(legendItem);
                             legendRow.appendChild(legendCol);
                         });
-                        
+
                         legendContainer.appendChild(legendRow);
                     }
                 })
@@ -3889,33 +4097,33 @@
                     }
                 });
         }
-        
+
         // Initialize pricing graph on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             {% if app_role == 'admin' %}
             // Function to format date range for filter options
             function updatePricingPeriodDates() {
                 const periodSelect = document.getElementById('pricingGraphPeriod');
                 if (!periodSelect) return;
-                
+
                 const today = new Date();
                 const options = periodSelect.options;
-                
+
                 // Format date helper
                 function formatDate(date) {
                     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
                 }
-                
+
                 // Update each option with date range
                 for (let i = 0; i < options.length; i++) {
                     const days = parseInt(options[i].value);
                     const startDate = new Date(today);
                     startDate.setDate(today.getDate() - days);
-                    
+
                     const startStr = formatDate(startDate);
                     const endStr = formatDate(today);
-                    
+
                     // Update option text with date range
                     const baseText = options[i].text.split(' (')[0]; // Remove existing date if any
                     options[i].text = `${baseText} (${startStr} - ${endStr})`;
@@ -3930,30 +4138,30 @@
             // Handle period change
             const periodSelect = document.getElementById('pricingGraphPeriod');
             if (periodSelect) {
-                periodSelect.addEventListener('change', function() {
+                periodSelect.addEventListener('change', function () {
                     loadPricingGraph(parseInt(this.value));
                 });
             }
-            
+
             // Handle refresh button
             const refreshBtn = document.getElementById('refreshPricingGraph');
             if (refreshBtn) {
-                refreshBtn.addEventListener('click', function() {
+                refreshBtn.addEventListener('click', function () {
                     const period = document.getElementById('pricingGraphPeriod')?.value || 365;
                     loadPricingGraph(parseInt(period));
                 });
             }
             {% endif %}
         });
-        
+
         // Handle logout modal cleanup for data-bs-toggle links
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const logoutModalEl = document.getElementById('logoutConfirmModal');
             if (logoutModalEl) {
                 // Clean up backdrop when modal is hidden
                 function cleanupBackdrop() {
-                    setTimeout(function() {
-                        document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                    setTimeout(function () {
+                        document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
                             backdrop.remove();
                         });
                         document.body.classList.remove('modal-open');
@@ -3961,16 +4169,17 @@
                         document.body.style.overflow = '';
                     }, 100);
                 }
-                
+
                 logoutModalEl.addEventListener('hidden.bs.modal', cleanupBackdrop, { once: false });
-                logoutModalEl.addEventListener('hide.bs.modal', function() {
+                logoutModalEl.addEventListener('hide.bs.modal', function () {
                     // Ensure cleanup happens even if modal is closed unexpectedly
                     setTimeout(cleanupBackdrop, 200);
                 }, { once: false });
             }
         });
     </script>
-    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -3995,4 +4204,5 @@
         </div>
     </div>
 </body>
+
 </html>

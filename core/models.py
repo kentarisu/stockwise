@@ -170,6 +170,8 @@ class SMS(models.Model):
 class SMSNotificationSettings(models.Model):
 	"""Store SMS notification settings for the system"""
 	setting_id = models.AutoField(primary_key=True)
+	# Master switch for all notifications
+	master_enabled = models.BooleanField(default=True)
 	# Sales notification settings
 	sales_enabled = models.BooleanField(default=True)
 	sales_time = models.CharField(max_length=5, default='20:00', help_text='Time in HH:MM format (24-hour)')
@@ -206,13 +208,14 @@ class SMSNotificationSettings(models.Model):
 					raise RuntimeError('settings table missing')
 				cols = [c.name for c in connection.introspection.get_table_description(cursor, cls._meta.db_table)]
 			required = {
-				'sales_enabled','sales_time','stock_enabled','stock_threshold',
+				'master_enabled', 'sales_enabled','sales_time','stock_enabled','stock_threshold',
 				'pricing_enabled','pricing_sensitivity','pricing_time','pricing_frequency_days'
 			}
 			if not required.issubset(set(cols)):
 				raise RuntimeError('settings columns missing')
 		except Exception:
 			return SimpleNamespace(
+				master_enabled=True,
 				sales_enabled=True,
 				sales_time='20:00',
 				stock_enabled=True,
@@ -225,6 +228,7 @@ class SMSNotificationSettings(models.Model):
 		settings, _ = cls.objects.get_or_create(
 			setting_id=1,
 			defaults={
+				'master_enabled': True,
 				'sales_enabled': True,
 				'sales_time': '20:00',
 				'stock_enabled': True,

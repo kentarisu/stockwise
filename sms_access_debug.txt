@@ -1,0 +1,86 @@
+[2026-01-12 19:41:31.089704] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:41:35.589389] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:41:37.626765] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:41:52.116330] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:41:55.457277] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:46:05.155543] User ID: 3
+  - Session 'app_role': 'admin'
+  - DB 'user_role': 'admin'
+  - is_admin: True
+  - 'pytest' in sys.modules: False
+--------------------
+[2026-01-12 19:46:06.680181] EXCEPTION in sms_settings_view:
+Invalid block tag on line 1778: 'endif'. Did you forget to register or load this tag?
+Traceback (most recent call last):
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\base.py", line 510, in parse
+    compile_func = self.tags[command]
+                   ~~~~~~~~~^^^^^^^^^
+KeyError: 'endif'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Orly\stockwise\core\views.py", line 11629, in sms_settings_view
+    return render(request, 'sms_settings.html', context)
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\shortcuts.py", line 25, in render
+    content = loader.render_to_string(template_name, context, request, using=using)
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\loader.py", line 61, in render_to_string
+    template = get_template(template_name, using=using)
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\loader.py", line 15, in get_template
+    return engine.get_template(template_name)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\backends\django.py", line 79, in get_template
+    return Template(self.engine.get_template(template_name), self)
+                    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\engine.py", line 177, in get_template
+    template, origin = self.find_template(template_name)
+                       ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\engine.py", line 159, in find_template
+    template = loader.get_template(name, skip=skip)
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\loaders\cached.py", line 57, in get_template
+    template = super().get_template(template_name, skip)
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\loaders\base.py", line 28, in get_template
+    return Template(
+        contents,
+    ...<2 lines>...
+        self.engine,
+    )
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\base.py", line 154, in __init__
+    self.nodelist = self.compile_nodelist()
+                    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\base.py", line 196, in compile_nodelist
+    nodelist = parser.parse()
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\base.py", line 512, in parse
+    self.invalid_block_tag(token, command, parse_until)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Orly\stockwise\venv\Lib\site-packages\django\template\base.py", line 577, in invalid_block_tag
+    raise self.error(
+    ...<3 lines>...
+    )
+django.template.exceptions.TemplateSyntaxError: Invalid block tag on line 1778: 'endif'. Did you forget to register or load this tag?
+--------------------

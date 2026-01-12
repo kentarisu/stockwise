@@ -1,9 +1,11 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="StockWise">
@@ -12,7 +14,8 @@
     <title>StockWise - SMS Notification</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/modern-inventory.css' %}">
     <style>
         :root {
@@ -255,8 +258,8 @@
                 margin-right: 0;
             }
 
-            .sidebar:not(.active) .nav-link > span,
-            .sidebar:not(.active) .nav-link > :not(i) {
+            .sidebar:not(.active) .nav-link>span,
+            .sidebar:not(.active) .nav-link> :not(i) {
                 display: none;
             }
 
@@ -468,14 +471,19 @@
                 max-width: 85vw;
             }
 
-            .sidebar.active { transform: translateX(0); }
+            .sidebar.active {
+                transform: translateX(0);
+            }
 
             .main-content {
                 margin-left: 0 !important;
                 margin-top: 0;
                 padding: calc(var(--header-height) + 0.75rem) 0.75rem 0.75rem;
             }
-            .main-content.sidebar-open { margin-left: 0 !important; }
+
+            .main-content.sidebar-open {
+                margin-left: 0 !important;
+            }
 
             .content-area {
                 padding: 0.75rem;
@@ -484,16 +492,53 @@
                 gap: 0.75rem;
             }
 
-            .header { padding: 0.75rem 1rem; min-height: var(--header-height); }
-            .header-brand span { display: none; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
+            .header {
+                padding: 0.75rem 1rem;
+                min-height: var(--header-height);
+            }
 
-            .header-left { gap: 0; display: flex; align-items: center; flex: 1; min-width: 0; }
-            .header-brand span { display: none; }
-            .header-brand i { font-size: 1.5rem; }
-            .header-title-section { padding-left: 3rem; flex: 1; min-width: 0; }
+            .header-brand span {
+                display: none;
+            }
 
-            .burger-menu-btn { display: flex !important; width: 0.55rem !important; height: 0.55rem !important; padding: 0 !important; min-width: 0 !important; min-height: 0 !important; justify-content: center !important; gap: 2px !important; }
+            .header-title-section {
+                padding-left: 3rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-left {
+                gap: 0;
+                display: flex;
+                align-items: center;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .header-brand span {
+                display: none;
+            }
+
+            .header-brand i {
+                font-size: 1.5rem;
+            }
+
+            .header-title-section {
+                padding-left: 3rem;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .burger-menu-btn {
+                display: flex !important;
+                width: 0.55rem !important;
+                height: 0.55rem !important;
+                padding: 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                justify-content: center !important;
+                gap: 2px !important;
+            }
 
             .header-left h1 {
                 font-size: 1.125rem;
@@ -503,19 +548,44 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .header-subtitle { display: none; }
-            .header-right { gap: 0.5rem; flex-shrink: 0; }
-            .burger-menu-btn span { height: 1px !important; }
-            .modern-card { padding: var(--space-sm); margin-bottom: var(--space-sm); }
+
+            .header-subtitle {
+                display: none;
+            }
+
+            .header-right {
+                gap: 0.5rem;
+                flex-shrink: 0;
+            }
+
+            .burger-menu-btn span {
+                height: 1px !important;
+            }
+
+            .modern-card {
+                padding: var(--space-sm);
+                margin-bottom: var(--space-sm);
+            }
         }
 
         @media (max-width: 480px) {
             :root {
                 --header-height: 68px;
             }
-            .burger-menu-btn { width: 0.65rem !important; height: 0.65rem !important; }
-            .content-area { padding: 0.625rem; }
-            .modern-card { padding: 0.625rem; margin-bottom: 0.625rem; }
+
+            .burger-menu-btn {
+                width: 0.65rem !important;
+                height: 0.65rem !important;
+            }
+
+            .content-area {
+                padding: 0.625rem;
+            }
+
+            .modern-card {
+                padding: 0.625rem;
+                margin-bottom: 0.625rem;
+            }
         }
 
         /* Legacy mobile styles */
@@ -538,7 +608,7 @@
             .header-subtitle {
                 display: none;
             }
-            
+
             .header-right {
                 gap: 0.5rem;
                 flex-wrap: wrap;
@@ -579,7 +649,10 @@
             }
 
             /* Cards - Mobile */
-            .card-modern, .card, .settings-card, .page-header {
+            .card-modern,
+            .card,
+            .settings-card,
+            .page-header {
                 padding: 0.75rem !important;
                 margin-bottom: 0.75rem;
                 border-radius: 12px;
@@ -594,7 +667,8 @@
             }
 
             /* Buttons - Mobile */
-            .btn-modern, .dropdown-toggle {
+            .btn-modern,
+            .dropdown-toggle {
                 min-height: 36px !important;
                 min-width: 36px !important;
                 padding: 8px 12px !important;
@@ -603,7 +677,8 @@
             }
 
             /* Forms - Mobile */
-            .form-control, .form-select {
+            .form-control,
+            .form-select {
                 min-height: 40px !important;
                 font-size: 15px !important;
                 padding: 10px 12px !important;
@@ -634,7 +709,7 @@
             .header {
                 padding: 0.625rem 0.75rem;
             }
-            
+
             .header-title-section {
                 padding-left: 0.5rem;
             }
@@ -648,7 +723,10 @@
                 gap: 0.625rem;
             }
 
-            .card-modern, .card, .settings-card, .page-header {
+            .card-modern,
+            .card,
+            .settings-card,
+            .page-header {
                 padding: 0.625rem !important;
             }
 
@@ -691,7 +769,7 @@
 
         .btn-filter-action:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 24px -18px rgba(79,70,229,0.8);
+            box-shadow: 0 12px 24px -18px rgba(79, 70, 229, 0.8);
             color: #fff;
         }
 
@@ -897,6 +975,12 @@
             margin-bottom: 0 !important;
         }
 
+        .notification-header .card-toggle-btn {
+            flex-shrink: 0;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
         .notification-header .notification-title {
             margin: 0 !important;
             text-align: left !important;
@@ -953,7 +1037,7 @@
             font-size: 0.875rem;
             transition: all 0.2s ease;
         }
-        
+
         .form-select:disabled,
         .form-range:disabled {
             background-color: var(--gray-100);
@@ -1075,19 +1159,24 @@
                 overflow: visible;
                 padding-bottom: 0;
             }
+
             .stat-card {
                 min-width: 0;
                 padding: var(--space-2xs) var(--space-xs) !important;
             }
+
             .stat-icon {
                 width: 1.5rem !important;
                 height: 1.5rem !important;
                 font-size: 0.8rem !important;
             }
+
             .stat-value {
                 font-size: 0.9rem !important;
             }
-            .stat-label, .stat-subtitle {
+
+            .stat-label,
+            .stat-subtitle {
                 font-size: 0.68rem !important;
             }
         }
@@ -1169,8 +1258,12 @@
             width: 2.75rem;
             height: 2.75rem;
         }
+
         @media (max-width: 768px) {
-            .user-avatar { width: 1.75rem; height: 1.75rem; }
+            .user-avatar {
+                width: 1.75rem;
+                height: 1.75rem;
+            }
         }
 
         .sidebar {
@@ -1196,6 +1289,7 @@
         }
 
         @media (min-width: 769px) {
+
             .main-content,
             .main-content.sidebar-open {
                 margin-left: var(--sidebar-width);
@@ -1251,7 +1345,8 @@
             gap: var(--space-md);
             margin-bottom: var(--space-lg);
         }
-        .row.g-0 > [class*='col-'] {
+
+        .row.g-0>[class*='col-'] {
             padding-left: 0 !important;
             padding-right: 0 !important;
             display: flex;
@@ -1390,9 +1485,9 @@
         .notification-card .card-actions .btn {
             flex: 0 0 auto;
         }
-
     </style>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Unified Header -->
@@ -1414,11 +1509,16 @@
             </div>
             <div class="header-right">
                 <div class="dropdown">
-                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}" alt="User" class="user-avatar" data-bs-toggle="dropdown">
+                    <img src="{{ user_obj.profile_picture|default:'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22%3E%3Ccircle cx=%2220%22 cy=%2220%22 r=%2218%22 fill=%22%23eee%22 stroke=%22%23999%22 stroke-width=%222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%229%22 fill=%22%23666%22%3ENo Image%3C/text%3E%3C/svg%3E' }}{% if user_obj.profile_picture %}?v={% now 'U' %}{% endif %}"
+                        alt="User" class="user-avatar" data-bs-toggle="dropdown">
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i
+                                    class="bi bi-person me-2"></i>Profile</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li><a class="dropdown-item logout-link" href="{% url 'logout' %}"><i
+                                    class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>
@@ -1433,65 +1533,65 @@
                     <h2 class="nav-section-title">Main</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'dashboard' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'dashboard' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'dashboard' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'dashboard' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-speedometer2" aria-hidden="true"></i>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'products_inventory' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'products_inventory' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'products_inventory' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'products_inventory' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'products_inventory' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'products_inventory' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-box-seam" aria-hidden="true"></i>
                                 <span>Inventory</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'add_product_page' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'add_product_page' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'add_product_page' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'add_product_page' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'add_product_page' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-plus-square" aria-hidden="true"></i>
                                 <span>Product Registration</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'record_sale_main' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'record_sale_main' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'record_sale_main' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'record_sale_main' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'record_sale_main' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'record_sale_main' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-receipt" aria-hidden="true"></i>
                                 <span>Record Transaction</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'sales' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'sales' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'sales' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'sales' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'sales' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'sales' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-cart-check" aria-hidden="true"></i>
                                 <span>Sales</span>
                             </a>
                         </li>
                     </ul>
                 </div>
-                
+
                 <div class="nav-section">
                     <h2 class="nav-section-title">Reports</h2>
-                    
+
                     <ul class="nav-list" role="list">
                         {% if app_role == 'admin' %}
                         <li class="nav-item">
-                            <a href="{% url 'reports' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'reports' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'reports' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'reports' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-graph-up" aria-hidden="true"></i>
                                 <span>Reports</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'pricing_analysis' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'pricing_analysis' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'pricing_analysis' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'pricing_analysis' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'pricing_analysis' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-currency-exchange" aria-hidden="true"></i>
                                 <span>Pricing Analysis</span>
                             </a>
@@ -1499,47 +1599,44 @@
                         {% endif %}
                     </ul>
                 </div>
-                
+
                 <div class="nav-section">
                     <h2 class="nav-section-title">Account</h2>
                     <ul class="nav-list" role="list">
                         <li class="nav-item">
-                            <a href="{% url 'sms_settings' %}" 
-                               class="nav-link active"
-                               aria-current="page">
+                            <a href="{% url 'sms_settings' %}" class="nav-link active" aria-current="page">
                                 <i class="bi bi-chat-dots" aria-hidden="true"></i>
                                 <span>SMS Notification</span>
                             </a>
                         </li>
                         {% if request.session.app_role|default:''|lower == 'admin' %}
                         <li class="nav-item">
-                            <a href="{% url 'action_logs' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'action_logs' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'action_logs' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'action_logs' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-journal-text" aria-hidden="true"></i>
                                 <span>Logs</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="{% url 'backup_management' %}"
-                               class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
+                                class="nav-link {% if request.resolver_match.url_name == 'backup_management' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'backup_management' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-database" aria-hidden="true"></i>
                                 <span>Backups</span>
                             </a>
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a href="{% url 'profile' %}" 
-                               class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
-                               aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
+                            <a href="{% url 'profile' %}"
+                                class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}"
+                                aria-current="{% if request.resolver_match.url_name == 'profile' %}page{% else %}false{% endif %}">
                                 <i class="bi bi-person" aria-hidden="true"></i>
                                 <span>Profile</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'logout' %}" class="nav-link logout-link"
-                               aria-current="false">
+                            <a href="{% url 'logout' %}" class="nav-link logout-link" aria-current="false">
                                 <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                                 <span>Logout</span>
                             </a>
@@ -1554,464 +1651,597 @@
 
             <div class="content-area">
 
-        <!-- Messages -->
-        {% if messages %}
-            {% for message in messages %}
+                <!-- Messages -->
+                {% if messages %}
+                {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    <i class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
+                    <i
+                        class="bi bi-{% if message.tags == 'success' %}check-circle-fill{% else %}info-circle-fill{% endif %} me-2"></i>
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-            {% endfor %}
-        {% endif %}
+                {% endfor %}
+                {% endif %}
 
-        <!-- Phone Number Setup -->
-        <div class="settings-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="mb-0">
-                    <i class="bi bi-telephone me-2"></i>
-                    Phone Number Configuration
+                <!-- Phone Number Setup -->
+                <div class="settings-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="mb-0">
+                            <i class="bi bi-telephone me-2"></i>
+                            Phone Number Configuration
+                        </h5>
+                        <div class="d-flex align-items-center gap-3">
+                            <!-- Master Toggle for Automatic SMS -->
+                            <div class="d-flex align-items-center gap-2">
+                                <div id="systemStatusBadge" class="badge {% if sms_settings.master_enabled %}bg-success{% else %}bg-secondary{% endif %} px-2 py-1">
+                                    {% if sms_settings.master_enabled %}ACTIVE{% else %}INACTIVE{% endif %}
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" id="master_enabled" 
+                                        {% if sms_settings.master_enabled %}checked{% endif %}
+                                        style="width: 2.5rem; height: 1.3rem; cursor: pointer;">
+                                    <label class="form-check-label ms-2" for="master_enabled" style="cursor: pointer;">
+                                        <small id="systemStatusText" class="text-muted">
+                                            {% if sms_settings.master_enabled %}
+                                                Auto SMS On
+                                            {% else %}
+                                                Auto SMS Off
+                                            {% endif %}
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-filter-action" id="smsRefreshBtn"
+                                aria-label="Refresh SMS settings" style="width: 150px; justify-content: center;">
+                                <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"
+                                    id="smsRefreshSpinner"></span>
+                                <span class="refresh-text">Refresh</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form method="post" id="phoneForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="phone_number" class="form-label">
+                                        <i class="bi bi-phone me-1"></i>
+                                        Philippine Mobile Number
+                                    </label>
+                                    <input type="tel" class="form-control" id="phone_number" name="phone_number"
+                                        value="{{ sms_notification.phone_number }}" placeholder="09123456789"
+                                        pattern="^(09|\+639|639)[0-9]{9}$" required>
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Accepts formats: <strong>09xxxxxxxxx</strong>, +639xxxxxxxxx, or 639xxxxxxxxx
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="timezone" class="form-label">
+                                        <i class="bi bi-clock me-1"></i>
+                                        Timezone
+                                    </label>
+                                    <select class="form-select" id="timezone" name="timezone">
+                                        <option value="Asia/Manila" selected>Asia/Manila (PHT - UTC+8)</option>
+                                    </select>
+                                    <div class="form-text">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        All notification times will be based on this timezone
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-1"></i>
+                                Save Phone Number
+                            </button>
+                            {% if sms_notification.is_active and sms_notification.phone_number %}
+                            <button type="button" class="btn btn-outline-primary" id="sendAllNowBtn">
+                                <i class="bi bi-send me-1"></i>
+                                Send All Now
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Card Visibility Controls -->
+                <div class="settings-card mb-3" id="cardVisibilityControls" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">
+                                <i class="bi bi-eye-slash me-2"></i>
+                                Hidden Cards
+                            </h6>
+                            <small class="text-muted">Click to show hidden notification cards</small>
+                        </div>
+                        <div class="d-flex gap-2" id="hiddenCardsButtons">
+                            <!-- Buttons will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notification Types -->
+                <div class="row g-3 mb-4">
+                    <!-- Daily Sales Summary -->
+                    <div class="col-lg-4" id="salesCardContainer">
+                        <div class="notification-card {% if sms_settings.sales_enabled %}active{% else %}inactive{% endif %}"
+                            id="salesCard">
+                            <div class="notification-header">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="d-flex align-items-center">
+                                        <div class="notification-icon sales">
+                                            <i class="bi bi-graph-up"></i>
+                                        </div>
+                                        <h6 class="notification-title mb-0 ms-2">Daily Sales Summary</h6>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary card-toggle-btn" 
+                                        data-card="salesCard" title="Hide/Show card">
+                                        <i class="bi bi-eye" id="salesCardIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="notification-description">
+                                Automatically receive daily reports with total revenue, transactions, and
+                                top-selling products at 8:00 PM.
+                            </p>
+
+                            <div class="notification-settings">
+                                <div class="setting-row">
+                                    <span class="setting-label">Status</span>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="sales_enabled" {% if sms_settings.sales_enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="sales_enabled">
+                                            <span class="setting-value">Enabled</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="setting-row">
+                                    <span class="setting-label">Send Time</span>
+                                    <input type="time" class="form-control form-control-sm" id="sales_time"
+                                        value="{{ sms_settings.sales_time|default:'20:00' }}" style="width: 140px;">
+                                </div>
+
+                                <div class="setting-row">
+                                    <span class="setting-label">Frequency</span>
+                                    <span class="setting-value">Daily</span>
+                                </div>
+                            </div>
+
+                            <div class="preview-box" id="salesPreview"
+                                style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                                <div
+                                    style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
+                                    <small><strong>From:</strong> STOCKWISE</small>
+                                </div>
+                                <strong>Daily Sales Summary:</strong><br>
+                                {{ sales_preview_msg|linebreaksbr }}
+                            </div>
+
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline-primary btn-sm sales-action-btn"
+                                    onclick="togglePreview('salesPreview')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-eye me-1"></i>Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm sales-action-btn"
+                                    onclick="sendNotificationNow('sales')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-send me-1"></i>Send Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Low Stock Alerts -->
+                    <div class="col-lg-4" id="stockCardContainer">
+                        <div class="notification-card {% if sms_settings.stock_enabled %}active{% else %}inactive{% endif %}"
+                            id="stockCard">
+                            <div class="notification-header">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="d-flex align-items-center">
+                                        <div class="notification-icon stock">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                        </div>
+                                        <h6 class="notification-title mb-0 ms-2">Low Stock Alerts</h6>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary card-toggle-btn" 
+                                        data-card="stockCard" title="Hide/Show card">
+                                        <i class="bi bi-eye" id="stockCardIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="notification-description">
+                                Automatically get notified when product inventory falls below your specified
+                                threshold (real-time monitoring).
+                            </p>
+
+                            <div class="notification-settings">
+                                <div class="setting-row">
+                                    <span class="setting-label">Status</span>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="stock_enabled" {% if sms_settings.stock_enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="stock_enabled">
+                                            <span class="setting-value">Enabled</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="setting-row" style="display: none;">
+                                    <span class="setting-label">Threshold</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="range" class="form-range" id="stock_threshold" min="1" max="50"
+                                            value="{{ sms_settings.stock_threshold|default:10 }}" style="flex: 1;">
+                                        <span class="setting-value" id="thresholdValue">{{
+                                            sms_settings.stock_threshold|default:10 }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="setting-row">
+                                    <span class="setting-label">Frequency</span>
+                                    <span class="setting-value">Real-time</span>
+                                </div>
+                            </div>
+
+                            <div class="preview-box" id="stockPreview"
+                                style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                                <div
+                                    style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
+                                    <small><strong>From:</strong> STOCKWISE</small>
+                                </div>
+                                <strong>Stock Alert:</strong><br>
+                                {{ stock_preview_msg|linebreaksbr }}
+                            </div>
+
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline-primary btn-sm stock-action-btn"
+                                    onclick="togglePreview('stockPreview')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-eye me-1"></i>Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm stock-action-btn"
+                                    onclick="sendNotificationNow('stock')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-send me-1"></i>Send Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Demand-Driven Pricing -->
+                    <div class="col-lg-4" id="pricingCardContainer">
+                        <div class="notification-card {% if sms_settings.pricing_enabled %}active{% else %}inactive{% endif %}"
+                            id="pricingCard">
+                            <div class="notification-header">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="d-flex align-items-center">
+                                        <div class="notification-icon pricing">
+                                            <i class="bi bi-tags"></i>
+                                        </div>
+                                        <h6 class="notification-title mb-0 ms-2">Demand-Driven Pricing Recommendation</h6>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary card-toggle-btn" 
+                                        data-card="pricingCard" title="Hide/Show card">
+                                        <i class="bi bi-eye" id="pricingCardIcon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="notification-description">
+                                Automatically receive AI-powered pricing recommendations based on demand elasticity
+                                and market conditions every 3 days.
+                            </p>
+
+                            <div class="notification-settings">
+                                <div class="setting-row">
+                                    <span class="setting-label">Status</span>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="pricing_enabled" {% if sms_settings.pricing_enabled %}checked{% endif %}>
+                                        <label class="form-check-label" for="pricing_enabled">
+                                            <span class="setting-value">Enabled</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="setting-row">
+                                    <span class="setting-label">Send Time</span>
+                                    <input type="time" class="form-control form-control-sm" id="pricing_time"
+                                        value="{{ sms_settings.pricing_time|default:'08:00' }}" style="width: 140px;">
+                                </div>
+                                <div class="setting-row">
+                                    <span class="setting-label">Frequency</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="number" class="form-control form-control-sm"
+                                            id="pricing_frequency_days" min="1" max="30"
+                                            value="{{ sms_settings.pricing_frequency_days|default:3 }}"
+                                            style="width: 100px;">
+                                        <span class="setting-value">day(s)</span>
+                                        <div class="form-check form-switch ms-3">
+                                            <input class="form-check-input" type="checkbox" id="pricing_daily" {% if sms_settings.pricing_frequency_days == 1 %}checked{% endif %}>
+                                            <label class="form-check-label" for="pricing_daily">Today</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="preview-box" id="pricingPreview"
+                                style="display: none; margin: var(--space-2xs) 0; padding: 0;">
+                                <div
+                                    style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
+                                    <small><strong>From:</strong> STOCKWISE</small>
+                                </div>
+                                <strong>Pricing Recommendation:</strong><br>
+                                {{ pricing_preview_msg|linebreaksbr }}
+                            </div>
+
+                            <div class="card-actions">
+                                <button type="button" class="btn btn-outline-primary btn-sm pricing-action-btn"
+                                    onclick="togglePreview('pricingPreview')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-eye me-1"></i>Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm pricing-action-btn"
+                                    onclick="sendNotificationNow('pricing')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
+                                    <i class="bi bi-send me-1"></i>Send Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Notification Statistics -->
+            <div class="settings-card">
+                <h5 class="mb-4">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Notification Statistics
                 </h5>
-                <button type="button" class="btn-filter-action" id="smsRefreshBtn" aria-label="Refresh SMS settings" style="width: 150px; justify-content: center;">
-                    <span class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true" id="smsRefreshSpinner"></span>
-                    <span class="refresh-text">Refresh</span>
-                </button>
-            </div>
 
-            <form method="post" id="phoneForm">
-                {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="phone_number" class="form-label">
-                                <i class="bi bi-phone me-1"></i>
-                                Philippine Mobile Number
-                            </label>
-                            <input 
-                                type="tel" 
-                                class="form-control" 
-                                id="phone_number" 
-                                name="phone_number" 
-                                value="{{ sms_notification.phone_number }}"
-                                placeholder="09123456789"
-                                pattern="^(09|\+639|639)[0-9]{9}$"
-                                required
-                            >
-                            <div class="form-text">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Accepts formats: <strong>09xxxxxxxxx</strong>, +639xxxxxxxxx, or 639xxxxxxxxx
+                <!-- Overall Statistics -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-2"></i>Overall Statistics</h6>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon primary">
+                                <i class="bi bi-envelope-paper"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="stat-messages-today">0</div>
+                                <div class="stat-label">Today</div>
+                                <div class="stat-subtitle">SMS sent today</div>
+                                <div class="stat-comparison" id="stat-today-comparison"
+                                    style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.3rem; display: none;">
+                                    <i class="bi bi-arrow-up text-success"></i> <span id="stat-today-change">0</span>
+                                    from yesterday
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="timezone" class="form-label">
-                                <i class="bi bi-clock me-1"></i>
-                                Timezone
-                            </label>
-                            <select class="form-select" id="timezone" name="timezone">
-                                <option value="Asia/Manila" selected>Asia/Manila (PHT - UTC+8)</option>
-                            </select>
-                            <div class="form-text">
-                                <i class="bi bi-info-circle me-1"></i>
-                                All notification times will be based on this timezone
+                        <div class="stat-card">
+                            <div class="stat-icon success">
+                                <i class="bi bi-calendar-week"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="stat-messages-week">0</div>
+                                <div class="stat-label">This Week</div>
+                                <div class="stat-subtitle">Total SMS this week</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon info">
+                                <i class="bi bi-calendar-month"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="stat-messages-month">0</div>
+                                <div class="stat-label">This Month</div>
+                                <div class="stat-subtitle">Total SMS this month</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i>
-                        Save Phone Number
+                <!-- Breakdown by Notification Type -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3"><i class="bi bi-list-ul me-2"></i>Breakdown by Notification Type
+                    </h6>
+
+                    <!-- Sales Summaries -->
+                    <div class="notification-type-breakdown mb-3 p-3"
+                        style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #0d6efd;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-1"><i class="bi bi-graph-up me-2 text-info"></i>Sales Summaries</h6>
+                                <small class="text-muted">Daily sales summaries sent</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="h5 mb-0" id="stat-sales-today">0</div>
+                                <small class="text-muted">Today</small>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-sales-week">0</div>
+                                    <small class="text-muted">This Week</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-sales-month">0</div>
+                                    <small class="text-muted">This Month</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="stat-datetime-sales"
+                                        style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                        <i class="bi bi-clock me-1"></i><span class="stat-date-sales"></span><br>
+                                        <span class="stat-time-sales"></span>
+                                    </div>
+                                    <small class="text-muted" id="stat-sales-last-label" style="display: none;">Last
+                                        Sent</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Low Stock Alerts -->
+                    <div class="notification-type-breakdown mb-3 p-3"
+                        style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-1"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Low
+                                    Stock Alerts</h6>
+                                <small class="text-muted">Real-time stock notifications</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="h5 mb-0" id="stat-stock-today">0</div>
+                                <small class="text-muted">Today</small>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-stock-week">0</div>
+                                    <small class="text-muted">This Week</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-stock-month">0</div>
+                                    <small class="text-muted">This Month</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="stat-datetime-stock"
+                                        style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                        <i class="bi bi-clock me-1"></i><span class="stat-date-stock"></span><br>
+                                        <span class="stat-time-stock"></span>
+                                    </div>
+                                    <small class="text-muted" id="stat-stock-last-label" style="display: none;">Last
+                                        Sent</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Alerts -->
+                    <div class="notification-type-breakdown mb-3 p-3"
+                        style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #6f42c1;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="mb-1"><i class="bi bi-tags me-2" style="color: #6f42c1;"></i>Pricing
+                                    Recommendations</h6>
+                                <small class="text-muted">AI-powered pricing alerts</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="h5 mb-0" id="stat-pricing-today">0</div>
+                                <small class="text-muted">Today</small>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-pricing-week">0</div>
+                                    <small class="text-muted">This Week</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="fw-bold" id="stat-pricing-month">0</div>
+                                    <small class="text-muted">This Month</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center">
+                                    <div class="stat-datetime-pricing"
+                                        style="font-size: 0.75rem; color: var(--gray-600); display: none;">
+                                        <i class="bi bi-clock me-1"></i><span class="stat-date-pricing"></span><br>
+                                        <span class="stat-time-pricing"></span>
+                                    </div>
+                                    <small class="text-muted" id="stat-pricing-last-label" style="display: none;">Last
+                                        Sent</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% comment %}
+            <!-- Scheduler Status -->
+            <div class="settings-card">
+                <h5 class="mb-4">
+                    <i class="bi bi-activity me-2"></i>
+                    Scheduler Status
+                </h5>
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="checkSchedulerStatusBtn">
+                        <i class="bi bi-search"></i> Check Status
                     </button>
-                    {% if sms_notification.is_active and sms_notification.phone_number %}
-                        <button type="button" class="btn btn-outline-primary" id="sendAllNowBtn">
-                            <i class="bi bi-send me-1"></i>
-                            Send All Now
-                        </button>
-                    {% endif %}
                 </div>
-            </form>
-        </div>
-
-        <!-- Notification Types -->
-        {% comment %}
-        NOTE: The three notification cards below (Daily Sales Summary, Low Stock Alerts,
-        and Demand-Driven Pricing Recommendation) are intentionally hidden from the UI.
-        They are kept for reference and for internal/testing use only. Automatic SMS
-        sending still works based on the scheduler configuration.
-        {% endcomment %}
-        
-        {% comment %}
-        <div class="row g-0">
-            <!-- Daily Sales Summary -->
-            <div class="col-lg-4">
-                <div class="notification-card {% if sms_settings.sales_enabled %}active{% else %}inactive{% endif %}" id="salesCard">
-                    <div class="notification-header">
-                        <div class="notification-icon sales">
-                            <i class="bi bi-graph-up"></i>
-                        </div>
-                        <h6 class="notification-title">Daily Sales Summary</h6>
-                    </div>
-                    <p class="notification-description">
-                        Automatically receive daily reports with total revenue, transactions, and top-selling products at 8:00 PM.
-                    </p>
-                    
-                    <div class="notification-settings">
-                        <div class="setting-row">
-                            <span class="setting-label">Status</span>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="sales_enabled" 
-                                       {% if sms_settings.sales_enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="sales_enabled">
-                                    <span class="setting-value">Enabled</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div class="setting-row">
-                            <span class="setting-label">Send Time</span>
-                            <input type="time" class="form-control form-control-sm" id="sales_time" value="{{ sms_settings.sales_time|default:'20:00' }}" style="width: 140px;">
-                        </div>
-                        
-                        <div class="setting-row">
-                            <span class="setting-label">Frequency</span>
-                            <span class="setting-value">Daily</span>
-                        </div>
-                    </div>
-                    
-                    <div class="preview-box" id="salesPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
-                            <small><strong>From:</strong> STOCKWISE</small>
-                        </div>
-                        <strong>Daily Sales Summary:</strong><br>
-                        {{ sales_preview_msg|linebreaksbr }}
-                    </div>
-                    
-                    <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm sales-action-btn" onclick="togglePreview('salesPreview')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
-                            <i class="bi bi-eye me-1"></i>Preview
-                        </button>
-                        <button type="button" class="btn btn-outline-success btn-sm sales-action-btn" onclick="sendNotificationNow('sales')" {% if not sms_settings.sales_enabled %}disabled{% endif %}>
-                            <i class="bi bi-send me-1"></i>Send Now
-                        </button>
-                    </div>
+                <div id="schedulerStatusPanel" class="small text-muted">
+                    <div class="py-2">Click "Check Status" to view last sent times and next schedules.</div>
                 </div>
             </div>
-
-            <!-- Low Stock Alerts -->
-            <div class="col-lg-4">
-                <div class="notification-card {% if sms_settings.stock_enabled %}active{% else %}inactive{% endif %}" id="stockCard">
-                    <div class="notification-header">
-                        <div class="notification-icon stock">
-                            <i class="bi bi-exclamation-triangle"></i>
-                        </div>
-                        <h6 class="notification-title">Low Stock Alerts</h6>
-                    </div>
-                    <p class="notification-description">
-                        Automatically get notified when product inventory falls below your specified threshold (real-time monitoring).
-                    </p>
-                    
-                    <div class="notification-settings">
-                        <div class="setting-row">
-                            <span class="setting-label">Status</span>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="stock_enabled" 
-                                       {% if sms_settings.stock_enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="stock_enabled">
-                                    <span class="setting-value">Enabled</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div class="setting-row" style="display: none;">
-                            <span class="setting-label">Threshold</span>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="range" class="form-range" id="stock_threshold" min="1" max="50" value="{{ sms_settings.stock_threshold|default:10 }}" style="flex: 1;">
-                                <span class="setting-value" id="thresholdValue">{{ sms_settings.stock_threshold|default:10 }}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="setting-row">
-                            <span class="setting-label">Frequency</span>
-                            <span class="setting-value">Real-time</span>
-                        </div>
-                    </div>
-                    
-                    <div class="preview-box" id="stockPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
-                            <small><strong>From:</strong> STOCKWISE</small>
-                        </div>
-                        <strong>Stock Alert:</strong><br>
-                        {{ stock_preview_msg|linebreaksbr }}
-                    </div>
-                    
-                    <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm stock-action-btn" onclick="togglePreview('stockPreview')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
-                            <i class="bi bi-eye me-1"></i>Preview
-                        </button>
-                        <button type="button" class="btn btn-outline-success btn-sm stock-action-btn" onclick="sendNotificationNow('stock')" {% if not sms_settings.stock_enabled %}disabled{% endif %}>
-                            <i class="bi bi-send me-1"></i>Send Now
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Demand-Driven Pricing -->
-            <div class="col-lg-4">
-                <div class="notification-card {% if sms_settings.pricing_enabled %}active{% else %}inactive{% endif %}" id="pricingCard">
-                    <div class="notification-header">
-                        <div class="notification-icon pricing">
-                            <i class="bi bi-tags"></i>
-                        </div>
-                        <h6 class="notification-title">Demand-Driven Pricing Recommendation</h6>
-                    </div>
-                    <p class="notification-description">
-                        Automatically receive AI-powered pricing recommendations based on demand elasticity and market conditions every 3 days.
-                    </p>
-                    
-                    <div class="notification-settings">
-                        <div class="setting-row">
-                            <span class="setting-label">Status</span>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="pricing_enabled" 
-                                       {% if sms_settings.pricing_enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="pricing_enabled">
-                                    <span class="setting-value">Enabled</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        
-                        
-                        <div class="setting-row">
-                            <span class="setting-label">Send Time</span>
-                            <input type="time" class="form-control form-control-sm" id="pricing_time" value="{{ sms_settings.pricing_time|default:'08:00' }}" style="width: 140px;">
-                        </div>
-                        <div class="setting-row">
-                            <span class="setting-label">Frequency</span>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="number" class="form-control form-control-sm" id="pricing_frequency_days" min="1" max="30" value="{{ sms_settings.pricing_frequency_days|default:3 }}" style="width: 100px;">
-                                <span class="setting-value">day(s)</span>
-                                <div class="form-check form-switch ms-3">
-                                    <input class="form-check-input" type="checkbox" id="pricing_daily" {% if sms_settings.pricing_frequency_days == 1 %}checked{% endif %}>
-                                    <label class="form-check-label" for="pricing_daily">Today</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="preview-box" id="pricingPreview" style="display: none; margin: var(--space-2xs) 0; padding: 0;">
-                        <div style="background: #e8f4f8; padding: 0.5rem; border-radius: 4px; margin-bottom: 0;">
-                            <small><strong>From:</strong> STOCKWISE</small>
-                        </div>
-                        <strong>Pricing Recommendation:</strong><br>
-                        {{ pricing_preview_msg|linebreaksbr }}
-                    </div>
-                    
-                    <div class="card-actions">
-                        <button type="button" class="btn btn-outline-primary btn-sm pricing-action-btn" onclick="togglePreview('pricingPreview')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
-                            <i class="bi bi-eye me-1"></i>Preview
-                        </button>
-                        <button type="button" class="btn btn-outline-success btn-sm pricing-action-btn" onclick="sendNotificationNow('pricing')" {% if not sms_settings.pricing_enabled %}disabled{% endif %}>
-                            <i class="bi bi-send me-1"></i>Send Now
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endcomment %}
-
-        
-
-        <!-- Notification Statistics -->
-        <div class="settings-card">
-            <h5 class="mb-4">
-                <i class="bi bi-bar-chart me-2"></i>
-                Notification Statistics
-            </h5>
-            
-            <!-- Overall Statistics -->
-            <div class="mb-4">
-                <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-2"></i>Overall Statistics</h6>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon primary">
-                            <i class="bi bi-envelope-paper"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="stat-messages-today">0</div>
-                            <div class="stat-label">Today</div>
-                            <div class="stat-subtitle">SMS sent today</div>
-                            <div class="stat-comparison" id="stat-today-comparison" style="font-size: 0.7rem; color: var(--gray-500); margin-top: 0.3rem; display: none;">
-                                <i class="bi bi-arrow-up text-success"></i> <span id="stat-today-change">0</span> from yesterday
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon success">
-                            <i class="bi bi-calendar-week"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="stat-messages-week">0</div>
-                            <div class="stat-label">This Week</div>
-                            <div class="stat-subtitle">Total SMS this week</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon info">
-                            <i class="bi bi-calendar-month"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-value" id="stat-messages-month">0</div>
-                            <div class="stat-label">This Month</div>
-                            <div class="stat-subtitle">Total SMS this month</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Breakdown by Notification Type -->
-            <div class="mb-4">
-                <h6 class="text-muted mb-3"><i class="bi bi-list-ul me-2"></i>Breakdown by Notification Type</h6>
-                
-                <!-- Sales Summaries -->
-                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #0d6efd;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1"><i class="bi bi-graph-up me-2 text-info"></i>Sales Summaries</h6>
-                            <small class="text-muted">Daily sales summaries sent</small>
-                        </div>
-                        <div class="text-end">
-                            <div class="h5 mb-0" id="stat-sales-today">0</div>
-                            <small class="text-muted">Today</small>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-sales-week">0</div>
-                                <small class="text-muted">This Week</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-sales-month">0</div>
-                                <small class="text-muted">This Month</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="stat-datetime-sales" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
-                                    <i class="bi bi-clock me-1"></i><span class="stat-date-sales"></span><br>
-                                    <span class="stat-time-sales"></span>
-                                </div>
-                                <small class="text-muted" id="stat-sales-last-label" style="display: none;">Last Sent</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Low Stock Alerts -->
-                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ffc107;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Low Stock Alerts</h6>
-                            <small class="text-muted">Real-time stock notifications</small>
-                        </div>
-                        <div class="text-end">
-                            <div class="h5 mb-0" id="stat-stock-today">0</div>
-                            <small class="text-muted">Today</small>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-stock-week">0</div>
-                                <small class="text-muted">This Week</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-stock-month">0</div>
-                                <small class="text-muted">This Month</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="stat-datetime-stock" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
-                                    <i class="bi bi-clock me-1"></i><span class="stat-date-stock"></span><br>
-                                    <span class="stat-time-stock"></span>
-                                </div>
-                                <small class="text-muted" id="stat-stock-last-label" style="display: none;">Last Sent</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pricing Alerts -->
-                <div class="notification-type-breakdown mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid #6f42c1;">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1"><i class="bi bi-tags me-2" style="color: #6f42c1;"></i>Pricing Recommendations</h6>
-                            <small class="text-muted">AI-powered pricing alerts</small>
-                        </div>
-                        <div class="text-end">
-                            <div class="h5 mb-0" id="stat-pricing-today">0</div>
-                            <small class="text-muted">Today</small>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-pricing-week">0</div>
-                                <small class="text-muted">This Week</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="fw-bold" id="stat-pricing-month">0</div>
-                                <small class="text-muted">This Month</small>
-                            </div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-center">
-                                <div class="stat-datetime-pricing" style="font-size: 0.75rem; color: var(--gray-600); display: none;">
-                                    <i class="bi bi-clock me-1"></i><span class="stat-date-pricing"></span><br>
-                                    <span class="stat-time-pricing"></span>
-                                </div>
-                                <small class="text-muted" id="stat-pricing-last-label" style="display: none;">Last Sent</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {% comment %}
-        <!-- Scheduler Status -->
-        <div class="settings-card">
-            <h5 class="mb-4">
-                <i class="bi bi-activity me-2"></i>
-                Scheduler Status
-            </h5>
-            <div class="d-flex justify-content-end mb-2">
-                <button type="button" class="btn btn-outline-primary btn-sm" id="checkSchedulerStatusBtn">
-                    <i class="bi bi-search"></i> Check Status
-                </button>
-            </div>
-            <div id="schedulerStatusPanel" class="small text-muted">
-                <div class="py-2">Click "Check Status" to view last sent times and next schedules.</div>
-            </div>
-        </div>
-        {% endcomment %}
+            {% endcomment %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'js/modern-inventory.js' %}"></script>
-    
+
+    <!-- Enable SMS Confirmation Modal -->
+    <div class="modal fade" id="enableConfirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-check-circle me-2"></i>Confirm Activation</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to <strong>ENABLE</strong> all automatic SMS
+                        notifications?</p>
+                    <div class="alert alert-light border mt-3 mb-0">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Messages will be sent
+                            according to the schedules defined below (e.g., Sales at 8:00 PM).</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmEnableBtn">Yes, Enable SMS</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Disable SMS Confirmation Modal -->
+    <div class="modal fade" id="disableConfirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Deactivation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Are you sure you want to <strong>DISABLE</strong> all automatic SMS
+                        notifications?</p>
+                    <div class="alert alert-light border mt-3 mb-0">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i> All scheduled SMS notifications will be paused. You can re-enable them at any time.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning" id="confirmDisableBtn">Yes, Disable SMS</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Feedback Modal -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -2027,7 +2257,7 @@
             </div>
         </div>
     </div>
-    
+
     <script>
         function showNotice(type, message) {
             try {
@@ -2039,34 +2269,34 @@
                 el.innerHTML = `<i class="bi bi-${icon} me-2"></i>${message}` +
                     '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
                 if (area) area.prepend(el);
-                setTimeout(() => { try { el.classList.remove('show'); el.remove(); } catch(_){} }, 5000);
-            } catch(_){ alert(message); }
+                setTimeout(() => { try { el.classList.remove('show'); el.remove(); } catch (_) { } }, 5000);
+            } catch (_) { alert(message); }
         }
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Send All Now functionality
-            $('#sendAllNowBtn').on('click', function() {
+            $('#sendAllNowBtn').on('click', function () {
                 const $btn = $(this);
                 const originalText = $btn.html();
-                
+
                 $btn.prop('disabled', true).html('<i class="bi bi-hourglass-split me-1"></i>Sending...');
-                
+
                 $.ajax({
                     url: "{% url 'send_all_notifications_now' %}",
                     method: 'POST',
                     data: { csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(), force: 'true' },
-                    success: function(response) {
+                    success: function (response) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
                         const results = response.results || {};
                         const details = response.details || {};
                         const keys = Object.keys(results);
-                        const skipped = keys.filter(function(k){ return results[k] === false; });
+                        const skipped = keys.filter(function (k) { return results[k] === false; });
                         if (response.success) {
                             var html = '';
                             if (skipped.length > 0) {
                                 html += '<div class="alert alert-info"><i class="bi bi-info-circle me-2"></i>Some notifications were skipped.</div>';
                                 html += '<ul class="list-group mb-3">';
-                                skipped.forEach(function(k){
+                                skipped.forEach(function (k) {
                                     var title = k === 'sales' ? 'Daily Sales Summary' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Recommendation' : k));
                                     var reason = details[k] || 'Already sent recently';
                                     html += '<li class="list-group-item d-flex justify-content-between align-items-center">' + title + '<span class="badge bg-secondary">' + reason + '</span></li>';
@@ -2081,12 +2311,12 @@
                             const details = response.details || {};
                             const nextAllowed = response.next_allowed || {};
                             const keys = Object.keys(results);
-                            const failed = keys.filter(function(k){ return results[k] === false; });
+                            const failed = keys.filter(function (k) { return results[k] === false; });
                             var html = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>' + (response.message || 'Failed to send notifications.') + '</div>';
                             if (failed.length > 0) {
                                 html += '<div class="mb-2"><strong>Why it didn\'t send</strong></div>';
                                 html += '<ul class="list-group mb-3">';
-                                failed.forEach(function(k){
+                                failed.forEach(function (k) {
                                     var title = k === 'sales' ? 'Daily Sales Summary' : (k === 'stock' ? 'Stock Alerts' : (k === 'pricing' ? 'Pricing Recommendation' : k));
                                     var reason = details[k] || 'Unavailable';
                                     var next = nextAllowed[k] ? ('<small class="text-muted ms-2">Next allowed: ' + nextAllowed[k] + '</small>') : '';
@@ -2100,7 +2330,7 @@
                         const modal = new bootstrap.Modal(modalEl);
                         modal.show();
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         const modalEl = document.getElementById('feedbackModal');
                         const bodyEl = document.getElementById('feedbackModalBody');
                         let errorMsg = 'Error sending notifications. Please try again.';
@@ -2121,7 +2351,7 @@
                         modal.show();
                         console.error('Send All Now error:', xhr, status, error);
                     },
-                    complete: function() {
+                    complete: function () {
                         $btn.prop('disabled', false).html(originalText);
                     }
                 });
@@ -2133,19 +2363,19 @@
             // });
 
             // Notification toggle handlers - update card state, button states, and save settings
-            $('#sales_enabled, #stock_enabled, #pricing_enabled').on('change', function() {
+            $('#sales_enabled, #stock_enabled, #pricing_enabled').on('change', function () {
                 const toggleId = $(this).attr('id');
                 const cardId = toggleId.replace('_enabled', 'Card');
                 const $card = $('#' + cardId);
                 const isEnabled = $(this).is(':checked');
-                
+
                 // Update card visual state
                 if (isEnabled) {
                     $card.removeClass('inactive').addClass('active');
                 } else {
                     $card.removeClass('active').addClass('inactive');
                 }
-                
+
                 // Update button states based on notification type
                 if (toggleId === 'sales_enabled') {
                     $('.sales-action-btn').prop('disabled', !isEnabled);
@@ -2154,14 +2384,14 @@
                 } else if (toggleId === 'pricing_enabled') {
                     $('.pricing-action-btn').prop('disabled', !isEnabled);
                 }
-                
+
                 // Auto-save settings when toggle changes
                 saveNotificationSettings();
             });
 
             const smsRefreshBtn = document.getElementById('smsRefreshBtn');
             const smsRefreshSpinner = document.getElementById('smsRefreshSpinner');
-            smsRefreshBtn?.addEventListener('click', function(e) {
+            smsRefreshBtn?.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (smsRefreshSpinner) smsRefreshSpinner.classList.remove('d-none');
@@ -2180,7 +2410,7 @@
                 $preview.slideDown();
                 // If it's the pricing preview, load recommendations
                 if (previewId === 'pricingPreview') {
-                    
+
                 }
             }
         }
@@ -2189,10 +2419,10 @@
         function sendNotificationNow(type) {
             const $btn = event.target.closest('button');
             const originalText = $btn.innerHTML;
-            
+
             $btn.disabled = true;
             $btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Sending...';
-            
+
             // Use different endpoints for different notification types
             let url, data;
             if (type === 'pricing') {
@@ -2209,13 +2439,13 @@
                     force: 'true'
                 };
             }
-            
+
             // Call the actual API endpoint
             $.ajax({
                 url: url,
                 method: 'POST',
                 data: data,
-                success: function(response) {
+                success: function (response) {
                     const modalEl = document.getElementById('feedbackModal');
                     const bodyEl = document.getElementById('feedbackModalBody');
                     if (response.cooldown_active) {
@@ -2228,12 +2458,12 @@
                             if (type === 'pricing' && response.success) {
                                 localStorage.setItem('pricing_recs_updated', String(Date.now()));
                             }
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     const modalEl = document.getElementById('feedbackModal');
                     const bodyEl = document.getElementById('feedbackModalBody');
                     const resp = xhr.responseJSON || {};
@@ -2247,14 +2477,14 @@
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                 },
-                complete: function() {
+                complete: function () {
                     $btn.disabled = false;
                     $btn.innerHTML = originalText;
                 }
             });
         }
 
-        
+
 
         // Save notification settings
         function saveNotificationSettings() {
@@ -2265,12 +2495,13 @@
                 pricing_frequency_days: parseInt($('#pricing_frequency_days').val() || '3'),
                 sales_enabled: $('#sales_enabled').is(':checked') ? 'true' : 'false',
                 stock_enabled: $('#stock_enabled').is(':checked') ? 'true' : 'false',
-                pricing_enabled: $('#pricing_enabled').is(':checked') ? 'true' : 'false'
+                pricing_enabled: $('#pricing_enabled').is(':checked') ? 'true' : 'false',
+                master_enabled: $('#master_enabled').is(':checked') ? 'true' : 'false'
             };
-            
+
             // Save to localStorage as backup
             localStorage.setItem('sms_notification_settings', JSON.stringify(settings));
-            
+
             // Call the API to save settings to database
             $.ajax({
                 url: "{% url 'update_notification_settings' %}",
@@ -2279,7 +2510,7 @@
                     csrfmiddlewaretoken: $('[name=csrfmiddlewaretoken]').val(),
                     ...settings
                 },
-                success: function(response) {
+                success: function (response) {
                     if (response.success) {
                         // Sync UI with server values
                         const s = response.settings || {};
@@ -2295,13 +2526,26 @@
                                 $('#pricing_frequency_days').val('1').prop('disabled', true);
                             }
                         }
+
+                        // Update System Status UI
+                        const isMaster = $('#master_enabled').is(':checked');
+                        const $badge = $('#systemStatusBadge');
+                        const $text = $('#systemStatusText');
+                        if (isMaster) {
+                            $badge.removeClass('bg-secondary').addClass('bg-success').text('ACTIVE');
+                            $text.text('Auto SMS On');
+                        } else {
+                            $badge.removeClass('bg-success').addClass('bg-secondary').text('INACTIVE');
+                            $text.text('Auto SMS Off');
+                        }
+
                         // Show save indicator
                         showNotice('success', 'Settings saved');
                     } else {
                         showNotice('danger', 'Failed to save: ' + (response.message || 'Unknown error'));
                     }
                 },
-                error: function(xhr) {
+                error: function (xhr) {
                     let errorMsg = 'Save Failed';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMsg = xhr.responseJSON.message;
@@ -2311,6 +2555,153 @@
             });
         }
 
+        // Master Toggle Logic with Confirmation
+        $('#master_enabled').on('click', function (e) {
+            const isChecked = $(this).is(':checked');
+
+            // Always prevent default to show confirmation modal
+            e.preventDefault();
+            
+            if (isChecked) {
+                // If checking (Turning ON), show enable confirmation modal
+                const modal = new bootstrap.Modal(document.getElementById('enableConfirmationModal'));
+                modal.show();
+            } else {
+                // If unchecking (Turning OFF), show disable confirmation modal
+                const modal = new bootstrap.Modal(document.getElementById('disableConfirmationModal'));
+                modal.show();
+            }
+        });
+
+        // Confirm Enable Button
+        $('#confirmEnableBtn').on('click', function () {
+            // Check the toggle manually
+            $('#master_enabled').prop('checked', true);
+            // Hide modal
+            const modalEl = document.getElementById('enableConfirmationModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+            // Save settings
+            saveNotificationSettings();
+        });
+
+        // Confirm Disable Button
+        $('#confirmDisableBtn').on('click', function () {
+            // Uncheck the toggle manually
+            $('#master_enabled').prop('checked', false);
+            // Hide modal
+            const modalEl = document.getElementById('disableConfirmationModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+            // Save settings
+            saveNotificationSettings();
+        });
+
+        // Card Visibility Toggle Functionality
+        const cardNames = {
+            'salesCard': 'Daily Sales Summary',
+            'stockCard': 'Low Stock Alerts',
+            'pricingCard': 'Pricing Recommendation'
+        };
+
+        function updateCardVisibilityControls() {
+            const savedVisibility = JSON.parse(localStorage.getItem('sms_card_visibility') || '{}');
+            const hiddenCards = [];
+            
+            Object.keys(cardNames).forEach(cardId => {
+                if (savedVisibility[cardId] === false) {
+                    hiddenCards.push(cardId);
+                }
+            });
+            
+            const $controls = $('#cardVisibilityControls');
+            const $buttonsContainer = $('#hiddenCardsButtons');
+            
+            if (hiddenCards.length > 0) {
+                $buttonsContainer.empty();
+                hiddenCards.forEach(cardId => {
+                    const button = $(`
+                        <button type="button" class="btn btn-sm btn-outline-primary restore-card-btn" 
+                            data-card="${cardId}" title="Show ${cardNames[cardId]}">
+                            <i class="bi bi-eye me-1"></i>${cardNames[cardId]}
+                        </button>
+                    `);
+                    $buttonsContainer.append(button);
+                });
+                $controls.slideDown(200);
+            } else {
+                $controls.slideUp(200);
+            }
+        }
+
+        function initCardVisibility() {
+            // Load saved visibility state from localStorage
+            const savedVisibility = JSON.parse(localStorage.getItem('sms_card_visibility') || '{}');
+            
+            // Initialize each card's visibility
+            Object.keys(cardNames).forEach(cardId => {
+                const containerId = cardId + 'Container';
+                const iconId = cardId + 'Icon';
+                const isVisible = savedVisibility[cardId] !== false; // Default to visible
+                
+                if (!isVisible) {
+                    $(`#${containerId}`).hide();
+                    $(`#${iconId}`).removeClass('bi-eye').addClass('bi-eye-slash');
+                }
+            });
+            
+            updateCardVisibilityControls();
+        }
+
+        // Handle card toggle button clicks
+        $(document).on('click', '.card-toggle-btn', function() {
+            const cardId = $(this).data('card');
+            const containerId = cardId + 'Container';
+            const iconId = cardId + 'Icon';
+            const $container = $(`#${containerId}`);
+            const $icon = $(`#${iconId}`);
+            
+            // Toggle visibility
+            if ($container.is(':visible')) {
+                $container.slideUp(300);
+                $icon.removeClass('bi-eye').addClass('bi-eye-slash');
+            } else {
+                $container.slideDown(300);
+                $icon.removeClass('bi-eye-slash').addClass('bi-eye');
+            }
+            
+            // Save visibility state to localStorage
+            const savedVisibility = JSON.parse(localStorage.getItem('sms_card_visibility') || '{}');
+            savedVisibility[cardId] = $container.is(':visible');
+            localStorage.setItem('sms_card_visibility', JSON.stringify(savedVisibility));
+            
+            // Update the visibility controls section
+            updateCardVisibilityControls();
+        });
+
+        // Handle restore card button clicks
+        $(document).on('click', '.restore-card-btn', function() {
+            const cardId = $(this).data('card');
+            const containerId = cardId + 'Container';
+            const iconId = cardId + 'Icon';
+            const $container = $(`#${containerId}`);
+            const $icon = $(`#${iconId}`);
+            
+            // Show the card
+            $container.slideDown(300);
+            $icon.removeClass('bi-eye-slash').addClass('bi-eye');
+            
+            // Update localStorage
+            const savedVisibility = JSON.parse(localStorage.getItem('sms_card_visibility') || '{}');
+            savedVisibility[cardId] = true;
+            localStorage.setItem('sms_card_visibility', JSON.stringify(savedVisibility));
+            
+            // Update the visibility controls section
+            updateCardVisibilityControls();
+        });
+
+        // Initialize card visibility on page load
+        initCardVisibility();
         // Load saved settings from server (already loaded in template, but sync with localStorage if needed)
         function loadNotificationSettings() {
             // Settings are already loaded from database via template variables
@@ -2321,25 +2712,25 @@
                     const settings = JSON.parse(saved);
                     // Only use localStorage if database values are not available
                     // Database values take precedence (already set in template)
-                } catch(e) {
+                } catch (e) {
                     console.warn('Failed to parse localStorage settings', e);
                 }
             }
-            
+
             // Initialize card states and button states based on current checkbox states (without triggering save)
-            $('#sales_enabled, #stock_enabled, #pricing_enabled').each(function() {
+            $('#sales_enabled, #stock_enabled, #pricing_enabled').each(function () {
                 const toggleId = $(this).attr('id');
                 const cardId = toggleId.replace('_enabled', 'Card');
                 const $card = $('#' + cardId);
                 const isEnabled = $(this).is(':checked');
-                
+
                 // Update card visual state
                 if (isEnabled) {
                     $card.removeClass('inactive').addClass('active');
                 } else {
                     $card.removeClass('active').addClass('inactive');
                 }
-                
+
                 // Update button states
                 if (toggleId === 'sales_enabled') {
                     $('.sales-action-btn').prop('disabled', !isEnabled);
@@ -2352,15 +2743,15 @@
         }
 
         // Auto-save on changes to editable fields
-        $('#sales_time, #stock_threshold, #pricing_time, #pricing_frequency_days').on('change input', function(){
+        $('#sales_time, #stock_threshold, #pricing_time, #pricing_frequency_days').on('change input', function () {
             if (this.id === 'stock_threshold') {
                 $('#thresholdValue').text(this.value);
             }
-            try { saveNotificationSettings(); } catch (_) {}
+            try { saveNotificationSettings(); } catch (_) { }
         });
 
         // Toggle "Today" frequency (sets frequency_days=1 and locks the field)
-        $('#pricing_daily').on('change', function(){
+        $('#pricing_daily').on('change', function () {
             const checked = $(this).is(':checked');
             const $freq = $('#pricing_frequency_days');
             if (checked) {
@@ -2371,7 +2762,7 @@
                 const prev = parseInt($freq.data('prev'));
                 $freq.prop('disabled', false).val(isNaN(prev) ? '3' : String(prev));
             }
-            try { saveNotificationSettings(); } catch (_) {}
+            try { saveNotificationSettings(); } catch (_) { }
         });
 
         // Load notification statistics
@@ -2379,15 +2770,15 @@
             $.ajax({
                 url: "{% url 'get_notification_stats' %}",
                 method: 'GET',
-                success: function(response) {
+                success: function (response) {
                     if (response.stats) {
                         const stats = response.stats;
-                        
+
                         // Overall Statistics
                         $('#stat-messages-today').text(stats.messages_today || 0);
                         $('#stat-messages-week').text(stats.messages_week || 0);
                         $('#stat-messages-month').text(stats.messages_month || 0);
-                        
+
                         // Today vs Yesterday comparison
                         const today = stats.messages_today || 0;
                         const yesterday = stats.messages_yesterday || 0;
@@ -2408,7 +2799,7 @@
                         } else {
                             $('#stat-today-comparison').hide();
                         }
-                        
+
                         // Sales Summaries Breakdown
                         $('#stat-sales-today').text(stats.sales_summaries_today || 0);
                         $('#stat-sales-week').text(stats.sales_summaries_week || 0);
@@ -2422,7 +2813,7 @@
                             $('.stat-datetime-sales').hide();
                             $('#stat-sales-last-label').hide();
                         }
-                        
+
                         // Low Stock Alerts Breakdown
                         $('#stat-stock-today').text(stats.stock_alerts_today || 0);
                         $('#stat-stock-week').text(stats.stock_alerts_week || 0);
@@ -2436,7 +2827,7 @@
                             $('.stat-datetime-stock').hide();
                             $('#stat-stock-last-label').hide();
                         }
-                        
+
                         // Pricing Alerts Breakdown
                         $('#stat-pricing-today').text(stats.pricing_alerts_today || 0);
                         $('#stat-pricing-week').text(stats.pricing_alerts_week || 0);
@@ -2452,7 +2843,7 @@
                         }
                     }
                 },
-                error: function() {
+                error: function () {
                     console.log('Failed to load notification statistics');
                 }
             });
@@ -2467,7 +2858,7 @@
             $.ajax({
                 url: "{% url 'get_scheduler_health' %}",
                 method: 'GET',
-                success: function(res) {
+                success: function (res) {
                     if (!panel) return;
                     if (!res || !res.success) {
                         panel.innerHTML = '<div class="text-danger">Failed to get status</div>';
@@ -2514,7 +2905,7 @@
                         </div>
                     `;
                 },
-                error: function() {
+                error: function () {
                     if (panel) panel.innerHTML = '<div class="text-danger">Error querying status</div>';
                 }
             });
@@ -2525,7 +2916,7 @@
         // Pricing recommendations removed from SMS Settings
 
         // Load settings on page load
-        $(document).ready(function() {
+        $(document).ready(function () {
             loadNotificationSettings();
             loadNotificationStats();
             $('#checkSchedulerStatusBtn').on('click', checkSchedulerStatus);
@@ -2534,7 +2925,7 @@
 
     <!-- Mobile Menu JavaScript -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const sidebar = document.getElementById('sidebar');
             const burgerMenuBtn = document.getElementById('burgerMenuBtn');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -2557,7 +2948,7 @@
 
             // Burger menu button toggle
             if (burgerMenuBtn && sidebar) {
-                burgerMenuBtn.addEventListener('click', function() {
+                burgerMenuBtn.addEventListener('click', function () {
                     const isOpen = sidebar.classList.contains('active');
                     if (window.innerWidth > 768) {
                         // Desktop: toggle sidebar and adjust main content
@@ -2578,7 +2969,7 @@
 
             // Close sidebar when clicking overlay (mobile only)
             if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', function() {
+                sidebarOverlay.addEventListener('click', function () {
                     if (window.innerWidth <= 768) closeMobileMenu();
                 });
             }
@@ -2590,7 +2981,7 @@
                 if (link.classList.contains('logout-link') || (link.href && link.href.includes('logout'))) {
                     return;
                 }
-                link.addEventListener('click', function() {
+                link.addEventListener('click', function () {
                     const mainContent = document.querySelector('.main-content');
                     if (window.innerWidth <= 768) {
                         closeMobileMenu();
@@ -2604,7 +2995,7 @@
             });
 
             // Close sidebar on window resize
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function () {
                 const mainContent = document.querySelector('.main-content');
                 if (window.innerWidth > 768) {
                     // Desktop: remove mobile overlay and body scroll lock
@@ -2622,7 +3013,7 @@
             });
 
             // Close sidebar with escape key
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && sidebar.classList.contains('active')) {
                     if (window.innerWidth > 768) {
                         const mainContent = document.querySelector('.main-content');
@@ -2636,45 +3027,45 @@
             });
 
             // Handle logout confirmation - prevent sidebar close and show modal
-            document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function(link) {
+            document.querySelectorAll('.logout-link, a[href*="logout"]').forEach(function (link) {
                 // Skip if this is the confirm button inside the modal
                 if (link.id === 'confirmLogoutBtn' || link.closest('#logoutConfirmModal')) {
                     return;
                 }
-                
-                link.addEventListener('click', function(e) {
+
+                link.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation(); // Prevent sidebar close handler from running
-                    
+
                     // Check if Bootstrap modal is available
                     if (typeof bootstrap !== 'undefined') {
                         const logoutModalEl = document.getElementById('logoutConfirmModal');
                         if (logoutModalEl) {
                             // Clean up any existing modal backdrops first
-                            document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                            document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
                                 backdrop.remove();
                             });
                             document.body.classList.remove('modal-open');
                             document.body.style.paddingRight = '';
                             document.body.style.overflow = '';
-                            
+
                             // Dispose any existing modal instances to prevent duplicates
                             const existingModal = bootstrap.Modal.getInstance(logoutModalEl);
                             if (existingModal) {
                                 existingModal.dispose();
                             }
-                            
+
                             // Create and show new modal
                             const logoutModal = new bootstrap.Modal(logoutModalEl, {
                                 backdrop: true,
                                 keyboard: true,
                                 focus: true
                             });
-                            
+
                             // Clean up backdrop when modal is hidden
                             function cleanupBackdrop() {
-                                setTimeout(function() {
-                                    document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                                setTimeout(function () {
+                                    document.querySelectorAll('.modal-backdrop').forEach(function (backdrop) {
                                         backdrop.remove();
                                     });
                                     document.body.classList.remove('modal-open');
@@ -2682,13 +3073,13 @@
                                     document.body.style.overflow = '';
                                 }, 100);
                             }
-                            
+
                             logoutModalEl.addEventListener('hidden.bs.modal', cleanupBackdrop, { once: true });
-                            logoutModalEl.addEventListener('hide.bs.modal', function() {
+                            logoutModalEl.addEventListener('hide.bs.modal', function () {
                                 // Ensure cleanup happens even if modal is closed unexpectedly
                                 setTimeout(cleanupBackdrop, 200);
                             }, { once: true });
-                            
+
                             logoutModal.show();
                         }
                     }
@@ -2701,7 +3092,8 @@
     </script>
 
     <!-- Logout Confirmation Modal -->
-    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2725,31 +3117,32 @@
             </div>
         </div>
     </div>
-            </div>
-</main>
+    </div>
+    </main>
     </div>
     <script>
-    (function(){
-        const header = document.querySelector('.header');
-        const root = document.documentElement;
-        if (!header || !root) return;
-        let scheduled = false;
-        const updateHeaderVar = () => {
-            if (scheduled) return;
-            scheduled = true;
-            requestAnimationFrame(() => {
-                scheduled = false;
-                const h = header.getBoundingClientRect().height;
-                const val = Math.round(h) + 'px';
-                if (getComputedStyle(root).getPropertyValue('--header-height').trim() !== val) {
-                    root.style.setProperty('--header-height', val);
-                }
-            });
-        };
-        updateHeaderVar();
-        try { new ResizeObserver(updateHeaderVar).observe(header); } catch(_) {}
-        window.addEventListener('resize', updateHeaderVar, { passive: true });
-    })();
+        (function () {
+            const header = document.querySelector('.header');
+            const root = document.documentElement;
+            if (!header || !root) return;
+            let scheduled = false;
+            const updateHeaderVar = () => {
+                if (scheduled) return;
+                scheduled = true;
+                requestAnimationFrame(() => {
+                    scheduled = false;
+                    const h = header.getBoundingClientRect().height;
+                    const val = Math.round(h) + 'px';
+                    if (getComputedStyle(root).getPropertyValue('--header-height').trim() !== val) {
+                        root.style.setProperty('--header-height', val);
+                    }
+                });
+            };
+            updateHeaderVar();
+            try { new ResizeObserver(updateHeaderVar).observe(header); } catch (_) { }
+            window.addEventListener('resize', updateHeaderVar, { passive: true });
+        })();
     </script>
 </body>
+
 </html>

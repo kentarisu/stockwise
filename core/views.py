@@ -1479,6 +1479,11 @@ def dashboard_view(request):
     today_sales = sale_base_q.filter(recorded_at__date=today).count()
     yesterday_sales = sale_base_q.filter(recorded_at__date=yesterday).count()
     
+    # Voided sales for stat card (today only)
+    voided_today = Sale.objects.filter(status='voided', recorded_at__date=today).count()
+    if (role or '').strip().lower() != 'admin' and current_user_id:
+        voided_today = Sale.objects.filter(status='voided', recorded_at__date=today, user_id=current_user_id).count()
+    
     # Revenue calculations
     today_revenue = sale_base_q.filter(
         recorded_at__date=today
@@ -1658,6 +1663,41 @@ def dashboard_view(request):
     # Recent transactions (last 10)
     recent_transactions = sale_base_q.select_related('product').order_by('-recorded_at')[:10]
     
+    # Voided transactions (last 5) - only for admin
+    voided_transactions = []
+    if role == 'admin':
+        voided_query = Sale.objects.filter(status='voided').select_related('product', 'user')
+        voided_sales_list = voided_query.order_by('-voided_at', '-recorded_at')[:5]
+        
+        for sale in voided_sales_list:
+            # Format product name similar to recent sales
+            if sale.product:
+                product_name = sale.product.name or ''
+                variant = (sale.product.variant or '').strip()
+                quantity_unit = (sale.product.quantity_unit or '').strip()
+                
+                # Strip any variant from the name if it's embedded
+                base_name = re.sub(r'\s*\([^)]*\)\s*$', '', product_name).strip() if product_name else ''
+                
+                # Build display name: base_name (variant) (quantity_unit)
+                display_name = base_name
+                if variant:
+                    display_name = f"{base_name} ({variant})"
+                if quantity_unit:
+                    display_name = f"{display_name} ({quantity_unit})"
+                
+                sale.product.formatted_name = display_name
+                sale.product.formatted_variant = variant
+                sale.product.formatted_quantity_unit = quantity_unit
+            
+            # Format total
+            sale.formatted_total = format_currency(sale.total)
+            
+            # Format voided date
+            sale.formatted_voided_at = format_local_datetime(sale.voided_at) if sale.voided_at else format_local_datetime(sale.recorded_at)
+            
+            voided_transactions.append(sale)
+    
     # Product categories overview
     product_categories = (
         Product.objects
@@ -1677,15 +1717,21 @@ def dashboard_view(request):
     except Exception:
         user_obj = AppUser.objects.first() if AppUser.objects.exists() else None
 
+    # Total Voided Transactions (overall)
+    voided_query = Sale.objects.filter(status='voided')
+    if (role or '').strip().lower() != 'admin' and user_id:
+        voided_query = voided_query.filter(user_id=user_id)
+    total_voided = voided_query.count()
+
     context = {
         'app_role': role,
         'total_products': total_products,
         'products_change': products_change,
         'low_stock': low_stock,
         'low_stock_boxes': low_stock_boxes,
-        'low_stock_boxes_formatted': str(low_stock_boxes),  # Count, not quantity
+        'low_stock_boxes_formatted': str(low_stock_boxes),
         'low_stock_kilos': low_stock_kilos,
-        'low_stock_kilos_formatted': str(low_stock_kilos),  # Count, not quantity
+        'low_stock_kilos_formatted': str(low_stock_kilos),
         'low_stock_change': low_stock_change,
         'today_sales': today_sales,
         'sales_change': sales_change,
@@ -1698,7 +1744,8 @@ def dashboard_view(request):
         'recent_sales': recent_sales,
         'recent_stock_additions': recent_stock_additions,
         'low_stock_products': low_stock_products,
-        # Additional overview data
+        'critical_stock': low_stock + out_of_stock,
+        'total_voided': total_voided,
         'monthly_revenue': monthly_revenue,
         'monthly_revenue_formatted': monthly_revenue_formatted,
         'total_inventory_value': total_inventory_value,
@@ -1722,6 +1769,7 @@ def dashboard_view(request):
         'last_month_date': last_month,
         'this_month_start': this_month,
         'week_start': week_start,
+        'now': timezone.localtime(),
     }
 
     return render(request, 'dashboard_full.html', context)
@@ -11339,26 +11387,49 @@ def can_print_receipt(sale_id, user_id, user_role):
 
 
 # SMS Notification Views
+@require_app_login
 def sms_settings_view(request):
     """SMS notification page with real-time data."""
-    try:
-        import sys
-        if 'pytest' not in sys.modules and request.session.get('app_role') != 'admin':
-            return redirect('dashboard')
-    except Exception:
-        pass
-
+    import logging
+    import sys
+    logger = logging.getLogger(__name__)
+    
+    # Get user and verify admin access
     user_id = request.session.get('app_user_id') or request.session.get('user_id')
+    if not user_id:
+        messages.error(request, 'Please log in to access SMS settings.')
+        return redirect('login')
+    
     try:
         user_obj = AppUser.objects.get(user_id=user_id)
-    except Exception:
-        # Pytest fallback user
-        test_any = AppUser.objects.first()
-        if test_any is None:
-            test_any = AppUser.objects.create(username='admin', password=bcrypt.hash('admin123'), phone_number='000', role='Admin')
-        request.session['app_user_id'] = test_any.user_id
-        request.session['app_role'] = 'admin'
-        user_obj = test_any
+    except AppUser.DoesNotExist:
+        logger.warning(f"User {user_id} not found in database")
+        messages.error(request, 'User account not found.')
+        return redirect('dashboard')
+    except Exception as e:
+        logger.error(f"Error fetching user: {e}", exc_info=True)
+        messages.error(request, 'An error occurred. Please try again.')
+        return redirect('dashboard')
+    
+    # Check admin access - verify both session role and database role
+    app_role = (request.session.get('app_role') or '').strip().lower()
+    user_role = (getattr(user_obj, 'role', '') or '').strip().lower()
+    # Also check if role contains 'admin' (case-insensitive)
+    is_admin = (
+        app_role == 'admin' or 
+        user_role == 'admin' or 
+        'admin' in app_role or 
+        'admin' in user_role
+    )
+    
+    # Debug logging - this will help us see what's happening
+    logger.info(f"SMS settings access attempt - user_id: {user_id}, username: {getattr(user_obj, 'username', 'N/A')}, app_role: '{app_role}', user_role: '{user_role}', is_admin: {is_admin}")
+    
+    # Check admin access
+    if 'pytest' not in sys.modules and not is_admin:
+        logger.warning(f"Non-admin user {user_id} (role: '{user_role}', session_role: '{app_role}') attempted to access SMS settings")
+        messages.error(request, f'Only administrators can access SMS settings. Your role: "{user_role}" (session: "{app_role}")')
+        return redirect('dashboard')
 
     if request.method == 'POST':
         phone_number = request.POST.get('phone_number', '').strip()
@@ -11489,6 +11560,7 @@ def sms_settings_view(request):
     except Exception:
         from types import SimpleNamespace
         sms_settings = SimpleNamespace(
+            master_enabled=True,
             sales_enabled=True,
             sales_time='20:00',
             stock_enabled=True,
@@ -11509,8 +11581,13 @@ def sms_settings_view(request):
         actionable = []
         for rec in actionable_qs:
             try:
-                live_cur = float(getattr(rec.product, 'price', getattr(rec, 'current_price', 0)))
-                sug = float(getattr(rec, 'suggested_price', 0))
+                # Safely get product price - handle case where product might be None
+                product = getattr(rec, 'product', None)
+                if product:
+                    live_cur = float(getattr(product, 'price', 0) or getattr(rec, 'current_price', 0) or 0)
+                else:
+                    live_cur = float(getattr(rec, 'current_price', 0) or 0)
+                sug = float(getattr(rec, 'suggested_price', 0) or 0)
                 if abs(live_cur - sug) >= 0.01:
                     actionable.append(rec)
             except Exception:
@@ -11519,26 +11596,38 @@ def sms_settings_view(request):
             pricing_preview_msg = format_pricing_sms_from_queryset(actionable)
         else:
             pricing_preview_msg = "Pricing Recommendation\n\nNo Pricing Recommendation Today."
-    except Exception as _:
+    except Exception as e:
+        # Log the error for debugging but don't crash the page
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error generating pricing preview: {e}", exc_info=True)
         pricing_preview_msg = "Pricing Recommendation\n\nNo Pricing Recommendation Today."
 
-    context = {
-        'sms_notification': type('Obj', (), {
-            'phone_number': getattr(user_obj, 'phone_number', ''),
-            'is_active': bool(getattr(user_obj, 'phone_number', '')),
-        })(),
-        'sms_settings': sms_settings,
-        'app_role': request.session.get('app_role'),
-        'today_stats': today_stats,
-        'low_stock_products': low_stock_products,
-        'out_of_stock_products': out_of_stock_products,
-        'today_date': today,
-        'user_obj': user_obj,
-        'sales_preview_msg': sales_preview_msg,
-        'stock_preview_msg': stock_preview_msg,
-        'pricing_preview_msg': pricing_preview_msg,
-    }
-    return render(request, 'sms_settings.html', context)
+    try:
+        context = {
+            'sms_notification': type('Obj', (), {
+                'phone_number': getattr(user_obj, 'phone_number', ''),
+                'is_active': bool(getattr(user_obj, 'phone_number', '')),
+                'master_enabled': getattr(sms_settings, 'master_enabled', True),
+            })(),
+            'sms_settings': sms_settings,
+            'app_role': request.session.get('app_role'),
+            'today_stats': today_stats,
+            'low_stock_products': low_stock_products,
+            'out_of_stock_products': out_of_stock_products,
+            'today_date': today,
+            'user_obj': user_obj,
+            'sales_preview_msg': sales_preview_msg,
+            'stock_preview_msg': stock_preview_msg,
+            'pricing_preview_msg': pricing_preview_msg,
+        }
+        return render(request, 'sms_settings.html', context)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error rendering sms_settings view: {e}", exc_info=True)
+        messages.error(request, 'An error occurred while loading SMS settings. Please try again.')
+        return redirect('dashboard')
 
 
 @require_app_login
@@ -11830,6 +11919,7 @@ def update_notification_settings(request):
         # Get settings from POST data
         from core.models import SMSNotificationSettings
         
+        master_enabled = request.POST.get('master_enabled') == 'true'
         sales_enabled = request.POST.get('sales_enabled') == 'true'
         stock_enabled = request.POST.get('stock_enabled') == 'true'
         pricing_enabled = request.POST.get('pricing_enabled') == 'true'
@@ -11868,6 +11958,8 @@ def update_notification_settings(request):
         if 'pricing_time' in cols and 'pricing_frequency_days' in cols:
             settings = SMSNotificationSettings.get_settings()
             changes = []
+            if getattr(settings, 'master_enabled', True) != master_enabled:
+                changes.append(f"Automatic SMS: {'Enabled' if master_enabled else 'Disabled'}")
             if settings.sales_enabled != sales_enabled:
                 changes.append(f"Sales notifications: {'Enabled' if sales_enabled else 'Disabled'}")
             if settings.stock_enabled != stock_enabled:
@@ -11879,6 +11971,8 @@ def update_notification_settings(request):
             if getattr(settings, 'pricing_frequency_days', None) != pricing_frequency_days:
                 changes.append(f"Pricing frequency: every {pricing_frequency_days} day(s)")
 
+            if hasattr(settings, 'master_enabled'):
+                settings.master_enabled = master_enabled
             settings.sales_enabled = sales_enabled
             settings.stock_enabled = stock_enabled
             settings.pricing_enabled = pricing_enabled
@@ -11886,9 +11980,12 @@ def update_notification_settings(request):
             settings.stock_threshold = stock_threshold
             settings.pricing_time = pricing_time
             settings.pricing_frequency_days = pricing_frequency_days
-            settings.save(update_fields=[
-                'sales_enabled','stock_enabled','pricing_enabled','sales_time','stock_threshold','pricing_time','pricing_frequency_days'
-            ])
+            
+            update_fields = ['sales_enabled','stock_enabled','pricing_enabled','sales_time','stock_threshold','pricing_time','pricing_frequency_days']
+            if hasattr(settings, 'master_enabled'):
+                update_fields.append('master_enabled')
+                
+            settings.save(update_fields=update_fields)
         else:
             # Partial update path: update only supported columns
             updates = {
@@ -11898,6 +11995,9 @@ def update_notification_settings(request):
                 'sales_time': sales_time,
                 'stock_threshold': stock_threshold,
             }
+            if 'master_enabled' in cols:
+                updates['master_enabled'] = master_enabled
+                
             available = {k: v for k, v in updates.items() if k in cols}
             # Ensure there is at least one row; create minimal if empty
             with connection.cursor() as cursor:

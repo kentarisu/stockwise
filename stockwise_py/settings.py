@@ -16,6 +16,14 @@ import json
 from dotenv import load_dotenv
 import ssl
 import certifi
+import bcrypt
+
+# Monkeypatch bcrypt for passlib compatibility if needed
+if not hasattr(bcrypt, "__about__"):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About()
+
 try:
     import dj_database_url  # Optional; used when available
     _HAS_DJ_DATABASE_URL = True

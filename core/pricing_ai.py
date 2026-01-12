@@ -66,6 +66,7 @@ class DemandPricingAI:
 
     # ---------- Data preparation ----------
 
+
     def fit(self, sales_df: pd.DataFrame):
         """
         Fit simple elasticity models per product using OLS on:
@@ -94,7 +95,7 @@ class DemandPricingAI:
         sales["wday"] = sales["date"].dt.weekday  # 0=Mon
 
         for pid, g in sales.groupby("product_id"):
-            g = g.sort_values("date")
+            g = g.sort_values("date") 
             if len(g) < self.cfg.min_obs_per_product or g["units_sold"].sum() == 0:
                 self.models[pid] = {
                     "elasticity": self.cfg.default_elasticity,
@@ -127,6 +128,7 @@ class DemandPricingAI:
             r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
             self.models[pid] = {"elasticity": elasticity, "r2": r2, "n": int(len(g))}
+            
 
     # ---------- Inference helpers ----------
 
@@ -256,6 +258,7 @@ class DemandPricingAI:
 
             # Elasticity
             model = self.models.get(pid, {"elasticity": cfg.default_elasticity, "r2": 0.0, "n": 0})
+
             e = model["elasticity"]
             r2 = model["r2"]
             nobs = model["n"]

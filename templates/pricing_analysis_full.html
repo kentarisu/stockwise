@@ -1703,46 +1703,65 @@
                 </div>
 
                 <!-- Price Elasticity Model (if available) -->
-                ${product.service_type && product.service_type.includes('Log-Log') ? `
-                    <div class="elasticity-section">
-                        <div class="mb-2" style="font-size: 0.75rem; font-weight: 600; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.03em;">
-                            Price Elasticity Model
+                <!-- Price Elasticity Model (Always shown) -->
+                <div class="elasticity-section">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div style="font-size: 0.75rem; font-weight: 600; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.03em;">
+                            Log-Log Pricing Model
                         </div>
-                        <div class="elasticity-grid">
-                            <div class="elasticity-item">
-                                <div class="metric-label">Elasticity</div>
-                                <div class="metric-value">
-                                    ${product.elasticity.toFixed(3)}
-                                    <small class="text-muted ms-1">${product.elasticity < -1 ? '(Elastic)' : product.elasticity > -1 ? '(Inelastic)' : '(Unit Elastic)'}</small>
-                                </div>
+                        ${(!product.service_type || !product.service_type.includes('Log-Log')) ?
+                    '<span class="badge bg-secondary" style="font-size: 0.65rem;">Insufficient Data for AI Control</span>' : ''}
+                    </div>
+                    
+                    <div class="elasticity-grid mb-3">
+                        <div class="elasticity-item">
+                            <div class="metric-label">Elasticity (Sensitivity)</div>
+                            <div class="metric-value">
+                                ${product.elasticity.toFixed(3)}
+                                <small class="text-muted ms-1">${(() => {
+                    const e = product.elasticity;
+                    if (e > 0) return '(Positive - Rare)';
+                    if (e < -1) return '(Elastic - Sensitive)';
+                    if (e > -1) return '(Inelastic - Stable)';
+                    return '(Unit Elastic)';
+                })()}</small>
                             </div>
-                            <div class="elasticity-item">
-                                <div class="metric-label">Model Fit (R²)</div>
-                                <div class="metric-value">
-                                    ${product.r2.toFixed(3)}
-                                    <span class="badge bg-${getConfidenceBadgeColor(product.confidence)} ms-1" style="font-size: 0.65rem;">${product.confidence}</span>
-                                </div>
+                        </div>
+                        <div class="elasticity-item">
+                            <div class="metric-label">Confidence (R²)</div>
+                            <div class="metric-value">
+                                ${product.r2.toFixed(3)}
+                                <span class="badge bg-${getConfidenceBadgeColor(product.confidence)} ms-1" style="font-size: 0.65rem;">${product.confidence}</span>
                             </div>
-                            <div class="elasticity-item">
-                                <div class="metric-label">Observations</div>
-                                <div class="metric-value">${product.n_observations}</div>
-                            </div>
-                            ${product.margin_of_error !== null ? `
-                                <div class="elasticity-item">
-                                    <div class="metric-label">Margin Error</div>
-                                    <div class="metric-value">${product.margin_of_error.toFixed(2)}%</div>
-                                </div>
-                            ` : `
-                                <div class="elasticity-item">
-                                    <div class="metric-label">Confidence</div>
-                                    <div class="metric-value">
-                                        <span class="badge bg-${getConfidenceBadgeColor(product.confidence)}">${product.confidence}</span>
-                                    </div>
-                                </div>
-                            `}
+                        </div>
+                        <div class="elasticity-item">
+                            <div class="metric-label">Data Points</div>
+                            <div class="metric-value">${product.n_observations} sales days</div>
+                        </div>
+                        <div class="elasticity-item">
+                            <div class="metric-label">Prediction Error</div>
+                            <div class="metric-value">${product.margin_of_error !== null ? product.margin_of_error.toFixed(2) + '%' : 'N/A'}</div>
                         </div>
                     </div>
-                ` : ''}
+
+                    <!-- Detailed Equation and Explanation -->
+                    <div class="p-3 bg-white rounded border border-light">
+                        <div class="mb-2" style="font-family: monospace; font-size: 0.8rem; color: var(--primary-dark);">
+                            <i class="bi bi-calculator me-1"></i>
+                            <strong>Equation:</strong> ln(Sales) = ${product.elasticity.toFixed(3)} × ln(Price) + Constant
+                        </div>
+                        <div style="font-size: 0.8rem; line-height: 1.4; color: var(--gray-600);">
+                            <strong>What this means:</strong> 
+                            ${(() => {
+                    const e = product.elasticity;
+                    const pct_change = Math.abs(e * 10).toFixed(1);
+                    if (e >= 0) return `Sales volume reacts positively to price, likely due to low data quality or external factors.`;
+                    if (e < -1) return `This product is <strong>Elastic</strong>. A 10% price <em>increase</em> is expected to cause a <strong>${pct_change}% drop</strong> in sales volume. Customers are very sensitive to price changes.`;
+                    return `This product is <strong>Inelastic</strong>. A 10% price <em>increase</em> is expected to cause only a <strong>${pct_change}% drop</strong> in sales. Customers will likely keep buying even if price goes up.`;
+                })()}
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Sales Statistics -->
                 <div class="sales-stats-section">
@@ -2307,31 +2326,61 @@
                     </div>
                 </div>
 
-                ${product.service_type && product.service_type.includes('Log-Log') ? `
-                    <div class="pricing-card mb-4">
-                        <h5>Log-Log Model Metrics</h5>
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div><strong>Price Elasticity:</strong></div>
-                                <div class="h4">${product.elasticity.toFixed(3)}</div>
-                                <small class="text-muted">${product.elasticity < -1 ? '(Elastic)' : product.elasticity > -1 ? '(Inelastic)' : '(Unit Elastic)'}</small>
-                            </div>
-                            <div class="col-md-3">
-                                <div><strong>Model Fit (R²):</strong></div>
-                                <div class="h4">${product.r2.toFixed(3)}</div>
-                                <span class="badge bg-${getConfidenceBadgeColor(product.confidence)}">${product.confidence}</span>
-                            </div>
-                            <div class="col-md-3">
-                                <div><strong>Observations:</strong></div>
-                                <div class="h4">${product.n_observations}</div>
-                            </div>
-                            <div class="col-md-3">
-                                <div><strong>Prediction Error:</strong></div>
-                                <div class="h4">${product.margin_of_error !== null ? product.margin_of_error.toFixed(2) + '%' : 'N/A'}</div>
-                            </div>
+                <!-- Log-Log Model Metrics (Always shown) -->
+                <div class="pricing-card mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Log-Log Analysis Details</h5>
+                        ${(!product.service_type || !product.service_type.includes('Log-Log')) ?
+                    '<span class="badge bg-warning text-dark">Low Confidence / Manual Mode</span>' :
+                    '<span class="badge bg-success">AI Active</span>'}
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div><strong>Elasticity (β):</strong></div>
+                            <div class="h4">${product.elasticity.toFixed(3)}</div>
+                            <small class="text-muted">${(() => {
+                    const e = product.elasticity;
+                    if (e > 0) return 'Positive (Anomalous)';
+                    if (e < -1) return 'Elastic (Sensitive)';
+                    if (e > -1) return 'Inelastic (Stable)';
+                    return 'Unit Elastic';
+                })()}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div><strong>Model Fit (R²):</strong></div>
+                            <div class="h4">${product.r2.toFixed(3)}</div>
+                            <span class="badge bg-${getConfidenceBadgeColor(product.confidence)}">${product.confidence}</span>
+                        </div>
+                        <div class="col-md-3">
+                            <div><strong>Data Points:</strong></div>
+                            <div class="h4">${product.n_observations}</div>
+                            <small class="text-muted">Days with sales</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div><strong>Prediction Error:</strong></div>
+                            <div class="h4">${product.margin_of_error !== null ? product.margin_of_error.toFixed(2) + '%' : 'N/A'}</div>
                         </div>
                     </div>
-                ` : ''}
+
+                    <div class="p-3 bg-light rounded border">
+                        <h6 class="text-primary mb-2"><i class="bi bi-clipboard-data me-2"></i>Analysis Output</h6>
+                        <div class="mb-2" style="font-family: monospace; font-size: 0.9rem;">
+                            <strong>Formula:</strong> ln(Quantity) = <span class="text-primary">${product.elasticity.toFixed(4)}</span> × ln(Price) + C
+                        </div>
+                        <hr class="my-2">
+                        <div style="font-size: 0.9rem; line-height: 1.5;">
+                            <strong>Interpretation:</strong> 
+                            ${(() => {
+                    const e = product.elasticity;
+                    const pct_change = Math.abs(e * 10).toFixed(1);
+                    if (e >= 0) return `The model detects a positive relationship between price and sales, which is economically unusual. This often suggests insufficient data or that price changes were driven by external demand shocks rather than controlled experiments.`;
+                    if (e < -1) return `This product is <strong>Price Elastic</strong> (Sensitive). <br>For every <strong>10% price increase</strong>, we statistically expect a <strong>${pct_change}% decrease</strong> in sales volume.<br>Strategy: Lowering prices could significantly boost volume and potentially total revenue (if the volume gain outweighs the price drop).`;
+                    return `This product is <strong>Price Inelastic</strong> (Stable). <br>For every <strong>10% price increase</strong>, we only expect a <strong>${pct_change}% decrease</strong> in sales volume.<br>Strategy: You can likely raise prices to increase total revenue without losing many customers.`;
+                })()}
+                        </div>
+                    </div>
+                </div>
 
                 ${product.current_recommendation ? `
                     <div class="pricing-card mb-4" style="background: #f0f9ff; border: 2px solid #0ea5e9;">

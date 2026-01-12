@@ -16,13 +16,27 @@ import json
 from dotenv import load_dotenv
 import ssl
 import certifi
-import bcrypt
 
-# Monkeypatch bcrypt for passlib compatibility if needed
-if not hasattr(bcrypt, "__about__"):
-    class About:
-        __version__ = bcrypt.__version__
-    bcrypt.__about__ = About()
+# Import bcrypt via passlib for compatibility
+try:
+    from passlib.hash import bcrypt
+    # Monkeypatch bcrypt for passlib compatibility if needed
+    if not hasattr(bcrypt, "__about__"):
+        class About:
+            __version__ = getattr(bcrypt, '__version__', '3.2.0')
+        bcrypt.__about__ = About()
+except ImportError:
+    # Fallback: try direct import if passlib is not available
+    try:
+        import bcrypt
+        if not hasattr(bcrypt, "__about__"):
+            class About:
+                __version__ = bcrypt.__version__
+            bcrypt.__about__ = About()
+    except ImportError:
+        # If both fail, bcrypt will be None and will cause errors elsewhere
+        # This is intentional - the app requires bcrypt/passlib
+        bcrypt = None
 
 try:
     import dj_database_url  # Optional; used when available

@@ -6,6 +6,7 @@ factory-boy==3.3.0
 django-crontab==0.7.1
 reportlab==4.0.7
 passlib==1.7.4
+bcrypt==4.0.1
 # Pin NumPy/Pandas to avoid NDArray typing import issues on hosting
 # numpy 1.26.4 is compatible with matplotlib 3.8.2 (requires numpy<2) and pandas 2.3.3 (requires numpy>=1.23.2)
 numpy==1.26.4

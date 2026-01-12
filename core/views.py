@@ -11957,6 +11957,23 @@ def update_notification_settings(request):
         # If pricing columns exist, use ORM normally; otherwise, perform a safe partial update via SQL
         if 'pricing_time' in cols and 'pricing_frequency_days' in cols:
             settings = SMSNotificationSettings.get_settings()
+            # On some deployments get_settings can return a SimpleNamespace fallback
+            # if the table/columns were recently added. Ensure we have a real model
+            # instance before calling save().
+            if not hasattr(settings, 'save'):
+                settings, _ = SMSNotificationSettings.objects.get_or_create(
+                    setting_id=1,
+                    defaults={
+                        'master_enabled': master_enabled,
+                        'sales_enabled': sales_enabled,
+                        'stock_enabled': stock_enabled,
+                        'pricing_enabled': pricing_enabled,
+                        'sales_time': sales_time,
+                        'stock_threshold': stock_threshold,
+                        'pricing_time': pricing_time,
+                        'pricing_frequency_days': pricing_frequency_days,
+                    }
+                )
             changes = []
             if getattr(settings, 'master_enabled', True) != master_enabled:
                 changes.append(f"Automatic SMS: {'Enabled' if master_enabled else 'Disabled'}")

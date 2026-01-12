@@ -11954,8 +11954,9 @@ def update_notification_settings(request):
         except Exception:
             cols = []
 
-        # If pricing columns exist, use ORM normally; otherwise, perform a safe partial update via SQL
-        if 'pricing_time' in cols and 'pricing_frequency_days' in cols:
+        # If all new columns exist, use ORM normally; otherwise, perform a safe partial update via SQL.
+        # Require master_enabled to be present to avoid SQL errors on older schemas.
+        if 'pricing_time' in cols and 'pricing_frequency_days' in cols and 'master_enabled' in cols:
             settings = SMSNotificationSettings.get_settings()
             # On some deployments get_settings can return a SimpleNamespace fallback
             # if the table/columns were recently added. Ensure we have a real model
